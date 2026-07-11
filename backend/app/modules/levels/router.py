@@ -17,27 +17,66 @@ router = APIRouter(
 )
 
 
-@router.post("", response_model=LevelResponse)
+@router.post(
+    "",
+    response_model=LevelResponse,
+)
 async def create_level(
     payload: LevelCreateRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await LevelService(db).create_level(payload)
+    return await LevelService(db).create_level(
+        payload,
+        current_user,
+    )
 
 
-@router.get("", response_model=list[LevelResponse])
+@router.get(
+    "",
+    response_model=list[LevelResponse],
+)
 async def get_levels(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await LevelService(db).get_levels()
+    return await LevelService(db).get_levels(
+        current_user
+    )
 
 
-@router.get("/{level_id}", response_model=LevelResponse)
+@router.get(
+    "/{level_id}",
+    response_model=LevelResponse,
+)
 async def get_level(
     level_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await LevelService(db).get_level(level_id)
+    return await LevelService(db).get_level(
+        level_id,
+        current_user,
+    )
+
+@router.patch("/{level_id}/deactivate")
+async def deactivate_level(
+    level_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await LevelService(db).deactivate_level(
+        level_id
+    )
+
+
+@router.patch("/{level_id}/activate")
+async def activate_level(
+    level_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await LevelService(db).activate_level(
+        level_id
+    )
+

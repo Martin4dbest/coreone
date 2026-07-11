@@ -3,10 +3,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_model import BaseModel
 from app.db.database import Base
-from app.db.mixins import SchoolMixin
+from app.db.mixins import ActiveMixin, SchoolMixin
 
 
-class Level(Base, BaseModel, SchoolMixin):
+class Level(Base, BaseModel, SchoolMixin, ActiveMixin):
     __tablename__ = "levels"
 
     name: Mapped[str] = mapped_column(

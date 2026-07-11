@@ -30,3 +30,9 @@ class SchoolRepository:
         await self.db.commit()
         await self.db.refresh(school)
         return school
+
+    async def update(self, school: School):
+        await self.db.commit()
+        await self.db.refresh(school)
+        return school
+

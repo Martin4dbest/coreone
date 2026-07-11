@@ -13,6 +13,7 @@ import {
   Users,
   UserRound,
   BookOpen,
+  Power,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -58,7 +59,14 @@ export default function SchoolDetailsPage({
   }, [schoolId]);
 
   if (loading) {
-    return (
+    
+
+
+
+
+
+
+return (
       <div className="flex min-h-[500px] items-center justify-center">
         <div className="text-center">
           <Loader2
@@ -117,6 +125,30 @@ export default function SchoolDetailsPage({
     },
   ];
 
+
+  async function toggleSchool() {
+    if (!school) return;
+
+    try {
+      const action = school.is_active
+        ? "deactivate"
+        : "activate";
+
+      const response = await api.patch(
+        `/schools/${schoolId}/${action}`
+      );
+
+      setSchool(response.data);
+
+    } catch (error) {
+      console.error(
+        "Failed to update school status:",
+        error
+      );
+    }
+  }
+
+
   return (
     <div className="space-y-7">
       <Link
@@ -152,9 +184,20 @@ export default function SchoolDetailsPage({
               </div>
             </div>
 
-            <span className="w-fit rounded-full bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-600">
-              {school.is_active ? "Active School" : "Inactive School"}
-            </span>
+            <button
+              onClick={toggleSchool}
+              className={`flex w-fit items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold ${
+                school.is_active
+                  ? "bg-red-50 text-red-600"
+                  : "bg-emerald-50 text-emerald-600"
+              }`}
+            >
+              <Power size={14} />
+
+              {school.is_active
+                ? "Deactivate School"
+                : "Activate School"}
+            </button>
           </div>
 
           <div className="mt-8 grid gap-3 text-sm text-slate-600 md:grid-cols-3">

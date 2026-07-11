@@ -2,15 +2,24 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, String
+from sqlalchemy import Date, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_model import BaseModel
 from app.db.database import Base
+from app.db.mixins import ActiveMixin, SchoolMixin
 
 
-class Student(Base, BaseModel):
+class Student(Base, BaseModel, SchoolMixin, ActiveMixin):
     __tablename__ = "students"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "school_id",
+            "admission_number",
+            name="uq_students_school_admission_number",
+        ),
+    )
 
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -18,9 +27,14 @@ class Student(Base, BaseModel):
         nullable=False,
     )
 
+    classroom_id: Mapped[int | None] = mapped_column(
+        ForeignKey("classrooms.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     admission_number: Mapped[str] = mapped_column(
         String(50),
-        unique=True,
         nullable=False,
         index=True,
     )
@@ -54,4 +68,12 @@ class Student(Base, BaseModel):
     user = relationship(
         "User",
         back_populates="student",
+    )
+
+    school = relationship(
+        "School",
+    )
+
+    classroom = relationship(
+        "Classroom",
     )

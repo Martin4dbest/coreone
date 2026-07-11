@@ -2,52 +2,72 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
-from app.modules.auth.dependencies.current_user import get_current_user
+
 from app.models.user import User
 
-from app.modules.students.schemas import (
-    StudentCreateRequest,
-    StudentResponse,
-)
+from app.modules.auth.dependencies.current_user import get_current_user
 
+from app.modules.students.schemas import StudentCreateRequest
 from app.modules.students.service import StudentService
+
 
 router = APIRouter(
     prefix="/students",
-    tags=["Students"],
+    tags=["Students"]
 )
 
 
-@router.post(
-    "",
-    response_model=StudentResponse,
-)
+@router.post("/")
 async def create_student(
     payload: StudentCreateRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await StudentService(db).create_student(payload)
+    return await StudentService(db).create_student(
+        payload,
+        current_user
+    )
 
 
-@router.get(
-    "",
-    response_model=list[StudentResponse],
-)
+@router.get("/")
 async def get_students(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await StudentService(db).get_students()
+    return await StudentService(db).get_students(
+        current_user
+    )
 
 
-@router.get(
-    "/{student_id}",
-    response_model=StudentResponse,
-)
+@router.get("/{student_id}")
 async def get_student(
     student_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await StudentService(db).get_student(student_id)
+    return await StudentService(db).get_student(
+        student_id,
+        current_user
+    )
+
+@router.patch("/{student_id}/deactivate")
+async def deactivate_student(
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await StudentService(db).deactivate_student(
+        student_id
+    )
+
+
+@router.patch("/{student_id}/activate")
+async def activate_student(
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await StudentService(db).activate_student(
+        student_id
+    )
+

@@ -51,3 +51,25 @@ async def get_school(
 ):
     service = SchoolService(db)
     return await service.get_school(school_id)
+
+@router.patch("/{school_id}/deactivate")
+async def deactivate_school(
+    school_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    return await SchoolService(db).deactivate_school(
+        school_id
+    )
+
+
+@router.patch("/{school_id}/activate")
+async def activate_school(
+    school_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    return await SchoolService(db).activate_school(
+        school_id
+    )
+

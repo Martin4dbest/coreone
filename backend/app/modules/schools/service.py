@@ -54,3 +54,37 @@ class SchoolService:
             )
 
         return school
+
+    async def deactivate_school(
+        self,
+        school_id: int,
+    ):
+        school = await self.repository.get_by_id(school_id)
+
+        if not school:
+            raise HTTPException(
+                status_code=404,
+                detail="School not found",
+            )
+
+        school.is_active = False
+
+        return await self.repository.update(school)
+
+
+    async def activate_school(
+        self,
+        school_id: int,
+    ):
+        school = await self.repository.get_by_id(school_id)
+
+        if not school:
+            raise HTTPException(
+                status_code=404,
+                detail="School not found",
+            )
+
+        school.is_active = True
+
+        return await self.repository.update(school)
+

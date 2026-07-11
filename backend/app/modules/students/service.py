@@ -1,8 +1,11 @@
 from fastapi import HTTPException
-
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.classroom import Classroom
+from app.models.role import Role
 from app.models.student import Student
+
 from app.modules.students.repository import StudentRepository
 from app.modules.students.schemas import StudentCreateRequest
 from app.modules.users.service import UserService
@@ -15,12 +18,46 @@ class StudentService:
         self.repository = StudentRepository(db)
         self.user_service = UserService(db)
 
+
     async def create_student(
         self,
         payload: StudentCreateRequest,
+        current_user,
     ):
+        school_id = payload.school_id
+
+        # Multi-school access control:
+        # SUPER_ADMIN can create students for any school.
+        # Other users can only create students for their assigned school.
+        if current_user.role.name != "SUPER_ADMIN":
+            if school_id != current_user.school_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="You cannot create students for another school",
+                )
+
+        # Validate selected class belongs to the selected school.
+        classroom = None
+
+        if payload.classroom_id is not None:
+            result = await self.db.execute(
+                select(Classroom).where(
+                    Classroom.id == payload.classroom_id,
+                    Classroom.school_id == school_id,
+                )
+            )
+
+            classroom = result.scalar_one_or_none()
+
+            if not classroom:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Selected class does not belong to this school",
+                )
+
         existing = await self.repository.get_by_admission_number(
-            payload.admission_number
+            payload.admission_number,
+            school_id,
         )
 
         if existing:
@@ -29,15 +66,30 @@ class StudentService:
                 detail="Admission number already exists",
             )
 
+        result = await self.db.execute(
+            select(Role).where(
+                Role.name == "STUDENT"
+            )
+        )
+
+        student_role = result.scalar_one_or_none()
+
+        if not student_role:
+            raise HTTPException(
+                status_code=500,
+                detail="STUDENT role not configured",
+            )
+
         user = await self.user_service.create_internal_user(
             email=payload.email,
             password=payload.password,
-            school_id=payload.school_id,
-            role_id=payload.role_id,
+            school_id=school_id,
+            role_id=student_role.id,
         )
 
         student = Student(
             user_id=user.id,
+            school_id=school_id,
             admission_number=payload.admission_number,
             first_name=payload.first_name,
             last_name=payload.last_name,
@@ -45,18 +97,44 @@ class StudentService:
             gender=payload.gender,
             date_of_birth=payload.date_of_birth,
             passport=payload.passport,
+            classroom_id=payload.classroom_id,
         )
 
         return await self.repository.create(student)
 
-    async def get_students(self):
-        return await self.repository.get_all()
+
+    async def get_students(
+        self,
+        current_user,
+    ):
+        school_id = None
+
+        # SUPER_ADMIN can see students across all schools.
+        # School users only see students from their own school.
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        return await self.repository.get_all(
+            school_id
+        )
+
 
     async def get_student(
         self,
         student_id: int,
+        current_user,
     ):
-        student = await self.repository.get_by_id(student_id)
+        school_id = None
+
+        # SUPER_ADMIN can access any student.
+        # School users are restricted to their own school.
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        student = await self.repository.get_by_id(
+            student_id,
+            school_id,
+        )
 
         if not student:
             raise HTTPException(
@@ -65,3 +143,43 @@ class StudentService:
             )
 
         return student
+
+    async def deactivate_student(
+        self,
+        student_id: int,
+    ):
+        student = await self.repository.get_by_id(
+            student_id,
+            None,
+        )
+
+        if not student:
+            raise HTTPException(
+                status_code=404,
+                detail="Student not found",
+            )
+
+        student.is_active = False
+
+        return await self.repository.update(student)
+
+
+    async def activate_student(
+        self,
+        student_id: int,
+    ):
+        student = await self.repository.get_by_id(
+            student_id,
+            None,
+        )
+
+        if not student:
+            raise HTTPException(
+                status_code=404,
+                detail="Student not found",
+            )
+
+        student.is_active = True
+
+        return await self.repository.update(student)
+
