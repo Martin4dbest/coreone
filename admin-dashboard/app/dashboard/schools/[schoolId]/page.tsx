@@ -14,6 +14,7 @@ import {
   UserRound,
   BookOpen,
   Power,
+Settings,
   CalendarDays,
   ClipboardCheck,
 } from "lucide-react";

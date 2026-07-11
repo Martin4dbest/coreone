@@ -9,6 +9,7 @@ from app.modules.teachers.schemas import (
 )
 from app.modules.teachers.service import TeacherService
 
+
 router = APIRouter(
     prefix="/teachers",
     tags=["Teachers"],
@@ -23,7 +24,9 @@ async def get_teachers(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    return await TeacherService(db).get_teachers()
+    return await TeacherService(db).get_teachers(
+        current_user
+    )
 
 
 @router.get(
@@ -36,7 +39,8 @@ async def get_teacher(
     current_user=Depends(get_current_user),
 ):
     return await TeacherService(db).get_teacher(
-        teacher_id
+        teacher_id,
+        current_user,
     )
 
 
@@ -50,5 +54,6 @@ async def create_teacher(
     current_user=Depends(get_current_user),
 ):
     return await TeacherService(db).create_teacher(
-        payload
+        payload,
+        current_user,
     )

@@ -10,6 +10,7 @@ from app.modules.staff.schemas import (
 )
 from app.modules.staff.service import StaffService
 
+
 router = APIRouter(
     prefix="/staff",
     tags=["Staff"],
@@ -25,7 +26,10 @@ async def create_staff(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await StaffService(db).create_staff(payload)
+    return await StaffService(db).create_staff(
+        payload,
+        current_user,
+    )
 
 
 @router.get(
@@ -36,7 +40,9 @@ async def get_staff(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await StaffService(db).get_staff()
+    return await StaffService(db).get_staff(
+        current_user
+    )
 
 
 @router.get(
@@ -49,5 +55,6 @@ async def get_staff_member(
     current_user: User = Depends(get_current_user),
 ):
     return await StaffService(db).get_staff_member(
-        staff_id
+        staff_id,
+        current_user,
     )

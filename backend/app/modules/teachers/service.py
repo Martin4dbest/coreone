@@ -1,4 +1,4 @@
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.teacher import Teacher
@@ -13,20 +13,37 @@ class TeacherService:
         self.db = db
         self.repository = TeacherRepository(db)
 
-    async def get_teachers(self):
-        return await self.repository.get_all()
+    async def get_teachers(
+        self,
+        current_user,
+    ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        return await self.repository.get_all(
+            school_id
+        )
 
     async def get_teacher(
         self,
         teacher_id: int,
+        current_user,
     ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
         teacher = await self.repository.get_by_id(
-            teacher_id
+            teacher_id,
+            school_id,
         )
 
         if not teacher:
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Teacher not found",
             )
 
@@ -35,7 +52,17 @@ class TeacherService:
     async def create_teacher(
         self,
         payload: TeacherCreateRequest,
+        current_user,
     ):
+        if (
+            current_user.role.name != "SUPER_ADMIN"
+            and payload.school_id != current_user.school_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot create teachers for another school",
+            )
+
         user_service = UserService(self.db)
 
         user = await user_service.create_internal_user(
@@ -52,6 +79,4 @@ class TeacherService:
             last_name=payload.last_name,
         )
 
-        return await self.repository.create(
-            teacher
-        )
+        return await self.repository.create(teacher)

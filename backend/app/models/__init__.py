@@ -41,3 +41,5 @@ __all__ = [
 from app.models.attendance import Attendance
 
 from app.models.visitor import Visitor
+
+from app.models.setting import Setting
