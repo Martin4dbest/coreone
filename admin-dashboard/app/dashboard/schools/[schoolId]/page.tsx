@@ -14,6 +14,8 @@ import {
   UserRound,
   BookOpen,
   Power,
+  CalendarDays,
+  ClipboardCheck,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -107,24 +109,39 @@ return (
       title: "Students",
       description: "Manage enrolled learners",
       icon: GraduationCap,
+      href: `/dashboard/schools/${schoolId}/students`,
     },
     {
       title: "Teachers",
       description: "Manage teaching staff",
       icon: Users,
+      href: `/dashboard/schools/${schoolId}/teachers`,
     },
     {
       title: "Staff",
       description: "Manage school personnel",
       icon: UserRound,
+      href: `/dashboard/schools/${schoolId}/staff`,
     },
     {
       title: "Academics",
-      description: "Classes, subjects and results",
+      description: "Levels, classes, subjects and results",
       icon: BookOpen,
+      href: `/dashboard/schools/${schoolId}/academics`,
+    },
+    {
+      title: "Attendance",
+      description: "Monitor daily school attendance",
+      icon: ClipboardCheck,
+      href: `/dashboard/schools/${schoolId}/attendance`,
+    },
+    {
+      title: "Events",
+      description: "Manage school events and activities",
+      icon: CalendarDays,
+      href: `/dashboard/schools/${schoolId}/events`,
     },
   ];
-
 
   async function toggleSchool() {
     if (!school) return;
