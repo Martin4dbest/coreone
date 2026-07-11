@@ -1,0 +1,33 @@
+from fastapi import HTTPException, status
+
+
+class InvalidCredentialsException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password.",
+        )
+
+
+class InactiveUserException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive.",
+        )
+
+
+class InactiveSchoolException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="School account is inactive.",
+        )
+
+
+class SubscriptionExpiredException(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="School subscription is inactive.",
+        )

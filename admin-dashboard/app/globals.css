@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+
+:root {
+
+  --background: 0 0% 100%;
+
+  --foreground: 220 20% 10%;
+
+
+  --primary: 350 80% 55%;
+
+  --primary-dark: 350 75% 42%;
+
+
+  --secondary: 330 70% 92%;
+
+
+  --muted: 350 20% 96%;
+
+
+  --card: 0 0% 100%;
+
+  --border: 350 25% 90%;
+
+}
+
+
+body {
+
+  background:
+  radial-gradient(
+    circle at top right,
+    rgba(230,70,110,0.15),
+    transparent 35%
+  ),
+
+  radial-gradient(
+    circle at bottom left,
+    rgba(250,180,200,0.18),
+    transparent 35%
+  ),
+
+  hsl(var(--background));
+
+
+  color:
+  hsl(var(--foreground));
+
+}
