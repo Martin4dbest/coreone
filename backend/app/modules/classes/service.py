@@ -90,3 +90,49 @@ class ClassService:
             )
 
         return classroom
+
+
+    async def activate_class(
+        self,
+        class_id: int,
+        current_user,
+    ):
+        classroom = await self.repository.get_by_id(
+            class_id,
+            current_user.school_id
+            if current_user.role.name != "SUPER_ADMIN"
+            else None,
+        )
+
+        if not classroom:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Class not found",
+            )
+
+        classroom.is_active = True
+
+        return await self.repository.update(classroom)
+
+
+    async def deactivate_class(
+        self,
+        class_id: int,
+        current_user,
+    ):
+        classroom = await self.repository.get_by_id(
+            class_id,
+            current_user.school_id
+            if current_user.role.name != "SUPER_ADMIN"
+            else None,
+        )
+
+        if not classroom:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Class not found",
+            )
+
+        classroom.is_active = False
+
+        return await self.repository.update(classroom)

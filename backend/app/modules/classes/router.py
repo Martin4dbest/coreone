@@ -67,7 +67,8 @@ async def deactivate_class(
     current_user: User = Depends(get_current_user),
 ):
     return await ClassService(db).deactivate_class(
-        class_id
+        class_id,
+        current_user,
     )
 
 
@@ -78,6 +79,7 @@ async def activate_class(
     current_user: User = Depends(get_current_user),
 ):
     return await ClassService(db).activate_class(
-        class_id
+        class_id,
+        current_user,
     )
 
