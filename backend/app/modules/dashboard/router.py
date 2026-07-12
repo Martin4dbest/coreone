@@ -24,4 +24,6 @@ async def get_dashboard(
 ):
     return await DashboardService(
         db
-    ).get_super_admin_dashboard()
+    ).get_dashboard(
+        current_user
+    )

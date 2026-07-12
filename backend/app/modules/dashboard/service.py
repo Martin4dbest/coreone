@@ -1,12 +1,14 @@
+from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.classroom import Classroom
+from app.models.parent import Parent
 from app.models.school import School
+from app.models.staff import Staff
 from app.models.student import Student
 from app.models.teacher import Teacher
-from app.models.parent import Parent
-from app.models.staff import Staff
-from app.models.classroom import Classroom
+from app.models.user import User
 from app.models.visitor import Visitor
 
 
@@ -19,8 +21,43 @@ class DashboardService:
         result = await self.db.execute(
             select(func.count(model.id))
         )
-
         return result.scalar_one()
+
+    async def _count_by_school(self, model, school_id: int) -> int:
+        result = await self.db.execute(
+            select(func.count(model.id)).where(
+                model.school_id == school_id
+            )
+        )
+        return result.scalar_one()
+
+    async def _count_user_profile_by_school(
+        self,
+        model,
+        school_id: int,
+    ) -> int:
+        result = await self.db.execute(
+            select(func.count(model.id))
+            .join(User, model.user_id == User.id)
+            .where(User.school_id == school_id)
+        )
+        return result.scalar_one()
+
+    async def get_dashboard(self, current_user: User):
+        role_name = current_user.role.name
+
+        if role_name == "SUPER_ADMIN":
+            return await self.get_super_admin_dashboard()
+
+        if role_name == "SCHOOL_ADMIN":
+            return await self.get_school_admin_dashboard(
+                current_user.school_id
+            )
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Dashboard is not available for this role yet",
+        )
 
     async def get_super_admin_dashboard(self):
         return {
@@ -31,4 +68,36 @@ class DashboardService:
             "total_staff": await self._count(Staff),
             "total_classes": await self._count(Classroom),
             "total_visitors": await self._count(Visitor),
+        }
+
+    async def get_school_admin_dashboard(
+        self,
+        school_id: int,
+    ):
+        return {
+            "total_schools": 1,
+            "total_students": await self._count_by_school(
+                Student,
+                school_id,
+            ),
+            "total_teachers": await self._count_user_profile_by_school(
+                Teacher,
+                school_id,
+            ),
+            "total_parents": await self._count_user_profile_by_school(
+                Parent,
+                school_id,
+            ),
+            "total_staff": await self._count_user_profile_by_school(
+                Staff,
+                school_id,
+            ),
+            "total_classes": await self._count_by_school(
+                Classroom,
+                school_id,
+            ),
+            "total_visitors": await self._count_by_school(
+                Visitor,
+                school_id,
+            ),
         }

@@ -26,9 +26,12 @@ async def create_attendance(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+
     return await AttendanceService(db).create_attendance(
-        payload
+        payload,
+        current_user,
     )
+
 
 
 @router.get(
@@ -39,7 +42,11 @@ async def get_attendance(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await AttendanceService(db).get_attendance()
+
+    return await AttendanceService(db).get_attendance(
+        current_user
+    )
+
 
 
 @router.get(
@@ -51,6 +58,8 @@ async def get_attendance_by_id(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await AttendanceService(
-        db
-    ).get_attendance_by_id(attendance_id)
+
+    return await AttendanceService(db).get_attendance_by_id(
+        attendance_id,
+        current_user,
+    )

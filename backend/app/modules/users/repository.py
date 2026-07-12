@@ -45,6 +45,19 @@ class UserRepository:
         return result.scalars().all()
 
 
+    async def get_all_by_school(
+        self,
+        school_id: int,
+    ):
+        result = await self.db.execute(
+            select(User).where(
+                User.school_id == school_id
+            )
+        )
+
+        return result.scalars().all()
+
+
     async def create(
         self,
         user: User,

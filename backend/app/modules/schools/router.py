@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.permissions import require_roles
 from app.db.database import get_db
 from app.modules.auth.dependencies.current_user import get_current_user
 from app.modules.schools.schemas import (
@@ -8,6 +9,7 @@ from app.modules.schools.schemas import (
     SchoolResponse,
 )
 from app.modules.schools.service import SchoolService
+
 
 router = APIRouter(
     prefix="/schools",
@@ -22,7 +24,7 @@ router = APIRouter(
 async def create_school(
     payload: SchoolCreateRequest,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles("SUPER_ADMIN")),
 ):
     service = SchoolService(db)
     return await service.create_school(payload)
@@ -34,7 +36,7 @@ async def create_school(
 )
 async def get_schools(
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles("SUPER_ADMIN")),
 ):
     service = SchoolService(db)
     return await service.get_schools()
@@ -49,14 +51,37 @@ async def get_school(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    role_name = (
+        current_user.role.name
+        if current_user.role
+        else None
+    )
+
+    if role_name == "SUPER_ADMIN":
+        pass
+
+    elif role_name == "SCHOOL_ADMIN":
+        if current_user.school_id != school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot access another school",
+            )
+
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this school",
+        )
+
     service = SchoolService(db)
     return await service.get_school(school_id)
+
 
 @router.patch("/{school_id}/deactivate")
 async def deactivate_school(
     school_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles("SUPER_ADMIN")),
 ):
     return await SchoolService(db).deactivate_school(
         school_id
@@ -67,9 +92,20 @@ async def deactivate_school(
 async def activate_school(
     school_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles("SUPER_ADMIN")),
 ):
     return await SchoolService(db).activate_school(
         school_id
     )
 
+
+@router.delete("/{school_id}")
+async def delete_school(
+    school_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_roles("SUPER_ADMIN")),
+):
+    return await SchoolService(db).delete_school(
+        school_id,
+        current_user,
+    )

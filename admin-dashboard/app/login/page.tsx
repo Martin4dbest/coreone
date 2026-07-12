@@ -4,9 +4,25 @@ import { FormEvent, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Eye, EyeOff, Loader2, LockKeyhole, Mail } from "lucide-react";
+import {
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  Loader2,
+  LockKeyhole,
+  Mail,
+} from "lucide-react";
 
 import api from "@/lib/api";
+
+type CurrentUser = {
+  id: number;
+  email: string;
+  school_id: number | null;
+  role: {
+    name: string;
+  };
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,7 +33,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
 
     setError("");
@@ -25,14 +41,20 @@ export default function LoginPage() {
 
     try {
       const formData = new URLSearchParams();
+
       formData.append("username", email);
       formData.append("password", password);
 
-      const response = await api.post("/auth/login", formData, {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      });
+      const response = await api.post(
+        "/auth/login",
+        formData,
+        {
+          headers: {
+            "Content-Type":
+              "application/x-www-form-urlencoded",
+          },
+        }
+      );
 
       const token = response.data.access_token;
 
@@ -42,25 +64,40 @@ export default function LoginPage() {
 
       localStorage.setItem("access_token", token);
 
+      const userResponse =
+        await api.get<CurrentUser>("/auth/me");
+
+      const user = userResponse.data;
+
+      if (
+        user.role?.name === "SCHOOL_ADMIN" &&
+        user.school_id
+      ) {
+        router.replace(
+          `/dashboard/schools/${user.school_id}`
+        );
+
+        return;
+      }
+
       router.replace("/dashboard");
+
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
 
-      const message =
+      setError(
         typeof detail === "string"
           ? detail
-          : "Unable to sign in. Please check your email and password.";
+          : "Unable to sign in. Please check your email and password."
+      );
 
-      setError(message);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-rose-50 via-white to-pink-50 px-6 py-10">
-      <div className="absolute left-[-120px] top-[-120px] h-80 w-80 rounded-full bg-rose-100/70 blur-3xl" />
-      <div className="absolute bottom-[-140px] right-[-100px] h-96 w-96 rounded-full bg-pink-100/60 blur-3xl" />
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50 px-4 py-10">
 
       <Link
         href="/"
@@ -71,8 +108,11 @@ export default function LoginPage() {
       </Link>
 
       <div className="relative z-10 w-full max-w-md">
-        <div className="rounded-[28px] border border-rose-100/80 bg-white/95 p-8 shadow-[0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur-xl sm:p-10">
+
+        <div className="rounded-[28px] border border-rose-100/80 bg-white/95 p-8 shadow-[0_24px_70px_rgba(15,23,42,0.10)] sm:p-10">
+
           <div className="mb-8 text-center">
+
             <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border border-rose-100 bg-white shadow-lg">
               <Image
                 src="/logo.png"
@@ -91,6 +131,7 @@ export default function LoginPage() {
             <p className="mt-2 text-sm leading-6 text-slate-500">
               Sign in to access your PreSense management platform.
             </p>
+
           </div>
 
           {error && (
@@ -99,7 +140,11 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-5"
+          >
+
             <div>
               <label
                 htmlFor="email"
@@ -109,6 +154,7 @@ export default function LoginPage() {
               </label>
 
               <div className="relative">
+
                 <Mail
                   size={18}
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
@@ -118,16 +164,19 @@ export default function LoginPage() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="admin@presense.com"
+                  onChange={(event) =>
+                    setEmail(event.target.value)
+                  }
                   required
                   autoComplete="email"
-                  className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-rose-300 focus:bg-white focus:ring-4 focus:ring-rose-100/70"
+                  className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-rose-300 focus:bg-white focus:ring-4 focus:ring-rose-100/70"
                 />
+
               </div>
             </div>
 
             <div>
+
               <label
                 htmlFor="password"
                 className="mb-2 block text-sm font-semibold text-slate-700"
@@ -136,6 +185,7 @@ export default function LoginPage() {
               </label>
 
               <div className="relative">
+
                 <LockKeyhole
                   size={18}
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
@@ -143,47 +193,63 @@ export default function LoginPage() {
 
                 <input
                   id="password"
-                  type={showPassword ? "text" : "password"}
+                  type={
+                    showPassword
+                      ? "text"
+                      : "password"
+                  }
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Enter your password"
+                  onChange={(event) =>
+                    setPassword(event.target.value)
+                  }
                   required
                   autoComplete="current-password"
-                  className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-11 pr-12 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-rose-300 focus:bg-white focus:ring-4 focus:ring-rose-100/70"
+                  className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-11 pr-12 text-sm text-slate-900 outline-none transition focus:border-rose-300 focus:bg-white focus:ring-4 focus:ring-rose-100/70"
                 />
 
                 <button
                   type="button"
-                  onClick={() => setShowPassword((current) => !current)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() =>
+                    setShowPassword(
+                      (current) => !current
+                    )
+                  }
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPassword ? (
+                    <EyeOff size={18} />
+                  ) : (
+                    <Eye size={18} />
+                  )}
                 </button>
+
               </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-rose-600 text-sm font-semibold text-white shadow-lg shadow-rose-200 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-rose-600 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60"
             >
               {loading ? (
                 <>
-                  <Loader2 size={18} className="animate-spin" />
+                  <Loader2
+                    size={18}
+                    className="animate-spin"
+                  />
                   Signing in...
                 </>
               ) : (
                 "Sign in to PreSense"
               )}
             </button>
+
           </form>
 
-          <p className="mt-7 text-center text-xs leading-5 text-slate-400">
-            Secure access to the PreSense school management platform.
-          </p>
         </div>
+
       </div>
+
     </main>
   );
 }

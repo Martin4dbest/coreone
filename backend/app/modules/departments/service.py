@@ -11,10 +11,21 @@ class DepartmentService:
     def __init__(self, db: AsyncSession):
         self.repository = DepartmentRepository(db)
 
+
     async def create_department(
         self,
         payload: DepartmentCreateRequest,
+        current_user,
     ):
+        if (
+            current_user.role.name != "SUPER_ADMIN"
+            and payload.school_id != current_user.school_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot create departments for another school",
+            )
+
         department = Department(
             school_id=payload.school_id,
             name=payload.name,
@@ -24,17 +35,34 @@ class DepartmentService:
 
         return await self.repository.create(department)
 
+
     async def get_departments(
         self,
-        school_id: int | None = None,
+        current_user,
     ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
         return await self.repository.get_all(
             school_id
         )
 
-    async def get_department(self, department_id: int):
+
+    async def get_department(
+        self,
+        department_id: int,
+        current_user,
+    ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
         department = await self.repository.get_by_id(
-            department_id
+            department_id,
+            school_id,
         )
 
         if not department:

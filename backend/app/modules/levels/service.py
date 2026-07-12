@@ -75,10 +75,16 @@ class LevelService:
     async def deactivate_level(
         self,
         level_id: int,
+        current_user,
     ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
         level = await self.repository.get_by_id(
             level_id,
-            None,
+            school_id,
         )
 
         if not level:
@@ -95,10 +101,16 @@ class LevelService:
     async def activate_level(
         self,
         level_id: int,
+        current_user,
     ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
         level = await self.repository.get_by_id(
             level_id,
-            None,
+            school_id,
         )
 
         if not level:

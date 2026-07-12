@@ -8,6 +8,7 @@ from app.db.database import AsyncSessionLocal
 from app.modules.auth.bootstrap import bootstrap_super_admin
 from app.modules.auth.router import router as auth_router
 from app.modules.users.router import router as users_router
+from app.modules.admins.router import router as admins_router
 from app.modules.schools.router import router as schools_router
 from app.modules.roles.router import router as roles_router
 from app.modules.parents.router import router as parents_router
@@ -71,6 +72,10 @@ app.include_router(
 
 app.include_router(
     users_router,
+    prefix=settings.API_V1_STR,
+)
+app.include_router(
+    admins_router,
     prefix=settings.API_V1_STR,
 )
 

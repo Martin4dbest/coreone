@@ -17,8 +17,18 @@ class TermService:
 
     async def create_term(
         self,
-        payload: TermCreateRequest
+        payload: TermCreateRequest,
+        current_user,
     ):
+
+        if current_user.role.name != "SUPER_ADMIN":
+
+            if payload.school_id != current_user.school_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You cannot create terms for another school",
+                )
+
 
         term = Term(
             school_id=payload.school_id,
@@ -33,8 +43,13 @@ class TermService:
 
     async def get_terms(
         self,
-        school_id: int | None = None,
+        current_user,
     ):
+
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
 
         return await self.repository.get_all(
             school_id
@@ -45,11 +60,20 @@ class TermService:
     async def get_term(
         self,
         term_id: int,
+        current_user,
     ):
 
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+
         term = await self.repository.get_by_id(
-            term_id
+            term_id,
+            school_id,
         )
+
 
         if not term:
             raise HTTPException(
@@ -64,11 +88,20 @@ class TermService:
     async def make_current(
         self,
         term_id: int,
+        current_user,
     ):
 
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+
         term = await self.repository.get_by_id(
-            term_id
+            term_id,
+            school_id,
         )
+
 
         if not term:
             raise HTTPException(
@@ -76,7 +109,4 @@ class TermService:
                 detail="Term not found",
             )
 
-
-        return await self.repository.make_current(
-            term
-        )
+        return await self.repository.make_current(term)

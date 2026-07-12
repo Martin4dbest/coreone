@@ -8,25 +8,40 @@ from app.modules.attendance.schemas import AttendanceCreateRequest
 
 class AttendanceService:
 
-    def __init__(self, db: AsyncSession):
+    def __init__(
+        self,
+        db: AsyncSession
+    ):
         self.repository = AttendanceRepository(db)
+
 
     async def create_attendance(
         self,
         payload: AttendanceCreateRequest,
+        current_user,
     ):
-        existing = (
-            await self.repository.get_student_attendance_by_date(
-                payload.student_id,
-                payload.attendance_date,
-            )
+
+        if current_user.role.name != "SUPER_ADMIN":
+
+            if payload.school_id != current_user.school_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You cannot create attendance for another school",
+                )
+
+
+        existing = await self.repository.get_student_attendance_by_date(
+            payload.student_id,
+            payload.attendance_date,
         )
+
 
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Attendance already recorded for this student on this date",
             )
+
 
         allowed_statuses = {
             "present",
@@ -35,11 +50,13 @@ class AttendanceService:
             "excused",
         }
 
+
         if payload.status.lower() not in allowed_statuses:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Status must be present, absent, late, or excused",
             )
+
 
         attendance = Attendance(
             school_id=payload.school_id,
@@ -50,23 +67,51 @@ class AttendanceService:
             remarks=payload.remarks,
         )
 
+
         return await self.repository.create(attendance)
 
-    async def get_attendance(self):
-        return await self.repository.get_all()
+
+
+    async def get_attendance(
+        self,
+        current_user,
+    ):
+
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+
+        return await self.repository.get_all(
+            school_id
+        )
+
+
 
     async def get_attendance_by_id(
         self,
         attendance_id: int,
+        current_user,
     ):
+
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+
         attendance = await self.repository.get_by_id(
-            attendance_id
+            attendance_id,
+            school_id,
         )
+
 
         if not attendance:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Attendance record not found",
             )
+
 
         return attendance

@@ -147,10 +147,16 @@ class StudentService:
     async def deactivate_student(
         self,
         student_id: int,
+        current_user,
     ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
         student = await self.repository.get_by_id(
             student_id,
-            None,
+            school_id,
         )
 
         if not student:
@@ -167,10 +173,16 @@ class StudentService:
     async def activate_student(
         self,
         student_id: int,
+        current_user,
     ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
         student = await self.repository.get_by_id(
             student_id,
-            None,
+            school_id,
         )
 
         if not student:

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.permissions import require_roles
 from app.db.database import get_db
 
 from app.models.user import User
@@ -21,7 +22,7 @@ router = APIRouter(
 async def create_student(
     payload: StudentCreateRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")),
 ):
     return await StudentService(db).create_student(
         payload,
@@ -32,7 +33,7 @@ async def create_student(
 @router.get("/")
 async def get_students(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")),
 ):
     return await StudentService(db).get_students(
         current_user
@@ -43,7 +44,7 @@ async def get_students(
 async def get_student(
     student_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")),
 ):
     return await StudentService(db).get_student(
         student_id,
@@ -54,10 +55,11 @@ async def get_student(
 async def deactivate_student(
     student_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")),
 ):
     return await StudentService(db).deactivate_student(
-        student_id
+        student_id,
+        current_user
     )
 
 
@@ -65,9 +67,10 @@ async def deactivate_student(
 async def activate_student(
     student_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")),
 ):
     return await StudentService(db).activate_student(
-        student_id
+        student_id,
+        current_user
     )
 

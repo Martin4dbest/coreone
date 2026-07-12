@@ -28,7 +28,10 @@ async def create_term(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await TermService(db).create_term(payload)
+    return await TermService(db).create_term(
+        payload,
+        current_user,
+    )
 
 
 
@@ -42,7 +45,7 @@ async def get_terms(
     current_user: User = Depends(get_current_user),
 ):
     return await TermService(db).get_terms(
-        school_id
+        current_user
     )
 
 
@@ -57,7 +60,8 @@ async def get_term(
     current_user: User = Depends(get_current_user),
 ):
     return await TermService(db).get_term(
-        term_id
+        term_id,
+        current_user,
     )
 
 
@@ -73,20 +77,7 @@ async def make_current(
 ):
 
     return await TermService(db).make_current(
-        term_id
+        term_id,
+        current_user,
     )
 
-
-@router.patch(
-    "/{term_id}/make-current",
-    response_model=TermResponse,
-)
-async def make_current(
-    term_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-
-    return await TermService(db).make_current(
-        term_id
-    )

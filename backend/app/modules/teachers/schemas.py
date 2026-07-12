@@ -5,7 +5,6 @@ class TeacherCreateRequest(BaseModel):
     email: EmailStr
     password: str
     school_id: int
-    role_id: int
 
     employee_number: str
     first_name: str

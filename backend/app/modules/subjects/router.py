@@ -26,7 +26,7 @@ async def create_subject(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await SubjectService(db).create_subject(payload)
+    return await SubjectService(db).create_subject(payload, current_user)
 
 
 @router.get(
@@ -38,7 +38,7 @@ async def get_subjects(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await SubjectService(db).get_subjects(school_id)
+    return await SubjectService(db).get_subjects(current_user)
 
 
 @router.get(
@@ -50,4 +50,4 @@ async def get_subject(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await SubjectService(db).get_subject(subject_id)
+    return await SubjectService(db).get_subject(subject_id, current_user)

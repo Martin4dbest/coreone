@@ -3,7 +3,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
 from app.models.user import User
-from app.modules.auth.dependencies.current_user import get_current_user
 from app.core.permissions import require_roles
 from app.modules.users.schemas import (
     UserCreateRequest,
@@ -35,7 +34,10 @@ async def create_user(
 ):
     service = UserService(db)
 
-    return await service.create_user(payload)
+    return await service.create_user(
+        payload,
+        current_user,
+    )
 
 
 @router.get(
@@ -53,7 +55,9 @@ async def get_users(
 ):
     service = UserService(db)
 
-    return await service.get_users()
+    return await service.get_users(
+        current_user
+    )
 
 
 @router.get(
@@ -72,7 +76,10 @@ async def get_user(
 ):
     service = UserService(db)
 
-    return await service.get_user(user_id)
+    return await service.get_user(
+        user_id,
+        current_user,
+    )
 
 
 @router.patch(
@@ -95,4 +102,5 @@ async def update_status(
     return await service.update_status(
         user_id,
         payload,
+        current_user,
     )

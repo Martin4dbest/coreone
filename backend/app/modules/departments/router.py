@@ -40,7 +40,7 @@ async def get_departments(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await DepartmentService(db).get_departments(school_id)
+    return await DepartmentService(db).get_departments(current_user)
 
 
 @router.get(

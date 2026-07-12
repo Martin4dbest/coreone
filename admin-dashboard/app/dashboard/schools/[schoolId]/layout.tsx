@@ -25,6 +25,15 @@ type SchoolData = {
   school_code: string;
 };
 
+type CurrentUser = {
+  id: number;
+  email: string;
+  school_id: number | null;
+  role: {
+    name: string;
+  };
+};
+
 export default function SchoolWorkspaceLayout({
   children,
   params,
@@ -36,21 +45,37 @@ export default function SchoolWorkspaceLayout({
   const pathname = usePathname();
 
   const [school, setSchool] = useState<SchoolData | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadSchool() {
+    let mounted = true;
+
+    async function loadWorkspace() {
       try {
-        const response = await api.get(`/schools/${schoolId}`);
-        setSchool(response.data);
+        const [schoolResponse, userResponse] = await Promise.all([
+          api.get(`/schools/${schoolId}`),
+          api.get("/auth/me"),
+        ]);
+
+        if (mounted) {
+          setSchool(schoolResponse.data);
+          setCurrentUser(userResponse.data);
+        }
       } catch (error) {
-        console.error("Failed to load school:", error);
+        console.error("Failed to load school workspace:", error);
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
 
-    loadSchool();
+    loadWorkspace();
+
+    return () => {
+      mounted = false;
+    };
   }, [schoolId]);
 
   const basePath = `/dashboard/schools/${schoolId}`;
@@ -105,9 +130,9 @@ export default function SchoolWorkspaceLayout({
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
+      <div className="flex min-h-[300px] items-center justify-center">
         <Loader2
-          size={28}
+          size={30}
           className="animate-spin text-rose-500"
         />
       </div>
@@ -116,46 +141,48 @@ export default function SchoolWorkspaceLayout({
 
   if (!school) {
     return (
-      <div className="rounded-2xl border border-rose-100 bg-white p-10 text-center">
-        <h2 className="font-bold text-slate-900">
+      <div className="rounded-2xl border border-red-100 bg-red-50 p-8">
+        <h2 className="text-xl font-bold text-slate-900">
           School unavailable
         </h2>
-
-        <Link
-          href="/dashboard/schools"
-          className="mt-4 inline-flex text-sm font-semibold text-rose-500"
-        >
-          Return to Schools
-        </Link>
       </div>
     );
   }
 
+  const isSuperAdmin =
+    currentUser?.role?.name === "SUPER_ADMIN";
+
   return (
-    <div className="space-y-6">
-      <section className="flex flex-col gap-4 rounded-2xl border border-rose-100 bg-rose-50/50 p-5 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-rose-500">
-            <ShieldCheck size={16} />
-            Super Admin Access
+    <div className="space-y-7">
+
+      {/* SUPER ADMIN ONLY */}
+      {isSuperAdmin && (
+        <section className="flex flex-col justify-between gap-5 rounded-[28px] border border-rose-100 bg-gradient-to-r from-rose-50 to-pink-50 p-6 md:flex-row md:items-center">
+
+          <div>
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-rose-500">
+              <ShieldCheck size={17} />
+              Super Admin Access
+            </div>
+
+            <h2 className="mt-3 text-xl font-bold text-slate-900">
+              Managing: {school.name}
+            </h2>
+
+            <p className="mt-1 text-xs text-slate-500">
+              School Code: {school.school_code}
+            </p>
           </div>
 
-          <h2 className="mt-2 text-xl font-bold text-slate-900">
-            Managing: {school.name}
-          </h2>
+          <Link
+            href="/dashboard/schools"
+            className="w-fit rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
+          >
+            Exit School Workspace
+          </Link>
 
-          <p className="mt-1 text-xs text-slate-500">
-            School Code: {school.school_code}
-          </p>
-        </div>
-
-        <Link
-          href="/dashboard/schools"
-          className="w-fit rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
-        >
-          Exit School Workspace
-        </Link>
-      </section>
+        </section>
+      )}
 
       <nav className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-100 bg-white p-2 shadow-sm">
         {navigation.map((item) => {
@@ -196,6 +223,7 @@ export default function SchoolWorkspaceLayout({
       </nav>
 
       {children}
+
     </div>
   );
 }

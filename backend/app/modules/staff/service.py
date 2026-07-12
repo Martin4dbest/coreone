@@ -1,7 +1,9 @@
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.staff import Staff
+from app.models.role import Role
 from app.modules.staff.repository import StaffRepository
 from app.modules.staff.schemas import StaffCreateRequest
 from app.modules.users.service import UserService
@@ -28,11 +30,25 @@ class StaffService:
                 detail="You cannot create staff for another school",
             )
 
+        result = await self.db.execute(
+            select(Role).where(
+                Role.name == "STAFF"
+            )
+        )
+
+        staff_role = result.scalar_one_or_none()
+
+        if not staff_role:
+            raise HTTPException(
+                status_code=500,
+                detail="STAFF role not configured",
+            )
+
         user = await self.user_service.create_internal_user(
             email=payload.email,
             password=payload.password,
             school_id=payload.school_id,
-            role_id=payload.role_id,
+            role_id=staff_role.id,
         )
 
         staff = Staff(

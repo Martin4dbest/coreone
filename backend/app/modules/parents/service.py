@@ -17,11 +17,33 @@ class ParentService:
         self.db = db
         self.repository = ParentRepository(db)
 
-    async def get_parents(self):
-        return await self.repository.get_all()
+    async def get_parents(
+        self,
+        current_user,
+    ):
+        school_id = None
 
-    async def get_parent(self, parent_id: int):
-        parent = await self.repository.get_by_id(parent_id)
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        return await self.repository.get_all(
+            school_id
+        )
+
+    async def get_parent(
+        self,
+        parent_id: int,
+        current_user,
+    ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        parent = await self.repository.get_by_id(
+            parent_id,
+            school_id,
+        )
 
         if parent is None:
             raise HTTPException(
@@ -34,7 +56,17 @@ class ParentService:
     async def create_parent(
         self,
         payload: ParentCreateRequest,
+        current_user,
     ):
+        if (
+            current_user.role.name != "SUPER_ADMIN"
+            and payload.school_id != current_user.school_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot create parents for another school",
+            )
+
         result = await self.db.execute(
             select(User).where(
                 User.email == payload.email

@@ -88,3 +88,37 @@ class SchoolService:
 
         return await self.repository.update(school)
 
+
+    async def delete_school(
+        self,
+        school_id: int,
+        current_user,
+    ):
+        if (
+            not current_user.role
+            or current_user.role.name != "SUPER_ADMIN"
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only Super Admin can delete a school",
+            )
+
+        school = await self.repository.get_by_id(school_id)
+
+        if not school:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="School not found",
+            )
+
+        school_name = school.name
+
+        try:
+            await self.repository.delete(school)
+        except Exception:
+            await self.repository.db.rollback()
+            raise
+
+        return {
+            "message": f"School '{school_name}' deleted successfully"
+        }

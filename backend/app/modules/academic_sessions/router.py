@@ -25,7 +25,10 @@ async def create_session(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await AcademicSessionService(db).create_session(payload)
+    return await AcademicSessionService(db).create_session(
+        payload,
+        current_user,
+    )
 
 
 @router.get(
@@ -37,7 +40,9 @@ async def get_sessions(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await AcademicSessionService(db).get_sessions(school_id)
+    return await AcademicSessionService(db).get_sessions(
+        current_user
+    )
 
 
 @router.get(
@@ -49,7 +54,10 @@ async def get_session(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await AcademicSessionService(db).get_session(session_id)
+    return await AcademicSessionService(db).get_session(
+        session_id,
+        current_user,
+    )
 
 
 @router.patch(
@@ -62,5 +70,6 @@ async def make_session_current(
     current_user: User = Depends(get_current_user),
 ):
     return await AcademicSessionService(db).make_current(
-        session_id
+        session_id,
+        current_user,
     )

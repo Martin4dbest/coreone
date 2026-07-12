@@ -700,7 +700,6 @@ export default function StudentsPage({
 
             <form
               onSubmit={createStudent}
-          autoComplete="off"
               className="
                 mt-8
                 grid
@@ -862,19 +861,11 @@ export default function StudentsPage({
                   Female
                 </option>
               </select>
-          <div className="md:col-span-1">
-            <label
-              htmlFor="student-date-of-birth"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Date of Birth
-            </label>
 
-            <input
-              id="student-date-of-birth"
-              required
-              type="date"
-              value={form.date_of_birth}
+              <input
+                required
+                type="date"
+                value={form.date_of_birth}
                 onChange={(event) =>
                   updateField(
                     "date_of_birth",
@@ -892,14 +883,11 @@ export default function StudentsPage({
                   focus:border-rose-400
                 "
               />
-          </div>
 
               <input
                 required
                 type="email"
-            name="new-student-email"
-            autoComplete="off"
-            value={form.email}
+                value={form.email}
                 onChange={(event) =>
                   updateField(
                     "email",
@@ -922,9 +910,7 @@ export default function StudentsPage({
               <input
                 required
                 type="password"
-            name="new-student-password"
-            autoComplete="new-password"
-            value={form.password}
+                value={form.password}
                 onChange={(event) =>
                   updateField(
                     "password",

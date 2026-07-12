@@ -1,156 +1,202 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
-LayoutDashboard,
-School,
-Users,
-ShieldCheck,
-Settings,
-FileText
+  LayoutDashboard,
+  School,
+  Users,
+  ShieldCheck,
+  Settings,
+  FileText,
+  GraduationCap,
+  UserRound,
+  BookOpen,
+  CalendarDays,
+  ClipboardCheck,
+  Building2,
 } from "lucide-react";
 
 import Logo from "./logo";
+import api from "@/lib/api";
 
+export default function Sidebar() {
+  const [role, setRole] = useState("");
+  const [schoolId, setSchoolId] = useState("");
+  const [schoolName, setSchoolName] = useState("");
 
-const menu=[
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const response = await api.get("/auth/me");
 
-{
-name:"Dashboard",
-href:"/dashboard",
-icon:LayoutDashboard
-},
+        const userRole =
+          typeof response.data.role === "string"
+            ? response.data.role
+            : response.data.role?.name || "";
 
-{
-name:"Schools",
-href:"/dashboard/schools",
-icon:School
-},
+        const userSchoolId = response.data.school_id;
 
-{
-name:"Administrators",
-href:"/dashboard/admins",
-icon:Users
-},
+        setRole(userRole);
 
-{
-name:"Roles & Permissions",
-href:"/dashboard/roles",
-icon:ShieldCheck
-},
+        if (userSchoolId) {
+          setSchoolId(String(userSchoolId));
 
-{
-name:"Reports",
-href:"/dashboard/reports",
-icon:FileText
-},
+          const schoolResponse = await api.get(
+            `/schools/${userSchoolId}`
+          );
 
-{
-name:"Settings",
-href:"/dashboard/settings",
-icon:Settings
-}
+          setSchoolName(schoolResponse.data.name || "");
+        }
+      } catch (error) {
+        console.error("Unable to load sidebar user/school:", error);
+      }
+    }
 
-];
+    loadUser();
+  }, []);
 
+  const schoolBase = `/dashboard/schools/${schoolId}`;
 
+  const superAdminMenu = [
+    {
+      name: "🏠 Dashboard",
+      href: "/dashboard",
+      icon: LayoutDashboard,
+      color: "text-blue-400",
+    },
+    {
+      name: "🏫 Schools Management",
+      href: "/dashboard/schools",
+      icon: School,
+      color: "text-emerald-400",
+    },
+    {
+      name: "👥 Administrators",
+      href: "/dashboard/admins",
+      icon: Users,
+      color: "text-purple-400",
+    },
+    {
+      name: "🛡️ Roles & Permissions",
+      href: "/dashboard/roles",
+      icon: ShieldCheck,
+      color: "text-orange-400",
+    },
+    {
+      name: "📊 Reports",
+      href: "/dashboard/reports",
+      icon: FileText,
+      color: "text-yellow-400",
+    },
+    {
+      name: "⚙️ Settings",
+      href: "/dashboard/settings",
+      icon: Settings,
+      color: "text-slate-300",
+    },
+  ];
 
-export default function Sidebar(){
+  const schoolAdminMenu = [
+    {
+      name: "🏠 School Dashboard",
+      href: schoolBase,
+      icon: LayoutDashboard,
+      color: "text-blue-400",
+    },
+    {
+      name: "🎓 Students",
+      href: `${schoolBase}/students`,
+      icon: GraduationCap,
+      color: "text-purple-400",
+    },
+    {
+      name: "👨‍🏫 Teachers",
+      href: `${schoolBase}/teachers`,
+      icon: Users,
+      color: "text-orange-400",
+    },
+    {
+      name: "👥 Staff",
+      href: `${schoolBase}/staff`,
+      icon: UserRound,
+      color: "text-cyan-400",
+    },
+    {
+      name: "📚 Classes",
+      href: `${schoolBase}/classes`,
+      icon: Building2,
+      color: "text-indigo-400",
+    },
+    {
+      name: "📖 Academics",
+      href: `${schoolBase}/academics`,
+      icon: BookOpen,
+      color: "text-rose-400",
+    },
+    {
+      name: "✅ Attendance",
+      href: `${schoolBase}/attendance`,
+      icon: ClipboardCheck,
+      color: "text-green-400",
+    },
+    {
+      name: "📅 Events",
+      href: `${schoolBase}/events`,
+      icon: CalendarDays,
+      color: "text-pink-400",
+    },
+    {
+      name: "⚙️ Settings",
+      href: `${schoolBase}/settings`,
+      icon: Settings,
+      color: "text-slate-300",
+    },
+  ];
 
+  const menu =
+    role === "SCHOOL_ADMIN"
+      ? schoolAdminMenu
+      : superAdminMenu;
 
-return (
+  return (
+    <aside className="min-h-screen w-80 p-5">
+      <div className="h-full rounded-3xl bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-900 p-6 shadow-2xl">
 
-<aside
-className="
-w-80
-min-h-screen
-p-5
-"
->
+        <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+          <Logo size={55} />
 
+          <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-indigo-200">
+            {role === "SCHOOL_ADMIN"
+              ? schoolName || "Loading school..."
+              : "Smart School Platform"}
+          </p>
+        </div>
 
-<div
-className="
-h-full
-rounded-3xl
-border
-bg-white/80
-backdrop-blur-xl
-shadow-xl
-p-6
-"
->
+        <div className="mt-10 space-y-3">
+          {menu.map((item) => {
+            const Icon = item.icon;
 
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className="group flex items-center gap-4 rounded-2xl px-4 py-3 transition hover:bg-white/10"
+              >
+                <Icon
+                  size={21}
+                  className={item.color}
+                />
 
-<Logo size={55}/>
+                <span className="font-semibold text-white">
+                  {item.name}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
 
-
-
-<div
-className="
-mt-10
-space-y-2
-"
->
-
-
-{
-menu.map((item)=>{
-
-const Icon=item.icon;
-
-
-return (
-
-<Link
-key={item.name}
-href={item.href}
-className="
-group
-flex
-items-center
-gap-4
-rounded-2xl
-px-4
-py-3
-text-sm
-transition-all
-hover:bg-primary/10
-hover:text-primary
-"
->
-
-<Icon
-size={20}
-className="
-group-hover:scale-110
-transition
-"
-/>
-
-
-<span>
-{item.name}
-</span>
-
-
-</Link>
-
-)
-
-
-})
-}
-
-
-</div>
-
-
-</div>
-
-
-</aside>
-
-);
-
+      </div>
+    </aside>
+  );
 }

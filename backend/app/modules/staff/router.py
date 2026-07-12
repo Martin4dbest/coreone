@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.permissions import require_roles
 from app.db.database import get_db
 from app.models.user import User
 from app.modules.auth.dependencies.current_user import get_current_user
@@ -24,7 +25,7 @@ router = APIRouter(
 async def create_staff(
     payload: StaffCreateRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")),
 ):
     return await StaffService(db).create_staff(
         payload,
@@ -38,7 +39,7 @@ async def create_staff(
 )
 async def get_staff(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")),
 ):
     return await StaffService(db).get_staff(
         current_user
@@ -52,7 +53,7 @@ async def get_staff(
 async def get_staff_member(
     staff_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")),
 ):
     return await StaffService(db).get_staff_member(
         staff_id,

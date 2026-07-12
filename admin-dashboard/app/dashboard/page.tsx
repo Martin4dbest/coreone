@@ -2,18 +2,20 @@
 
 import { useEffect, useState } from "react";
 import {
-  Users,
+  School,
   GraduationCap,
-  ClipboardCheck,
-  TrendingUp,
-  CalendarDays,
+  Users,
+  UserRound,
   UserPlus,
   BookOpen,
-  School,
+  Activity,
   Loader2,
+  ShieldCheck,
+  UsersRound,
 } from "lucide-react";
 
 import api from "@/lib/api";
+
 
 type DashboardData = {
   total_schools: number;
@@ -25,385 +27,514 @@ type DashboardData = {
   total_visitors: number;
 };
 
-const events = [
-  "Parents Teachers Meeting",
-  "First Term Examination",
-  "Staff Development Training",
-];
+
 
 export default function DashboardPage() {
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+
+  const [dashboard, setDashboard] =
+    useState<DashboardData | null>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
 
   useEffect(() => {
-    let active = true;
+
+    let mounted = true;
+
 
     async function loadDashboard() {
+
       try {
-        const response = await api.get<DashboardData>("/dashboard");
 
-        if (active) {
+        const response =
+          await api.get<DashboardData>("/dashboard");
+
+
+        if (mounted) {
           setDashboard(response.data);
-          setError("");
         }
-      } catch (err) {
-        console.error("Failed to load dashboard:", err);
 
-        if (active) {
-          setError("Unable to load dashboard statistics.");
-        }
+
+      } catch (error) {
+
+        console.error(
+          "Dashboard loading failed:",
+          error
+        );
+
+
       } finally {
-        if (active) {
+
+        if (mounted) {
           setLoading(false);
         }
+
       }
+
     }
+
 
     loadDashboard();
 
+
     return () => {
-      active = false;
+      mounted = false;
     };
+
+
   }, []);
 
-  const stats = [
+
+
+
+  const cards = [
+
     {
       title: "Schools",
       value: dashboard?.total_schools ?? 0,
-      text: "Registered institutions",
+      description: "Registered institutions",
       icon: School,
-      color: "bg-rose-50 text-rose-600",
+      style: "bg-emerald-50 text-emerald-600",
     },
+
+
     {
       title: "Students",
       value: dashboard?.total_students ?? 0,
-      text: "Registered learners",
+      description: "Active learners",
       icon: GraduationCap,
-      color: "bg-pink-50 text-pink-600",
+      style: "bg-purple-50 text-purple-600",
     },
+
+
     {
       title: "Teachers",
       value: dashboard?.total_teachers ?? 0,
-      text: "Teaching staff",
+      description: "Teaching workforce",
       icon: Users,
-      color: "bg-fuchsia-50 text-fuchsia-600",
+      style: "bg-blue-50 text-blue-600",
     },
+
+
     {
       title: "Staff",
       value: dashboard?.total_staff ?? 0,
-      text: "Administrative personnel",
-      icon: ClipboardCheck,
-      color: "bg-emerald-50 text-emerald-600",
+      description: "School personnel",
+      icon: UserRound,
+      style: "bg-orange-50 text-orange-600",
     },
+
+
+    {
+      title: "Classes",
+      value: dashboard?.total_classes ?? 0,
+      description: "Learning groups",
+      icon: BookOpen,
+      style: "bg-pink-50 text-pink-600",
+    },
+
+
+    {
+      title: "Parents",
+      value: dashboard?.total_parents ?? 0,
+      description: "Registered parents",
+      icon: UsersRound,
+      style: "bg-cyan-50 text-cyan-600",
+    },
+
+
+    {
+      title: "Visitors",
+      value: dashboard?.total_visitors ?? 0,
+      description: "Recorded visits",
+      icon: Activity,
+      style: "bg-yellow-50 text-yellow-600",
+    },
+
   ];
 
+
+
+
   return (
-    <div className="space-y-7">
-      <section
+
+    <section className="space-y-8">
+
+
+      {/* Welcome Header */}
+
+      <div
         className="
-        relative
-        overflow-hidden
-        rounded-[28px]
+        rounded-[32px]
         border
         border-rose-100
         bg-gradient-to-br
         from-rose-50
         via-white
         to-pink-50
-        p-10
+        p-8
         shadow-sm
         "
       >
+
+
         <div
           className="
-          absolute
-          -right-20
-          -top-24
-          h-72
-          w-72
-          rounded-full
-          bg-rose-100/70
-          blur-3xl
-          "
-        />
-
-        <div className="relative z-10">
-          <p className="text-sm font-semibold text-rose-500">
-            Welcome back, Super Admin
-          </p>
-
-          <h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-900">
-            PreSense Command Center
-          </h1>
-
-          <p className="mt-4 max-w-xl text-sm leading-6 text-slate-500">
-            Manage schools, students, teachers and academic operations from one
-            intelligent platform.
-          </p>
-
-          <div className="mt-7 flex gap-3">
-            <button
-              className="
-              rounded-xl
-              bg-rose-500
-              px-5
-              py-2.5
-              text-sm
-              font-semibold
-              text-white
-              shadow-sm
-              transition
-              hover:bg-rose-600
-              "
-            >
-              Add School
-            </button>
-
-            <button
-              className="
-              rounded-xl
-              border
-              border-rose-200
-              bg-white
-              px-5
-              py-2.5
-              text-sm
-              font-semibold
-              text-slate-700
-              transition
-              hover:bg-rose-50
-              "
-            >
-              Generate Report
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {error && (
-        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
-          {error}
-        </div>
-      )}
-
-      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {stats.map((item) => {
-          const Icon = item.icon;
-
-          return (
-            <div
-              key={item.title}
-              className="
-              rounded-2xl
-              border
-              border-slate-100
-              bg-white
-              p-6
-              shadow-sm
-              transition
-              duration-300
-              hover:-translate-y-1
-              hover:border-rose-100
-              hover:shadow-lg
-              "
-            >
-              <div
-                className={`
-                flex
-                h-12
-                w-12
-                items-center
-                justify-center
-                rounded-xl
-                ${item.color}
-                `}
-              >
-                <Icon size={23} />
-              </div>
-
-              <p className="mt-5 text-sm text-slate-500">
-                {item.title}
-              </p>
-
-              <div className="mt-1">
-                {loading ? (
-                  <Loader2
-                    size={28}
-                    className="animate-spin text-rose-400"
-                  />
-                ) : (
-                  <h2 className="text-3xl font-bold tracking-tight text-slate-900">
-                    {item.value.toLocaleString()}
-                  </h2>
-                )}
-              </div>
-
-              <p className="mt-2 text-xs text-slate-400">
-                {item.text}
-              </p>
-            </div>
-          );
-        })}
-      </section>
-
-      <section className="grid gap-5 lg:grid-cols-3">
-        <div
-          className="
-          rounded-2xl
-          border
-          border-slate-100
-          bg-white
-          p-7
-          shadow-sm
-          lg:col-span-2
+          flex
+          flex-col
+          gap-5
+          md:flex-row
+          md:items-center
+          md:justify-between
           "
         >
-          <div className="mb-7 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50">
-              <TrendingUp
-                size={20}
-                className="text-rose-500"
-              />
-            </div>
+
+
+          <div>
+
+            <p
+              className="
+              text-sm
+              font-semibold
+              text-rose-600
+              "
+            >
+              🛡️ PreSense Administration
+            </p>
+
+
+            <h1
+              className="
+              mt-3
+              text-3xl
+              font-bold
+              tracking-tight
+              text-slate-900
+              md:text-4xl
+              "
+            >
+              Command Center
+            </h1>
+
+
+            <p
+              className="
+              mt-3
+              max-w-2xl
+              text-sm
+              leading-6
+              text-slate-500
+              "
+            >
+              Manage schools, students, teachers,
+              staff and academic operations from
+              one intelligent platform.
+            </p>
+
+
+          </div>
+
+
+
+          <div
+            className="
+            flex
+            items-center
+            gap-3
+            rounded-2xl
+            border
+            bg-white
+            px-5
+            py-4
+            shadow-sm
+            "
+          >
+
+            <ShieldCheck
+              size={30}
+              className="text-rose-500"
+            />
+
 
             <div>
-              <h2 className="font-bold text-slate-900">
-                Academic Performance
-              </h2>
 
               <p className="text-xs text-slate-400">
-                Current academic overview
+                Access Level
               </p>
+
+
+              <p className="font-bold text-slate-800">
+                Super Admin
+              </p>
+
             </div>
+
+
           </div>
 
-          <div className="space-y-6">
-            {[
-              ["Mathematics", "84%"],
-              ["Science", "76%"],
-              ["English", "91%"],
-            ].map((item) => (
-              <div key={item[0]}>
-                <div className="mb-2 flex justify-between text-sm">
-                  <span className="font-medium text-slate-700">
-                    {item[0]}
-                  </span>
 
-                  <span className="font-semibold text-rose-500">
-                    {item[1]}
-                  </span>
-                </div>
-
-                <div className="h-2 rounded-full bg-rose-50">
-                  <div
-                    className="
-                    h-2
-                    rounded-full
-                    bg-gradient-to-r
-                    from-rose-400
-                    to-pink-400
-                    "
-                    style={{
-                      width: item[1],
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
 
-        <div
-          className="
-          rounded-2xl
-          border
-          border-slate-100
-          bg-white
-          p-7
-          shadow-sm
-          "
-        >
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50">
-              <CalendarDays
-                size={20}
-                className="text-rose-500"
-              />
-            </div>
 
-            <div>
-              <h2 className="font-bold text-slate-900">
-                Upcoming Events
-              </h2>
+      </div>
 
-              <p className="text-xs text-slate-400">
-                School calendar
-              </p>
-            </div>
-          </div>
 
-          <div className="space-y-3">
-            {events.map((event) => (
+
+
+
+      {/* Statistics Cards */}
+
+
+      <div
+        className="
+        grid
+        gap-5
+        sm:grid-cols-2
+        xl:grid-cols-4
+        "
+      >
+
+        {
+          cards.map((item)=>{
+
+            const Icon = item.icon;
+
+
+            return (
+
               <div
-                key={event}
+                key={item.title}
                 className="
-                rounded-xl
+                rounded-2xl
                 border
-                border-rose-100
-                bg-rose-50/50
-                p-4
-                text-sm
-                font-medium
-                text-slate-700
+                border-slate-100
+                bg-white
+                p-6
+                shadow-sm
+                transition
+                duration-300
+                hover:-translate-y-1
+                hover:shadow-lg
                 "
               >
-                {event}
+
+
+                <div
+                  className={`
+                  flex
+                  h-12
+                  w-12
+                  items-center
+                  justify-center
+                  rounded-xl
+                  ${item.style}
+                  `}
+                >
+
+                  <Icon size={24}/>
+
+                </div>
+
+
+
+                <p
+                  className="
+                  mt-5
+                  text-sm
+                  text-slate-500
+                  "
+                >
+                  {item.title}
+                </p>
+
+
+
+
+                {
+                  loading ?
+
+
+                  <Loader2
+                    size={26}
+                    className="
+                    mt-3
+                    animate-spin
+                    text-rose-500
+                    "
+                  />
+
+
+                  :
+
+
+                  <h2
+                    className="
+                    mt-1
+                    text-3xl
+                    font-bold
+                    text-slate-900
+                    "
+                  >
+                    {item.value.toLocaleString()}
+                  </h2>
+
+                }
+
+
+
+                <p
+                  className="
+                  mt-2
+                  text-xs
+                  text-slate-400
+                  "
+                >
+                  {item.description}
+                </p>
+
+
               </div>
-            ))}
-          </div>
+
+            )
+
+          })
+        }
+
+
+      </div>
+
+
+
+
+
+
+      {/* Management Actions */}
+
+
+      <div
+        className="
+        grid
+        gap-5
+        md:grid-cols-3
+        "
+      >
+
+
+        <div
+          className="
+          rounded-2xl
+          border
+          bg-white
+          p-6
+          shadow-sm
+          "
+        >
+
+          <School
+            size={25}
+            className="text-emerald-600"
+          />
+
+          <h3
+            className="
+            mt-4
+            font-bold
+            text-slate-900
+            "
+          >
+            🏫 Manage Schools
+          </h3>
+
+
+          <p className="mt-2 text-sm text-slate-500">
+            Create, update and manage institutions.
+          </p>
+
         </div>
-      </section>
 
-      <section className="grid gap-5 md:grid-cols-3">
-        {[
-          ["New Student", "Register new learners", UserPlus],
-          ["Manage Classes", "Update classrooms", School],
-          ["Library", "Manage resources", BookOpen],
-        ].map(([title, text, Icon]) => {
-          const IconComponent = Icon as typeof School;
 
-          return (
-            <div
-              key={title as string}
-              className="
-              rounded-2xl
-              border
-              border-slate-100
-              bg-white
-              p-6
-              shadow-sm
-              transition
-              hover:border-rose-200
-              hover:shadow-md
-              "
-            >
-              <IconComponent
-                size={22}
-                className="text-rose-500"
-              />
 
-              <h3 className="mt-4 font-bold text-slate-900">
-                {title as string}
-              </h3>
 
-              <p className="mt-2 text-sm text-slate-500">
-                {text as string}
-              </p>
-            </div>
-          );
-        })}
-      </section>
-    </div>
+        <div
+          className="
+          rounded-2xl
+          border
+          bg-white
+          p-6
+          shadow-sm
+          "
+        >
+
+          <UserPlus
+            size={25}
+            className="text-purple-600"
+          />
+
+
+          <h3
+            className="
+            mt-4
+            font-bold
+            text-slate-900
+            "
+          >
+            👥 Administrators
+          </h3>
+
+
+          <p className="mt-2 text-sm text-slate-500">
+            Manage school administrators and access.
+          </p>
+
+
+        </div>
+
+
+
+
+
+        <div
+          className="
+          rounded-2xl
+          border
+          bg-white
+          p-6
+          shadow-sm
+          "
+        >
+
+          <Activity
+            size={25}
+            className="text-blue-600"
+          />
+
+
+          <h3
+            className="
+            mt-4
+            font-bold
+            text-slate-900
+            "
+          >
+            📊 System Overview
+          </h3>
+
+
+          <p className="mt-2 text-sm text-slate-500">
+            Monitor platform activities.
+          </p>
+
+
+        </div>
+
+
+      </div>
+
+
+
+    </section>
+
   );
+
 }

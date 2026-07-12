@@ -14,7 +14,17 @@ class SubjectService:
     async def create_subject(
         self,
         payload: SubjectCreateRequest,
+        current_user,
     ):
+        if (
+            current_user.role.name != "SUPER_ADMIN"
+            and payload.school_id != current_user.school_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot create subjects for another school",
+            )
+
         subject = Subject(
             school_id=payload.school_id,
             department_id=payload.department_id,
@@ -25,16 +35,35 @@ class SubjectService:
 
         return await self.repository.create(subject)
 
+
     async def get_subjects(
         self,
-        school_id: int | None = None,
+        current_user,
     ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
         return await self.repository.get_all(
             school_id
         )
 
-    async def get_subject(self, subject_id: int):
-        subject = await self.repository.get_by_id(subject_id)
+
+    async def get_subject(
+        self,
+        subject_id: int,
+        current_user,
+    ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        subject = await self.repository.get_by_id(
+            subject_id,
+            school_id,
+        )
 
         if not subject:
             raise HTTPException(
