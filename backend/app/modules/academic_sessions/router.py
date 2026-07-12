@@ -33,10 +33,11 @@ async def create_session(
     response_model=list[AcademicSessionResponse],
 )
 async def get_sessions(
+    school_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await AcademicSessionService(db).get_sessions()
+    return await AcademicSessionService(db).get_sessions(school_id)
 
 
 @router.get(
@@ -49,3 +50,17 @@ async def get_session(
     current_user: User = Depends(get_current_user),
 ):
     return await AcademicSessionService(db).get_session(session_id)
+
+
+@router.patch(
+    "/{session_id}/make-current",
+    response_model=AcademicSessionResponse,
+)
+async def make_session_current(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await AcademicSessionService(db).make_current(
+        session_id
+    )

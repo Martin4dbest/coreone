@@ -34,10 +34,11 @@ async def create_subject(
     response_model=list[SubjectResponse],
 )
 async def get_subjects(
+    school_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await SubjectService(db).get_subjects()
+    return await SubjectService(db).get_subjects(school_id)
 
 
 @router.get(

@@ -18,13 +18,18 @@ class AcademicSessionService:
         session = AcademicSession(
             school_id=payload.school_id,
             name=payload.name,
-            is_active=payload.is_active,
+            is_current=payload.is_current,
         )
 
         return await self.repository.create(session)
 
-    async def get_sessions(self):
-        return await self.repository.get_all()
+    async def get_sessions(
+        self,
+        school_id: int | None = None,
+    ):
+        return await self.repository.get_all(
+            school_id
+        )
 
     async def get_session(
         self,
@@ -39,3 +44,13 @@ class AcademicSessionService:
             )
 
         return session
+
+    async def make_current(
+        self,
+        session_id: int,
+    ):
+        session = await self.get_session(session_id)
+
+        return await self.repository.make_current(
+            session
+        )

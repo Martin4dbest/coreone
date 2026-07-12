@@ -28,10 +28,11 @@ async def create_term(
 
 @router.get("", response_model=list[TermResponse])
 async def get_terms(
+    school_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await TermService(db).get_terms()
+    return await TermService(db).get_terms(school_id)
 
 
 @router.get("/{term_id}", response_model=TermResponse)

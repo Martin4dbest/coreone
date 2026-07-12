@@ -32,8 +32,13 @@ class GradingSystemService:
             grading_system
         )
 
-    async def get_grading_systems(self):
-        return await self.repository.get_all()
+    async def get_grading_systems(
+        self,
+        school_id: int | None = None,
+    ):
+        return await self.repository.get_all(
+            school_id
+        )
 
     async def get_grading_system(
         self,

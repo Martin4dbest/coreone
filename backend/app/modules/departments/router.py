@@ -36,10 +36,11 @@ async def create_department(
     response_model=list[DepartmentResponse],
 )
 async def get_departments(
+    school_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await DepartmentService(db).get_departments()
+    return await DepartmentService(db).get_departments(school_id)
 
 
 @router.get(

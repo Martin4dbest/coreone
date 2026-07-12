@@ -24,8 +24,13 @@ class DepartmentService:
 
         return await self.repository.create(department)
 
-    async def get_departments(self):
-        return await self.repository.get_all()
+    async def get_departments(
+        self,
+        school_id: int | None = None,
+    ):
+        return await self.repository.get_all(
+            school_id
+        )
 
     async def get_department(self, department_id: int):
         department = await self.repository.get_by_id(

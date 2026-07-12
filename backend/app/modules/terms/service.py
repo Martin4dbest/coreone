@@ -21,8 +21,13 @@ class TermService:
 
         return await self.repository.create(term)
 
-    async def get_terms(self):
-        return await self.repository.get_all()
+    async def get_terms(
+        self,
+        school_id: int | None = None,
+    ):
+        return await self.repository.get_all(
+            school_id
+        )
 
     async def get_term(self, term_id: int):
         term = await self.repository.get_by_id(term_id)

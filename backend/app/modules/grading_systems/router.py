@@ -40,10 +40,11 @@ async def create_grading_system(
     response_model=list[GradingSystemResponse],
 )
 async def get_grading_systems(
+    school_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await GradingSystemService(db).get_grading_systems()
+    return await GradingSystemService(db).get_grading_systems(school_id)
 
 
 @router.get(

@@ -8,6 +8,10 @@ import {
   Layers3,
   School,
   LibraryBig,
+  CalendarDays,
+  Clock3,
+  Building2,
+  GraduationCap,
   FileCheck2,
 } from "lucide-react";
 
@@ -19,6 +23,18 @@ export default function AcademicsPage({
   const { schoolId } = use(params);
 
   const modules = [
+    {
+      title: "Academic Sessions",
+      description: "Manage school academic sessions",
+      icon: CalendarDays,
+      href: `/dashboard/schools/${schoolId}/academics/sessions`,
+    },
+    {
+      title: "Terms",
+      description: "Manage terms within academic sessions",
+      icon: Clock3,
+      href: `/dashboard/schools/${schoolId}/academics/terms`,
+    },
     {
       title: "Levels",
       description: "Manage academic levels",
@@ -32,10 +48,22 @@ export default function AcademicsPage({
       href: `/dashboard/schools/${schoolId}/classes`,
     },
     {
+      title: "Departments",
+      description: "Manage academic departments",
+      icon: Building2,
+      href: `/dashboard/schools/${schoolId}/academics/departments`,
+    },
+    {
       title: "Subjects",
       description: "Manage subjects and curriculum",
       icon: LibraryBig,
-      href: "#",
+      href: `/dashboard/schools/${schoolId}/academics/subjects`,
+    },
+    {
+      title: "Grading System",
+      description: "Configure grades, score ranges and remarks",
+      icon: GraduationCap,
+      href: `/dashboard/schools/${schoolId}/academics/grading`,
     },
     {
       title: "Results",
@@ -51,7 +79,7 @@ export default function AcademicsPage({
         href={`/dashboard/schools/${schoolId}`}
         className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-rose-500"
       >
-        <ArrowLeft size={16} />
+        <ArrowLeft size={17} />
         Back to School Workspace
       </Link>
 
@@ -69,7 +97,8 @@ export default function AcademicsPage({
         </h1>
 
         <p className="mt-3 text-sm text-slate-500">
-          Manage the school's academic structure and learning records.
+          Manage the school&apos;s academic structure, sessions,
+          curriculum, grading and learning records.
         </p>
       </section>
 

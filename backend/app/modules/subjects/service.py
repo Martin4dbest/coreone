@@ -25,8 +25,13 @@ class SubjectService:
 
         return await self.repository.create(subject)
 
-    async def get_subjects(self):
-        return await self.repository.get_all()
+    async def get_subjects(
+        self,
+        school_id: int | None = None,
+    ):
+        return await self.repository.get_all(
+            school_id
+        )
 
     async def get_subject(self, subject_id: int):
         subject = await self.repository.get_by_id(subject_id)

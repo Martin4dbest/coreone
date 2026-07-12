@@ -9,10 +9,18 @@ class DepartmentRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_all(self):
-        result = await self.db.execute(
-            select(Department).order_by(Department.name)
-        )
+    async def get_all(
+        self,
+        school_id: int | None = None,
+    ):
+        query = select(Department).order_by(Department.name)
+
+        if school_id is not None:
+            query = query.where(
+                Department.school_id == school_id
+            )
+
+        result = await self.db.execute(query)
         return result.scalars().all()
 
     async def get_by_id(self, department_id: int):
