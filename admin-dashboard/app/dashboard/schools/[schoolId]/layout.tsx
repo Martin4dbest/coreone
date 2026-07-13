@@ -1,8 +1,10 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
 import Link from "next/link";
+
+import { use, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+
 import {
   LayoutDashboard,
   GraduationCap,
@@ -13,6 +15,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   Settings,
+  Palette,
   ShieldCheck,
   Loader2,
 } from "lucide-react";
@@ -125,6 +128,11 @@ export default function SchoolWorkspaceLayout({
       name: "Settings",
       href: `${basePath}/settings`,
       icon: Settings,
+},
+{
+name: "Branding",
+href: `${basePath}/branding`,
+icon: Palette,
     },
   ];
 

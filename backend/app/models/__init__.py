@@ -43,3 +43,5 @@ from app.models.attendance import Attendance
 from app.models.visitor import Visitor
 
 from app.models.setting import Setting
+
+from app.models.school_branding import SchoolBranding

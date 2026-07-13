@@ -37,6 +37,7 @@ from app.modules.gallery.router import router as gallery_router
 from app.modules.dashboard.router import router as dashboard_router
 from app.modules.reports.router import router as reports_router
 from app.modules.settings.router import router as settings_router
+from app.modules.branding.router import router as branding_router
 from app.modules.audit_logs.router import router as audit_logs_router
 
 
@@ -243,6 +244,10 @@ app.include_router(
 
 app.include_router(
     settings_router,
+    prefix=settings.API_V1_STR,
+)
+app.include_router(
+    branding_router,
     prefix=settings.API_V1_STR,
 )
 
