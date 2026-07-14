@@ -241,6 +241,7 @@ const schoolBase =
                   src={schoolLogo}
                   alt={schoolName || "School logo"}
                   fill
+                  unoptimized
                   className="object-contain p-2"
                 />
               ) : (
