@@ -45,37 +45,36 @@ const [schoolLogo, setSchoolLogo] = useState("");
   );
 
   useEffect(() => {
-  let mounted = true;
+    let mounted = true;
 
-  async function loadUser() {
-    try {
-      const user = await getCurrentUser();
+    async function loadUser() {
+      try {
+        const user = await getCurrentUser();
 
-      const userRole =
-        typeof user.role === "string"
-          ? user.role
-          : user.role?.name || "";
+        const userRole =
+          typeof user.role === "string"
+            ? user.role
+            : user.role?.name || "";
 
-      const userSchoolId = user.school_id;
+        const userSchoolId = user.school_id;
 
-      if (!mounted) {
-        return;
-      }
-
-      setRole(userRole);
-
-      if (userSchoolId) {
-        const schoolIdString = String(userSchoolId);
-
-        setSchoolId(schoolIdString);
-
-        const school = await getSchool(
-          schoolIdString
-        );
-
-        if (mounted) {
-          setSchoolName(school.name || "");
+        if (!mounted) {
+          return;
         }
+
+        setRole(userRole);
+
+        if (userSchoolId) {
+          const schoolIdString = String(userSchoolId);
+
+          setSchoolId(schoolIdString);
+
+          const school = await getSchool(
+            schoolIdString
+          );
+
+          if (mounted) {
+            setSchoolName(school.name || "");
 
         try {
           const brandingResponse = await api.get(
@@ -87,35 +86,30 @@ const [schoolLogo, setSchoolLogo] = useState("");
               brandingResponse.data.logo_url || ""
             );
           }
-        } catch (brandingError: any) {
-          if (brandingError.response?.status !== 404) {
-            console.error(
-              "Unable to load school branding:",
-              brandingError
-            );
-          }
-
-          if (mounted) {
-            setSchoolLogo("");
+        } catch (brandingError) {
+          console.error(
+            "Unable to load school branding:",
+            brandingError
+          );
+        }
           }
         }
+      } catch (error) {
+        console.error(
+          "Unable to load sidebar user/school:",
+          error
+        );
       }
-    } catch (error) {
-      console.error(
-        "Unable to load sidebar user/school:",
-        error
-      );
     }
-  }
 
-  loadUser();
+    loadUser();
 
-  return () => {
-    mounted = false;
-  };
-}, [getCurrentUser, getSchool]);
+    return () => {
+      mounted = false;
+    };
+  }, [getCurrentUser, getSchool]);
 
-const schoolBase =
+  const schoolBase =
     `/dashboard/schools/${schoolId}`;
 
   const superAdminMenu = [
@@ -234,19 +228,8 @@ const schoolBase =
   return (
     <aside className="min-h-screen w-80 p-5">
       <div className="h-full rounded-3xl bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-900 p-6 shadow-2xl">
-        <div className="relative min-h-40 rounded-2xl bg-white/10 p-4 backdrop-blur">
-            <div className="relative h-20 w-20 overflow-hidden rounded-2xl bg-white/10">
-              {schoolLogo ? (
-                <Image
-                  src={schoolLogo}
-                  alt={schoolName || "School logo"}
-                  fill
-                  className="object-contain p-2"
-                />
-              ) : (
-                <Logo />
-              )}
-            </div>
+        <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+          <Logo size={55} />
 
           <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-indigo-200">
             {role === "SCHOOL_ADMIN"

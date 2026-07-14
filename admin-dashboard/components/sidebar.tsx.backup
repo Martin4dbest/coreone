@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   School,
@@ -15,88 +17,123 @@ import {
   CalendarDays,
   ClipboardCheck,
   Building2,
+  LogOut,
 } from "lucide-react";
 
 import Logo from "./logo";
 import api from "@/lib/api";
+import { useWorkspaceStore } from "@/stores/workspace-store";
 
 export default function Sidebar() {
+  const router = useRouter();
+
   const [role, setRole] = useState("");
   const [schoolId, setSchoolId] = useState("");
   const [schoolName, setSchoolName] = useState("");
+const [schoolLogo, setSchoolLogo] = useState("");
+
+  const getCurrentUser = useWorkspaceStore(
+    (state) => state.getCurrentUser
+  );
+
+  const getSchool = useWorkspaceStore(
+    (state) => state.getSchool
+  );
+
+  const clearWorkspaceCache = useWorkspaceStore(
+    (state) => state.clearWorkspaceCache
+  );
 
   useEffect(() => {
+    let mounted = true;
+
     async function loadUser() {
       try {
-        const response = await api.get("/auth/me");
+        const user = await getCurrentUser();
 
         const userRole =
-          typeof response.data.role === "string"
-            ? response.data.role
-            : response.data.role?.name || "";
+          typeof user.role === "string"
+            ? user.role
+            : user.role?.name || "";
 
-        const userSchoolId = response.data.school_id;
+        const userSchoolId = user.school_id;
+
+        if (!mounted) {
+          return;
+        }
 
         setRole(userRole);
 
         if (userSchoolId) {
-          setSchoolId(String(userSchoolId));
+          const schoolIdString = String(userSchoolId);
 
-          const schoolResponse = await api.get(
-            `/schools/${userSchoolId}`
+          setSchoolId(schoolIdString);
+
+          const school = await getSchool(
+            schoolIdString
           );
 
-          setSchoolName(schoolResponse.data.name || "");
+          if (mounted) {
+            setSchoolName(school.name || "");
+          }
         }
       } catch (error) {
-        console.error("Unable to load sidebar user/school:", error);
+        console.error(
+          "Unable to load sidebar user/school:",
+          error
+        );
       }
     }
 
     loadUser();
-  }, []);
 
-  const schoolBase = `/dashboard/schools/${schoolId}`;
+    return () => {
+      mounted = false;
+    };
+  }, [getCurrentUser, getSchool]);
+
+  const schoolBase =
+    `/dashboard/schools/${schoolId}`;
 
   const superAdminMenu = [
     {
-      name: "🏠 Dashboard",
+      name: "Dashboard",
       href: "/dashboard",
       icon: LayoutDashboard,
       color: "text-blue-400",
     },
     {
-      name: "🏫 Schools Management",
+      name: "Schools Management",
       href: "/dashboard/schools",
       icon: School,
       color: "text-emerald-400",
     },
     {
-      name: "👥 Administrators",
+      name: "Administrators",
       href: "/dashboard/admins",
       icon: Users,
       color: "text-purple-400",
     },
-{
-name: "Super Admins",
-href: "/dashboard/super-admins",
-icon: ShieldCheck,
-color: "text-rose-400",
-},
     {
-      name: "🛡️ Roles & Permissions",
+      name: "Super Admins",
+      href: "/dashboard/super-admins",
+      icon: ShieldCheck,
+      color: "text-rose-400",
+    },
+    {
+      name: "Roles & Permissions",
       href: "/dashboard/roles",
       icon: ShieldCheck,
       color: "text-orange-400",
     },
     {
-      name: "📊 Reports",
+      name: "Reports",
       href: "/dashboard/reports",
       icon: FileText,
       color: "text-yellow-400",
     },
     {
-      name: "⚙️ Settings",
+      name: "Settings",
       href: "/dashboard/settings",
       icon: Settings,
       color: "text-slate-300",
@@ -105,55 +142,55 @@ color: "text-rose-400",
 
   const schoolAdminMenu = [
     {
-      name: "🏠 School Dashboard",
+      name: "School Dashboard",
       href: schoolBase,
       icon: LayoutDashboard,
       color: "text-blue-400",
     },
     {
-      name: "🎓 Students",
+      name: "Students",
       href: `${schoolBase}/students`,
       icon: GraduationCap,
       color: "text-purple-400",
     },
     {
-      name: "👨‍🏫 Teachers",
+      name: "Teachers",
       href: `${schoolBase}/teachers`,
       icon: Users,
       color: "text-orange-400",
     },
     {
-      name: "👥 Staff",
+      name: "Staff",
       href: `${schoolBase}/staff`,
       icon: UserRound,
       color: "text-cyan-400",
     },
     {
-      name: "📚 Classes",
+      name: "Classes",
       href: `${schoolBase}/classes`,
       icon: Building2,
       color: "text-indigo-400",
     },
     {
-      name: "📖 Academics",
+      name: "Academics",
       href: `${schoolBase}/academics`,
       icon: BookOpen,
       color: "text-rose-400",
     },
     {
-      name: "✅ Attendance",
+      name: "Attendance",
       href: `${schoolBase}/attendance`,
       icon: ClipboardCheck,
       color: "text-green-400",
     },
     {
-      name: "📅 Events",
+      name: "Events",
       href: `${schoolBase}/events`,
       icon: CalendarDays,
       color: "text-pink-400",
     },
     {
-      name: "⚙️ Settings",
+      name: "Settings",
       href: `${schoolBase}/settings`,
       icon: Settings,
       color: "text-slate-300",
@@ -165,10 +202,15 @@ color: "text-rose-400",
       ? schoolAdminMenu
       : superAdminMenu;
 
+  function handleLogout() {
+    clearWorkspaceCache();
+    localStorage.removeItem("access_token");
+    router.replace("/login");
+  }
+
   return (
     <aside className="min-h-screen w-80 p-5">
       <div className="h-full rounded-3xl bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-900 p-6 shadow-2xl">
-
         <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
           <Logo size={55} />
 
@@ -202,6 +244,22 @@ color: "text-rose-400",
           })}
         </div>
 
+        <div className="mt-8 border-t border-white/10 pt-5">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-left transition hover:bg-red-500/10"
+          >
+            <LogOut
+              size={21}
+              className="text-red-400"
+            />
+
+            <span className="font-semibold text-white">
+              Sign Out
+            </span>
+          </button>
+        </div>
       </div>
     </aside>
   );

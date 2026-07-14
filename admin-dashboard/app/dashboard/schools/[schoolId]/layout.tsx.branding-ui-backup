@@ -65,33 +65,17 @@ const [branding, setBranding] = useState<BrandingData | null>(null);
 
     async function loadWorkspace() {
       try {
-    const [schoolResponse, userResponse] = await Promise.all([
-      api.get(`/schools/${schoolId}`),
-      api.get("/auth/me"),
-    ]);
+        const [schoolResponse, userResponse, brandingResponse] = await Promise.all([
+          api.get(`/schools/${schoolId}`),
+          api.get("/auth/me"),
+          api.get(`/branding?school_id=${schoolId}`),
+        ]);
 
-    let brandingData = null;
-
-    try {
-      const brandingResponse = await api.get(
-        `/branding?school_id=${schoolId}`
-      );
-
-      brandingData = brandingResponse.data;
-    } catch (brandingError: any) {
-      if (brandingError.response?.status !== 404) {
-        console.error(
-          "Failed to load school branding:",
-          brandingError
-        );
-      }
-    }
-
-    if (mounted) {
-      setSchool(schoolResponse.data);
-      setCurrentUser(userResponse.data);
-      setBranding(brandingData);
-    }
+        if (mounted) {
+          setSchool(schoolResponse.data);
+          setCurrentUser(userResponse.data);
+          setBranding(brandingResponse.data);
+        }
       } catch (error) {
         console.error("Failed to load school workspace:", error);
       } finally {
@@ -219,43 +203,7 @@ icon: Palette,
         </section>
       )}
 
-    
-  {/* SCHOOL BRANDING */}
-  {branding && (
-    <section
-      className="mt-5 flex items-center gap-4 rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm"
-      style={{
-        borderColor: branding.primary_color,
-      }}
-    >
-      {branding.logo_url && (
-        <img
-          src={branding.logo_url}
-          alt={`${school.name} logo`}
-          className="h-16 w-16 rounded-2xl border border-slate-100 object-contain bg-white"
-        />
-      )}
-
-      <div>
-        <h2
-          className="text-xl font-bold"
-          style={{
-            color: branding.primary_color,
-          }}
-        >
-          {school.name}
-        </h2>
-
-        {branding.motto && (
-          <p className="mt-1 text-sm text-slate-500">
-            {branding.motto}
-          </p>
-        )}
-      </div>
-    </section>
-  )}
-
-  <nav className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-100 bg-white p-2 shadow-sm">
+      <nav className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-100 bg-white p-2 shadow-sm">
         {navigation.map((item) => {
           const Icon = item.icon;
 
