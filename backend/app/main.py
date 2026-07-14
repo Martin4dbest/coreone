@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
@@ -9,6 +10,7 @@ from app.modules.auth.bootstrap import bootstrap_super_admin
 from app.modules.auth.router import router as auth_router
 from app.modules.users.router import router as users_router
 from app.modules.admins.router import router as admins_router
+from app.modules.super_admins.router import router as super_admins_router
 from app.modules.schools.router import router as schools_router
 from app.modules.roles.router import router as roles_router
 from app.modules.parents.router import router as parents_router
@@ -56,6 +58,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.mount(
+    "/uploads",
+    StaticFiles(directory="uploads"),
+    name="uploads",
+)
+
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -77,6 +86,11 @@ app.include_router(
 )
 app.include_router(
     admins_router,
+    prefix=settings.API_V1_STR,
+)
+
+app.include_router(
+    super_admins_router,
     prefix=settings.API_V1_STR,
 )
 

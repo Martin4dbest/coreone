@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
@@ -10,6 +10,7 @@ from app.modules.branding.schemas import (
     BrandingResponse,
 )
 from app.modules.branding.service import BrandingService
+from app.modules.branding.upload import save_branding_image
 
 
 router = APIRouter(
@@ -63,3 +64,45 @@ async def update_branding(
         payload,
         current_user,
     )
+
+@router.post("/upload-image")
+async def upload_branding_image(
+    request: Request,
+    school_id: int = Form(...),
+    asset_type: str = Form(...),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    allowed_asset_types = {
+        "logo",
+        "app-icon",
+        "splash",
+    }
+
+    if asset_type not in allowed_asset_types:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid branding asset type.",
+        )
+
+    if current_user.role.name != "SUPER_ADMIN":
+        if school_id != current_user.school_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You cannot upload branding for another school.",
+            )
+
+    image_url = await save_branding_image(
+        file=file,
+        school_id=school_id,
+        asset_type=asset_type,
+    )
+
+    absolute_image_url = str(
+        request.base_url
+    ).rstrip("/") + image_url
+
+    return {
+        "url": absolute_image_url,
+    }
+

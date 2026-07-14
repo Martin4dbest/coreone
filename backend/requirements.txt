@@ -37,3 +37,4 @@ python-jose[cryptography]
 pwdlib
 python-multipart
 email-validator
+resend==2.32.2

@@ -163,12 +163,13 @@ export default function LoginPage() {
                 <input
                   id="email"
                   type="email"
+                  name="presense_login_email"
+                  autoComplete="off"
                   value={email}
                   onChange={(event) =>
                     setEmail(event.target.value)
                   }
                   required
-                  autoComplete="email"
                   className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-rose-300 focus:bg-white focus:ring-4 focus:ring-rose-100/70"
                 />
 
@@ -198,12 +199,13 @@ export default function LoginPage() {
                       ? "text"
                       : "password"
                   }
+                  name="presense_login_password"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(event) =>
                     setPassword(event.target.value)
                   }
                   required
-                  autoComplete="current-password"
                   className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-11 pr-12 text-sm text-slate-900 outline-none transition focus:border-rose-300 focus:bg-white focus:ring-4 focus:ring-rose-100/70"
                 />
 
@@ -226,6 +228,14 @@ export default function LoginPage() {
               </div>
             </div>
 
+        <div className="text-right">
+          <Link
+            href="/forgot-password"
+            className="text-sm font-semibold text-rose-600 transition hover:text-rose-700"
+          >
+            Forgot password?
+          </Link>
+        </div>
             <button
               type="submit"
               disabled={loading}
