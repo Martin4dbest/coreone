@@ -3,7 +3,6 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft,
   Building2,
   Mail,
   MapPin,
@@ -44,7 +43,7 @@ export default function SchoolDetailsPage({
   const [school, setSchool] = useState<School | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-const [role, setRole] = useState("");
+
 
   useEffect(() => {
     async function loadSchool() {
@@ -170,16 +169,6 @@ return (
 
   return (
     <div className="space-y-7">
-      {role === "SUPER_ADMIN" && (
-      <Link
-        href="/dashboard/schools"
-        className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-rose-500"
-      >
-        <ArrowLeft size={17} />
-        Back to Schools
-      </Link>
-    )}
-
       <section className="relative overflow-hidden rounded-[28px] border border-rose-100 bg-gradient-to-br from-rose-50 via-white to-pink-50 p-8 shadow-sm">
         <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-rose-100/60 blur-3xl" />
 

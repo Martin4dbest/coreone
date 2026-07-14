@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   School,
   GraduationCap,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 
 import api from "@/lib/api";
+import { useWorkspaceStore } from "@/stores/workspace-store";
 
 
 type DashboardData = {
@@ -31,6 +33,12 @@ type DashboardData = {
 
 export default function DashboardPage() {
 
+  const router = useRouter();
+
+  const getCurrentUser = useWorkspaceStore(
+    (state) => state.getCurrentUser
+  );
+
   const [dashboard, setDashboard] =
     useState<DashboardData | null>(null);
 
@@ -46,6 +54,20 @@ export default function DashboardPage() {
     async function loadDashboard() {
 
       try {
+
+        const user = await getCurrentUser();
+
+        const role =
+          typeof user.role === "string"
+            ? user.role
+            : user.role?.name || "";
+
+        if (role === "SCHOOL_ADMIN" && user.school_id) {
+          router.replace(
+            `/dashboard/schools/${user.school_id}`
+          );
+          return;
+        }
 
         const response =
           await api.get<DashboardData>("/dashboard");
@@ -83,7 +105,7 @@ export default function DashboardPage() {
     };
 
 
-  }, []);
+  }, [getCurrentUser, router]);
 
 
 
