@@ -51,3 +51,19 @@ class SettingRepository:
         await self.db.refresh(setting)
 
         return setting
+
+    async def update(
+        self,
+        setting: Setting,
+    ):
+        await self.db.commit()
+        await self.db.refresh(setting)
+
+        return setting
+
+    async def delete(
+        self,
+        setting: Setting,
+    ):
+        await self.db.delete(setting)
+        await self.db.commit()

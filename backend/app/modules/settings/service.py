@@ -3,7 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.setting import Setting
 from app.modules.settings.repository import SettingRepository
-from app.modules.settings.schemas import SettingCreateRequest
+from app.modules.settings.schemas import (
+    SettingCreateRequest,
+    SettingUpdateRequest,
+)
 
 
 class SettingService:
@@ -65,3 +68,83 @@ class SettingService:
             )
 
         return setting
+
+    async def update_setting(
+        self,
+        setting_id: int,
+        payload: SettingUpdateRequest,
+        current_user,
+    ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        setting = await self.repository.get_by_id(
+            setting_id,
+            school_id,
+        )
+
+        if not setting:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Setting not found",
+            )
+
+        setting.key = payload.key
+        setting.value = payload.value
+        setting.description = payload.description
+
+        return await self.repository.update(setting)
+
+    async def toggle_setting_status(
+        self,
+        setting_id: int,
+        current_user,
+    ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        setting = await self.repository.get_by_id(
+            setting_id,
+            school_id,
+        )
+
+        if not setting:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Setting not found",
+            )
+
+        setting.is_active = not setting.is_active
+
+        return await self.repository.update(setting)
+
+    async def delete_setting(
+        self,
+        setting_id: int,
+        current_user,
+    ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        setting = await self.repository.get_by_id(
+            setting_id,
+            school_id,
+        )
+
+        if not setting:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Setting not found",
+            )
+
+        await self.repository.delete(setting)
+
+        return {
+            "message": "Setting deleted successfully"
+        }

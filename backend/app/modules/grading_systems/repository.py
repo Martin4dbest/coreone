@@ -13,7 +13,9 @@ class GradingSystemRepository:
         self,
         school_id: int | None = None,
     ):
-        query = select(GradingSystem).order_by(GradingSystem.minimum_score)
+        query = select(GradingSystem).order_by(
+            GradingSystem.minimum_score
+        )
 
         if school_id is not None:
             query = query.where(
@@ -23,7 +25,10 @@ class GradingSystemRepository:
         result = await self.db.execute(query)
         return result.scalars().all()
 
-    async def get_by_id(self, grading_system_id: int):
+    async def get_by_id(
+        self,
+        grading_system_id: int,
+    ):
         result = await self.db.execute(
             select(GradingSystem).where(
                 GradingSystem.id == grading_system_id
@@ -39,3 +44,18 @@ class GradingSystemRepository:
         await self.db.commit()
         await self.db.refresh(grading_system)
         return grading_system
+
+    async def update(
+        self,
+        grading_system: GradingSystem,
+    ):
+        await self.db.commit()
+        await self.db.refresh(grading_system)
+        return grading_system
+
+    async def delete(
+        self,
+        grading_system: GradingSystem,
+    ):
+        await self.db.delete(grading_system)
+        await self.db.commit()

@@ -9,6 +9,15 @@ class GradingSystemCreateRequest(BaseModel):
     remark: str
 
 
+
+
+class GradingSystemUpdateRequest(BaseModel):
+    grade: str
+    minimum_score: float
+    maximum_score: float
+    remark: str
+
+
 class GradingSystemResponse(BaseModel):
     id: int
     school_id: int

@@ -20,6 +20,12 @@ Settings,
 
 import api from "@/lib/api";
 
+type CurrentUser = {
+  role: {
+    name: string;
+  };
+};
+
 type School = {
   id: number;
   name: string;
@@ -41,6 +47,7 @@ export default function SchoolDetailsPage({
   const { schoolId } = use(params);
 
   const [school, setSchool] = useState<School | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -48,8 +55,13 @@ export default function SchoolDetailsPage({
   useEffect(() => {
     async function loadSchool() {
       try {
-        const response = await api.get(`/schools/${schoolId}`);
-        setSchool(response.data);
+        const [schoolResponse, userResponse] = await Promise.all([
+          api.get(`/schools/${schoolId}`),
+          api.get("/auth/me"),
+        ]);
+
+        setSchool(schoolResponse.data);
+        setCurrentUser(userResponse.data);
       } catch (error) {
         console.error("Failed to load school:", error);
         setError("Unable to load this school.");
@@ -105,7 +117,20 @@ return (
     );
   }
 
+  const isSuperAdmin =
+    currentUser?.role?.name === "SUPER_ADMIN";
+
   const schoolModules = [
+    ...(isSuperAdmin
+      ? [
+          {
+            title: "School Admins",
+            description: "Manage administrators assigned to this school",
+            icon: Settings,
+            href: `/dashboard/schools/${schoolId}/admins`,
+          },
+        ]
+      : []),
     {
       title: "Students",
       description: "Manage enrolled learners",

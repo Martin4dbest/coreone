@@ -86,7 +86,7 @@ class UserService:
             payload.school_id,
         )
 
-        await self._validate_role_assignment(
+        role = await self._validate_role_assignment(
             current_user,
             payload.role_id,
         )
@@ -107,7 +107,7 @@ class UserService:
             email=payload.email,
             hashed_password=hash_password(payload.password),
             is_active=True,
-            is_verified=False,
+            is_verified=role.name == "SCHOOL_ADMIN",
         )
 
         return await self.repository.create(user)
