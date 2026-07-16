@@ -45,6 +45,20 @@ class ClassService:
                 detail="Selected level does not belong to this school",
             )
 
+        existing = await self.db.execute(
+            select(Classroom).where(
+                Classroom.school_id == school_id,
+                Classroom.level_id == payload.level_id,
+                Classroom.name == payload.name,
+            )
+        )
+
+        if existing.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This class already exists for this level",
+            )
+
         classroom = Classroom(
             school_id=school_id,
             level_id=payload.level_id,

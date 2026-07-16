@@ -10,7 +10,6 @@ from app.modules.departments.schemas import (
 )
 from app.modules.departments.service import DepartmentService
 
-
 router = APIRouter(
     prefix="/departments",
     tags=["Departments"],
@@ -27,7 +26,8 @@ async def create_department(
     current_user: User = Depends(get_current_user),
 ):
     return await DepartmentService(db).create_department(
-        payload
+        payload,
+        current_user,
     )
 
 
@@ -40,7 +40,9 @@ async def get_departments(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await DepartmentService(db).get_departments(current_user)
+    return await DepartmentService(db).get_departments(
+        current_user
+    )
 
 
 @router.get(
@@ -53,5 +55,6 @@ async def get_department(
     current_user: User = Depends(get_current_user),
 ):
     return await DepartmentService(db).get_department(
-        department_id
+        department_id,
+        current_user,
     )

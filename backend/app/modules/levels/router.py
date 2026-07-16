@@ -66,7 +66,8 @@ async def deactivate_level(
     current_user: User = Depends(get_current_user),
 ):
     return await LevelService(db).deactivate_level(
-        level_id
+        level_id,
+        current_user,
     )
 
 
@@ -77,6 +78,19 @@ async def activate_level(
     current_user: User = Depends(get_current_user),
 ):
     return await LevelService(db).activate_level(
-        level_id
+        level_id,
+        current_user,
     )
 
+
+
+@router.delete("/{level_id}")
+async def delete_level(
+    level_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await LevelService(db).delete_level(
+        level_id,
+        current_user,
+    )

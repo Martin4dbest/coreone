@@ -1,9 +1,15 @@
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.result import Result
+from app.models.grading_system import GradingSystem
+
 from app.modules.results.repository import ResultRepository
-from app.modules.results.schemas import ResultCreateRequest
+from app.modules.results.schemas import (
+    ResultCreateRequest,
+    ResultUpdateRequest,
+)
 
 
 class ResultService:
@@ -14,10 +20,34 @@ class ResultService:
     async def create_result(
         self,
         payload: ResultCreateRequest,
+        current_user,
     ):
-        total_score = (
-            payload.ca_score +
-            payload.exam_score
+        if (
+            current_user.role.name != "SUPER_ADMIN"
+            and payload.school_id != current_user.school_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot create results for another school",
+            )
+
+        if payload.ca_score < 0 or payload.ca_score > 40:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="CA score must be between 0 and 40",
+            )
+
+        if payload.exam_score < 0 or payload.exam_score > 60:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Exam score must be between 0 and 60",
+            )
+
+        total_score = payload.ca_score + payload.exam_score
+
+        grading = await self.get_grade_for_score(
+            payload.school_id,
+            total_score,
         )
 
         result = Result(
@@ -30,15 +60,29 @@ class ResultService:
             ca_score=payload.ca_score,
             exam_score=payload.exam_score,
             total_score=total_score,
-            grade=payload.grade,
-            remark=payload.remark,
+            grade=grading.grade if grading else None,
+            remark=grading.remark if grading else None,
             is_active=True,
         )
 
-        return await self.repository.create(result)
+        created = await self.repository.create(result)
 
-    async def get_results(self):
-        return await self.repository.get_all()
+        return await self.repository.get_by_id_with_details(
+            created.id
+        )
+
+    async def get_results(
+        self,
+        current_user,
+    ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        return await self.repository.get_all(
+            school_id
+        )
 
     async def get_result(
         self,
@@ -55,3 +99,18 @@ class ResultService:
             )
 
         return result
+
+    async def get_grade_for_score(
+        self,
+        school_id: int,
+        score: float,
+    ):
+        result = await self.repository.db.execute(
+            select(GradingSystem).where(
+                GradingSystem.school_id == school_id,
+                GradingSystem.minimum_score <= score,
+                GradingSystem.maximum_score >= score,
+            )
+        )
+
+        return result.scalar_one_or_none()

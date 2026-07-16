@@ -11,15 +11,15 @@ class LevelService:
     def __init__(self, db: AsyncSession):
         self.repository = LevelRepository(db)
 
+
     async def create_level(
         self,
         payload: LevelCreateRequest,
         current_user,
     ):
+
         school_id = payload.school_id
 
-        # SUPER_ADMIN can create levels for any school.
-        # Other users can only create levels for their assigned school.
         if current_user.role.name != "SUPER_ADMIN":
             if school_id != current_user.school_id:
                 raise HTTPException(
@@ -27,21 +27,35 @@ class LevelService:
                     detail="You cannot create levels for another school",
                 )
 
+
+        existing = await self.repository.get_by_name(
+            payload.name.strip(),
+            school_id,
+        )
+
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Level already exists",
+            )
+
+
         level = Level(
             school_id=school_id,
-            name=payload.name,
+            name=payload.name.strip(),
         )
 
         return await self.repository.create(level)
+
+
 
     async def get_levels(
         self,
         current_user,
     ):
+
         school_id = None
 
-        # SUPER_ADMIN can see levels across all schools.
-        # School users only see levels from their own school.
         if current_user.role.name != "SUPER_ADMIN":
             school_id = current_user.school_id
 
@@ -49,15 +63,19 @@ class LevelService:
             school_id
         )
 
+
+
     async def get_level(
         self,
-        level_id: int,
+        level_id:int,
         current_user,
     ):
+
         school_id = None
 
         if current_user.role.name != "SUPER_ADMIN":
             school_id = current_user.school_id
+
 
         level = await self.repository.get_by_id(
             level_id,
@@ -72,54 +90,55 @@ class LevelService:
 
         return level
 
-    async def deactivate_level(
+
+
+    async def activate_level(
         self,
-        level_id: int,
+        level_id:int,
         current_user,
     ):
-        school_id = None
 
-        if current_user.role.name != "SUPER_ADMIN":
-            school_id = current_user.school_id
-
-        level = await self.repository.get_by_id(
+        level = await self.get_level(
             level_id,
-            school_id,
+            current_user,
         )
 
-        if not level:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Level not found",
-            )
+        level.is_active = True
+
+        return await self.repository.update(level)
+
+
+
+    async def deactivate_level(
+        self,
+        level_id:int,
+        current_user,
+    ):
+
+        level = await self.get_level(
+            level_id,
+            current_user,
+        )
 
         level.is_active = False
 
         return await self.repository.update(level)
 
 
-    async def activate_level(
+
+    async def delete_level(
         self,
-        level_id: int,
+        level_id:int,
         current_user,
     ):
-        school_id = None
 
-        if current_user.role.name != "SUPER_ADMIN":
-            school_id = current_user.school_id
-
-        level = await self.repository.get_by_id(
+        level = await self.get_level(
             level_id,
-            school_id,
+            current_user,
         )
 
-        if not level:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Level not found",
-            )
+        await self.repository.delete(level)
 
-        level.is_active = True
-
-        return await self.repository.update(level)
-
+        return {
+            "message":"Level deleted successfully"
+        }

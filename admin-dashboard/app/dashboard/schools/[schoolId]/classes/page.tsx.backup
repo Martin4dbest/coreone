@@ -2,7 +2,6 @@
 
 import { FormEvent, use, useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   BookOpen,
   GraduationCap,
   Loader2,
@@ -48,7 +47,6 @@ export default function ClassesPage({
   const [selectedLevelId, setSelectedLevelId] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
-const [loadingId, setLoadingId] = useState<number | null>(null);
   const [error, setError] = useState("");
 
   async function loadAcademicStructure() {
@@ -162,20 +160,14 @@ async function toggleClass(
   id: number,
   active: boolean
 ) {
-
   try {
-
-    setLoadingId(id);
-
     const action = active
       ? "deactivate"
       : "activate";
 
-
     const response = await api.patch(
       `/classes/${id}/${action}`
     );
-
 
     setClasses((current) =>
       current.map((item) =>
@@ -185,22 +177,13 @@ async function toggleClass(
       )
     );
 
-
-  } catch(error) {
-
+  } catch (error) {
     console.error(
-      "CLASS STATUS UPDATE FAILED:",
+      "Failed updating class status",
       error
     );
-
-  } finally {
-
-    setLoadingId(null);
-
   }
-
 }
-
 
 return (
     <div className="space-y-6">
@@ -211,15 +194,7 @@ return (
             Academic Structure
           </div>
 
-          <a
-  href={`/dashboard/schools/${schoolId}/academics`}
-  className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-rose-600"
->
-  <ArrowLeft size={18} />
-  Back to Academics
-</a>
-
-<h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900">
+          <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900">
             Classes
           </h1>
 
@@ -339,13 +314,7 @@ return (
       : "ml-3 text-xs text-green-600"
   }
 >
-  {
-  loadingId === classroom.id
-    ? <Loader2 size={14} className="animate-spin" />
-    : classroom.is_active
-      ? "Deactivate"
-      : "Activate"
-}
+  {classroom.is_active ? "Deactivate" : "Activate"}
 </button>
                     </td>
 
@@ -473,6 +442,13 @@ function Modal({
             </p>
           </div>
 
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         <div className="mt-8">

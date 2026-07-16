@@ -201,6 +201,12 @@ const schoolBase =
       color: "text-rose-400",
     },
     {
+name: "Results",
+href: `${schoolBase}/results`,
+icon: FileText,
+color: "text-yellow-400",
+},
+{
       name: "Attendance",
       href: `${schoolBase}/attendance`,
       icon: ClipboardCheck,

@@ -6,8 +6,8 @@ import {
   ArrowLeft,
   Plus,
   X,
-    Trash2,
-Loader2,
+  Loader2,
+  Trash2,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -63,44 +63,54 @@ export default function LevelsPage({
 
 
     async function toggleLevel(
-  id: number,
-  active: boolean
-){
+      id:number,
+      active:boolean
+    ){
 
-  try {
+      try{
 
-    const action = active
-      ? "deactivate"
-      : "activate";
+        setLoadingId(id);
 
-
-    const response = await api.patch(
-      `/levels/${id}/${action}`
-    );
+        const action = active
+          ? "deactivate"
+          : "activate";
 
 
-    setLevels((current) =>
-      current.map((level) =>
-        level.id === id
-          ? response.data
-          : level
-      )
-    );
+        await api.patch(
+          `/levels/${id}/${action}`
+        );
 
 
-  } catch(error){
+        setLevels(prev =>
+          prev.map(level =>
+            level.id === id
+              ? {
+                  ...level,
+                  is_active: !active,
+                }
+              : level
+          )
+        );
 
-    console.error(
-      "LEVEL STATUS UPDATE FAILED:",
-      error
-    );
 
-  }
+      }catch(error){
 
-}
+        console.error(
+          "LEVEL STATUS UPDATE FAILED:",
+          error
+        );
+
+      }finally{
+
+        setLoadingId(null);
+
+      }
+
+    }
 
 
-async function deleteLevel(id:number){
+
+  async function deleteLevel(id:number){
 
     const confirmDelete =
       confirm(
@@ -233,6 +243,23 @@ Manage school academic levels
 
 
 
+<button
+onClick={()=>setShowModal(true)}
+className="
+flex items-center gap-2
+bg-blue-600
+text-white
+px-5 py-3
+rounded-xl
+"
+>
+
+<Plus size={18}/>
+
+Create Level
+
+</button>
+
 
 </div>
 
@@ -359,11 +386,10 @@ bg-blue-100 text-blue-700
 {
 loadingId===level.id
 ?
-level.is_active
-?
-"Deactivate"
-:
-"Activate" 
+<Loader2
+size={16}
+className="animate-spin"
+/>
 :
 level.is_active
 ?
@@ -505,8 +531,8 @@ flex gap-2 items-center
 {
 saving &&
 <Loader2
-  size={16}
-  className="animate-spin"
+size={16}
+className="animate-spin"
 />
 }
 
