@@ -1,11 +1,13 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import Link from "next/link";
 import api from "@/lib/api";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2, X, Loader2 } from "lucide-react";
 
 type Result = {
   id: number;
+  student_id: number;
   student_name: string;
   admission_number: string;
   class_name: string;
@@ -44,6 +46,17 @@ export default function ResultsPage({
 
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+const [deletingAll, setDeletingAll] = useState(false);
+
+const [bulkOpen, setBulkOpen] = useState(false);
+const [bulkStudents, setBulkStudents] = useState<Student[]>([]);
+const [bulkScores, setBulkScores] = useState<Record<number, {ca:string; exam:string}>>({});
+const [bulkClassId, setBulkClassId] = useState("");
+const [bulkSubjectId, setBulkSubjectId] = useState("");
+const [bulkTermId, setBulkTermId] = useState("");
+const [bulkSessionId, setBulkSessionId] = useState("");
+const [bulkLoading, setBulkLoading] = useState(false);
+const [bulkSaving, setBulkSaving] = useState(false);
 
   const [studentId, setStudentId] = useState("");
   const [classId, setClassId] = useState("");
@@ -53,16 +66,6 @@ export default function ResultsPage({
   const [ca, setCa] = useState("");
   const [exam, setExam] = useState("");
 
-const [bulkOpen, setBulkOpen] = useState(false);
-const [bulkStudents, setBulkStudents] = useState<Student[]>([]);
-const [bulkClassId, setBulkClassId] = useState("");
-const [bulkSubjectId, setBulkSubjectId] = useState("");
-const [bulkTermId, setBulkTermId] = useState("");
-const [bulkSessionId, setBulkSessionId] = useState("");
-const [bulkScores, setBulkScores] = useState<
-  Record<number, { ca: string; exam: string }>
->({});
-const [bulkSaving, setBulkSaving] = useState(false);
 
   async function loadData() {
     const [
@@ -93,23 +96,47 @@ const [bulkSaving, setBulkSaving] = useState(false);
     loadData();
   }, []);
 
+
   async function createResult() {
+
     setSaving(true);
 
-    await api.post("/results", {
-      school_id: Number(schoolId),
-      student_id: Number(studentId),
-      class_id: Number(classId),
-      subject_id: Number(subjectId),
-      term_id: Number(termId),
-      academic_session_id: Number(sessionId),
-      ca_score: Number(ca),
-      exam_score: Number(exam),
-    });
+    try {
 
-    setSaving(false);
-    setOpen(false);
-    await loadData();
+      await api.post("/results", {
+        school_id: Number(schoolId),
+        student_id: Number(studentId),
+        class_id: Number(classId),
+        subject_id: Number(subjectId),
+        term_id: Number(termId),
+        academic_session_id: Number(sessionId),
+        ca_score: Number(ca),
+        exam_score: Number(exam),
+      });
+
+      setOpen(false);
+
+      await loadData();
+
+    } catch (error: any) {
+
+      console.error(
+        "CREATE RESULT FAILED:",
+        error
+      );
+
+      const message =
+        error?.response?.data?.detail ||
+        "Failed to save result";
+
+      alert(message);
+
+    } finally {
+
+      setSaving(false);
+
+    }
+
   }
 
   async function deleteResult(id: number) {
@@ -216,7 +243,8 @@ return (
           
       <button
         onClick={() => setBulkOpen(true)}
-        className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-xl"
+        disabled={bulkSaving || saving}
+        className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-xl disabled:opacity-50"
       >
         Bulk Entry
       </button>
@@ -262,9 +290,11 @@ return (
 
         <button
           onClick={loadBulkStudents}
-          className="bg-blue-600 text-white rounded"
+          disabled={bulkLoading}
+          className="bg-blue-600 text-white rounded flex items-center justify-center gap-2 px-3"
         >
-          Load Students
+          {bulkLoading && <Loader2 size={16} className="animate-spin" />}
+          {bulkLoading ? "Loading..." : "Load Students"}
         </button>
 
         <select
@@ -368,7 +398,13 @@ return (
         disabled={bulkSaving}
         className="mt-5 bg-green-600 text-white px-5 py-2 rounded-xl"
       >
-        {bulkSaving ? "Saving..." : "Save Bulk Results"}
+        <span className="flex items-center gap-2">
+          {bulkSaving && <Loader2 size={16} className="animate-spin" />}
+          <span className="flex items-center gap-2">
+  {bulkSaving && <Loader2 className="animate-spin" size={16}/>}
+  {bulkSaving ? "Saving..." : "Save Bulk Results"}
+</span>
+        </span>
       </button>
 
     </div>
@@ -475,7 +511,13 @@ return (
             disabled={saving}
             className="mt-4 bg-green-600 text-white px-5 py-2 rounded-xl"
           >
-            {saving ? "Saving..." : "Save Result"}
+            <span className="flex items-center gap-2">
+          {saving && <Loader2 size={16} className="animate-spin" />}
+          <span className="flex items-center gap-2">
+  {saving && <Loader2 className="animate-spin" size={16}/>}
+  {saving ? "Saving..." : "Save Result"}
+</span>
+        </span>
           </button>
 
         </div>
@@ -540,13 +582,24 @@ return (
             </td>
 
             <td className="p-3">
-              <button
-                onClick={()=>deleteResult(r.id)}
-                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-sm"
-              >
-                <Trash2 size={15}/>
-                Delete
-              </button>
+              <div className="flex items-center gap-2">
+
+                <Link
+                  href={`/dashboard/schools/${schoolId}/students/${r.student_id}/report-card`}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-lg text-sm"
+                >
+                  Report Card
+                </Link>
+
+                <button
+                  onClick={()=>deleteResult(r.id)}
+                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-sm"
+                >
+                  <Trash2 size={15}/>
+                  Delete
+                </button>
+
+              </div>
             </td>
           </tr>
         ))}

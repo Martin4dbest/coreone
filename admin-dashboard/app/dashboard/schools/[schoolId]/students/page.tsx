@@ -144,7 +144,7 @@ return () => {
     try {
       setActionLoading(studentId);
 
-      await api.delete(`/students/${studentId}`);
+      await api.patch(`/students/${studentId}/deactivate`);
 
       setStudents((current) =>
         current.filter(
@@ -664,7 +664,7 @@ return () => {
                     )}
 
                     {actionLoading === student.id
-                      ? "Deleting..."
+                      ? "Deactivating..."
                       : "Delete"}
                   </button>
                 </td>

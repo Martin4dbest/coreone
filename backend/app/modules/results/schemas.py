@@ -76,3 +76,7 @@ class ResultResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ResultCommentRequest(BaseModel):
+    comment: str

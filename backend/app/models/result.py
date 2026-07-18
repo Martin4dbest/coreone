@@ -70,6 +70,23 @@ class Result(Base, BaseModel, SchoolMixin, ActiveMixin):
         nullable=True,
     )
 
+    admin_comment: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    teacher_comment_by: Mapped[int | None] = mapped_column(
+        nullable=True,
+    )
+
+    principal_comment_by: Mapped[int | None] = mapped_column(
+        nullable=True,
+    )
+
+    admin_comment_by: Mapped[int | None] = mapped_column(
+        nullable=True,
+    )
+
     entered_by: Mapped[int | None] = mapped_column(
         nullable=True,
     )
