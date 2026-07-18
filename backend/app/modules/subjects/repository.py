@@ -50,3 +50,20 @@ class SubjectRepository:
         await self.db.commit()
         await self.db.refresh(subject)
         return subject
+
+
+    async def update(
+        self,
+        subject: Subject,
+    ):
+        await self.db.commit()
+        await self.db.refresh(subject)
+        return subject
+
+
+    async def delete(
+        self,
+        subject: Subject,
+    ):
+        await self.db.delete(subject)
+        await self.db.commit()

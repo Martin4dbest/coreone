@@ -4,7 +4,8 @@ from uuid import uuid4
 from fastapi import HTTPException, UploadFile, status
 
 
-UPLOAD_DIR = Path("uploads/branding")
+BASE_DIR = Path(__file__).resolve().parents[3]
+UPLOAD_DIR = BASE_DIR / "uploads" / "branding"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_CONTENT_TYPES = {

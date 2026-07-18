@@ -18,7 +18,6 @@ class StudentService:
         self.repository = StudentRepository(db)
         self.user_service = UserService(db)
 
-
     async def create_student(
         self,
         payload: StudentCreateRequest,
@@ -26,9 +25,6 @@ class StudentService:
     ):
         school_id = payload.school_id
 
-        # Multi-school access control:
-        # SUPER_ADMIN can create students for any school.
-        # Other users can only create students for their assigned school.
         if current_user.role.name != "SUPER_ADMIN":
             if school_id != current_user.school_id:
                 raise HTTPException(
@@ -36,7 +32,6 @@ class StudentService:
                     detail="You cannot create students for another school",
                 )
 
-        # Validate selected class belongs to the selected school.
         classroom = None
 
         if payload.classroom_id is not None:
@@ -68,7 +63,7 @@ class StudentService:
 
         result = await self.db.execute(
             select(Role).where(
-                Role.name == "STUDENT"
+                Role.name == "STUDENT",
             )
         )
 
@@ -102,22 +97,20 @@ class StudentService:
 
         return await self.repository.create(student)
 
-
     async def get_students(
         self,
         current_user,
+        class_id: int | None = None,
     ):
         school_id = None
 
-        # SUPER_ADMIN can see students across all schools.
-        # School users only see students from their own school.
         if current_user.role.name != "SUPER_ADMIN":
             school_id = current_user.school_id
 
         return await self.repository.get_all(
-            school_id
+            school_id,
+            class_id,
         )
-
 
     async def get_student(
         self,
@@ -126,8 +119,6 @@ class StudentService:
     ):
         school_id = None
 
-        # SUPER_ADMIN can access any student.
-        # School users are restricted to their own school.
         if current_user.role.name != "SUPER_ADMIN":
             school_id = current_user.school_id
 
@@ -169,7 +160,6 @@ class StudentService:
 
         return await self.repository.update(student)
 
-
     async def activate_student(
         self,
         student_id: int,
@@ -194,4 +184,3 @@ class StudentService:
         student.is_active = True
 
         return await self.repository.update(student)
-

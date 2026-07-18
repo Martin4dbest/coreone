@@ -15,10 +15,7 @@ class ResultRepository:
         self.db = db
 
 
-    async def get_all(
-        self,
-        school_id: int | None = None,
-    ):
+    async def get_all(self, school_id: int | None = None):
         query = (
             select(
                 Result,
@@ -41,166 +38,91 @@ class ResultRepository:
             .order_by(Result.created_at.desc())
         )
 
-        if school_id is not None:
-            query = query.where(
-                Result.school_id == school_id
-            )
+        if school_id:
+            query = query.where(Result.school_id == school_id)
 
-        rows = (
-            await self.db.execute(query)
-        ).all()
+        rows = (await self.db.execute(query)).all()
 
-        data = []
+        results = []
 
-        for (
-            result,
-            first_name,
-            last_name,
-            admission_number,
-            class_name,
-            subject_name,
-            term_name,
-            session_name,
-        ) in rows:
+        for row in rows:
+            result = row[0]
 
-            data.append(
-                {
-                    "id": result.id,
-                    "school_id": result.school_id,
-                    "student_id": result.student_id,
-                    "student_name": f"{first_name} {last_name}",
-                    "admission_number": admission_number,
-                    "class_id": result.class_id,
-                    "class_name": class_name,
-                    "subject_id": result.subject_id,
-                    "subject_name": subject_name,
-                    "term_id": result.term_id,
-                    "term_name": term_name,
-                    "academic_session_id": result.academic_session_id,
-                    "session_name": session_name,
-                    "ca_score": result.ca_score,
-                    "exam_score": result.exam_score,
-                    "total_score": result.total_score,
-                    "grade": result.grade,
-                    "remark": result.remark,
-                    "is_active": result.is_active,
-                }
-            )
+            results.append({
+                "id": result.id,
+                "school_id": result.school_id,
+                "student_id": result.student_id,
+                "student_name": f"{row.first_name} {row.last_name}",
+                "admission_number": row.admission_number,
+                "class_id": result.class_id,
+                "class_name": row.class_name,
+                "subject_id": result.subject_id,
+                "subject_name": row.subject_name,
+                "term_id": result.term_id,
+                "term_name": row.term_name,
+                "academic_session_id": result.academic_session_id,
+                "session_name": row.session_name,
+                "ca_score": result.ca_score,
+                "exam_score": result.exam_score,
+                "total_score": result.total_score,
+                "grade": result.grade,
+                "remark": result.remark,
+                "is_active": result.is_active,
+            })
 
-        return data
+        return results
 
 
-    async def get_by_id(
-        self,
-        result_id: int,
-    ):
-        result = await self.db.execute(
-            select(Result).where(
-                Result.id == result_id
-            )
-        )
+    async def get_by_id(self, result_id: int):
+        query = select(Result).where(Result.id == result_id)
+
+        result = await self.db.execute(query)
 
         return result.scalar_one_or_none()
 
 
-    async def get_by_id_with_details(
+    async def get_existing_result(
         self,
-        result_id: int,
+        school_id: int,
+        student_id: int,
+        class_id: int,
+        subject_id: int,
+        term_id: int,
+        academic_session_id: int,
     ):
-        query = (
-            select(
-                Result,
-                Student.first_name,
-                Student.last_name,
-                Student.admission_number,
-                Classroom.name.label("class_name"),
-                Subject.name.label("subject_name"),
-                Term.name.label("term_name"),
-                AcademicSession.name.label("session_name"),
-            )
-            .join(Student, Student.id == Result.student_id)
-            .join(Classroom, Classroom.id == Result.class_id)
-            .join(Subject, Subject.id == Result.subject_id)
-            .join(Term, Term.id == Result.term_id)
-            .join(
-                AcademicSession,
-                AcademicSession.id == Result.academic_session_id,
-            )
-            .where(Result.id == result_id)
+        query = select(Result).where(
+            Result.school_id == school_id,
+            Result.student_id == student_id,
+            Result.class_id == class_id,
+            Result.subject_id == subject_id,
+            Result.term_id == term_id,
+            Result.academic_session_id == academic_session_id,
         )
 
-        row = (
-            await self.db.execute(query)
-        ).first()
+        result = await self.db.execute(query)
 
-        if not row:
-            return None
-
-        (
-            result,
-            first_name,
-            last_name,
-            admission_number,
-            class_name,
-            subject_name,
-            term_name,
-            session_name,
-        ) = row
-
-        return {
-            "id": result.id,
-            "school_id": result.school_id,
-            "student_id": result.student_id,
-            "student_name": f"{first_name} {last_name}",
-            "admission_number": admission_number,
-            "class_id": result.class_id,
-            "class_name": class_name,
-            "subject_id": result.subject_id,
-            "subject_name": subject_name,
-            "term_id": result.term_id,
-            "term_name": term_name,
-            "academic_session_id": result.academic_session_id,
-            "session_name": session_name,
-            "ca_score": result.ca_score,
-            "exam_score": result.exam_score,
-            "total_score": result.total_score,
-            "grade": result.grade,
-            "remark": result.remark,
-            "is_active": result.is_active,
-        }
+        return result.scalar_one_or_none()
 
 
-    async def create(
-        self,
-        result: Result,
-    ):
+    async def create(self, result: Result):
         self.db.add(result)
         await self.db.commit()
         await self.db.refresh(result)
         return result
 
 
-    async def update(
-        self,
-        result: Result,
-    ):
+    async def update(self, result: Result):
         await self.db.commit()
         await self.db.refresh(result)
         return result
 
 
-    async def delete(
-        self,
-        result: Result,
-    ):
+    async def delete(self, result: Result):
         await self.db.delete(result)
         await self.db.commit()
 
 
-    async def delete_all(
-        self,
-        school_id: int,
-    ):
+    async def delete_all(self, school_id: int):
         await self.db.execute(
             delete(Result).where(
                 Result.school_id == school_id

@@ -83,3 +83,15 @@ async def activate_class(
         current_user,
     )
 
+
+
+@router.delete("/{class_id}")
+async def delete_class(
+    class_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await ClassService(db).delete_class(
+        class_id,
+        current_user,
+    )

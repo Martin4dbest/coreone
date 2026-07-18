@@ -32,11 +32,13 @@ async def create_student(
 
 @router.get("/")
 async def get_students(
+    class_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")),
 ):
     return await StudentService(db).get_students(
-        current_user
+        current_user,
+        class_id,
     )
 
 

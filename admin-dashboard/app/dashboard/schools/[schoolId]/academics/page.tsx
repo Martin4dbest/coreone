@@ -69,7 +69,7 @@ export default function AcademicsPage({
       title: "Results",
       description: "Manage assessments and student results",
       icon: FileCheck2,
-      href: "#",
+      href: `/dashboard/schools/${schoolId}/results`,
     },
   ];
 

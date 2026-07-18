@@ -72,3 +72,59 @@ class SubjectService:
             )
 
         return subject
+
+
+    async def update_status(
+        self,
+        subject_id: int,
+        is_active: bool,
+        current_user,
+    ):
+
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        subject = await self.repository.get_by_id(
+            subject_id,
+            school_id,
+        )
+
+        if not subject:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Subject not found",
+            )
+
+        subject.is_active = is_active
+
+        return await self.repository.update(subject)
+
+
+
+    async def delete_subject(
+        self,
+        subject_id: int,
+        current_user,
+    ):
+
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        subject = await self.repository.get_by_id(
+            subject_id,
+            school_id,
+        )
+
+        if not subject:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Subject not found",
+            )
+
+        await self.repository.delete(subject)
+
+        return {"message": "Subject deleted"}

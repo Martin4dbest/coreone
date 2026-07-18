@@ -7,6 +7,7 @@ from app.modules.auth.dependencies.current_user import get_current_user
 from app.modules.subjects.schemas import (
     SubjectCreateRequest,
     SubjectResponse,
+    SubjectStatusUpdate,
 )
 from app.modules.subjects.service import SubjectService
 
@@ -51,3 +52,34 @@ async def get_subject(
     current_user: User = Depends(get_current_user),
 ):
     return await SubjectService(db).get_subject(subject_id, current_user)
+
+
+@router.patch(
+    "/{subject_id}",
+    response_model=SubjectResponse,
+)
+async def update_subject_status(
+    subject_id: int,
+    payload: SubjectStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await SubjectService(db).update_status(
+        subject_id,
+        payload.is_active,
+        current_user,
+    )
+
+
+@router.delete(
+    "/{subject_id}",
+)
+async def delete_subject(
+    subject_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await SubjectService(db).delete_subject(
+        subject_id,
+        current_user,
+    )

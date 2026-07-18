@@ -8,6 +8,7 @@ import {
   Loader2,
   Plus,
   Power,
+Trash2,
   X,
 } from "lucide-react";
 
@@ -117,9 +118,19 @@ const [loadingId, setLoadingId] = useState<number | null>(null);
 
       setLevelName("");
       setShowLevelModal(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to create level:", err);
-      setError("Unable to create level.");
+
+      if (err.response?.status === 400) {
+        alert("This level already exists for this school.");
+      } else {
+        alert("Unable to create level.");
+      }
+
+      setError(
+        err.response?.data?.detail ??
+        "Unable to create level."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -200,6 +211,27 @@ async function toggleClass(
   }
 
 }
+
+async function deleteClass(id: number) {
+  if (!confirm("Delete this class permanently?")) return;
+
+  try {
+    setLoadingId(id);
+
+    await api.delete(`/classes/${id}`);
+
+    setClasses((current) =>
+      current.filter((item) => item.id !== id)
+    );
+  } catch (err) {
+    console.error(err);
+    alert("Failed to delete class.");
+  } finally {
+    setLoadingId(null);
+  }
+}
+
+
 
 
 return (
@@ -333,6 +365,7 @@ return (
       classroom.is_active
     )
   }
+  disabled={loadingId === classroom.id}
   className={
     classroom.is_active
       ? "ml-3 text-xs text-red-600"
@@ -340,12 +373,21 @@ return (
   }
 >
   {
-  loadingId === classroom.id
-    ? <Loader2 size={14} className="animate-spin" />
-    : classroom.is_active
-      ? "Deactivate"
-      : "Activate"
-}
+    loadingId === classroom.id
+      ? <Loader2 size={14} className="animate-spin" />
+      : classroom.is_active
+        ? "Deactivate"
+        : "Activate"
+  }
+</button>
+
+<button
+  onClick={() => deleteClass(classroom.id)}
+  disabled={loadingId === classroom.id}
+  className="ml-3 inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-800 disabled:opacity-50"
+>
+  <Trash2 size={14} />
+  Delete
 </button>
                     </td>
 

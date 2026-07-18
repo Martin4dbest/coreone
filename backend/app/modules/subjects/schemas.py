@@ -18,3 +18,7 @@ class SubjectResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class SubjectStatusUpdate(BaseModel):
+    is_active: bool

@@ -61,3 +61,11 @@ class ClassRepository:
         await self.db.refresh(classroom)
         return classroom
 
+
+
+    async def delete(
+        self,
+        classroom: Classroom,
+    ):
+        await self.db.delete(classroom)
+        await self.db.commit()

@@ -150,3 +150,20 @@ class ClassService:
         classroom.is_active = False
 
         return await self.repository.update(classroom)
+
+
+    async def delete_class(
+        self,
+        class_id: int,
+        current_user,
+    ):
+        classroom = await self.get_class(
+            class_id,
+            current_user,
+        )
+
+        await self.repository.delete(classroom)
+
+        return {
+            "message": "Class deleted successfully"
+        }

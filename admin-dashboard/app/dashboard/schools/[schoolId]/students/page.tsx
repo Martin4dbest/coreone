@@ -9,6 +9,7 @@ import {
   Plus,
   X,
   Power,
+  Trash2,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -73,6 +74,7 @@ export default function StudentsPage({
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [form, setForm] = useState(initialForm);
 
@@ -128,10 +130,36 @@ export default function StudentsPage({
 
     loadPageData();
 
-    return () => {
+    
+return () => {
       active = false;
     };
   }, [selectedSchoolId]);
+
+  async function deleteStudent(studentId: number) {
+    if (!confirm("Delete this student permanently?")) {
+      return;
+    }
+
+    try {
+      setActionLoading(studentId);
+
+      await api.delete(`/students/${studentId}`);
+
+      setStudents((current) =>
+        current.filter(
+          (student) => student.id !== studentId
+        )
+      );
+
+    } catch (error) {
+      console.error("Failed to delete student", error);
+      alert("Failed to delete student.");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
 
   function updateField(
     field: keyof StudentForm,
@@ -210,6 +238,7 @@ export default function StudentsPage({
     active: boolean
   ) {
     try {
+        setActionLoading(studentId);
       await api.patch(
         `/students/${studentId}/${active ? "deactivate" : "activate"}`
       );
@@ -231,6 +260,10 @@ export default function StudentsPage({
         error
       );
     }
+
+      finally {
+        setActionLoading(null);
+      }
   }
 
 
@@ -556,37 +589,85 @@ export default function StudentsPage({
                       {student.date_of_birth}
                     </td>
 
-                    <td>
-                      <button
-                        onClick={() =>
-                          toggleStudent(
-                            student.id,
-                            student.is_active
-                          )
-                        }
-                        className={`
-                          inline-flex
-                          items-center
-                          gap-2
-                          rounded-lg
-                          px-3
-                          py-2
-                          text-xs
-                          font-bold
-                          ${
-                            student.is_active
-                              ? "bg-red-100 text-red-600"
-                              : "bg-green-100 text-green-600"
-                          }
-                        `}
-                      >
-                        <Power size={14} />
+                <td>
+                  <button
+                    onClick={() =>
+                      toggleStudent(
+                        student.id,
+                        student.is_active
+                      )
+                    }
+                    disabled={actionLoading === student.id}
+                    className={`
+                      inline-flex
+                      items-center
+                      gap-2
+                      rounded-lg
+                      px-3
+                      py-2
+                      text-xs
+                      font-bold
+                      ${
+                        student.is_active
+                          ? "bg-red-100 text-red-600"
+                          : "bg-green-100 text-green-600"
+                      }
+                      disabled:opacity-60
+                      disabled:cursor-not-allowed
+                    `}
+                  >
+                    {actionLoading === student.id ? (
+                      <Loader2
+                        size={14}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <Power size={14} />
+                    )}
 
-                        {student.is_active
-                          ? "Deactivate"
-                          : "Activate"}
-                      </button>
-                    </td>
+                    {actionLoading === student.id
+                      ? "Updating..."
+                      : student.is_active
+                        ? "Deactivate"
+                        : "Activate"}
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      deleteStudent(student.id)
+                    }
+                    disabled={actionLoading === student.id}
+                    className="
+                      ml-2
+                      inline-flex
+                      items-center
+                      gap-2
+                      rounded-lg
+                      bg-red-100
+                      px-3
+                      py-2
+                      text-xs
+                      font-bold
+                      text-red-700
+                      hover:bg-red-200
+                      disabled:opacity-60
+                      disabled:cursor-not-allowed
+                    "
+                  >
+                    {actionLoading === student.id ? (
+                      <Loader2
+                        size={14}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <Trash2 size={14} />
+                    )}
+
+                    {actionLoading === student.id
+                      ? "Deleting..."
+                      : "Delete"}
+                  </button>
+                </td>
 
                     <td
                       className="

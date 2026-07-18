@@ -10,10 +10,10 @@ class StudentRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-
     async def get_all(
         self,
         school_id: int | None = None,
+        class_id: int | None = None,
     ):
         query = (
             select(Student)
@@ -28,10 +28,14 @@ class StudentRepository:
                 Student.school_id == school_id
             )
 
+        if class_id is not None:
+            query = query.where(
+                Student.classroom_id == class_id
+            )
+
         result = await self.db.execute(query)
 
         return result.scalars().all()
-
 
     async def get_by_id(
         self,
@@ -58,7 +62,6 @@ class StudentRepository:
 
         return result.scalar_one_or_none()
 
-
     async def get_by_admission_number(
         self,
         admission_number: str,
@@ -73,7 +76,6 @@ class StudentRepository:
 
         return result.scalar_one_or_none()
 
-
     async def create(
         self,
         student: Student,
@@ -86,8 +88,10 @@ class StudentRepository:
 
         return student
 
-    async def update(self, student: Student):
+    async def update(
+        self,
+        student: Student,
+    ):
         await self.db.commit()
         await self.db.refresh(student)
         return student
-

@@ -8,6 +8,8 @@ import {
   Loader2,
   Plus,
   X,
+  Power,
+  Trash2,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -43,6 +45,7 @@ export default function SubjectsPage({
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+const [actionLoading, setActionLoading] = useState<number | null>(null);
 
   const [showForm, setShowForm] = useState(false);
 
@@ -179,7 +182,67 @@ export default function SubjectsPage({
 
 
 
-  function getDepartmentName(
+
+  async function toggleSubject(
+  subjectId: number,
+  currentStatus: boolean
+) {
+
+  try {
+
+    setActionLoading(subjectId);
+
+    await api.patch(`/subjects/${subjectId}`, {
+      is_active: !currentStatus,
+    });
+
+    await loadData();
+
+  } catch (err) {
+
+    console.error(err);
+    setError("Unable to update subject.");
+
+  } finally {
+
+    setActionLoading(null);
+
+  }
+
+}
+
+
+async function deleteSubject(
+  subjectId: number
+) {
+
+  if (!confirm("Delete this subject?")) {
+    return;
+  }
+
+  try {
+
+    setActionLoading(subjectId);
+
+    await api.delete(`/subjects/${subjectId}`);
+
+    await loadData();
+
+  } catch (err) {
+
+    console.error(err);
+    setError("Unable to delete subject.");
+
+  } finally {
+
+    setActionLoading(null);
+
+  }
+
+}
+
+
+function getDepartmentName(
     id: number | null
   ) {
 
@@ -459,6 +522,72 @@ export default function SubjectsPage({
 
                     </span>
 
+
+                  <div className="flex items-center gap-2">
+
+                    <button
+                      disabled={actionLoading === subject.id}
+                      onClick={() =>
+                        toggleSubject(
+                          subject.id,
+                          subject.is_active
+                        )
+                      }
+                      className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold"
+                    >
+                      {
+                        actionLoading === subject.id ? (
+                          <Loader2
+                            size={14}
+                            className="inline mr-1 animate-spin"
+                          />
+                        ) : (
+                          <Power
+                            size={14}
+                            className="inline mr-1"
+                          />
+                        )
+                      }
+
+                      {
+                        actionLoading === subject.id
+                        ? "Updating..."
+                        : subject.is_active
+                        ? "Deactivate"
+                        : "Activate"
+                      }
+                    </button>
+
+
+                    <button
+                      disabled={actionLoading === subject.id}
+                      onClick={() =>
+                        deleteSubject(subject.id)
+                      }
+                      className="rounded-lg bg-red-100 px-3 py-2 text-xs font-bold text-red-700"
+                    >
+                      {
+                        actionLoading === subject.id ? (
+                          <Loader2
+                            size={14}
+                            className="inline mr-1 animate-spin"
+                          />
+                        ) : (
+                          <Trash2
+                            size={14}
+                            className="inline mr-1"
+                          />
+                        )
+                      }
+
+                      {
+                        actionLoading === subject.id
+                        ? "Deleting..."
+                        : "Delete"
+                      }
+                    </button>
+
+                  </div>
 
                   </div>
 
