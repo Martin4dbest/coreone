@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   GraduationCap,
   Loader2,
@@ -10,6 +11,7 @@ import {
   X,
   Power,
   Trash2,
+  ImagePlus,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -74,7 +76,7 @@ export default function StudentsPage({
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [form, setForm] = useState(initialForm);
 
@@ -130,8 +132,7 @@ const [actionLoading, setActionLoading] = useState<number | null>(null);
 
     loadPageData();
 
-    
-return () => {
+    return () => {
       active = false;
     };
   }, [selectedSchoolId]);
@@ -151,7 +152,6 @@ return () => {
           (student) => student.id !== studentId
         )
       );
-
     } catch (error) {
       console.error("Failed to delete student", error);
       alert("Failed to delete student.");
@@ -159,7 +159,6 @@ return () => {
       setActionLoading(null);
     }
   }
-
 
   function updateField(
     field: keyof StudentForm,
@@ -221,24 +220,57 @@ return () => {
       setForm(initialForm);
       setShowModal(false);
     } catch (err) {
-    console.error(
-      "Failed to create student:",
-      err
-    );
+      console.error(
+        "Failed to create student:",
+        err
+      );
 
-    setError("Unable to create student.");
-  } finally {
+      setError("Unable to create student.");
+    } finally {
       setSubmitting(false);
     }
   }
 
+  async function uploadPassport(
+    studentId: number,
+    file: File
+  ) {
+    try {
+      const form = new FormData();
+      form.append("file", file);
+
+      const res = await api.post(
+        `/students/${studentId}/passport`,
+        form,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      setStudents((current) =>
+        current.map((student) =>
+          student.id === studentId
+            ? {
+                ...student,
+                passport: res.data.passport,
+              }
+            : student
+        )
+      );
+    } catch (err) {
+      console.error(err);
+      alert("Passport upload failed.");
+    }
+  }
 
   async function toggleStudent(
     studentId: number,
     active: boolean
   ) {
     try {
-        setActionLoading(studentId);
+      setActionLoading(studentId);
       await api.patch(
         `/students/${studentId}/${active ? "deactivate" : "activate"}`
       );
@@ -253,19 +285,15 @@ return () => {
             : student
         )
       );
-
     } catch (error) {
       console.error(
         "Failed to update student status",
         error
       );
+    } finally {
+      setActionLoading(null);
     }
-
-      finally {
-        setActionLoading(null);
-      }
   }
-
 
   return (
     <div className="space-y-6">
@@ -511,6 +539,7 @@ return () => {
                       >
                         <div
                           className="
+                            relative
                             flex
                             h-10
                             w-10
@@ -518,11 +547,58 @@ return () => {
                             items-center
                             justify-center
                             rounded-full
+                            overflow-hidden
                             bg-rose-50
                             text-rose-500
                           "
                         >
-                          <UserRound size={18} />
+                          {student.passport ? (
+                            <Image
+                              src={
+                            student.passport.startsWith("http")
+                              ? student.passport
+                              : `${(
+                                  process.env.NEXT_PUBLIC_API_URL ??
+                                  "http://localhost:8000/api/v1"
+                                ).replace("/api/v1", "")}${student.passport}`
+                          }
+                              alt={`${student.first_name} ${student.last_name}`}
+                              fill
+                              className="object-cover rounded-full"
+                              unoptimized
+                            />
+                          ) : (
+                            <UserRound size={18} />
+                          )}
+
+                          <label
+                            className="
+                              absolute
+                              -bottom-1
+                              -right-1
+                              cursor-pointer
+                              rounded-full
+                              bg-rose-500
+                              p-1
+                              text-white
+                              shadow
+                              hover:bg-rose-600
+                            "
+                          >
+                            <ImagePlus size={12} />
+
+                            <input
+                              type="file"
+                              accept="image/*"
+                              hidden
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  uploadPassport(student.id, file);
+                                }
+                              }}
+                            />
+                          </label>
                         </div>
 
                         <div>
@@ -589,93 +665,84 @@ return () => {
                       {student.date_of_birth}
                     </td>
 
-                <td>
-                  <button
-                    onClick={() =>
-                      toggleStudent(
-                        student.id,
-                        student.is_active
-                      )
-                    }
-                    disabled={actionLoading === student.id}
-                    className={`
-                      inline-flex
-                      items-center
-                      gap-2
-                      rounded-lg
-                      px-3
-                      py-2
-                      text-xs
-                      font-bold
-                      ${
-                        student.is_active
-                          ? "bg-red-100 text-red-600"
-                          : "bg-green-100 text-green-600"
-                      }
-                      disabled:opacity-60
-                      disabled:cursor-not-allowed
-                    `}
-                  >
-                    {actionLoading === student.id ? (
-                      <Loader2
-                        size={14}
-                        className="animate-spin"
-                      />
-                    ) : (
-                      <Power size={14} />
-                    )}
+                    <td className="px-6 py-4 text-right space-x-2">
+                      <button
+                        onClick={() =>
+                          toggleStudent(
+                            student.id,
+                            student.is_active
+                          )
+                        }
+                        disabled={actionLoading === student.id}
+                        className={`
+                          inline-flex
+                          items-center
+                          gap-2
+                          rounded-lg
+                          px-3
+                          py-2
+                          text-xs
+                          font-bold
+                          ${
+                            student.is_active
+                              ? "bg-red-100 text-red-600"
+                              : "bg-green-100 text-green-600"
+                          }
+                          disabled:opacity-60
+                          disabled:cursor-not-allowed
+                        `}
+                      >
+                        {actionLoading === student.id ? (
+                          <Loader2
+                            size={14}
+                            className="animate-spin"
+                          />
+                        ) : (
+                          <Power size={14} />
+                        )}
 
-                    {actionLoading === student.id
-                      ? "Updating..."
-                      : student.is_active
-                        ? "Deactivate"
-                        : "Activate"}
-                  </button>
+                        {actionLoading === student.id
+                          ? "Updating..."
+                          : student.is_active
+                            ? "Deactivate"
+                            : "Activate"}
+                      </button>
 
-                  <button
-                    onClick={() =>
-                      deleteStudent(student.id)
-                    }
-                    disabled={actionLoading === student.id}
-                    className="
-                      ml-2
-                      inline-flex
-                      items-center
-                      gap-2
-                      rounded-lg
-                      bg-red-100
-                      px-3
-                      py-2
-                      text-xs
-                      font-bold
-                      text-red-700
-                      hover:bg-red-200
-                      disabled:opacity-60
-                      disabled:cursor-not-allowed
-                    "
-                  >
-                    {actionLoading === student.id ? (
-                      <Loader2
-                        size={14}
-                        className="animate-spin"
-                      />
-                    ) : (
-                      <Trash2 size={14} />
-                    )}
+                      <button
+                        onClick={() =>
+                          deleteStudent(student.id)
+                        }
+                        disabled={actionLoading === student.id}
+                        className="
+                          inline-flex
+                          items-center
+                          gap-2
+                          rounded-lg
+                          bg-red-100
+                          px-3
+                          py-2
+                          text-xs
+                          font-bold
+                          text-red-700
+                          hover:bg-red-200
+                          disabled:opacity-60
+                          disabled:cursor-not-allowed
+                        "
+                      >
+                        {actionLoading === student.id ? (
+                          <Loader2
+                            size={14}
+                            className="animate-spin"
+                          />
+                        ) : (
+                          <Trash2 size={14} />
+                        )}
 
-                    {actionLoading === student.id
-                      ? "Deactivating..."
-                      : "Delete"}
-                  </button>
-                </td>
+                        {actionLoading === student.id
+                          ? "Deactivating..."
+                          : "Delete"}
+                      </button>
 
-                    <td
-                      className="
-                        px-6
-                        py-4
-                        text-right
-                      "
-                    >
                       <Link
                         href={`/dashboard/schools/${schoolId}/students/${student.id}`}
                         className="
@@ -762,9 +829,7 @@ return () => {
 
               <button
                 type="button"
-                onClick={() =>
-                  setShowModal(false)
-                }
+                onClick={() => setShowModal(false)}
                 className="
                   rounded-xl
                   border
@@ -781,7 +846,7 @@ return () => {
 
             <form
               onSubmit={createStudent}
-          autoComplete="off"
+              autoComplete="off"
               className="
                 mt-8
                 grid
@@ -943,44 +1008,45 @@ return () => {
                   Female
                 </option>
               </select>
-          <div className="md:col-span-1">
-            <label
-              htmlFor="student-date-of-birth"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Date of Birth
-            </label>
 
-            <input
-              id="student-date-of-birth"
-              required
-              type="date"
-              value={form.date_of_birth}
-                onChange={(event) =>
-                  updateField(
-                    "date_of_birth",
-                    event.target.value
-                  )
-                }
-                className="
-                  rounded-xl
-                  border
-                  border-slate-200
-                  px-4
-                  py-3
-                  outline-none
-                  transition
-                  focus:border-rose-400
-                "
-              />
-          </div>
+              <div className="flex flex-col">
+                <label
+                  htmlFor="student-date-of-birth"
+                  className="mb-1 block text-xs font-semibold text-slate-500"
+                >
+                  Date of Birth
+                </label>
+
+                <input
+                  id="student-date-of-birth"
+                  required
+                  type="date"
+                  value={form.date_of_birth}
+                  onChange={(event) =>
+                    updateField(
+                      "date_of_birth",
+                      event.target.value
+                    )
+                  }
+                  className="
+                    rounded-xl
+                    border
+                    border-slate-200
+                    px-4
+                    py-3
+                    outline-none
+                    transition
+                    focus:border-rose-400
+                  "
+                />
+              </div>
 
               <input
                 required
                 type="email"
-            name="new-student-email"
-            autoComplete="off"
-            value={form.email}
+                name="new-student-email"
+                autoComplete="off"
+                value={form.email}
                 onChange={(event) =>
                   updateField(
                     "email",
@@ -1003,9 +1069,9 @@ return () => {
               <input
                 required
                 type="password"
-            name="new-student-password"
-            autoComplete="new-password"
-            value={form.password}
+                name="new-student-password"
+                autoComplete="new-password"
+                value={form.password}
                 onChange={(event) =>
                   updateField(
                     "password",
@@ -1025,59 +1091,21 @@ return () => {
                 "
               />
 
-              <div
-                className="
-                  flex
-                  justify-end
-                  gap-3
-                  md:col-span-2
-                "
-              >
+              <div className="mt-4 flex items-center justify-end gap-3 md:col-span-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    setShowModal(false)
-                  }
-                  className="
-                    rounded-xl
-                    border
-                    border-slate-200
-                    px-5
-                    py-3
-                    text-sm
-                    font-bold
-                    text-slate-600
-                  "
+                  onClick={() => setShowModal(false)}
+                  className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
                 >
                   Cancel
                 </button>
-
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="
-                    inline-flex
-                    items-center
-                    justify-center
-                    gap-2
-                    rounded-xl
-                    bg-rose-500
-                    px-5
-                    py-3
-                    text-sm
-                    font-bold
-                    text-white
-                    disabled:opacity-60
-                  "
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-500 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-rose-600 disabled:opacity-60"
                 >
-                  {submitting && (
-                    <Loader2
-                      size={17}
-                      className="animate-spin"
-                    />
-                  )}
-
-                  Create Student
+                  {submitting && <Loader2 size={16} className="animate-spin" />}
+                  Save Student
                 </button>
               </div>
             </form>

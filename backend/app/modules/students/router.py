@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import require_roles
@@ -76,3 +76,17 @@ async def activate_student(
         current_user
     )
 
+
+
+@router.post("/{student_id}/passport")
+async def upload_passport(
+    student_id: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")),
+):
+    return await StudentService(db).upload_passport(
+        student_id,
+        file,
+        current_user,
+    )

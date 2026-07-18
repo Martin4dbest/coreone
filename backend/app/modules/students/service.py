@@ -1,3 +1,7 @@
+import os
+import uuid
+from fastapi import UploadFile
+
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -182,5 +186,44 @@ class StudentService:
             )
 
         student.is_active = True
+
+        return await self.repository.update(student)
+
+
+    async def upload_passport(
+        self,
+        student_id: int,
+        file: UploadFile,
+        current_user,
+    ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        student = await self.repository.get_by_id(
+            student_id,
+            school_id,
+        )
+
+        if not student:
+            raise HTTPException(
+                status_code=404,
+                detail="Student not found",
+            )
+
+        folder = f"uploads/students/{student.school_id}"
+        os.makedirs(folder, exist_ok=True)
+
+        ext = os.path.splitext(file.filename)[1]
+
+        filename = f"{uuid.uuid4().hex}{ext}"
+
+        path = os.path.join(folder, filename)
+
+        with open(path, "wb") as f:
+            f.write(await file.read())
+
+        student.passport = "/" + path.replace("\\", "/")
 
         return await self.repository.update(student)

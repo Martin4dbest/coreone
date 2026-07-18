@@ -276,10 +276,11 @@ export default function ReportCardPage({
               {report.student.passport ? (
                 <div className="border-[4px] border-white shadow-md p-0.5 bg-white">
                   <Image
-                    src={report.student.passport}
+                    src={`http://localhost:8000${report.student.passport}`}
                     alt={report.student.name}
                     width={105}
                     height={105}
+                unoptimized
                     className="object-cover sepia-[15%] contrast-[105%]"
                     style={{ width: "105px", height: "auto" }}
                   />
