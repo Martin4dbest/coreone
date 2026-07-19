@@ -4,7 +4,6 @@ from pydantic import BaseModel, EmailStr
 
 
 class StudentCreateRequest(BaseModel):
-
     email: EmailStr
     password: str
 
@@ -26,9 +25,13 @@ class StudentCreateRequest(BaseModel):
     passport: str | None = None
 
 
+class StudentImportResponse(BaseModel):
+    success: bool
+    created: int
+    errors: list[str] = []
+
 
 class StudentResponse(BaseModel):
-
     id: int
 
     user_id: int
@@ -47,7 +50,6 @@ class StudentResponse(BaseModel):
     date_of_birth: date
 
     passport: str | None = None
-
 
     class Config:
         from_attributes = True

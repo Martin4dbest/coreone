@@ -58,9 +58,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+from pathlib import Path
+
+UPLOAD_DIR = Path.cwd() / "uploads"
+
 app.mount(
     "/uploads",
-    StaticFiles(directory="uploads"),
+    StaticFiles(directory=str(UPLOAD_DIR)),
     name="uploads",
 )
 

@@ -1,18 +1,27 @@
+from pathlib import Path
+import io
 import os
 import uuid
-from fastapi import UploadFile
 
-from fastapi import HTTPException
+import pandas as pd
+
+from fastapi import UploadFile, HTTPException
+
 from sqlalchemy import select
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.classroom import Classroom
 from app.models.role import Role
 from app.models.student import Student
+from app.models.user import User
+
+from app.modules.auth.security import hash_password
 
 from app.modules.students.repository import StudentRepository
 from app.modules.students.schemas import StudentCreateRequest
-from app.modules.users.service import UserService
+
+from app.modules.users.service import UserService                 
 
 
 class StudentService:
@@ -131,6 +140,17 @@ class StudentService:
             school_id,
         )
 
+        # fallback when frontend sends user_id instead of student.id
+        if not student:
+            result = await self.db.execute(
+                select(Student).where(
+                    Student.user_id == student_id,
+                    Student.school_id == school_id,
+                )
+            )
+
+            student = result.scalar_one_or_none()
+
         if not student:
             raise HTTPException(
                 status_code=404,
@@ -153,6 +173,17 @@ class StudentService:
             student_id,
             school_id,
         )
+
+        # fallback when frontend sends user_id instead of student.id
+        if not student:
+            result = await self.db.execute(
+                select(Student).where(
+                    Student.user_id == student_id,
+                    Student.school_id == school_id,
+                )
+            )
+
+            student = result.scalar_one_or_none()
 
         if not student:
             raise HTTPException(
@@ -179,6 +210,17 @@ class StudentService:
             school_id,
         )
 
+        # fallback when frontend sends user_id instead of student.id
+        if not student:
+            result = await self.db.execute(
+                select(Student).where(
+                    Student.user_id == student_id,
+                    Student.school_id == school_id,
+                )
+            )
+
+            student = result.scalar_one_or_none()
+
         if not student:
             raise HTTPException(
                 status_code=404,
@@ -188,6 +230,256 @@ class StudentService:
         student.is_active = True
 
         return await self.repository.update(student)
+
+
+
+    async def import_students(
+        self,
+        school_id: int,
+        file: UploadFile,
+        current_user,
+    ):
+        """
+        Bulk import students from CSV/XLS/XLSX.
+        """
+
+        if (
+            current_user.role.name != "SUPER_ADMIN"
+            and current_user.school_id != school_id
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="You cannot import students for another school.",
+            )
+
+        filename = (file.filename or "").lower()
+
+        if not filename.endswith(
+            (".csv", ".xlsx", ".xls")
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Only CSV/XLS/XLSX files are supported.",
+            )
+
+        try:
+            content = await file.read()
+
+            if filename.endswith(".csv"):
+                df = pd.read_csv(
+                    io.BytesIO(content)
+                )
+            else:
+                df = pd.read_excel(
+                    io.BytesIO(content)
+                )
+
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="Unable to read uploaded file.",
+            )
+
+        df.columns = [
+            str(c).strip().lower()
+            for c in df.columns
+        ]
+
+        required = [
+            "classroom_id",
+            "admission_number",
+            "first_name",
+            "last_name",
+            "gender",
+            "date_of_birth",
+            "email",
+            "password",
+        ]
+
+        missing = [
+            c
+            for c in required
+            if c not in df.columns
+        ]
+
+        if missing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Missing columns: {', '.join(missing)}",
+            )
+
+        if df["admission_number"].duplicated().any():
+            raise HTTPException(
+                status_code=400,
+                detail="Duplicate admission numbers found in file.",
+            )
+
+        if df["email"].duplicated().any():
+            raise HTTPException(
+                status_code=400,
+                detail="Duplicate email addresses found in file.",
+            )
+
+        result = await self.db.execute(
+            select(Role).where(
+                Role.name == "STUDENT",
+            )
+        )
+
+        student_role = result.scalar_one_or_none()
+
+        if not student_role:
+            raise HTTPException(
+                status_code=500,
+                detail="STUDENT role not configured",
+            )
+
+        students = []
+
+        async with self.db.begin_nested():
+
+            for index, row in df.iterrows():
+
+                classroom_value = str(
+                    row["classroom_id"]
+                ).strip()
+
+                classroom = None
+
+                if classroom_value.isdigit():
+                    classroom = (
+                        await self.db.execute(
+                            select(Classroom).where(
+                                Classroom.id == int(classroom_value),
+                                Classroom.school_id == school_id,
+                            )
+                        )
+                    ).scalar_one_or_none()
+
+                else:
+                    classroom = (
+                        await self.db.execute(
+                            select(Classroom).where(
+                                Classroom.name == classroom_value,
+                                Classroom.school_id == school_id,
+                            )
+                        )
+                    ).scalar_one_or_none()
+
+                if classroom is None:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Row {index + 2}: Invalid classroom.",
+                    )
+
+                admission_number = str(
+                    row["admission_number"]
+                ).strip()
+
+                existing = (
+                    await self.repository.get_by_admission_number(
+                        admission_number,
+                        school_id,
+                    )
+                )
+
+                if existing:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Admission number '{admission_number}' already exists.",
+                    )
+
+                email = str(row["email"]).strip()
+
+                existing_user = (
+                    await self.user_service.repository.get_by_email(
+                        email
+                    )
+                )
+
+                if existing_user:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Email '{email}' already exists.",
+                    )
+
+                gender = str(
+                    row["gender"]
+                ).strip().upper()
+
+                if gender not in (
+                    "MALE",
+                    "FEMALE",
+                ):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Row {index + 2}: Invalid gender.",
+                    )
+
+                try:
+                    date_of_birth = pd.to_datetime(
+                        row["date_of_birth"]
+                    ).date()
+                except Exception:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Row {index + 2}: Invalid date_of_birth.",
+                    )
+
+                user = User(
+                    school_id=school_id,
+                    role_id=student_role.id,
+                    email=email,
+                    hashed_password=hash_password(
+                        str(row["password"])
+                    ),
+                    is_active=True,
+                    is_verified=False,
+                )
+
+                self.db.add(user)
+
+                await self.db.flush()
+
+                student = Student(
+                    user_id=user.id,
+                    school_id=school_id,
+                classroom_id=classroom.id,
+                    admission_number=admission_number,
+                    first_name=str(
+                        row["first_name"]
+                    ).strip(),
+                    last_name=str(
+                        row["last_name"]
+                    ).strip(),
+                    middle_name=(
+                        None
+                        if "middle_name" not in df.columns
+                        or pd.isna(
+                            row.get("middle_name")
+                        )
+                        else str(
+                            row["middle_name"]
+                        ).strip()
+                    ),
+                    gender=gender,
+                    date_of_birth=date_of_birth,
+                    passport=None,
+                    is_active=True,
+                )
+
+                self.db.add(student)
+
+                students.append(student)
+
+            await self.db.flush()
+
+        await self.db.commit()
+
+        for student in students:
+            await self.db.refresh(student)
+
+        return students
 
 
     async def upload_passport(
@@ -206,13 +498,29 @@ class StudentService:
             school_id,
         )
 
+        # fallback when frontend sends user_id instead of student.id
+        if not student:
+            result = await self.db.execute(
+                select(Student).where(
+                    Student.user_id == student_id,
+                    Student.school_id == school_id,
+                )
+            )
+
+            student = result.scalar_one_or_none()
+
         if not student:
             raise HTTPException(
                 status_code=404,
                 detail="Student not found",
             )
 
-        folder = f"uploads/students/{student.school_id}"
+        folder = str(
+            Path(__file__).resolve().parents[3]
+            / "uploads"
+            / "students"
+            / str(student.school_id)
+        )
         os.makedirs(folder, exist_ok=True)
 
         ext = os.path.splitext(file.filename)[1]
@@ -224,6 +532,32 @@ class StudentService:
         with open(path, "wb") as f:
             f.write(await file.read())
 
-        student.passport = "/" + path.replace("\\", "/")
+        relative_path = os.path.relpath(
+            path,
+            "uploads",
+        ).replace("\\", "/")
+
+        student.passport = "/uploads/" + relative_path
 
         return await self.repository.update(student)
+
+
+    async def delete_student(
+        self,
+        student_id: int,
+        current_user,
+    ):
+        student = await self.repository.get_by_id(student_id)
+
+        if not student:
+            raise HTTPException(
+                status_code=404,
+                detail="Student not found",
+            )
+
+        if hasattr(student, "user") and student.user:
+            await self.db.delete(student.user)
+
+        await self.db.delete(student)
+        await self.db.commit()
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -12,6 +12,10 @@ import {
   Power,
   Trash2,
   ImagePlus,
+  FileSpreadsheet,
+  Upload,
+  Search,
+  SlidersHorizontal,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -75,10 +79,19 @@ export default function StudentsPage({
 
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const [importError, setImportError] = useState("");
   const [form, setForm] = useState(initialForm);
+
+  // Filter & Search States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedClassFilter, setSelectedClassFilter] = useState("");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -137,24 +150,49 @@ export default function StudentsPage({
     };
   }, [selectedSchoolId]);
 
-  async function deleteStudent(studentId: number) {
-    if (!confirm("Delete this student permanently?")) {
-      return;
+  // Compute filtered array in real-time
+  const filteredStudents = students.filter((student) => {
+    if (selectedClassFilter && String(student.classroom_id) !== selectedClassFilter) {
+      return false;
     }
+
+    if (searchQuery.trim() !== "") {
+      const query = searchQuery.toLowerCase();
+      const fullName = `${student.first_name} ${student.middle_name || ""} ${student.last_name}`.toLowerCase();
+      const admissionNum = student.admission_number.toLowerCase();
+      
+      return fullName.includes(query) || admissionNum.includes(query);
+    }
+
+    return true;
+  });
+
+  // Direct database absolute exclusion block
+  async function deleteStudent(studentId: number) {
+    const userConfirmed = window.confirm(
+      "⚠️ PERMANENT DATABASE DELETION\n\nAre you completely sure you want to delete this student from the database? This cannot be undone."
+    );
+    
+    if (!userConfirmed) return;
 
     try {
       setActionLoading(studentId);
 
-      await api.patch(`/students/${studentId}/deactivate`);
+      // Requests absolute record elimination from database via standard dynamic path parameters
+      await api.delete(`/students/${studentId}`);
 
-      setStudents((current) =>
-        current.filter(
-          (student) => student.id !== studentId
-        )
+      // Instantly wipe the student from active dashboard layout state arrays
+      setStudents((currentStudents) =>
+        currentStudents.filter((student) => student.id !== studentId)
       );
-    } catch (error) {
-      console.error("Failed to delete student", error);
-      alert("Failed to delete student.");
+
+      alert("Student record completely deleted from database.");
+    } catch (error: any) {
+      console.error("Failed to delete student from database:", error);
+      alert(
+        error.response?.data?.detail || 
+        "Failed to delete student. Ensure your backend handles dynamic cascading requirements properly."
+      );
     } finally {
       setActionLoading(null);
     }
@@ -228,6 +266,42 @@ export default function StudentsPage({
       setError("Unable to create student.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleImportFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    setImportError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("school_id", String(selectedSchoolId));
+
+      const response = await api.post<Student[]>("/students/import", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      if (response.data && Array.isArray(response.data)) {
+        setStudents((current) => [...current, ...response.data]);
+      } else {
+        const freshStudents = await api.get<Student[]>("/students");
+        setStudents(freshStudents.data.filter((s) => s.school_id === selectedSchoolId));
+      }
+
+      setShowImportModal(false);
+      alert("Students successfully imported!");
+    } catch (err) {
+      console.error("Bulk file import failed:", err);
+      setImportError("Failed to parse file or upload records. Check structure guidelines.");
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -355,29 +429,57 @@ export default function StudentsPage({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowModal(true)}
-          className="
-            inline-flex
-            items-center
-            justify-center
-            gap-2
-            rounded-xl
-            bg-rose-500
-            px-5
-            py-3
-            text-sm
-            font-bold
-            text-white
-            shadow-sm
-            transition
-            hover:bg-rose-600
-          "
-        >
-          <Plus size={18} />
-          Add Student
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowImportModal(true)}
+            className="
+              inline-flex
+              items-center
+              justify-center
+              gap-2
+              rounded-xl
+              border
+              border-slate-200
+              bg-white
+              px-5
+              py-3
+              text-sm
+              font-bold
+              text-slate-700
+              shadow-sm
+              transition
+              hover:bg-slate-50
+            "
+          >
+            <FileSpreadsheet size={18} className="text-emerald-600" />
+            Import Students
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowModal(true)}
+            className="
+              inline-flex
+              items-center
+              justify-center
+              gap-2
+              rounded-xl
+              bg-rose-500
+              px-5
+              py-3
+              text-sm
+              font-bold
+              text-white
+              shadow-sm
+              transition
+              hover:bg-rose-600
+            "
+          >
+            <Plus size={18} />
+            Add Student
+          </button>
+        </div>
       </section>
 
       {error && (
@@ -394,6 +496,39 @@ export default function StudentsPage({
           "
         >
           {error}
+        </div>
+      )}
+
+      {/* Search and Filter Panel */}
+      {!loading && students.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+          <div className="relative w-full sm:max-w-md">
+            <Search size={18} className="absolute left-4 top-3.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by name or admission number..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm text-slate-800 focus:border-rose-400 focus:bg-white transition"
+            />
+          </div>
+
+          <div className="relative w-full sm:w-64 flex items-center gap-2">
+            <SlidersHorizontal size={16} className="text-slate-400 hidden sm:block" />
+            <select
+              value={selectedClassFilter}
+              onChange={(e) => setSelectedClassFilter(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm text-slate-700 focus:border-rose-400 focus:bg-white transition appearance-none cursor-pointer"
+              style={{ backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px' }}
+            >
+              <option value="">All Classes</option>
+              {classes.map((classroom) => (
+                <option key={classroom.id} value={classroom.id}>
+                  {classroom.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 
@@ -467,6 +602,22 @@ export default function StudentsPage({
             Add the first student to this school.
           </p>
         </div>
+      ) : filteredStudents.length === 0 ? (
+        <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-400">
+            <Search size={26} />
+          </div>
+          <h2 className="mt-4 font-bold text-slate-900">No matches found</h2>
+          <p className="mt-2 text-sm text-slate-500">
+            We couldn't find any student matching your query. Try resetting filters.
+          </p>
+          <button 
+            onClick={() => { setSearchQuery(""); setSelectedClassFilter(""); }} 
+            className="mt-4 text-xs font-bold text-rose-500 hover:text-rose-600 underline"
+          >
+            Clear Filters
+          </button>
+        </div>
       ) : (
         <section
           className="
@@ -509,7 +660,7 @@ export default function StudentsPage({
               </thead>
 
               <tbody className="divide-y divide-slate-100">
-                {students.map((student) => (
+                {filteredStudents.map((student) => (
                   <tr
                     key={student.id}
                     className="
@@ -537,6 +688,7 @@ export default function StudentsPage({
                           gap-3
                         "
                       >
+                        {/* Profile Picture Display Section */}
                         <div
                           className="
                             relative
@@ -555,13 +707,10 @@ export default function StudentsPage({
                           {student.passport ? (
                             <Image
                               src={
-                            student.passport.startsWith("http")
-                              ? student.passport
-                              : `${(
-                                  process.env.NEXT_PUBLIC_API_URL ??
-                                  "http://localhost:8000/api/v1"
-                                ).replace("/api/v1", "")}${student.passport}`
-                          }
+                                student.passport.startsWith("http")
+                                  ? student.passport
+                                  : `http://127.0.0.1:8000${student.passport}`
+                              }
                               alt={`${student.first_name} ${student.last_name}`}
                               fill
                               className="object-cover rounded-full"
@@ -739,7 +888,7 @@ export default function StudentsPage({
                         )}
 
                         {actionLoading === student.id
-                          ? "Deactivating..."
+                          ? "Deleting..."
                           : "Delete"}
                       </button>
 
@@ -771,6 +920,7 @@ export default function StudentsPage({
         </section>
       )}
 
+      {/* Manual Add Student Modal */}
       {showModal && (
         <div
           className="
@@ -822,8 +972,7 @@ export default function StudentsPage({
                     text-slate-500
                   "
                 >
-                  Create a student account and assign
-                  the student to a class.
+                  Create a student account and assign the student to a class.
                 </p>
               </div>
 
@@ -1010,17 +1159,9 @@ export default function StudentsPage({
               </select>
 
               <div className="flex flex-col">
-                <label
-                  htmlFor="student-date-of-birth"
-                  className="mb-1 block text-xs font-semibold text-slate-500"
-                >
-                  Date of Birth
-                </label>
-
                 <input
-                  id="student-date-of-birth"
-                  required
                   type="date"
+                  required
                   value={form.date_of_birth}
                   onChange={(event) =>
                     updateField(
@@ -1042,10 +1183,8 @@ export default function StudentsPage({
               </div>
 
               <input
-                required
                 type="email"
-                name="new-student-email"
-                autoComplete="off"
+                required
                 value={form.email}
                 onChange={(event) =>
                   updateField(
@@ -1053,7 +1192,7 @@ export default function StudentsPage({
                     event.target.value
                   )
                 }
-                placeholder="Student email"
+                placeholder="Account Email"
                 className="
                   rounded-xl
                   border
@@ -1067,10 +1206,8 @@ export default function StudentsPage({
               />
 
               <input
-                required
                 type="password"
-                name="new-student-password"
-                autoComplete="new-password"
+                required
                 value={form.password}
                 onChange={(event) =>
                   updateField(
@@ -1078,7 +1215,7 @@ export default function StudentsPage({
                     event.target.value
                   )
                 }
-                placeholder="Temporary password"
+                placeholder="Account Password"
                 className="
                   rounded-xl
                   border
@@ -1091,24 +1228,123 @@ export default function StudentsPage({
                 "
               />
 
-              <div className="mt-4 flex items-center justify-end gap-3 md:col-span-2">
+              <div className="md:col-span-2 flex justify-end gap-3 mt-4">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 px-6 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-500 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-rose-600 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-xl bg-rose-500 px-6 py-3 text-sm font-bold text-white shadow-sm hover:bg-rose-600 disabled:opacity-50"
                 >
                   {submitting && <Loader2 size={16} className="animate-spin" />}
                   Save Student
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Import Modal */}
+      {showImportModal && (
+        <div
+          className="
+            fixed
+            inset-0
+            z-50
+            flex
+            items-center
+            justify-center
+            bg-black/40
+            p-4
+          "
+        >
+          <div
+            className="
+              w-full
+              max-w-md
+              rounded-3xl
+              bg-white
+              p-8
+              shadow-2xl
+            "
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">
+                  Import Students
+                </h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  Upload an Excel (.xlsx) or CSV file containing multiple students.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {importError && (
+              <div className="mt-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {importError}
+              </div>
+            )}
+
+            <div className="mt-6 space-y-4">
+              <div className="rounded-xl bg-slate-50 p-4 text-xs text-slate-600 space-y-1">
+                <span className="font-bold text-slate-700 block mb-1">Required Columns Setup:</span>
+                <p>• <code className="bg-white px-1 border rounded">classroom_id</code> (Target Class ID value)</p>
+                <p>• <code className="bg-white px-1 border rounded">admission_number</code></p>
+                <p>• <code className="bg-white px-1 border rounded">first_name</code>, <code className="bg-white px-1 border rounded">last_name</code></p>
+                <p>• <code className="bg-white px-1 border rounded">middle_name</code> (Optional)</p>
+                <p>• <code className="bg-white px-1 border rounded">gender</code> (MALE / FEMALE)</p>
+                <p>• <code className="bg-white px-1 border rounded">date_of_birth</code> (YYYY-MM-DD)</p>
+                <p>• <code className="bg-white px-1 border rounded">email</code>, <code className="bg-white px-1 border rounded">password</code></p>
+              </div>
+
+              <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl p-8 cursor-pointer hover:bg-rose-50/20 hover:border-rose-300 transition group">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-500 group-hover:bg-rose-50 group-hover:text-rose-500 transition shadow-sm">
+                  {importing ? (
+                    <Loader2 size={22} className="animate-spin text-rose-500" />
+                  ) : (
+                    <Upload size={22} />
+                  )}
+                </div>
+                <span className="mt-4 font-bold text-sm text-slate-700">
+                  {importing ? "Processing data..." : "Click to browse files"}
+                </span>
+                <span className="mt-1 text-xs text-slate-400">
+                  Supports .csv, .xls, .xlsx
+                </span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                  hidden
+                  disabled={importing}
+                  onChange={handleImportFile}
+                />
+              </label>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={importing}
+                  onClick={() => setShowImportModal(false)}
+                  className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
