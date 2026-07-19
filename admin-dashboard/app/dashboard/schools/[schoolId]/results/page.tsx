@@ -157,27 +157,37 @@ const [bulkSaving, setBulkSaving] = useState(false);
 async function loadBulkStudents() {
   if (!bulkClassId) return;
 
-  const res = await api.get("/students", {
-    params: {
-      class_id: bulkClassId,
-      school_id: schoolId,
-    },
-  });
+  setBulkLoading(true);
 
-  setBulkStudents(res.data);
+  try {
+    const res = await api.get("/students", {
+      params: {
+        class_id: bulkClassId,
+        school_id: schoolId,
+      },
+    });
 
-  const scores: Record<number, { ca: string; exam: string }> = {};
+    setBulkStudents(res.data);
 
-  res.data.forEach((student: Student) => {
-    scores[student.id] = {
-      ca: "",
-      exam: "",
-    };
-  });
+    const scores: Record<number, { ca: string; exam: string }> = {};
 
-  setBulkScores(scores);
+    res.data.forEach((student: Student) => {
+      scores[student.id] = {
+        ca: "",
+        exam: "",
+      };
+    });
+
+    setBulkScores(scores);
+
+  } catch (error) {
+    console.error("LOAD BULK STUDENTS FAILED:", error);
+    alert("Failed to load students");
+
+  } finally {
+    setBulkLoading(false);
+  }
 }
-
 
 function updateBulkScore(
   id: number,
@@ -215,12 +225,19 @@ async function saveBulkResults() {
     await loadData();
     setBulkOpen(false);
 
-  } catch (error) {
-    console.error(error);
-    alert("Bulk result save failed");
-  }
+  } catch (error: any) {
+    console.error(
+      "BULK ERROR:",
+      error?.response?.data || error
+    );
 
-  setBulkSaving(false);
+    alert(
+      error?.response?.data?.detail ||
+      "Bulk result save failed"
+    );
+}
+
+setBulkSaving(false);
 }
 
 return (
@@ -291,7 +308,7 @@ return (
         <button
           onClick={loadBulkStudents}
           disabled={bulkLoading}
-          className="bg-blue-600 text-white rounded flex items-center justify-center gap-2 px-3"
+          className="bg-blue-600 text-white rounded flex items-center justify-center gap-2 px-3 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {bulkLoading && <Loader2 size={16} className="animate-spin" />}
           {bulkLoading ? "Loading..." : "Load Students"}
@@ -353,7 +370,7 @@ return (
             <tr key={student.id} className="border-t">
 
               <td className="p-2">
-                {student.first_name} {student.last_name}
+                {student.first_name} {student.middle_name ? `${student.middle_name} ` : ""}{student.last_name}
               </td>
 
               <td>
@@ -433,7 +450,7 @@ return (
               <option>Select Student</option>
               {students.map(s=>(
                 <option key={s.id} value={s.id}>
-                  {s.first_name} {s.last_name}
+                  {s.first_name} {s.middle_name ? `${s.middle_name} ` : ""}{s.last_name}
                 </option>
               ))}
             </select>

@@ -20,6 +20,7 @@ class ResultRepository:
             select(
                 Result,
                 Student.first_name,
+                Student.middle_name,
                 Student.last_name,
                 Student.admission_number,
                 Classroom.name.label("class_name"),
@@ -52,7 +53,7 @@ class ResultRepository:
                 "id": result.id,
                 "school_id": result.school_id,
                 "student_id": result.student_id,
-                "student_name": f"{row.first_name} {row.last_name}",
+                "student_name": f"{row.first_name} {row.middle_name + " " if row.middle_name else ""}{row.last_name}",
                 "admission_number": row.admission_number,
                 "class_id": result.class_id,
                 "class_name": row.class_name,
