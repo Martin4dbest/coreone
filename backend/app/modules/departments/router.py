@@ -41,7 +41,8 @@ async def get_departments(
     current_user: User = Depends(get_current_user),
 ):
     return await DepartmentService(db).get_departments(
-        current_user
+        current_user,
+        school_id,
     )
 
 
@@ -55,6 +56,18 @@ async def get_department(
     current_user: User = Depends(get_current_user),
 ):
     return await DepartmentService(db).get_department(
+        department_id,
+        current_user,
+    )
+
+
+@router.delete("/{department_id}")
+async def delete_department(
+    department_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await DepartmentService(db).delete_department(
         department_id,
         current_user,
     )

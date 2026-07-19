@@ -24,13 +24,22 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (
-      typeof window !== "undefined" &&
-      error.response?.status === 401
-    ) {
-      console.error(
-        "Authentication failed. Please log in again."
-      );
+
+    if (typeof window !== "undefined") {
+
+      if (process.env.NODE_ENV === "development") {
+        console.warn(
+          "API Error Details:",
+          error.response?.data || error
+        );
+      }
+
+      if (
+        error.response?.status === 401 &&
+        !error.config?.url?.includes("/auth/login")
+      ) {
+        localStorage.removeItem("access_token");
+      }
     }
 
     return Promise.reject(error);

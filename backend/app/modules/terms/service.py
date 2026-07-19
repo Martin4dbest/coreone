@@ -44,9 +44,8 @@ class TermService:
     async def get_terms(
         self,
         current_user,
+        school_id: int | None = None,
     ):
-
-        school_id = None
 
         if current_user.role.name != "SUPER_ADMIN":
             school_id = current_user.school_id
@@ -110,3 +109,32 @@ class TermService:
             )
 
         return await self.repository.make_current(term)
+
+
+    async def delete_term(
+        self,
+        term_id: int,
+        current_user,
+    ):
+        term = await self.repository.get_by_id(term_id)
+
+        if not term:
+            raise HTTPException(
+                status_code=404,
+                detail="Term not found",
+            )
+
+        if (
+            current_user.role.name != "SUPER_ADMIN"
+            and term.school_id != current_user.school_id
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Unauthorized school access",
+            )
+
+        await self.repository.delete(term)
+
+        return {
+            "message": "Term deleted successfully"
+        }

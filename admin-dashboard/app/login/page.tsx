@@ -83,13 +83,27 @@ export default function LoginPage() {
       router.replace("/dashboard");
 
     } catch (err: any) {
-      const detail = err?.response?.data?.detail;
+  
+  if (process.env.NODE_ENV === "development") {
+    console.warn(
+      "Login Error Details:",
+      err?.response?.data || err
+    );
+  }
 
-      setError(
-        typeof detail === "string"
-          ? detail
-          : "Unable to sign in. Please check your email and password."
-      );
+      if (err?.response?.status === 401) {
+        setError(
+          "Login failed. The email or password you entered is incorrect. Please verify your details and try again."
+        );
+      } else if (err?.response?.status >= 500) {
+        setError(
+          "We are unable to complete your login request right now. Please try again later."
+        );
+      } else {
+        setError(
+          "Unable to sign in. Please check your connection and try again."
+        );
+      }
 
     } finally {
       setLoading(false);

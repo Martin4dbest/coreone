@@ -8,6 +8,7 @@ import {
   Loader2,
   Plus,
   X,
+  Trash2,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -30,6 +31,7 @@ export default function DepartmentsPage({
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [showForm, setShowForm] = useState(false);
 
@@ -85,6 +87,25 @@ export default function DepartmentsPage({
       setError("Unable to create department.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete(id: number) {
+    if (!confirm("Are you sure you want to delete this department?")) return;
+
+    try {
+      setDeletingId(id);
+      setError("");
+      
+      await api.delete(`/departments/${id}`);
+      
+      // Reload the data or optimistically remove from state
+      await loadDepartments();
+    } catch (err) {
+      console.error("Failed deleting department:", err);
+      setError("Unable to delete department.");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -216,7 +237,7 @@ export default function DepartmentsPage({
                 className="flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"
               >
 
-                <div>
+                <div className="flex-1">
 
                   <p className="font-bold text-slate-900">
                     {department.name}
@@ -229,15 +250,31 @@ export default function DepartmentsPage({
                 </div>
 
 
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-bold ${
-                    department.is_active
-                      ? "bg-emerald-50 text-emerald-600"
-                      : "bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  {department.is_active ? "Active" : "Inactive"}
-                </span>
+                <div className="flex items-center gap-4 justify-between sm:justify-end">
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-bold ${
+                      department.is_active
+                        ? "bg-emerald-50 text-emerald-600"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {department.is_active ? "Active" : "Inactive"}
+                  </span>
+
+                  <button
+                    type="button"
+                    disabled={deletingId !== null}
+                    onClick={() => handleDelete(department.id)}
+                    className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 transition-colors"
+                    title="Delete Department"
+                  >
+                    {deletingId === department.id ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={18} />
+                    )}
+                  </button>
+                </div>
 
               </div>
 
@@ -248,7 +285,6 @@ export default function DepartmentsPage({
         )}
 
       </section>
-
 
     </div>
   );

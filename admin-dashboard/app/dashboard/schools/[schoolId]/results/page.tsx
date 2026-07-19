@@ -26,6 +26,7 @@ type Option = {
 type Student = {
   id: number;
   first_name: string;
+  middle_name?: string | null;
   last_name: string;
   admission_number: string;
 };
@@ -76,7 +77,11 @@ const [bulkSaving, setBulkSaving] = useState(false);
       termsRes,
       sessionsRes,
     ] = await Promise.all([
-      api.get("/results"),
+      api.get("/results", {
+        params: {
+          school_id: schoolId,
+        },
+      }),
       api.get("/students"),
       api.get("/classes"),
       api.get("/subjects", { params: { school_id: schoolId } }),

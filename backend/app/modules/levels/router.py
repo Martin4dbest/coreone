@@ -41,7 +41,7 @@ async def get_levels(
     current_user: User = Depends(get_current_user),
 ):
     return await LevelService(db).get_levels(
-        current_user
+        current_user,
     )
 
 

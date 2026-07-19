@@ -43,18 +43,15 @@ class AcademicSessionService:
     async def get_sessions(
         self,
         current_user,
+        school_id: int | None = None,
     ):
-
-        school_id = None
 
         if current_user.role.name != "SUPER_ADMIN":
             school_id = current_user.school_id
 
-
         return await self.repository.get_all(
             school_id
         )
-
 
 
     async def get_session(

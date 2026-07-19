@@ -108,3 +108,12 @@ class TermRepository:
         await self.db.refresh(term)
 
         return term
+
+
+    async def delete(
+        self,
+        term,
+    ):
+        await self.db.delete(term)
+
+        await self.db.commit()

@@ -27,7 +27,11 @@ class DepartmentService:
             )
 
         department = Department(
-            school_id=payload.school_id,
+            school_id=(
+                payload.school_id
+                if current_user.role.name == "SUPER_ADMIN"
+                else current_user.school_id
+            ),
             name=payload.name,
             description=payload.description,
             is_active=True,
@@ -39,8 +43,8 @@ class DepartmentService:
     async def get_departments(
         self,
         current_user,
+        school_id: int | None = None,
     ):
-        school_id = None
 
         if current_user.role.name != "SUPER_ADMIN":
             school_id = current_user.school_id
@@ -72,3 +76,31 @@ class DepartmentService:
             )
 
         return department
+
+
+    async def delete_department(
+        self,
+        department_id: int,
+        current_user,
+    ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        department = await self.repository.get_by_id(
+            department_id,
+            school_id,
+        )
+
+        if not department:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Department not found",
+            )
+
+        await self.repository.delete(department)
+
+        return {
+            "message": "Department deleted successfully."
+        }

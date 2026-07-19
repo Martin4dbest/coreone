@@ -39,8 +39,8 @@ class SubjectService:
     async def get_subjects(
         self,
         current_user,
+        school_id: int | None = None,
     ):
-        school_id = None
 
         if current_user.role.name != "SUPER_ADMIN":
             school_id = current_user.school_id
@@ -48,6 +48,7 @@ class SubjectService:
         return await self.repository.get_all(
             school_id
         )
+
 
 
     async def get_subject(

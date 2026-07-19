@@ -45,7 +45,8 @@ async def get_terms(
     current_user: User = Depends(get_current_user),
 ):
     return await TermService(db).get_terms(
-        current_user
+        current_user,
+        school_id,
     )
 
 
@@ -81,3 +82,15 @@ async def make_current(
         current_user,
     )
 
+
+
+@router.delete("/{term_id}")
+async def delete_term(
+    term_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await TermService(db).delete_term(
+        term_id,
+        current_user,
+    )

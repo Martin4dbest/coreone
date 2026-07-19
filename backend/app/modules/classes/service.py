@@ -71,9 +71,8 @@ class ClassService:
     async def get_classes(
         self,
         current_user,
+        school_id: int | None = None,
     ):
-        school_id = None
-
         if current_user.role.name != "SUPER_ADMIN":
             school_id = current_user.school_id
 

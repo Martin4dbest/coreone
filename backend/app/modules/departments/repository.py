@@ -57,3 +57,11 @@ class DepartmentRepository:
         await self.db.refresh(department)
 
         return department
+
+
+    async def delete(
+        self,
+        department: Department,
+    ):
+        await self.db.delete(department)
+        await self.db.commit()

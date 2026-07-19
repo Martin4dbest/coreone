@@ -41,7 +41,8 @@ async def get_sessions(
     current_user: User = Depends(get_current_user),
 ):
     return await AcademicSessionService(db).get_sessions(
-        current_user
+        current_user,
+        school_id,
     )
 
 

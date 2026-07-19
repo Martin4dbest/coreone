@@ -102,8 +102,11 @@ class ResultService:
 
         return await self.repository.update(result)
 
-    async def get_results(self, current_user):
-        school_id = None
+    async def get_results(
+        self,
+        current_user,
+        school_id: int | None = None,
+    ):
 
         if current_user.role.name != "SUPER_ADMIN":
             school_id = current_user.school_id

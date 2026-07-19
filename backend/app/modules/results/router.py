@@ -50,11 +50,13 @@ async def update_result(
 
 @router.get("")
 async def get_results(
+    school_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     return await ResultService(db).get_results(
-        current_user
+        current_user,
+        school_id,
     )
 
 

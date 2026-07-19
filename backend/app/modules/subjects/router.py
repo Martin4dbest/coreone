@@ -39,7 +39,10 @@ async def get_subjects(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await SubjectService(db).get_subjects(current_user)
+    return await SubjectService(db).get_subjects(
+        current_user,
+        school_id,
+    )
 
 
 @router.get(

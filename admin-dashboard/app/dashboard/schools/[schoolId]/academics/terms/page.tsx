@@ -8,6 +8,7 @@ import {
   Loader2,
   Plus,
   X,
+  Trash2,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -43,6 +44,7 @@ export default function TermsPage({
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [changingTermId, setChangingTermId] =
     useState<number | null>(null);
@@ -206,6 +208,24 @@ export default function TermsPage({
 
   }
 
+
+  async function handleDelete(id: number) {
+    if (!confirm("Are you sure you want to delete this term?")) return;
+
+    try {
+      setDeletingId(id);
+      setError("");
+
+      await api.delete(`/terms/${id}`);
+
+      await loadData();
+    } catch (err) {
+      console.error("Failed deleting term:", err);
+      setError("Unable to delete term.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
 
   return (
@@ -416,7 +436,7 @@ export default function TermsPage({
                     className="flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
 
-                    <div>
+                    <div className="flex-1">
 
                       <p className="font-bold">
                         {term.name}
@@ -431,7 +451,7 @@ export default function TermsPage({
 
 
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 justify-between sm:justify-end">
 
 
                       <span
@@ -462,10 +482,10 @@ export default function TermsPage({
                             }
 
                             disabled={
-                              changingTermId === term.id
+                              changingTermId === term.id || deletingId !== null
                             }
 
-                            className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-500 hover:bg-rose-50"
+                            className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-500 hover:bg-rose-50 disabled:opacity-50"
 
                           >
 
@@ -479,6 +499,20 @@ export default function TermsPage({
 
                         )
                       }
+
+                      <button
+                        type="button"
+                        disabled={deletingId !== null || changingTermId === term.id}
+                        onClick={() => handleDelete(term.id)}
+                        className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 transition-colors"
+                        title="Delete Term"
+                      >
+                        {deletingId === term.id ? (
+                          <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={18} />
+                        )}
+                      </button>
 
 
                     </div>
