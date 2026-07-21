@@ -48,3 +48,5 @@ from app.models.setting import Setting
 from app.models.school_branding import SchoolBranding
 
 from app.models.result import Result
+
+from app.models.teacher_subject import TeacherSubject

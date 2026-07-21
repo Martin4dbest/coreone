@@ -1,9 +1,13 @@
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.classroom import Classroom
 from app.models.level import Level
+from app.models.teacher import Teacher
+from app.models.teacher_subject import TeacherSubject
+from app.models.subject import Subject
 
 from app.modules.classes.repository import ClassRepository
 from app.modules.classes.schemas import ClassCreateRequest
@@ -166,3 +170,106 @@ class ClassService:
         return {
             "message": "Class deleted successfully"
         }
+
+
+
+
+    async def assign_class_teacher(
+        self,
+        class_id: int,
+        teacher_id: int,
+        current_user,
+    ):
+        classroom = await self.get_class(
+            class_id,
+            current_user,
+        )
+
+        result = await self.db.execute(
+            select(Teacher)
+            .options(selectinload(Teacher.user))
+            .where(Teacher.id == teacher_id)
+        )
+
+        teacher = result.scalar_one_or_none()
+
+        if not teacher:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Teacher not found",
+            )
+
+        if not teacher.user or teacher.user.school_id != classroom.school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Teacher does not belong to this school",
+            )
+
+        classroom.class_teacher_id = teacher.id
+        classroom.class_teacher_assigned_by = current_user.id
+
+        from datetime import datetime
+
+        classroom.class_teacher_assigned_at = datetime.utcnow()
+
+        await self.db.commit()
+        await self.db.refresh(classroom)
+
+        return classroom
+
+    async def get_class_teachers(
+        self,
+        class_id: int,
+        current_user,
+    ):
+    
+        classroom = await self.get_class(
+            class_id,
+            current_user,
+        )
+    
+    
+        result = await self.db.execute(
+            select(
+                TeacherSubject,
+                Subject.name,
+                Teacher.first_name,
+                Teacher.last_name,
+            )
+            .join(
+                Subject,
+                Subject.id == TeacherSubject.subject_id,
+            )
+            .join(
+                Teacher,
+                Teacher.id == TeacherSubject.teacher_id,
+            )
+            .where(
+                TeacherSubject.classroom_id == class_id,
+                TeacherSubject.school_id == classroom.school_id,
+                TeacherSubject.is_active == True,
+            )
+        )
+    
+    
+        subject_teachers = []
+    
+        for row in result.all():
+    
+            assignment = row[0]
+    
+            subject_teachers.append(
+                {
+                    "subject_id": assignment.subject_id,
+                    "teacher_id": assignment.teacher_id,
+                    "subject_name": row[1],
+                    "teacher_name": f"{row[2]} {row[3]}",
+                }
+            )
+    
+    
+        return {
+            "class_teacher": classroom.class_teacher,
+            "subject_teachers": subject_teachers,
+        }
+    

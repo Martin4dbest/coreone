@@ -80,7 +80,13 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace("/dashboard");
+      if (user.role?.name === "TEACHER") {
+    router.replace("/teacher/dashboard");
+
+    return;
+  }
+
+  router.replace("/dashboard");
 
     } catch (err: any) {
   

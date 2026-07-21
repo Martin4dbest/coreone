@@ -8,6 +8,8 @@ from app.modules.auth.dependencies.current_user import get_current_user
 from app.modules.classes.schemas import (
     ClassCreateRequest,
     ClassResponse,
+    AssignClassTeacherRequest,
+    ClassroomTeachersResponse,
 )
 from app.modules.classes.service import ClassService
 
@@ -97,3 +99,54 @@ async def delete_class(
         class_id,
         current_user,
     )
+
+
+@router.post(
+"/{class_id}/class-teacher",
+)
+async def assign_class_teacher(
+    class_id: int,
+    payload: AssignClassTeacherRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    return await ClassService(db).assign_class_teacher(
+        class_id,
+        payload.teacher_id,
+        current_user,
+    )
+
+
+
+
+@router.delete(
+"/{class_id}/class-teacher",
+)
+async def remove_class_teacher(
+    class_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    return await ClassService(db).remove_class_teacher(
+        class_id,
+        current_user,
+    )
+
+
+@router.get(
+"/{class_id}/teachers",
+response_model=ClassroomTeachersResponse,
+)
+async def get_class_teachers(
+    class_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    return await ClassService(db).get_class_teachers(
+        class_id,
+        current_user,
+    )
+

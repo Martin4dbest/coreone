@@ -8,6 +8,7 @@ from app.models.school import School
 from app.models.staff import Staff
 from app.models.student import Student
 from app.models.teacher import Teacher
+from app.models.teacher_subject import TeacherSubject
 from app.models.user import User
 from app.models.visitor import Visitor
 
@@ -101,3 +102,55 @@ class DashboardService:
                 school_id,
             ),
         }
+
+
+    async def get_teacher_dashboard(
+        self,
+        current_user: User,
+    ):
+
+        if not current_user.teacher:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Teacher profile not found.",
+            )
+
+        teacher_id = current_user.teacher.id
+
+
+        assigned_subjects = await self.db.execute(
+            select(func.count(TeacherSubject.id))
+            .where(
+                TeacherSubject.teacher_id == teacher_id,
+                TeacherSubject.is_active == True,
+            )
+        )
+
+
+        assigned_classes = await self.db.execute(
+            select(
+                func.count(
+                    func.distinct(
+                        TeacherSubject.classroom_id
+                    )
+                )
+            )
+            .where(
+                TeacherSubject.teacher_id == teacher_id,
+                TeacherSubject.is_active == True,
+            )
+        )
+
+
+        return {
+            "total_schools": 1,
+            "total_students": 0,
+            "total_teachers": 1,
+            "total_parents": 0,
+            "total_staff": 0,
+            "total_classes": assigned_classes.scalar_one(),
+            "total_visitors": 0,
+
+            "assigned_subjects": assigned_subjects.scalar_one(),
+        }
+

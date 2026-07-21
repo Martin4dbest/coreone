@@ -52,9 +52,11 @@ const [schoolLogo, setSchoolLogo] = useState("");
       const user = await getCurrentUser();
 
       const userRole =
-        typeof user.role === "string"
-          ? user.role
-          : user.role?.name || "";
+        (
+          typeof user.role === "string"
+            ? user.role
+            : user.role?.name || ""
+        ).toUpperCase();
 
       const userSchoolId = user.school_id;
 
@@ -62,7 +64,10 @@ const [schoolLogo, setSchoolLogo] = useState("");
         return;
       }
 
-      setRole(userRole);
+      console.log("SIDEBAR ROLE:", userRole);
+  console.log("SIDEBAR USER:", user);
+
+  setRole(userRole);
 
       if (userSchoolId) {
         const schoolIdString = String(userSchoolId);
@@ -172,13 +177,13 @@ const schoolBase =
     },
     {
       name: "Students",
-      href: `${schoolBase}/students`,
+      href: "/teacher/dashboard/students",
       icon: GraduationCap,
       color: "text-purple-400",
     },
     {
       name: "Teachers",
-      href: `${schoolBase}/teachers`,
+      href: "/teacher/dashboard",
       icon: Users,
       color: "text-orange-400",
     },
@@ -202,13 +207,13 @@ const schoolBase =
     },
     {
 name: "Results",
-href: `${schoolBase}/results`,
+href: `/dashboard/schools/${schoolId}/results`,
 icon: FileText,
 color: "text-yellow-400",
 },
 {
       name: "Attendance",
-      href: `${schoolBase}/attendance`,
+      href: "/teacher/dashboard/attendance",
       icon: ClipboardCheck,
       color: "text-green-400",
     },
@@ -226,16 +231,62 @@ color: "text-yellow-400",
     },
   ];
 
-  const menu =
-    role === "SCHOOL_ADMIN"
-      ? schoolAdminMenu
-      : superAdminMenu;
+  
 
-  function handleLogout() {
+
+
+const teacherMenu = [
+  {
+    name: "Dashboard",
+    href: "/teacher/dashboard",
+    icon: LayoutDashboard,
+    color: "text-blue-400",
+  },
+  {
+    name: "Students",
+    href: "/teacher/dashboard/students",
+    icon: GraduationCap,
+    color: "text-purple-400",
+  },
+  {
+    name: "Attendance",
+    href: "/teacher/dashboard/attendance",
+    icon: ClipboardCheck,
+    color: "text-green-400",
+  },
+  {
+    name: "Results",
+    href: `/dashboard/schools/${schoolId}/results`,
+    icon: FileText,
+    color: "text-yellow-400",
+  },
+];
+
+
+
+
+
+
+
+  
+let menu = superAdminMenu;
+
+if (role === "SCHOOL_ADMIN") {
+  menu = schoolAdminMenu;
+}
+
+if (role === "TEACHER") {
+  menu = teacherMenu;
+}
+
+
+function handleLogout() {
     clearWorkspaceCache();
     localStorage.removeItem("access_token");
     router.replace("/login");
   }
+
+  console.log("FINAL MENU ROLE:", role, menu);
 
   return (
     <aside className="min-h-screen w-80 p-5">
@@ -256,9 +307,7 @@ color: "text-yellow-400",
             </div>
 
           <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-indigo-200">
-            {role === "SCHOOL_ADMIN"
-              ? schoolName || "Loading school..."
-              : "Smart School Platform"}
+            {schoolName || "Smart School Platform"}
           </p>
         </div>
 

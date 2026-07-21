@@ -31,6 +31,7 @@ async def create_student(
         require_roles(
             "SUPER_ADMIN",
             "SCHOOL_ADMIN",
+            "TEACHER",
         )
     ),
 ):
@@ -49,6 +50,7 @@ async def import_students(
         require_roles(
             "SUPER_ADMIN",
             "SCHOOL_ADMIN",
+            "TEACHER",
         )
     ),
 ):
@@ -67,6 +69,7 @@ async def get_students(
         require_roles(
             "SUPER_ADMIN",
             "SCHOOL_ADMIN",
+            "TEACHER",
         )
     ),
 ):
@@ -85,6 +88,7 @@ async def delete_student(
         require_roles(
             "SUPER_ADMIN",
             "SCHOOL_ADMIN",
+            "TEACHER",
         )
     ),
 ):
@@ -102,6 +106,7 @@ async def get_student(
         require_roles(
             "SUPER_ADMIN",
             "SCHOOL_ADMIN",
+            "TEACHER",
         )
     ),
 ):
@@ -119,6 +124,7 @@ async def deactivate_student(
         require_roles(
             "SUPER_ADMIN",
             "SCHOOL_ADMIN",
+            "TEACHER",
         )
     ),
 ):
@@ -136,6 +142,7 @@ async def activate_student(
         require_roles(
             "SUPER_ADMIN",
             "SCHOOL_ADMIN",
+            "TEACHER",
         )
     ),
 ):
@@ -154,6 +161,7 @@ async def upload_passport(
         require_roles(
             "SUPER_ADMIN",
             "SCHOOL_ADMIN",
+            "TEACHER",
         )
     ),
 ):

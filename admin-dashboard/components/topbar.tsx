@@ -176,16 +176,23 @@ export default function Topbar() {
     ? user.role
     : user?.role?.name || "";
 
-const isSuperAdmin = rawRoleName === "SUPER_ADMIN";
+  const isSuperAdmin = rawRoleName === "SUPER_ADMIN";
 
-const displayName =
-  user?.full_name ||
-  [user?.first_name, user?.last_name].filter(Boolean).join(" ") ||
-  (isSuperAdmin ? "Super Admin" : "Admin");
+  const displayName =
+    user?.full_name ||
+    [user?.first_name, user?.last_name].filter(Boolean).join(" ") ||
+    (rawRoleName === "TEACHER"
+      ? "Teacher"
+      : isSuperAdmin
+        ? "Super Admin"
+        : "Admin");
 
-const roleName =
-  isSuperAdmin ? "Super Admin" : "School Admin";
-
+  const roleName =
+    rawRoleName
+      .toLowerCase()
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
 const initials = displayName
     .split(" ")
     .map((name) => name[0])

@@ -3,9 +3,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_model import BaseModel
 from app.db.database import Base
+from app.db.mixins import SchoolMixin
 
 
-class Teacher(Base, BaseModel):
+class Teacher(Base, BaseModel, SchoolMixin):
     __tablename__ = "teachers"
 
     user_id: Mapped[int] = mapped_column(
@@ -28,3 +29,13 @@ class Teacher(Base, BaseModel):
         "User",
         back_populates="teacher",
     )
+
+    teacher_subjects = relationship(
+        "TeacherSubject",
+        back_populates="teacher",
+        cascade="all, delete-orphan",
+    )
+
+    @property
+    def assignments(self):
+        return self.teacher_subjects

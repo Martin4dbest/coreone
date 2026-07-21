@@ -117,56 +117,82 @@ return (
     );
   }
 
+  const role =
+    currentUser?.role?.name;
+
   const isSuperAdmin =
-    currentUser?.role?.name === "SUPER_ADMIN";
+    role === "SUPER_ADMIN";
+
+  const isSchoolAdmin =
+    role === "SCHOOL_ADMIN";
+
+  const isTeacher =
+    role === "TEACHER";
 
   const schoolModules = [
-    ...(isSuperAdmin
-      ? [
-          {
-            title: "School Admins",
-            description: "Manage administrators assigned to this school",
-            icon: Settings,
-            href: `/dashboard/schools/${schoolId}/admins`,
-          },
-        ]
-      : []),
-    {
+
+    ...(isSuperAdmin ? [{
+      title: "School Admins",
+      description: "Manage administrators assigned to this school",
+      icon: Settings,
+      href: `/dashboard/schools/${schoolId}/admins`,
+    }] : []),
+
+    ...((isSuperAdmin || isSchoolAdmin) ? [{
       title: "Students",
       description: "Manage enrolled learners",
       icon: GraduationCap,
       href: `/dashboard/schools/${schoolId}/students`,
-    },
-    {
+    },{
       title: "Teachers",
       description: "Manage teaching staff",
       icon: Users,
       href: `/dashboard/schools/${schoolId}/teachers`,
-    },
-    {
+    },{
       title: "Staff",
       description: "Manage school personnel",
       icon: UserRound,
       href: `/dashboard/schools/${schoolId}/staff`,
-    },
-    {
+    },{
       title: "Academics",
       description: "Levels, classes, subjects and results",
       icon: BookOpen,
       href: `/dashboard/schools/${schoolId}/academics`,
-    },
+    }] : []),
+
+    ...(isTeacher ? [{
+      title: "My Students",
+      description: "Students in your assigned classes",
+      icon: GraduationCap,
+      href: `/dashboard/schools/${schoolId}/students`,
+    },{
+      title: "My Classes",
+      description: "Classes assigned to you",
+      icon: BookOpen,
+      href: `/dashboard/schools/${schoolId}/classes`,
+    }] : []),
+
     {
       title: "Attendance",
-      description: "Monitor daily school attendance",
+      description: "Monitor attendance",
       icon: ClipboardCheck,
       href: `/dashboard/schools/${schoolId}/attendance`,
     },
+
+    {
+      title: "Results",
+      description: "View and manage results",
+      icon: BookOpen,
+      href: `/dashboard/schools/${schoolId}/results`,
+    },
+
     {
       title: "Events",
-      description: "Manage school events and activities",
+      description: "School events and activities",
       icon: CalendarDays,
       href: `/dashboard/schools/${schoolId}/events`,
     },
+
   ];
 
   async function toggleSchool() {

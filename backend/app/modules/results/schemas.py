@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ResultCreateRequest(BaseModel):
@@ -68,14 +68,13 @@ class ResultResponse(BaseModel):
     grade: str | None = None
     remark: str | None = None
 
-    status: str
+    status: str = "PUBLISHED"
     teacher_comment: str | None = None
     principal_comment: str | None = None
 
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ResultCommentRequest(BaseModel):

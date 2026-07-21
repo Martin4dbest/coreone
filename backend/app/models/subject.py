@@ -26,3 +26,9 @@ class Subject(Base, BaseModel, SchoolMixin, ActiveMixin):
 
     department = relationship("Department")
     school = relationship("School")
+
+
+teacher_subjects = relationship(
+    "TeacherSubject",
+    back_populates="subject",
+)

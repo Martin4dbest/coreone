@@ -3,6 +3,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.student import Student
+from app.models.teacher_subject import TeacherSubject
 
 
 class StudentRepository:
@@ -11,10 +12,11 @@ class StudentRepository:
         self.db = db
 
     async def get_all(
-        self,
-        school_id: int | None = None,
-        class_id: int | None = None,
-    ):
+    self,
+    school_id: int | None = None,
+    class_id: int | None = None,
+    teacher_id: int | None = None,
+):
         query = (
             select(Student)
             .options(
@@ -33,6 +35,18 @@ class StudentRepository:
                 Student.classroom_id == class_id
             )
 
+        if teacher_id is not None:
+            query = query.where(
+                Student.classroom_id.in_(
+                    select(
+                        TeacherSubject.classroom_id
+                    ).where(
+                        TeacherSubject.teacher_id == teacher_id,
+                        TeacherSubject.is_active == True,
+                    )
+                )
+            )
+
         result = await self.db.execute(query)
 
         return result.scalars().all()
@@ -41,6 +55,7 @@ class StudentRepository:
         self,
         student_id: int,
         school_id: int | None = None,
+        teacher_id: int | None = None,
     ):
         query = (
             select(Student)
@@ -56,6 +71,18 @@ class StudentRepository:
         if school_id is not None:
             query = query.where(
                 Student.school_id == school_id
+            )
+
+        if teacher_id is not None:
+            query = query.where(
+                Student.classroom_id.in_(
+                    select(
+                        TeacherSubject.classroom_id
+                    ).where(
+                        TeacherSubject.teacher_id == teacher_id,
+                        TeacherSubject.is_active == True,
+                    )
+                )
             )
 
         result = await self.db.execute(query)

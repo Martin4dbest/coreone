@@ -41,6 +41,7 @@ from app.modules.reports.router import router as reports_router
 from app.modules.settings.router import router as settings_router
 from app.modules.branding.router import router as branding_router
 from app.modules.audit_logs.router import router as audit_logs_router
+from app.modules.teacher_assignments.router import router as teacher_assignments_router
 
 
 @asynccontextmanager
@@ -117,6 +118,11 @@ app.include_router(
 
 app.include_router(
     teachers_router,
+    prefix=settings.API_V1_STR,
+)
+
+app.include_router(
+    teacher_assignments_router,
     prefix=settings.API_V1_STR,
 )
 

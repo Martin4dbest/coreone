@@ -9,6 +9,8 @@ from app.modules.schools.schemas import (
     SchoolResponse,
 )
 from app.modules.schools.service import SchoolService
+from app.models.school_branding import SchoolBranding
+from sqlalchemy import select
 
 
 router = APIRouter(
@@ -46,6 +48,43 @@ async def get_schools(
     "/{school_id}",
     response_model=SchoolResponse,
 )
+
+@router.get(
+"/me",
+response_model=SchoolResponse,
+)
+async def get_my_school(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    if not current_user.school_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User is not assigned to a school",
+        )
+
+    service = SchoolService(db)
+    school = await service.get_school(
+        current_user.school_id
+    )
+
+    branding_result = await db.execute(
+        select(SchoolBranding).where(
+            SchoolBranding.school_id == school.id
+        )
+    )
+
+    branding = branding_result.scalar_one_or_none()
+
+    if branding:
+        school.logo_url = branding.logo_url
+        school.motto = branding.motto
+        school.primary_color = branding.primary_color
+        school.secondary_color = branding.secondary_color
+
+    return school
+
+
 async def get_school(
     school_id: int,
     db: AsyncSession = Depends(get_db),

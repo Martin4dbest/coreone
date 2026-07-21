@@ -91,9 +91,36 @@ class TeacherService:
 
         teacher = Teacher(
             user_id=user.id,
+            school_id=payload.school_id,
             employee_number=payload.employee_number,
             first_name=payload.first_name,
             last_name=payload.last_name,
         )
 
         return await self.repository.create(teacher)
+
+    async def get_teacher_assignments_summary(
+        self,
+        teacher_id: int,
+        current_user,
+    ):
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        teacher = await self.repository.get_by_id(
+            teacher_id,
+            school_id,
+        )
+
+        if not teacher:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Teacher not found",
+            )
+
+        return await self.repository.get_teacher_assignments_summary(
+            teacher_id,
+            school_id
+        )

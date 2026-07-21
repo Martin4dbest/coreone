@@ -7,13 +7,14 @@ from app.models.classroom import Classroom
 from app.models.subject import Subject
 from app.models.term import Term
 from app.models.academic_session import AcademicSession
+from app.models.teacher import Teacher
+from app.models.teacher_subject import TeacherSubject
 
 
 class ResultRepository:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-
 
     async def get_all(self, school_id: int | None = None):
         query = (
@@ -45,15 +46,16 @@ class ResultRepository:
         rows = (await self.db.execute(query)).all()
 
         results = []
-
         for row in rows:
             result = row[0]
+            middle_str = f"{row.middle_name} " if row.middle_name else ""
+            student_name = f"{row.first_name} {middle_str}{row.last_name}".strip()
 
             results.append({
                 "id": result.id,
                 "school_id": result.school_id,
                 "student_id": result.student_id,
-                "student_name": f"{row.first_name} {row.middle_name + " " if row.middle_name else ""}{row.last_name}",
+                "student_name": student_name,
                 "admission_number": row.admission_number,
                 "class_id": result.class_id,
                 "class_name": row.class_name,
@@ -73,14 +75,79 @@ class ResultRepository:
 
         return results
 
+    async def get_teacher_results(self, user_id: int):
+        query = (
+            select(
+                Result,
+                Student.first_name,
+                Student.middle_name,
+                Student.last_name,
+                Student.admission_number,
+                Classroom.name.label("class_name"),
+                Subject.name.label("subject_name"),
+                Term.name.label("term_name"),
+                AcademicSession.name.label("session_name"),
+            )
+            .join(Student, Student.id == Result.student_id)
+            .join(Classroom, Classroom.id == Result.class_id)
+            .join(Subject, Subject.id == Result.subject_id)
+            .join(Term, Term.id == Result.term_id)
+            .join(
+                AcademicSession,
+                AcademicSession.id == Result.academic_session_id,
+            )
+            .join(
+                Teacher,
+                Teacher.user_id == user_id,
+            )
+            .join(
+                TeacherSubject,
+                (TeacherSubject.teacher_id == Teacher.id)
+                & (TeacherSubject.classroom_id == Result.class_id)
+                & (TeacherSubject.subject_id == Result.subject_id)
+                & (TeacherSubject.academic_session_id == Result.academic_session_id)
+                & (TeacherSubject.school_id == Result.school_id)
+                & (TeacherSubject.is_active == True),
+            )
+            .order_by(Result.created_at.desc())
+        )
+
+        rows = (await self.db.execute(query)).all()
+
+        results = []
+        for row in rows:
+            result = row[0]
+            middle_str = f"{row.middle_name} " if row.middle_name else ""
+            student_name = f"{row.first_name} {middle_str}{row.last_name}".strip()
+
+            results.append({
+                "id": result.id,
+                "school_id": result.school_id,
+                "student_id": result.student_id,
+                "student_name": student_name,
+                "admission_number": row.admission_number,
+                "class_id": result.class_id,
+                "class_name": row.class_name,
+                "subject_id": result.subject_id,
+                "subject_name": row.subject_name,
+                "term_id": result.term_id,
+                "term_name": row.term_name,
+                "academic_session_id": result.academic_session_id,
+                "session_name": row.session_name,
+                "ca_score": result.ca_score,
+                "exam_score": result.exam_score,
+                "total_score": result.total_score,
+                "grade": result.grade,
+                "remark": result.remark,
+                "is_active": result.is_active,
+            })
+
+        return results
 
     async def get_by_id(self, result_id: int):
         query = select(Result).where(Result.id == result_id)
-
         result = await self.db.execute(query)
-
         return result.scalar_one_or_none()
-
 
     async def get_existing_result(
         self,
@@ -99,11 +166,8 @@ class ResultRepository:
             Result.term_id == term_id,
             Result.academic_session_id == academic_session_id,
         )
-
         result = await self.db.execute(query)
-
         return result.scalar_one_or_none()
-
 
     async def create(self, result: Result):
         self.db.add(result)
@@ -111,23 +175,17 @@ class ResultRepository:
         await self.db.refresh(result)
         return result
 
-
     async def update(self, result: Result):
         await self.db.commit()
         await self.db.refresh(result)
         return result
 
-
     async def delete(self, result: Result):
         await self.db.delete(result)
         await self.db.commit()
 
-
     async def delete_all(self, school_id: int):
         await self.db.execute(
-            delete(Result).where(
-                Result.school_id == school_id
-            )
+            delete(Result).where(Result.school_id == school_id)
         )
-
         await self.db.commit()

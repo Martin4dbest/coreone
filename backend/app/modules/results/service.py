@@ -1,17 +1,22 @@
+from io import BytesIO
+import os
+
 from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.student import Student
 from app.models.subject import Subject
 from app.models.classroom import Classroom
 from app.models.term import Term
 from app.models.academic_session import AcademicSession
-
 from app.models.result import Result
 from app.models.grading_system import GradingSystem
+from app.models.school import School
+from app.models.school_branding import SchoolBranding
+from app.models.attendance import Attendance
 
-from app.modules.results.repository import ResultRepository 
+from app.modules.results.repository import ResultRepository
 from app.modules.results.schemas import (
     ResultCreateRequest,
     ResultUpdateRequest,
@@ -37,8 +42,10 @@ class ResultService:
                 GradingSystem.maximum_score >= score,
             )
         )
-
         return result.scalar_one_or_none()
+
+    async def get_teacher_results(self, current_user):
+        return await self.repository.get_teacher_results(current_user.id)
 
     async def create_result(
         self,
@@ -50,7 +57,7 @@ class ResultService:
             and payload.school_id != current_user.school_id
         ):
             raise HTTPException(
-                status_code=403,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="Unauthorized school access",
             )
 
@@ -71,8 +78,8 @@ class ResultService:
             ca_score=payload.ca_score,
             exam_score=payload.exam_score,
             total_score=total,
-            grade=grading.grade if grading else payload.grade,
-            remark=grading.remark if grading else payload.remark,
+            grade=grading.grade if grading else None,
+            remark=grading.remark if grading else None,
             teacher_comment=payload.teacher_comment,
             principal_comment=payload.principal_comment,
             is_active=True,
@@ -90,15 +97,31 @@ class ResultService:
 
         if not result:
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Result not found",
             )
 
+        total = payload.ca_score + payload.exam_score
+        grading = await self.get_grade_for_score(
+            result.school_id,
+            total,
+        )
+
+        result.student_id = payload.student_id
+        result.class_id = payload.class_id
+        result.subject_id = payload.subject_id
+        result.term_id = payload.term_id
+        result.academic_session_id = payload.academic_session_id
         result.ca_score = payload.ca_score
         result.exam_score = payload.exam_score
-        result.total_score = payload.ca_score + payload.exam_score
-        result.grade = payload.grade
-        result.remark = payload.remark
+        result.total_score = total
+        result.grade = grading.grade if grading else None
+        result.remark = grading.remark if grading else None
+
+        if payload.teacher_comment is not None:
+            result.teacher_comment = payload.teacher_comment
+        if payload.principal_comment is not None:
+            result.principal_comment = payload.principal_comment
 
         return await self.repository.update(result)
 
@@ -107,20 +130,22 @@ class ResultService:
         current_user,
         school_id: int | None = None,
     ):
+        role = current_user.role.name
 
-        if current_user.role.name != "SUPER_ADMIN":
+        if role == "TEACHER":
+            return await self.repository.get_teacher_results(current_user.id)
+
+        if role != "SUPER_ADMIN":
             school_id = current_user.school_id
 
-        return await self.repository.get_all(
-            school_id
-        )
+        return await self.repository.get_all(school_id)
 
     async def get_result(self, result_id: int):
         result = await self.repository.get_by_id(result_id)
 
         if not result:
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Result not found",
             )
 
@@ -135,15 +160,13 @@ class ResultService:
 
         if not result:
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Result not found",
             )
 
         await self.repository.delete(result)
 
-        return {
-            "message": "Result deleted successfully"
-        }
+        return {"message": "Result deleted successfully"}
 
     async def delete_all_results(
         self,
@@ -153,27 +176,19 @@ class ResultService:
             school_id = current_user.school_id
         else:
             raise HTTPException(
-                status_code=400,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Specify school deletion through admin tools",
             )
 
-        await self.repository.delete_all(
-            school_id
-        )
+        await self.repository.delete_all(school_id)
 
-        return {
-            "message": "All results deleted"
-        }
+        return {"message": "All results deleted"}
 
     async def get_student_report(
         self,
         student_id: int,
         current_user,
     ):
-        from app.models.school import School
-        from app.models.school_branding import SchoolBranding
-        from app.models.attendance import Attendance
-
         student_query = await self.db.execute(
             select(
                 Student,
@@ -186,69 +201,54 @@ class ResultService:
                 SchoolBranding.secondary_color,
                 SchoolBranding.accent_color,
             )
-            .join(
-                School,
-                School.id == Student.school_id
-            )
-            .outerjoin(
-                Classroom,
-                Classroom.id == Student.classroom_id
-            )
+            .join(School, School.id == Student.school_id)
+            .outerjoin(Classroom, Classroom.id == Student.classroom_id)
             .outerjoin(
                 SchoolBranding,
-                SchoolBranding.school_id == Student.school_id
+                SchoolBranding.school_id == Student.school_id,
             )
-            .where(
-                Student.id == student_id
-            )
+            .where(Student.id == student_id)
         )
 
         student_row = student_query.first()
 
         if not student_row:
             raise HTTPException(
-                status_code=404,
-                detail="Student not found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student not found",
             )
 
         student = student_row[0]
 
         result_query = await self.db.execute(
-            select(Result)
+            select(Result, Subject.name.label("subject_name"))
+            .outerjoin(Subject, Subject.id == Result.subject_id)
             .where(
                 Result.student_id == student_id,
-                Result.is_active == True
+                Result.is_active == True,
             )
         )
 
-        results = result_query.scalars().all()
+        results_rows = result_query.all()
 
-        if not results:
+        if not results_rows:
             raise HTTPException(
-                status_code=404,
-                detail="No results found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No results found",
             )
 
         subjects = []
         total_score = 0
 
-        for item in results:
-            subject_query = await self.db.execute(
-                select(Subject)
-                .where(
-                    Subject.id == item.subject_id
-                )
-            )
-            subject = subject_query.scalar_one_or_none()
-
+        for item, subject_name in results_rows:
             grading = await self.get_grade_for_score(
                 item.school_id,
-                item.total_score
+                item.total_score,
             )
 
             subjects.append(
                 {
-                    "name": subject.name if subject else "Unknown",
+                    "name": subject_name or "Unknown",
                     "ca": item.ca_score,
                     "exam": item.exam_score,
                     "total": item.total_score,
@@ -258,27 +258,26 @@ class ResultService:
             )
             total_score += item.total_score
 
+        first_result = results_rows[0][0]
         average = (
             total_score / len(subjects)
             if subjects
             else 0
         )
 
-        # position calculation
+        # Position calculation
         position_query = await self.db.execute(
             select(
                 Result.student_id,
-                func.avg(Result.total_score).label("average")
+                func.avg(Result.total_score).label("average"),
             )
             .where(
-                Result.class_id == results[0].class_id,
-                Result.term_id == results[0].term_id,
-                Result.academic_session_id == results[0].academic_session_id
+                Result.class_id == first_result.class_id,
+                Result.term_id == first_result.term_id,
+                Result.academic_session_id == first_result.academic_session_id,
             )
             .group_by(Result.student_id)
-            .order_by(
-                func.avg(Result.total_score).desc()
-            )
+            .order_by(func.avg(Result.total_score).desc())
         )
 
         ranking = position_query.all()
@@ -290,71 +289,69 @@ class ResultService:
                 break
 
         present_query = await self.db.execute(
-            select(func.count(Attendance.id))
-            .where(
+            select(func.count(Attendance.id)).where(
                 Attendance.student_id == student_id,
-                Attendance.status == "present"
+                Attendance.status == "present",
             )
         )
         present_days = present_query.scalar() or 0
 
         total_attendance_query = await self.db.execute(
-            select(func.count(Attendance.id))
-            .where(
+            select(func.count(Attendance.id)).where(
                 Attendance.student_id == student_id
             )
         )
         total_days = total_attendance_query.scalar() or 0
 
-        attendance_days = (
+        attendance_percentage = (
             round((present_days / total_days) * 100, 2)
             if total_days > 0
             else 0
         )
 
         session_query = await self.db.execute(
-            select(AcademicSession.name)
-            .where(
-                AcademicSession.id == results[0].academic_session_id
+            select(AcademicSession.name).where(
+                AcademicSession.id == first_result.academic_session_id
             )
         )
         session_name = session_query.scalar_one_or_none()
 
         term_query = await self.db.execute(
-            select(Term.name)
-            .where(
-                Term.id == results[0].term_id
+            select(Term.name).where(
+                Term.id == first_result.term_id
             )
         )
         term_name = term_query.scalar_one_or_none()
 
-        middle_name_str = f"{student.middle_name} " if student.middle_name else ""
+        middle_name_str = (
+            f"{student.middle_name} " if student.middle_name else ""
+        )
+
         return {
             "session": session_name,
             "term": term_name,
             "student": {
                 "name": f"{student.first_name} {middle_name_str}{student.last_name}",
                 "admission_number": student.admission_number,
-                "passport": student.passport,
+                "passport": getattr(student, "passport", None),
                 "class": student_row.class_name,
             },
             "school": {
                 "id": student.school_id,
                 "name": student_row.school_name,
                 "logo": (
-                    student_row.logo_url
-                    or student_row.school_logo
+                    student_row.logo_url or student_row.school_logo
                 ),
                 "motto": student_row.motto,
-            "primary_color": student_row.primary_color,
-            "secondary_color": student_row.secondary_color,
-            "accent_color": student_row.accent_color,
+                "primary_color": student_row.primary_color,
+                "secondary_color": student_row.secondary_color,
+                "accent_color": student_row.accent_color,
             },
             "subjects": subjects,
             "total": total_score,
             "average": round(average, 2),
             "position": position,
-            "attendance": attendance_days,
+            "attendance": attendance_percentage,
             "remark": (
                 "Excellent Performance"
                 if average >= 80
@@ -363,9 +360,9 @@ class ResultService:
                 else "Needs Improvement"
             ),
             "comments": {
-                "teacher": results[0].teacher_comment,
-                "principal": results[0].principal_comment,
-            }
+                "teacher": first_result.teacher_comment,
+                "principal": first_result.principal_comment,
+            },
         }
 
     async def add_comment(
@@ -378,7 +375,7 @@ class ResultService:
 
         if not result:
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Result not found",
             )
 
@@ -386,16 +383,20 @@ class ResultService:
 
         if role == "TEACHER":
             result.teacher_comment = payload.comment
-            result.teacher_comment_by = current_user.id
+            if hasattr(result, "teacher_comment_by"):
+                result.teacher_comment_by = current_user.id
         elif role == "PRINCIPAL":
             result.principal_comment = payload.comment
-            result.principal_comment_by = current_user.id
+            if hasattr(result, "principal_comment_by"):
+                result.principal_comment_by = current_user.id
         elif role == "SCHOOL_ADMIN":
-            result.admin_comment = payload.comment
-            result.admin_comment_by = current_user.id
+            if hasattr(result, "admin_comment"):
+                result.admin_comment = payload.comment
+            if hasattr(result, "admin_comment_by"):
+                result.admin_comment_by = current_user.id
         else:
             raise HTTPException(
-                status_code=403,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="You cannot add result comments",
             )
 
@@ -417,13 +418,12 @@ class ResultService:
         from reportlab.lib.styles import getSampleStyleSheet
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.units import inch
-        from io import BytesIO
-        import os
-        from app.models.school_branding import SchoolBranding
+        from reportlab.lib.colors import HexColor
+        from reportlab.lib import colors
 
         report = await self.get_student_report(
             student_id,
-            current_user
+            current_user,
         )
 
         branding_result = await self.db.execute(
@@ -435,27 +435,18 @@ class ResultService:
 
         primary_color = (
             branding.primary_color
-            if branding
+            if branding and branding.primary_color
             else "#2563EB"
         )
-
-        print("=" * 60)
-        print("REPORT SCHOOL ID:", report["school"]["id"])
-        print("BRANDING:", branding)
-        print("PRIMARY COLOR:", primary_color)
-        print("=" * 60)
 
         buffer = BytesIO()
         pdf = SimpleDocTemplate(
             buffer,
             pagesize=A4,
-            title="Student Report Card"
+            title="Student Report Card",
         )
 
         styles = getSampleStyleSheet()
-        from reportlab.lib.colors import HexColor
-        from reportlab.lib import colors
-        
         brand_color = HexColor(primary_color)
         styles["Title"].textColor = brand_color
         styles["Heading2"].textColor = brand_color
@@ -464,20 +455,20 @@ class ResultService:
         # SCHOOL LOGO
         logo = report["school"]["logo"]
         if logo:
-            logo_path = logo.replace("/uploads/", "uploads/")
+            logo_path = logo.replace("/uploads/", "uploads/").lstrip("/")
             if os.path.exists(logo_path):
                 elements.append(
                     RLImage(
                         logo_path,
-                        width=1*inch,
-                        height=1*inch
+                        width=1 * inch,
+                        height=1 * inch,
                     )
                 )
 
         elements.append(
             Paragraph(
-                report["school"]["name"],
-                styles["Title"]
+                report["school"]["name"] or "School Name",
+                styles["Title"],
             )
         )
 
@@ -485,7 +476,7 @@ class ResultService:
             elements.append(
                 Paragraph(
                     report["school"]["motto"],
-                    styles["Italic"]
+                    styles["Italic"],
                 )
             )
 
@@ -493,7 +484,7 @@ class ResultService:
         elements.append(
             Paragraph(
                 "STUDENT REPORT CARD",
-                styles["Heading2"]
+                styles["Heading2"],
             )
         )
 
@@ -501,8 +492,8 @@ class ResultService:
             [
                 ["Student", report["student"]["name"]],
                 ["Admission No", report["student"]["admission_number"]],
-                ["Class", str(report["student"]["class"])],
-                ["Attendance", str(report["attendance"]) + "%"],
+                ["Class", str(report["student"]["class"] or "N/A")],
+                ["Attendance", f"{report['attendance']}%"],
             ]
         )
 
@@ -550,7 +541,7 @@ class ResultService:
         summary = Table(
             [
                 ["Total", "Average", "Position"],
-                [report["total"], report["average"], report["position"]]
+                [report["total"], report["average"], report["position"] or "N/A"],
             ]
         )
 
@@ -568,16 +559,16 @@ class ResultService:
 
         elements.append(
             Paragraph(
-                "Teacher Comment: " + str(report["comments"]["teacher"] or ""),
-                styles["Normal"]
+                f"Teacher Comment: {report['comments']['teacher'] or ''}",
+                styles["Normal"],
             )
         )
         elements.append(Spacer(1, 15))
 
         elements.append(
             Paragraph(
-                "Principal Comment: " + str(report["comments"]["principal"] or ""),
-                styles["Normal"]
+                f"Principal Comment: {report['comments']['principal'] or ''}",
+                styles["Normal"],
             )
         )
         elements.append(Spacer(1, 50))
@@ -585,7 +576,7 @@ class ResultService:
         signature = Table(
             [
                 ["________________", "________________"],
-                ["Class Teacher", "Principal"]
+                ["Class Teacher", "Principal"],
             ]
         )
         elements.append(signature)
@@ -625,9 +616,7 @@ class ResultService:
                 existing.grade = grading.grade if grading else None
                 existing.remark = grading.remark if grading else None
 
-                created.append(
-                    await self.repository.update(existing)
-                )
+                created.append(await self.repository.update(existing))
             else:
                 result = Result(
                     school_id=payload.school_id,
@@ -644,8 +633,6 @@ class ResultService:
                     is_active=True,
                 )
 
-                created.append(
-                    await self.repository.create(result)
-                )
+                created.append(await self.repository.create(result))
 
         return created

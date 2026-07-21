@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.classroom import Classroom
 from app.models.role import Role
 from app.models.student import Student
+from app.models.teacher import Teacher
 from app.models.user import User
 
 from app.modules.auth.security import hash_password
@@ -21,7 +22,7 @@ from app.modules.auth.security import hash_password
 from app.modules.students.repository import StudentRepository
 from app.modules.students.schemas import StudentCreateRequest
 
-from app.modules.users.service import UserService                 
+from app.modules.users.service import UserService
 
 
 class StudentService:
@@ -36,6 +37,9 @@ class StudentService:
         payload: StudentCreateRequest,
         current_user,
     ):
+        self._ensure_teacher_cannot_manage_students(current_user)
+
+
         school_id = payload.school_id
 
         if current_user.role.name != "SUPER_ADMIN":
@@ -116,14 +120,75 @@ class StudentService:
         class_id: int | None = None,
     ):
         school_id = None
+        teacher_id = None
 
-        if current_user.role.name != "SUPER_ADMIN":
+        role = current_user.role.name
+
+        if role != "SUPER_ADMIN":
             school_id = current_user.school_id
 
+        if role == "TEACHER":
+            result = await self.db.execute(
+                select(Teacher).where(
+                    Teacher.user_id == current_user.id,
+                )
+            )
+
+            teacher = result.scalar_one_or_none()
+
+            if teacher is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Teacher profile not found.",
+                )
+
+            teacher_id = teacher.id
+
+
         return await self.repository.get_all(
-            school_id,
-            class_id,
+            school_id=school_id,
+            class_id=class_id,
+            teacher_id=teacher_id,
         )
+
+    async def _get_teacher_profile(self, current_user):
+        if current_user.role.name != "TEACHER":
+            return None
+
+        result = await self.db.execute(
+            select(Teacher).where(
+                Teacher.user_id == current_user.id,
+            )
+        )
+
+        teacher = result.scalar_one_or_none()
+
+        if teacher is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Teacher profile not found.",
+            )
+
+        return teacher
+
+    def _ensure_teacher_cannot_manage_students(self, current_user):
+        if current_user.role.name == "TEACHER":
+            raise HTTPException(
+                status_code=403,
+                detail="Teachers are not allowed to manage students.",
+            )
+
+
+    async def _get_teacher_id(
+        self,
+        current_user,
+    ) -> int | None:
+        teacher = await self._get_teacher_profile(current_user)
+
+        if teacher is None:
+            return None
+
+        return teacher.id
 
     async def get_student(
         self,
@@ -131,16 +196,22 @@ class StudentService:
         current_user,
     ):
         school_id = None
+        teacher_id = None
 
         if current_user.role.name != "SUPER_ADMIN":
             school_id = current_user.school_id
 
+        teacher_id = await self._get_teacher_id(
+            current_user
+        )
+
         student = await self.repository.get_by_id(
             student_id,
             school_id,
+            teacher_id,
         )
 
-        # fallback when frontend sends user_id instead of student.id
+        # secure fallback when frontend sends user_id instead of student.id
         if not student:
             result = await self.db.execute(
                 select(Student).where(
@@ -154,16 +225,19 @@ class StudentService:
         if not student:
             raise HTTPException(
                 status_code=404,
-                detail="Student not found",
+                detail="Student not found.",
             )
+
 
         return student
 
     async def deactivate_student(
-        self,
+                self,
         student_id: int,
         current_user,
     ):
+        self._ensure_teacher_cannot_manage_students(current_user)
+
         school_id = None
 
         if current_user.role.name != "SUPER_ADMIN":
@@ -196,10 +270,12 @@ class StudentService:
         return await self.repository.update(student)
 
     async def activate_student(
-        self,
+                self,
         student_id: int,
         current_user,
     ):
+        self._ensure_teacher_cannot_manage_students(current_user)
+
         school_id = None
 
         if current_user.role.name != "SUPER_ADMIN":
@@ -234,11 +310,13 @@ class StudentService:
 
 
     async def import_students(
-        self,
+                self,
         school_id: int,
         file: UploadFile,
         current_user,
     ):
+        self._ensure_teacher_cannot_manage_students(current_user)
+
         """
         Bulk import students from CSV/XLS/XLSX.
         """
@@ -444,7 +522,7 @@ class StudentService:
                 student = Student(
                     user_id=user.id,
                     school_id=school_id,
-                classroom_id=classroom.id,
+                    classroom_id=classroom.id,
                     admission_number=admission_number,
                     first_name=str(
                         row["first_name"]
@@ -488,6 +566,8 @@ class StudentService:
         file: UploadFile,
         current_user,
     ):
+        self._ensure_teacher_cannot_manage_students(current_user)
+
         school_id = None
 
         if current_user.role.name != "SUPER_ADMIN":
@@ -543,10 +623,12 @@ class StudentService:
 
 
     async def delete_student(
-        self,
+                self,
         student_id: int,
         current_user,
     ):
+        self._ensure_teacher_cannot_manage_students(current_user)
+
         student = await self.repository.get_by_id(student_id)
 
         if not student:

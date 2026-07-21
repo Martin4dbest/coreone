@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
@@ -9,7 +10,6 @@ from app.modules.results.schemas import (
     ResultCreateRequest,
     ResultUpdateRequest,
     BulkResultEntryRequest,
-    ResultResponse,
     ResultCommentRequest,
 )
 
@@ -22,7 +22,70 @@ router = APIRouter(
 )
 
 
-@router.post("")
+# =========================================================
+# 1. STATIC & COLLECTION-LEVEL READ ENDPOINTS
+# (Must come BEFORE /{result_id} to avoid path conflicts)
+# =========================================================
+
+@router.get("", status_code=status.HTTP_200_OK)
+async def get_results(
+    school_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await ResultService(db).get_results(
+        current_user,
+        school_id,
+    )
+
+
+@router.get("/teacher", status_code=status.HTTP_200_OK)
+async def get_teacher_results(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await ResultService(db).get_teacher_results(current_user)
+
+
+@router.get("/student/{student_id}/report", status_code=status.HTTP_200_OK)
+async def student_report(
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await ResultService(db).get_student_report(
+        student_id,
+        current_user,
+    )
+
+
+@router.get("/student/{student_id}/pdf", status_code=status.HTTP_200_OK)
+async def student_report_pdf(
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    pdf = await ResultService(db).generate_student_report_pdf(
+        student_id,
+        current_user,
+    )
+
+    return StreamingResponse(
+        pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                "attachment; filename=student_report_card.pdf"
+            )
+        },
+    )
+
+
+# =========================================================
+# 2. WRITE & BULK ACTION ENDPOINTS
+# =========================================================
+
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_result(
     payload: ResultCreateRequest,
     db: AsyncSession = Depends(get_db),
@@ -34,7 +97,45 @@ async def create_result(
     )
 
 
-@router.put("/{result_id}")
+@router.post("/bulk-entry", status_code=status.HTTP_200_OK)
+async def bulk_entry(
+    payload: BulkResultEntryRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await ResultService(db).create_bulk_results(
+        payload,
+        current_user,
+    )
+
+
+@router.delete("", status_code=status.HTTP_200_OK)
+async def delete_all_results(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await ResultService(db).delete_all_results(
+        current_user
+    )
+
+
+# =========================================================
+# 3. PARAMETERIZED PATH ENDPOINTS
+# (Must strictly come LAST to prevent matching literal subpaths)
+# =========================================================
+
+@router.get("/{result_id}", status_code=status.HTTP_200_OK)
+async def get_result(
+    result_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await ResultService(db).get_result(
+        result_id
+    )
+
+
+@router.put("/{result_id}", status_code=status.HTTP_200_OK)
 async def update_result(
     result_id: int,
     payload: ResultUpdateRequest,
@@ -48,103 +149,7 @@ async def update_result(
     )
 
 
-@router.get("")
-async def get_results(
-    school_id: int | None = None,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await ResultService(db).get_results(
-        current_user,
-        school_id,
-    )
-
-
-@router.get("/{result_id}")
-async def get_result(
-    result_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await ResultService(db).get_result(
-        result_id
-    )
-
-
-@router.delete("/{result_id}")
-async def delete_result(
-    result_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await ResultService(db).delete_result(
-        result_id,
-        current_user,
-    )
-
-
-@router.delete("")
-async def delete_all_results(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await ResultService(db).delete_all_results(
-        current_user
-    )
-
-
-
-
-@router.get("/student/{student_id}/report")
-async def student_report(
-    student_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await ResultService(db).get_student_report(
-        student_id,
-        current_user,
-    )
-
-
-
-
-@router.get("/student/{student_id}/pdf")
-async def student_report_pdf(
-    student_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-
-    from fastapi.responses import StreamingResponse
-
-    pdf = await ResultService(db).generate_student_report_pdf(
-        student_id,
-        current_user,
-    )
-
-    return StreamingResponse(
-        pdf,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition":
-            "attachment; filename=student_report_card.pdf"
-        },
-    )
-
-@router.post("/bulk-entry")
-async def bulk_entry(
-    payload: BulkResultEntryRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await ResultService(db).create_bulk_results(
-        payload,
-        current_user,
-    )
-
-
-@router.patch("/{result_id}/comment")
+@router.patch("/{result_id}/comment", status_code=status.HTTP_200_OK)
 async def add_result_comment(
     result_id: int,
     payload: ResultCommentRequest,
@@ -154,5 +159,17 @@ async def add_result_comment(
     return await ResultService(db).add_comment(
         result_id,
         payload,
+        current_user,
+    )
+
+
+@router.delete("/{result_id}", status_code=status.HTTP_200_OK)
+async def delete_result(
+    result_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await ResultService(db).delete_result(
+        result_id,
         current_user,
     )
