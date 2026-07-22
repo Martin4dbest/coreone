@@ -91,6 +91,10 @@ export default function ResultsPage({
   const [newStudentLastName, setNewStudentLastName] = useState("");
   const [newStudentAdmNo, setNewStudentAdmNo] = useState("");
   const [newStudentClassId, setNewStudentClassId] = useState("");
+  const [newStudentGender, setNewStudentGender] = useState("");
+  const [newStudentDob, setNewStudentDob] = useState("");
+  const [newStudentEmail, setNewStudentEmail] = useState("");
+  const [newStudentPassword, setNewStudentPassword] = useState("");
   const [addingStudent, setAddingStudent] = useState(false);
 
   // Dedicated state for fetching modal students on demand
@@ -342,10 +346,18 @@ export default function ResultsPage({
   };
 
   async function handleQuickAddStudent() {
-    if (!newStudentFirstName || !newStudentLastName || !newStudentClassId) {
+    if (
+      !newStudentFirstName ||
+      !newStudentLastName ||
+      !newStudentClassId ||
+      !newStudentGender ||
+      !newStudentDob ||
+      !newStudentEmail ||
+      !newStudentPassword
+    ) {
       setErrorModal({
         title: "Validation Error",
-        message: "Please fill in First Name, Last Name, and Class.",
+        message: "Please fill in all required fields (First Name, Last Name, Class, Gender, Date of Birth, Email, and Password).",
       });
       return;
     }
@@ -360,6 +372,10 @@ export default function ResultsPage({
         last_name: newStudentLastName,
         admission_number: newStudentAdmNo || undefined,
         class_id: Number(newStudentClassId),
+        gender: newStudentGender,
+        date_of_birth: newStudentDob,
+        email: newStudentEmail,
+        password: newStudentPassword,
       });
 
       const createdStudent = res.data?.data || res.data;
@@ -371,6 +387,10 @@ export default function ResultsPage({
       setNewStudentLastName("");
       setNewStudentAdmNo("");
       setNewStudentClassId("");
+      setNewStudentGender("");
+      setNewStudentDob("");
+      setNewStudentEmail("");
+      setNewStudentPassword("");
       setAddStudentOpen(false);
 
       if (open && createdStudent?.id) {
@@ -760,6 +780,59 @@ export default function ResultsPage({
                   className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                   value={newStudentAdmNo}
                   onChange={(e) => setNewStudentAdmNo(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Gender *
+                </label>
+                <select
+                  className="w-full border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  value={newStudentGender}
+                  onChange={(e) => setNewStudentGender(e.target.value)}
+                >
+                  <option value="">Select Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Date of Birth *
+                </label>
+                <input
+                  type="date"
+                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  value={newStudentDob}
+                  onChange={(e) => setNewStudentDob(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  placeholder="student@school.com"
+                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  value={newStudentEmail}
+                  onChange={(e) => setNewStudentEmail(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Password *
+                </label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  value={newStudentPassword}
+                  onChange={(e) => setNewStudentPassword(e.target.value)}
                 />
               </div>
 

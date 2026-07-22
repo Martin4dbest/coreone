@@ -109,10 +109,12 @@ class TeacherService:
         if current_user.role.name != "SUPER_ADMIN":
             school_id = current_user.school_id
 
+
         teacher = await self.repository.get_by_id(
             teacher_id,
             school_id,
         )
+
 
         if not teacher:
             raise HTTPException(
@@ -120,7 +122,48 @@ class TeacherService:
                 detail="Teacher not found",
             )
 
-        return await self.repository.get_teacher_assignments_summary(
+
+        assignments = await self.repository.get_teacher_assignments_summary(
             teacher_id,
-            school_id
+            school_id,
         )
+
+
+        class_teacher = await self.repository.get_class_teacher(
+            teacher_id
+        )
+
+
+        return {
+            "teacher": (
+                teacher.first_name
+                + " "
+                + teacher.last_name
+            ),
+
+            "class_teacher_of": (
+                [
+                    class_teacher.name
+                ]
+                if class_teacher
+                else []
+            ),
+
+            "subjects": [
+                {
+                    "classroom": (
+                        assignment.classroom.name
+                        if assignment.classroom
+                        else ""
+                    ),
+
+                    "subject": (
+                        assignment.subject.name
+                        if assignment.subject
+                        else ""
+                    ),
+                }
+
+                for assignment in assignments
+            ],
+        }

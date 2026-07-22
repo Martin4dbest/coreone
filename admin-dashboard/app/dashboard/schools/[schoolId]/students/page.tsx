@@ -25,6 +25,7 @@ type Student = {
   user_id: number;
   school_id: number;
   classroom_id?: number | null;
+  class_id?: number | null;
   admission_number: string;
   first_name: string;
   last_name: string;
@@ -102,8 +103,8 @@ export default function StudentsPage({
 
         const [studentsResponse, classesResponse] =
           await Promise.all([
-            api.get<Student[]>("/students"),
-            api.get<Classroom[]>("/classes"),
+            api.get<Student[]>("/students/"),
+            api.get<Classroom[]>("/classes/"),
           ]);
 
         if (!active) {
@@ -152,14 +153,15 @@ export default function StudentsPage({
 
   // Compute filtered array in real-time
   const filteredStudents = students.filter((student) => {
-    if (selectedClassFilter && String(student.classroom_id) !== selectedClassFilter) {
+    const studentClassId = student.class_id ?? student.classroom_id;
+    if (selectedClassFilter && String(studentClassId) !== selectedClassFilter) {
       return false;
     }
 
     if (searchQuery.trim() !== "") {
       const query = searchQuery.toLowerCase();
       const fullName = `${student.first_name} ${student.middle_name || ""} ${student.last_name}`.toLowerCase();
-      const admissionNum = student.admission_number.toLowerCase();
+      const admissionNum = (student.admission_number || "").toLowerCase();
       
       return fullName.includes(query) || admissionNum.includes(query);
     }
@@ -231,39 +233,55 @@ export default function StudentsPage({
       setSubmitting(true);
       setError("");
 
+      const admissionNumber =
+        form.admission_number.trim() ||
+        `STD${Date.now().toString().slice(-6)}`;
+
+      const email =
+        form.email.trim() || `${admissionNumber.toLowerCase()}@student.presense.com`;
+
       const response = await api.post<Student>(
-        "/students",
+        "/students/",
         {
           school_id: selectedSchoolId,
-          classroom_id: Number(form.classroom_id),
-          admission_number:
-            form.admission_number.trim(),
+          class_id: Number(form.classroom_id),
+          admission_number: admissionNumber,
           first_name: form.first_name.trim(),
           last_name: form.last_name.trim(),
-          middle_name:
-            form.middle_name.trim() || null,
-          gender: form.gender,
-          date_of_birth: form.date_of_birth,
-          email: form.email.trim(),
-          password: form.password,
+          middle_name: form.middle_name.trim() || null,
+          gender: form.gender || "Male",
+          date_of_birth: form.date_of_birth || "2010-01-01",
+          email: email,
+          password: form.password || "Student@123",
           passport: null,
         }
       );
 
+      const createdStudent = (response.data as any)?.data || response.data;
+
       setStudents((current) => [
         ...current,
-        response.data,
+        createdStudent,
       ]);
 
       setForm(initialForm);
       setShowModal(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error(
         "Failed to create student:",
         err
       );
 
-      setError("Unable to create student.");
+      const detail = err?.response?.data?.detail;
+      let errorMsg = "Unable to create student.";
+      
+      if (Array.isArray(detail)) {
+        errorMsg = detail.map((e) => `${e.loc ? e.loc[e.loc.length - 1] : "Field"}: ${e.msg}`).join("\n");
+      } else if (typeof detail === "string") {
+        errorMsg = detail;
+      }
+
+      setError(errorMsg);
     } finally {
       setSubmitting(false);
     }
@@ -290,7 +308,7 @@ export default function StudentsPage({
       if (response.data && Array.isArray(response.data)) {
         setStudents((current) => [...current, ...response.data]);
       } else {
-        const freshStudents = await api.get<Student[]>("/students");
+        const freshStudents = await api.get<Student[]>("/students/");
         setStudents(freshStudents.data.filter((s) => s.school_id === selectedSchoolId));
       }
 
@@ -400,7 +418,7 @@ export default function StudentsPage({
               rounded-2xl
               bg-white
               text-rose-500
-              shadow-sm
+              shadow-xs
             "
           >
             <GraduationCap size={24} />
@@ -447,7 +465,7 @@ export default function StudentsPage({
               text-sm
               font-bold
               text-slate-700
-              shadow-sm
+              shadow-xs
               transition
               hover:bg-slate-50
             "
@@ -471,7 +489,7 @@ export default function StudentsPage({
               text-sm
               font-bold
               text-white
-              shadow-sm
+              shadow-xs
               transition
               hover:bg-rose-600
             "
@@ -493,6 +511,7 @@ export default function StudentsPage({
             py-3
             text-sm
             text-red-600
+            whitespace-pre-line
           "
         >
           {error}
@@ -501,7 +520,7 @@ export default function StudentsPage({
 
       {/* Search and Filter Panel */}
       {!loading && students.length > 0 && (
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
           <div className="relative w-full sm:max-w-md">
             <Search size={18} className="absolute left-4 top-3.5 text-slate-400" />
             <input
@@ -509,7 +528,7 @@ export default function StudentsPage({
               placeholder="Search by name or admission number..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm text-slate-800 focus:border-rose-400 focus:bg-white transition"
+              className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-hidden text-sm text-slate-800 focus:border-rose-400 focus:bg-white transition"
             />
           </div>
 
@@ -518,7 +537,7 @@ export default function StudentsPage({
             <select
               value={selectedClassFilter}
               onChange={(e) => setSelectedClassFilter(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm text-slate-700 focus:border-rose-400 focus:bg-white transition appearance-none cursor-pointer"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-hidden text-sm text-slate-700 focus:border-rose-400 focus:bg-white transition appearance-none cursor-pointer"
               style={{ backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px' }}
             >
               <option value="">All Classes</option>
@@ -626,7 +645,7 @@ export default function StudentsPage({
             border
             border-slate-200
             bg-white
-            shadow-sm
+            shadow-xs
           "
         >
           <div className="overflow-x-auto">
@@ -730,7 +749,7 @@ export default function StudentsPage({
                               bg-rose-500
                               p-1
                               text-white
-                              shadow
+                              shadow-xs
                               hover:bg-rose-600
                             "
                           >
@@ -788,7 +807,7 @@ export default function StudentsPage({
                       "
                     >
                       {getClassName(
-                        student.classroom_id
+                        student.class_id ?? student.classroom_id
                       )}
                     </td>
 
@@ -1019,7 +1038,7 @@ export default function StudentsPage({
                   bg-white
                   px-4
                   py-3
-                  outline-none
+                  outline-hidden
                   transition
                   focus:border-rose-400
                   md:col-span-2
@@ -1040,7 +1059,6 @@ export default function StudentsPage({
               </select>
 
               <input
-                required
                 value={form.admission_number}
                 onChange={(event) =>
                   updateField(
@@ -1048,14 +1066,14 @@ export default function StudentsPage({
                     event.target.value
                   )
                 }
-                placeholder="Admission number"
+                placeholder="Admission number (Auto-generated if blank)"
                 className="
                   rounded-xl
                   border
                   border-slate-200
                   px-4
                   py-3
-                  outline-none
+                  outline-hidden
                   transition
                   focus:border-rose-400
                 "
@@ -1077,7 +1095,7 @@ export default function StudentsPage({
                   border-slate-200
                   px-4
                   py-3
-                  outline-none
+                  outline-hidden
                   transition
                   focus:border-rose-400
                 "
@@ -1099,7 +1117,7 @@ export default function StudentsPage({
                   border-slate-200
                   px-4
                   py-3
-                  outline-none
+                  outline-hidden
                   transition
                   focus:border-rose-400
                 "
@@ -1120,14 +1138,13 @@ export default function StudentsPage({
                   border-slate-200
                   px-4
                   py-3
-                  outline-none
+                  outline-hidden
                   transition
                   focus:border-rose-400
                 "
               />
 
               <select
-                required
                 value={form.gender}
                 onChange={(event) =>
                   updateField(
@@ -1142,18 +1159,18 @@ export default function StudentsPage({
                   bg-white
                   px-4
                   py-3
-                  outline-none
+                  outline-hidden
                   transition
                   focus:border-rose-400
                 "
               >
                 <option value="">
-                  Select gender
+                  Select gender (Defaults to Male)
                 </option>
-                <option value="MALE">
+                <option value="Male">
                   Male
                 </option>
-                <option value="FEMALE">
+                <option value="Female">
                   Female
                 </option>
               </select>
@@ -1161,7 +1178,6 @@ export default function StudentsPage({
               <div className="flex flex-col">
                 <input
                   type="date"
-                  required
                   value={form.date_of_birth}
                   onChange={(event) =>
                     updateField(
@@ -1175,7 +1191,7 @@ export default function StudentsPage({
                     border-slate-200
                     px-4
                     py-3
-                    outline-none
+                    outline-hidden
                     transition
                     focus:border-rose-400
                   "
@@ -1184,7 +1200,6 @@ export default function StudentsPage({
 
               <input
                 type="email"
-                required
                 value={form.email}
                 onChange={(event) =>
                   updateField(
@@ -1192,14 +1207,14 @@ export default function StudentsPage({
                     event.target.value
                   )
                 }
-                placeholder="Account Email"
+                placeholder="Account Email (Optional)"
                 className="
                   rounded-xl
                   border
                   border-slate-200
                   px-4
                   py-3
-                  outline-none
+                  outline-hidden
                   transition
                   focus:border-rose-400
                 "
@@ -1207,7 +1222,6 @@ export default function StudentsPage({
 
               <input
                 type="password"
-                required
                 value={form.password}
                 onChange={(event) =>
                   updateField(
@@ -1215,14 +1229,14 @@ export default function StudentsPage({
                     event.target.value
                   )
                 }
-                placeholder="Account Password"
+                placeholder="Account Password (Defaults to Student@123)"
                 className="
                   rounded-xl
                   border
                   border-slate-200
                   px-4
                   py-3
-                  outline-none
+                  outline-hidden
                   transition
                   focus:border-rose-400
                 "
@@ -1239,7 +1253,7 @@ export default function StudentsPage({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex items-center gap-2 rounded-xl bg-rose-500 px-6 py-3 text-sm font-bold text-white shadow-sm hover:bg-rose-600 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl bg-rose-500 px-6 py-3 text-sm font-bold text-white shadow-xs hover:bg-rose-600 disabled:opacity-50"
                 >
                   {submitting && <Loader2 size={16} className="animate-spin" />}
                   Save Student
@@ -1301,17 +1315,17 @@ export default function StudentsPage({
             <div className="mt-6 space-y-4">
               <div className="rounded-xl bg-slate-50 p-4 text-xs text-slate-600 space-y-1">
                 <span className="font-bold text-slate-700 block mb-1">Required Columns Setup:</span>
-                <p>• <code className="bg-white px-1 border rounded">classroom_id</code> (Target Class ID value)</p>
+                <p>• <code className="bg-white px-1 border rounded">class_id</code> (Target Class ID value)</p>
                 <p>• <code className="bg-white px-1 border rounded">admission_number</code></p>
                 <p>• <code className="bg-white px-1 border rounded">first_name</code>, <code className="bg-white px-1 border rounded">last_name</code></p>
                 <p>• <code className="bg-white px-1 border rounded">middle_name</code> (Optional)</p>
-                <p>• <code className="bg-white px-1 border rounded">gender</code> (MALE / FEMALE)</p>
+                <p>• <code className="bg-white px-1 border rounded">gender</code> (Male / Female)</p>
                 <p>• <code className="bg-white px-1 border rounded">date_of_birth</code> (YYYY-MM-DD)</p>
                 <p>• <code className="bg-white px-1 border rounded">email</code>, <code className="bg-white px-1 border rounded">password</code></p>
               </div>
 
               <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl p-8 cursor-pointer hover:bg-rose-50/20 hover:border-rose-300 transition group">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-500 group-hover:bg-rose-50 group-hover:text-rose-500 transition shadow-sm">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-500 group-hover:bg-rose-50 group-hover:text-rose-500 transition shadow-xs">
                   {importing ? (
                     <Loader2 size={22} className="animate-spin text-rose-500" />
                   ) : (
