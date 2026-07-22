@@ -71,7 +71,6 @@ class SchoolService:
 
         return await self.repository.update(school)
 
-
     async def activate_school(
         self,
         school_id: int,
@@ -87,7 +86,6 @@ class SchoolService:
         school.is_active = True
 
         return await self.repository.update(school)
-
 
     async def delete_school(
         self,
@@ -109,6 +107,17 @@ class SchoolService:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="School not found",
+            )
+
+        # Protection check for system school
+        if (
+            school.school_code.upper() == "SYSTEM"
+            or school.name.lower() == "presense"
+            or getattr(school, "is_system", False)
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="The PreSense system school cannot be deleted.",
             )
 
         school_name = school.name

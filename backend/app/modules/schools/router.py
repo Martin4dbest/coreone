@@ -45,11 +45,6 @@ async def get_schools(
 
 
 @router.get(
-    "/{school_id}",
-    response_model=SchoolResponse,
-)
-
-@router.get(
 "/me",
 response_model=SchoolResponse,
 )
@@ -85,6 +80,10 @@ async def get_my_school(
     return school
 
 
+@router.get(
+    "/{school_id}",
+    response_model=SchoolResponse,
+)
 async def get_school(
     school_id: int,
     db: AsyncSession = Depends(get_db),
@@ -112,8 +111,14 @@ async def get_school(
             detail="You do not have permission to access this school",
         )
 
+    print(">>> GET SCHOOL ROUTE CALLED:", school_id)
+
     service = SchoolService(db)
-    return await service.get_school(school_id)
+    school = await service.get_school(school_id)
+
+    print(">>> RETURNING:", school.id, school.name)
+
+    return school
 
 
 @router.patch("/{school_id}/deactivate")

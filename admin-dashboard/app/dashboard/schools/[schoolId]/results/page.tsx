@@ -3,7 +3,18 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import api from "@/lib/api";
-import { Plus, Trash2, X, Loader2 } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  X,
+  Loader2,
+  Search,
+  AlertTriangle,
+  UserPlus,
+  Eye,
+  BookOpen,
+  Filter,
+} from "lucide-react";
 
 type Result = {
   id: number;
@@ -14,6 +25,8 @@ type Result = {
   subject_name: string;
   term_name: string;
   session_name: string;
+  ca_score?: number;
+  exam_score?: number;
   total_score: number;
   grade: string | null;
 };
@@ -34,8 +47,14 @@ type Student = {
   middle_name?: string | null;
   last_name: string;
   admission_number: string;
-  class_id?: number;
+  class_id?: number | string;
+  classroom_id?: number | string;
 };
+
+type ErrorModalState = {
+  title: string;
+  message: string;
+} | null;
 
 export default function ResultsPage({
   params,
@@ -47,17 +66,38 @@ export default function ResultsPage({
   const [results, setResults] = useState<Result[]>([]);
   const [userRole, setUserRole] = useState("");
 
+  const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<Option[]>([]);
   const [subjects, setSubjects] = useState<Option[]>([]);
   const [terms, setTerms] = useState<Option[]>([]);
   const [sessions, setSessions] = useState<Option[]>([]);
 
+  // Raw teacher allocations
+  const [teacherAllocations, setTeacherAllocations] = useState<any[]>([]);
+
+  // Main Search Filter State (Admin view)
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Single Result Modal State
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
 
-  const [bulkOpen, setBulkOpen] = useState(false);
+  // Quick Add Student Modal State
+  const [addStudentOpen, setAddStudentOpen] = useState(false);
+  const [newStudentFirstName, setNewStudentFirstName] = useState("");
+  const [newStudentMiddleName, setNewStudentMiddleName] = useState("");
+  const [newStudentLastName, setNewStudentLastName] = useState("");
+  const [newStudentAdmNo, setNewStudentAdmNo] = useState("");
+  const [newStudentClassId, setNewStudentClassId] = useState("");
+  const [addingStudent, setAddingStudent] = useState(false);
+
+  // Dedicated state for fetching modal students on demand
+  const [modalStudents, setModalStudents] = useState<Student[]>([]);
+  const [loadingModalStudents, setLoadingModalStudents] = useState(false);
+
+  // Bulk Entry State
   const [bulkStudents, setBulkStudents] = useState<Student[]>([]);
   const [bulkScores, setBulkScores] = useState<
     Record<number, { ca: string; exam: string }>
@@ -68,7 +108,21 @@ export default function ResultsPage({
   const [bulkSessionId, setBulkSessionId] = useState("");
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkSearchQuery, setBulkSearchQuery] = useState("");
 
+  // Teacher Review Drawer & View Scores Modal State
+  const [savedResultsDrawerOpen, setSavedResultsDrawerOpen] = useState(false);
+  const [drawerSearchQuery, setDrawerSearchQuery] = useState("");
+  const [drawerClassFilter, setDrawerClassFilter] = useState("");
+  const [selectedStudentForScores, setSelectedStudentForScores] = useState<Student | null>(null);
+  const [studentScoresModalOpen, setStudentScoresModalOpen] = useState(false);
+  const [studentScoresLoading, setStudentScoresLoading] = useState(false);
+  const [studentFetchedResults, setStudentFetchedResults] = useState<Result[]>([]);
+
+  // Error / Warning Dialog State
+  const [errorModal, setErrorModal] = useState<ErrorModalState>(null);
+
+  // Single Add Inputs
   const [studentId, setStudentId] = useState("");
   const [classId, setClassId] = useState("");
   const [subjectId, setSubjectId] = useState("");
@@ -76,6 +130,8 @@ export default function ResultsPage({
   const [sessionId, setSessionId] = useState("");
   const [ca, setCa] = useState("");
   const [exam, setExam] = useState("");
+
+  const isTeacher = userRole === "TEACHER";
 
   const formatErrorMessage = (error: any): string => {
     const detail = error?.response?.data?.detail;
@@ -87,7 +143,15 @@ export default function ResultsPage({
         })
         .join("\n");
     }
-    if (typeof detail === "string") return detail;
+    if (typeof detail === "string") {
+      if (
+        detail.includes("uq_student_subject_term_session_result") ||
+        detail.includes("already exists")
+      ) {
+        return "A result entry already exists for this student, subject, term, and session combination.";
+      }
+      return detail;
+    }
     return "Operation failed";
   };
 
@@ -101,12 +165,11 @@ export default function ResultsPage({
           : me.data.role?.name || ""
       ).toUpperCase();
 
-      const isTeacher = role === "TEACHER";
+      const teacherFlag = role === "TEACHER";
       setUserRole(role);
 
       const commonParams = { school_id: schoolId };
 
-      // Helper to extract arrays safely from direct array or wrapped API structures ({ data: [...] })
       const extractArray = (res: any) => {
         if (Array.isArray(res?.data)) return res.data;
         if (Array.isArray(res?.data?.data)) return res.data.data;
@@ -114,7 +177,9 @@ export default function ResultsPage({
         return [];
       };
 
-      // 1. Query base school data endpoints
+      const safeGet = (url: string, params?: any) =>
+        api.get(url, { params }).catch(() => ({ data: [] }));
+
       const [
         resultsRes,
         studentsRes,
@@ -123,60 +188,55 @@ export default function ResultsPage({
         termsRes,
         sessionsRes,
       ] = await Promise.all([
-        isTeacher
-          ? api.get("/results/teacher").catch(() => api.get("/results", { params: commonParams }))
-          : api.get("/results", { params: commonParams }),
-
-        api.get("/students", { params: commonParams }),
-        api.get("/classes", { params: commonParams }),
-        api.get("/subjects", { params: commonParams }),
-        api.get("/terms", { params: commonParams }),
-        api.get("/academic-sessions", { params: commonParams }),
+        teacherFlag
+          ? api.get("/results/teacher").catch(() => safeGet("/results", commonParams))
+          : safeGet("/results", commonParams),
+        safeGet("/students", commonParams),
+        safeGet("/classes", commonParams),
+        safeGet("/subjects", commonParams),
+        safeGet("/terms", commonParams),
+        safeGet("/academic-sessions", commonParams),
       ]);
 
       const fetchedClasses: Option[] = extractArray(classesRes);
       const fetchedSubjects: Option[] = extractArray(subjectsRes);
       const fetchedStudents: Student[] = extractArray(studentsRes);
+      const fetchedResults: Result[] = extractArray(resultsRes);
 
-      if (isTeacher) {
-        // 2. Query allocation endpoints used by the Teacher Workspace
-        let teacherAllocations: any[] = [];
+      setAllStudents(fetchedStudents);
+
+      if (teacherFlag) {
+        let allocs: any[] = [];
         try {
           const allocRes = await api.get("/teachers/me/allocations", { params: commonParams });
-          teacherAllocations = extractArray(allocRes);
+          allocs = extractArray(allocRes);
         } catch (e) {
           if (Array.isArray(me.data?.allocations)) {
-            teacherAllocations = me.data.allocations;
+            allocs = me.data.allocations;
           }
         }
+        setTeacherAllocations(allocs);
 
-        if (teacherAllocations.length > 0) {
-          // Extract class IDs and subject IDs assigned in the Workspace
+        if (allocs.length > 0) {
           const assignedClassIds = new Set(
-            teacherAllocations
-              .map((a: any) => a.class_id || a.class?.id)
-              .filter(Boolean)
+            allocs.map((a: any) => String(a.class_id || a.class?.id)).filter(Boolean)
           );
           const assignedSubjectIds = new Set(
-            teacherAllocations
-              .map((a: any) => a.subject_id || a.subject?.id)
-              .filter(Boolean)
+            allocs.map((a: any) => String(a.subject_id || a.subject?.id)).filter(Boolean)
           );
 
-          const assignedClasses = fetchedClasses.filter((c) => assignedClassIds.has(c.id));
-          const assignedSubjects = fetchedSubjects.filter((s) => assignedSubjectIds.has(s.id));
+          const assignedClasses = fetchedClasses.filter((c) => assignedClassIds.has(String(c.id)));
+          const assignedSubjects = fetchedSubjects.filter((s) => assignedSubjectIds.has(String(s.id)));
 
           setClasses(assignedClasses.length > 0 ? assignedClasses : fetchedClasses);
           setSubjects(assignedSubjects.length > 0 ? assignedSubjects : fetchedSubjects);
 
-          // Filter students assigned to the teacher's classes
-          const filteredStudents = fetchedStudents.filter(
-            (student) => student.class_id && assignedClassIds.has(student.class_id)
-          );
+          const filteredStudents = fetchedStudents.filter((student) => {
+            const rawId = student.class_id ?? student.classroom_id;
+            return rawId && assignedClassIds.has(String(rawId));
+          });
           setStudents(filteredStudents.length > 0 ? filteredStudents : fetchedStudents);
-
         } else {
-          // Fallback: Check teacher_id field matches across response items
           const teacherId = me.data.id || me.data.teacher_id || me.data.user_id;
 
           const matchesTeacher = (item: any) => {
@@ -194,21 +254,21 @@ export default function ResultsPage({
           setSubjects(filteredSubjects.length > 0 ? filteredSubjects : fetchedSubjects);
 
           const assignedClassIds = new Set(
-            (filteredClasses.length > 0 ? filteredClasses : fetchedClasses).map((c) => c.id)
+            (filteredClasses.length > 0 ? filteredClasses : fetchedClasses).map((c) => String(c.id))
           );
-          const filteredStudents = fetchedStudents.filter(
-            (student) => student.class_id && assignedClassIds.has(student.class_id)
-          );
+          const filteredStudents = fetchedStudents.filter((student) => {
+            const rawId = student.class_id ?? student.classroom_id;
+            return rawId && assignedClassIds.has(String(rawId));
+          });
           setStudents(filteredStudents.length > 0 ? filteredStudents : fetchedStudents);
         }
       } else {
-        // Admin View (unfiltered)
         setClasses(fetchedClasses);
         setSubjects(fetchedSubjects);
         setStudents(fetchedStudents);
       }
 
-      setResults(extractArray(resultsRes));
+      setResults(fetchedResults);
       setTerms(extractArray(termsRes));
       setSessions(extractArray(sessionsRes));
     } catch (error) {
@@ -220,13 +280,132 @@ export default function ResultsPage({
     loadData();
   }, []);
 
-  async function createResult() {
-    if (Number(ca) > 40) {
-      alert("CA score cannot exceed 40");
+  useEffect(() => {
+    if (!open || !classId) {
+      setModalStudents([]);
       return;
     }
-    if (Number(exam) > 60) {
-      alert("Exam score cannot exceed 60");
+
+    async function fetchStudentsByClass() {
+      setLoadingModalStudents(true);
+      try {
+        const res = await api.get("/students", {
+          params: {
+            class_id: classId,
+            school_id: schoolId,
+          },
+        });
+
+        const extracted = Array.isArray(res.data)
+          ? res.data
+          : res.data?.data || res.data?.results || [];
+
+        if (extracted.length === allStudents.length && allStudents.length > 0) {
+          const clientFiltered = extracted.filter(
+            (s: any) => String(s.class_id || s.classroom_id) === String(classId)
+          );
+          setModalStudents(clientFiltered);
+        } else {
+          setModalStudents(extracted);
+        }
+      } catch (error) {
+        console.error("FAILED TO FETCH STUDENTS FOR CLASS:", error);
+        const clientFiltered = allStudents.filter(
+          (s: any) => String(s.class_id || s.classroom_id) === String(classId)
+        );
+        setModalStudents(clientFiltered);
+      } finally {
+        setLoadingModalStudents(false);
+      }
+    }
+
+    fetchStudentsByClass();
+  }, [classId, open, schoolId, allStudents]);
+
+  const getAvailableSubjects = (selectedClassId: string) => {
+    if (!selectedClassId) return subjects;
+
+    if (isTeacher && teacherAllocations.length > 0) {
+      const assignedSubjectIds = new Set(
+        teacherAllocations
+          .filter((a) => String(a.class_id || a.class?.id) === String(selectedClassId))
+          .map((a) => String(a.subject_id || a.subject?.id))
+          .filter(Boolean)
+      );
+
+      if (assignedSubjectIds.size > 0) {
+        return subjects.filter((s) => assignedSubjectIds.has(String(s.id)));
+      }
+    }
+
+    return subjects;
+  };
+
+  async function handleQuickAddStudent() {
+    if (!newStudentFirstName || !newStudentLastName || !newStudentClassId) {
+      setErrorModal({
+        title: "Validation Error",
+        message: "Please fill in First Name, Last Name, and Class.",
+      });
+      return;
+    }
+
+    setAddingStudent(true);
+
+    try {
+      const res = await api.post("/students", {
+        school_id: Number(schoolId),
+        first_name: newStudentFirstName,
+        middle_name: newStudentMiddleName || null,
+        last_name: newStudentLastName,
+        admission_number: newStudentAdmNo || undefined,
+        class_id: Number(newStudentClassId),
+      });
+
+      const createdStudent = res.data?.data || res.data;
+
+      await loadData();
+
+      setNewStudentFirstName("");
+      setNewStudentMiddleName("");
+      setNewStudentLastName("");
+      setNewStudentAdmNo("");
+      setNewStudentClassId("");
+      setAddStudentOpen(false);
+
+      if (open && createdStudent?.id) {
+        setClassId(String(createdStudent.class_id || newStudentClassId));
+        setStudentId(String(createdStudent.id));
+      }
+    } catch (error: any) {
+      console.error("ADD STUDENT FAILED:", error);
+      setErrorModal({
+        title: "Failed to Add Student",
+        message: formatErrorMessage(error),
+      });
+    } finally {
+      setAddingStudent(false);
+    }
+  }
+
+  async function createResult() {
+    if (!studentId || !classId || !subjectId || !termId || !sessionId) {
+      setErrorModal({
+        title: "Validation Error",
+        message: "Please fill in all required fields.",
+      });
+      return;
+    }
+
+    const caScore = Number(ca) || 0;
+    const examScore = Number(exam) || 0;
+
+    if (caScore > 40) {
+      setErrorModal({ title: "Validation Error", message: "CA score cannot exceed 40" });
+      return;
+    }
+    if (examScore > 60) {
+      setErrorModal({ title: "Validation Error", message: "Exam score cannot exceed 60" });
       return;
     }
 
@@ -240,15 +419,20 @@ export default function ResultsPage({
         subject_id: Number(subjectId),
         term_id: Number(termId),
         academic_session_id: Number(sessionId),
-        ca_score: Number(ca),
-        exam_score: Number(exam),
+        ca_score: caScore,
+        exam_score: examScore,
       });
 
       setOpen(false);
+      setCa("");
+      setExam("");
       await loadData();
     } catch (error: any) {
       console.error("CREATE RESULT FAILED:", error);
-      alert(formatErrorMessage(error));
+      setErrorModal({
+        title: "Creation Failed",
+        message: formatErrorMessage(error) || "Network error. Please check server.",
+      });
     } finally {
       setSaving(false);
     }
@@ -261,7 +445,10 @@ export default function ResultsPage({
       await api.delete(`/results/${id}`);
       await loadData();
     } catch (error: any) {
-      alert("Failed to delete result");
+      setErrorModal({
+        title: "Delete Failed",
+        message: "Failed to delete result",
+      });
     }
   }
 
@@ -273,7 +460,10 @@ export default function ResultsPage({
       await api.delete("/results");
       await loadData();
     } catch (error: any) {
-      alert("Failed to delete all results");
+      setErrorModal({
+        title: "Delete Failed",
+        message: "Failed to delete all results",
+      });
     } finally {
       setDeletingAll(false);
     }
@@ -281,7 +471,10 @@ export default function ResultsPage({
 
   async function loadBulkStudents() {
     if (!bulkClassId) {
-      alert("Please select a class first");
+      setErrorModal({
+        title: "Validation Error",
+        message: "Please select a class first",
+      });
       return;
     }
 
@@ -295,7 +488,14 @@ export default function ResultsPage({
         },
       });
 
-      const list = Array.isArray(res.data) ? res.data : res.data?.data || [];
+      let list = Array.isArray(res.data) ? res.data : res.data?.data || [];
+      if (!list.length) {
+        const sourceList = allStudents.length > 0 ? allStudents : students;
+        list = sourceList.filter(
+          (s) => String(s.class_id || s.classroom_id) === String(bulkClassId)
+        );
+      }
+
       setBulkStudents(list);
 
       const scores: Record<number, { ca: string; exam: string }> = {};
@@ -306,7 +506,17 @@ export default function ResultsPage({
       setBulkScores(scores);
     } catch (error) {
       console.error("LOAD BULK STUDENTS FAILED:", error);
-      alert("Failed to load students");
+      const sourceList = allStudents.length > 0 ? allStudents : students;
+      const fallbackList = sourceList.filter(
+        (s) => String(s.class_id || s.classroom_id) === String(bulkClassId)
+      );
+      setBulkStudents(fallbackList);
+
+      const scores: Record<number, { ca: string; exam: string }> = {};
+      fallbackList.forEach((student: Student) => {
+        scores[student.id] = { ca: "", exam: "" };
+      });
+      setBulkScores(scores);
     } finally {
       setBulkLoading(false);
     }
@@ -329,15 +539,17 @@ export default function ResultsPage({
       const examScore = Number(score?.exam || 0);
 
       if (caScore > 40) {
-        alert(
-          `CA Score for ${student.first_name} ${student.last_name} cannot exceed 40`
-        );
+        setErrorModal({
+          title: "Validation Error",
+          message: `CA Score for ${student.first_name} ${student.last_name} cannot exceed 40`,
+        });
         return;
       }
       if (examScore > 60) {
-        alert(
-          `Exam Score for ${student.first_name} ${student.last_name} cannot exceed 60`
-        );
+        setErrorModal({
+          title: "Validation Error",
+          message: `Exam Score for ${student.first_name} ${student.last_name} cannot exceed 60`,
+        });
         return;
       }
     }
@@ -360,54 +572,276 @@ export default function ResultsPage({
       });
 
       await loadData();
-      setBulkOpen(false);
+
+      setBulkScores({});
+      setBulkStudents([]);
+      setBulkClassId("");
+      setBulkSubjectId("");
+
+      setErrorModal({
+        title: "Success",
+        message: "Bulk results saved successfully!",
+      });
     } catch (error: any) {
       console.error("BULK ERROR:", error?.response?.data || error);
-      alert(formatErrorMessage(error));
+      setErrorModal({
+        title: "Error Saving Results",
+        message: formatErrorMessage(error),
+      });
     } finally {
       setBulkSaving(false);
     }
   }
 
-  const filteredStudents = classId
-    ? students.filter((s) => s.class_id === Number(classId))
-    : students;
+  async function handleOpenStudentScores(student: Student) {
+    setSelectedStudentForScores(student);
+    setStudentScoresModalOpen(true);
+    setStudentScoresLoading(true);
+
+    try {
+      const res = await api.get(`/results/student/${student.id}`, {
+        params: { school_id: schoolId },
+      });
+      const extractArray = (data: any) => {
+        if (Array.isArray(data)) return data;
+        if (Array.isArray(data?.data)) return data.data;
+        if (Array.isArray(data?.results)) return data.results;
+        return [];
+      };
+      setStudentFetchedResults(extractArray(res.data));
+    } catch (e) {
+      const filtered = results.filter((r) => r.student_id === student.id);
+      setStudentFetchedResults(filtered);
+    } finally {
+      setStudentScoresLoading(false);
+    }
+  }
+
+  const filteredResults = results.filter((r) => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true;
+
+    const studentName = r.student_name ? r.student_name.toLowerCase() : "";
+    const admissionNumber = r.admission_number ? r.admission_number.toLowerCase() : "";
+    const className = r.class_name ? r.class_name.toLowerCase() : "";
+    const subjectName = r.subject_name ? r.subject_name.toLowerCase() : "";
+
+    return (
+      studentName.includes(query) ||
+      admissionNumber.includes(query) ||
+      className.includes(query) ||
+      subjectName.includes(query)
+    );
+  });
+
+  const filteredBulkStudents = bulkStudents.filter((student) => {
+    const q = bulkSearchQuery.toLowerCase().trim();
+    if (!q) return true;
+    const fullName = `${student.first_name} ${student.middle_name || ""} ${student.last_name}`.toLowerCase();
+    const adm = (student.admission_number || "").toLowerCase();
+    return fullName.includes(q) || adm.includes(q);
+  });
+
+  const filteredDrawerStudents = students.filter((student) => {
+    const rawClassId = student.class_id ?? student.classroom_id;
+    if (drawerClassFilter && String(rawClassId) !== String(drawerClassFilter)) {
+      return false;
+    }
+
+    const q = drawerSearchQuery.toLowerCase().trim();
+    if (!q) return true;
+    const fullName = `${student.first_name} ${student.middle_name || ""} ${student.last_name}`.toLowerCase();
+    const adm = (student.admission_number || "").toLowerCase();
+    return fullName.includes(q) || adm.includes(q);
+  });
+
+  const getClassName = (student: Student) => {
+    const rawClassId = student.class_id ?? student.classroom_id;
+    if (!rawClassId) return "N/A";
+    const found = classes.find((c) => String(c.id) === String(rawClassId));
+    return found ? found.name : "N/A";
+  };
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-slate-50/50 min-h-screen">
+      {/* Error / Pop-Up Dialog */}
+      {errorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-emerald-100 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="p-3 bg-amber-100 rounded-full text-amber-600 shrink-0">
+                <AlertTriangle size={24} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-slate-900">
+                  {errorModal.title}
+                </h3>
+                <div className="mt-2 text-sm text-slate-600 whitespace-pre-line leading-relaxed">
+                  {errorModal.message}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setErrorModal(null)}
+                className="bg-emerald-800 hover:bg-emerald-900 text-white font-medium px-5 py-2 rounded-xl text-sm transition-colors"
+              >
+                Understand & Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Add Student Modal */}
+      {addStudentOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-emerald-100 animate-in fade-in zoom-in duration-150">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-2 text-emerald-800 font-bold text-lg">
+                <UserPlus size={22} />
+                <span>Quick Add Student</span>
+              </div>
+              <button
+                onClick={() => setAddStudentOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  First Name *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. John"
+                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  value={newStudentFirstName}
+                  onChange={(e) => setNewStudentFirstName(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Middle Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Paul"
+                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  value={newStudentMiddleName}
+                  onChange={(e) => setNewStudentMiddleName(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Last Name *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Doe"
+                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  value={newStudentLastName}
+                  onChange={(e) => setNewStudentLastName(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Admission No.
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. ADM-2026-001"
+                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  value={newStudentAdmNo}
+                  onChange={(e) => setNewStudentAdmNo(e.target.value)}
+                />
+              </div>
+
+              <div className="col-span-1 sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Class *
+                </label>
+                <select
+                  className="w-full border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  value={newStudentClassId}
+                  onChange={(e) => setNewStudentClassId(e.target.value)}
+                >
+                  <option value="">Select Class</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setAddStudentOpen(false)}
+                className="px-4 py-2 border rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleQuickAddStudent}
+                disabled={addingStudent}
+                className="bg-emerald-800 hover:bg-emerald-900 text-white font-medium px-5 py-2 rounded-xl text-sm flex items-center gap-2 transition-colors disabled:opacity-50"
+              >
+                {addingStudent && <Loader2 size={16} className="animate-spin" />}
+                {addingStudent ? "Adding..." : "Save Student"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-bold">Results</h1>
-          {userRole === "TEACHER" && (
+          <h1 className="text-2xl font-bold text-emerald-950">Academic Results</h1>
+          {isTeacher && (
             <p className="text-sm text-slate-500">
-              Assigned Classes & Subjects Portal
+              Teacher Results Management Portal
             </p>
           )}
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          {!isTeacher && (
+            <button
+              onClick={() => {
+                if (classId) setNewStudentClassId(classId);
+                setAddStudentOpen(true);
+              }}
+              className="flex items-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white px-4 py-2 rounded-xl transition-colors font-medium text-sm shadow-xs"
+            >
+              <UserPlus size={18} />
+              Add Student
+            </button>
+          )}
+
           <button
             onClick={() => setOpen(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl transition-colors"
+            className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl transition-colors font-medium text-sm shadow-xs"
           >
             <Plus size={18} />
-            Add Result
+            Add Single Result
           </button>
 
-          <button
-            onClick={() => setBulkOpen(true)}
-            disabled={bulkSaving || saving}
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl disabled:opacity-50 transition-colors"
-          >
-            Bulk Entry
-          </button>
-
-          {userRole !== "TEACHER" && (
+          {!isTeacher && (
             <button
               onClick={deleteAllResults}
               disabled={deletingAll}
-              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl disabled:opacity-50 transition-colors font-medium text-sm shadow-xs"
             >
               {deletingAll ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -420,332 +854,657 @@ export default function ResultsPage({
         </div>
       </div>
 
-      {/* Bulk Entry Modal */}
-      {bulkOpen && (
-        <div className="bg-white border rounded-xl p-5 mb-6 shadow-sm">
-          <div className="flex justify-between mb-4">
-            <h2 className="font-bold text-lg">
-              {userRole === "TEACHER"
-                ? "Bulk Entry (Assigned Classes)"
-                : "Bulk Result Entry"}
-            </h2>
-            <button
-              onClick={() => setBulkOpen(false)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
-            <select
-              className="border p-2 rounded-lg bg-white"
-              value={bulkClassId}
-              onChange={(e) => setBulkClassId(e.target.value)}
-            >
-              <option value="">Select Class</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-
-            <button
-              onClick={loadBulkStudents}
-              disabled={bulkLoading || !bulkClassId}
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 px-3 py-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {bulkLoading && <Loader2 size={16} className="animate-spin" />}
-              {bulkLoading ? "Loading..." : "Load Students"}
-            </button>
-
-            <select
-              className="border p-2 rounded-lg bg-white"
-              value={bulkSubjectId}
-              onChange={(e) => setBulkSubjectId(e.target.value)}
-            >
-              <option value="">Select Subject</option>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="border p-2 rounded-lg bg-white"
-              value={bulkTermId}
-              onChange={(e) => setBulkTermId(e.target.value)}
-            >
-              <option value="">Select Term</option>
-              {terms.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="border p-2 rounded-lg bg-white"
-              value={bulkSessionId}
-              onChange={(e) => setBulkSessionId(e.target.value)}
-            >
-              <option value="">Select Session</option>
-              {sessions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {bulkStudents.length > 0 && (
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full border-collapse">
-                <thead className="bg-gray-100 border-b">
-                  <tr>
-                    <th className="p-3 text-left">Student</th>
-                    <th className="p-3 text-left w-36">CA Score (Max 40)</th>
-                    <th className="p-3 text-left w-36">Exam Score (Max 60)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bulkStudents.map((student) => (
-                    <tr
-                      key={student.id}
-                      className="border-b last:border-0 hover:bg-gray-50"
-                    >
-                      <td className="p-3">
-                        {student.first_name}{" "}
-                        {student.middle_name ? `${student.middle_name} ` : ""}
-                        {student.last_name}
-                      </td>
-                      <td className="p-3">
-                        <input
-                          type="number"
-                          min={0}
-                          max={40}
-                          className="border p-1.5 rounded w-28"
-                          placeholder="0 - 40"
-                          value={bulkScores[student.id]?.ca || ""}
-                          onChange={(e) =>
-                            updateBulkScore(student.id, "ca", e.target.value)
-                          }
-                        />
-                      </td>
-                      <td className="p-3">
-                        <input
-                          type="number"
-                          min={0}
-                          max={60}
-                          className="border p-1.5 rounded w-28"
-                          placeholder="0 - 60"
-                          value={bulkScores[student.id]?.exam || ""}
-                          onChange={(e) =>
-                            updateBulkScore(student.id, "exam", e.target.value)
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {bulkStudents.length > 0 && (
-            <button
-              onClick={saveBulkResults}
-              disabled={bulkSaving}
-              className="mt-5 bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-xl flex items-center gap-2 disabled:opacity-50 transition-colors"
-            >
-              {bulkSaving && <Loader2 size={16} className="animate-spin" />}
-              {bulkSaving ? "Saving..." : "Save Bulk Results"}
-            </button>
-          )}
-        </div>
-      )}
-
       {/* Single Result Modal */}
       {open && (
-        <div className="bg-white border rounded-xl p-5 mb-6 shadow-sm">
-          <div className="flex justify-between mb-4">
-            <h2 className="font-bold text-lg">Add Result</h2>
-            <button
-              onClick={() => setOpen(false)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <X size={20} />
-            </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-emerald-100 animate-in fade-in zoom-in duration-150">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-bold text-lg text-emerald-950">Add Single Result</h2>
+              <button
+                onClick={() => setOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <select
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                value={classId}
+                onChange={(e) => {
+                  const selectedId = e.target.value;
+                  setClassId(selectedId);
+                  setStudentId("");
+                  setSubjectId("");
+                }}
+              >
+                <option value="">Select Class</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex gap-2">
+                <select
+                  className="border p-2 rounded-lg bg-white text-sm flex-1 border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  value={studentId}
+                  onChange={(e) => setStudentId(e.target.value)}
+                  disabled={!classId || loadingModalStudents}
+                >
+                  <option value="">
+                    {!classId
+                      ? "Select Class First"
+                      : loadingModalStudents
+                      ? "Loading students..."
+                      : modalStudents.length === 0
+                      ? "No Students Found"
+                      : "Select Student"}
+                  </option>
+                  {modalStudents.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.first_name}{" "}
+                      {s.middle_name ? `${s.middle_name} ` : ""}
+                      {s.last_name}
+                      {s.admission_number ? ` (${s.admission_number})` : ""}
+                    </option>
+                  ))}
+                </select>
+
+                {!isTeacher && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (classId) setNewStudentClassId(classId);
+                      setAddStudentOpen(true);
+                    }}
+                    className="bg-emerald-800 hover:bg-emerald-900 text-white px-3 py-2 rounded-lg text-xs font-semibold shrink-0 flex items-center gap-1"
+                    title="Quick Add New Student"
+                  >
+                    <UserPlus size={16} />
+                    New
+                  </button>
+                )}
+              </div>
+
+              <select
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
+              >
+                <option value="">Select Subject</option>
+                {getAvailableSubjects(classId).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                value={termId}
+                onChange={(e) => setTermId(e.target.value)}
+              >
+                <option value="">Select Term</option>
+                {terms.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600 col-span-1 sm:col-span-2"
+                value={sessionId}
+                onChange={(e) => setSessionId(e.target.value)}
+              >
+                <option value="">Select Session</option>
+                {sessions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="number"
+                min={0}
+                max={40}
+                className="border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                placeholder="CA Score (Max 40)"
+                value={ca}
+                onChange={(e) => setCa(e.target.value)}
+              />
+
+              <input
+                type="number"
+                min={0}
+                max={60}
+                className="border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                placeholder="Exam Score (Max 60)"
+                value={exam}
+                onChange={(e) => setExam(e.target.value)}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="px-4 py-2 border rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createResult}
+                disabled={saving || !studentId || !classId || !subjectId}
+                className="bg-emerald-800 hover:bg-emerald-900 text-white font-medium px-5 py-2 rounded-xl text-sm flex items-center gap-2 disabled:opacity-50 transition-colors"
+              >
+                {saving && <Loader2 size={16} className="animate-spin" />}
+                {saving ? "Saving..." : "Save Result"}
+              </button>
+            </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <select
-              className="border p-2 rounded-lg bg-white"
-              value={classId}
-              onChange={(e) => {
-                setClassId(e.target.value);
-                setStudentId("");
-              }}
-            >
-              <option value="">Select Class</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="border p-2 rounded-lg bg-white"
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
-            >
-              <option value="">
-                {classId ? "Select Student" : "Select Class First"}
-              </option>
-              {filteredStudents.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.first_name}{" "}
-                  {s.middle_name ? `${s.middle_name} ` : ""}
-                  {s.last_name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="border p-2 rounded-lg bg-white"
-              value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
-            >
-              <option value="">Select Subject</option>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="border p-2 rounded-lg bg-white"
-              value={termId}
-              onChange={(e) => setTermId(e.target.value)}
-            >
-              <option value="">Select Term</option>
-              {terms.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="border p-2 rounded-lg bg-white col-span-1 sm:col-span-2"
-              value={sessionId}
-              onChange={(e) => setSessionId(e.target.value)}
-            >
-              <option value="">Select Session</option>
-              {sessions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-
-            <input
-              type="number"
-              min={0}
-              max={40}
-              className="border p-2 rounded-lg"
-              placeholder="CA Score (Max 40)"
-              value={ca}
-              onChange={(e) => setCa(e.target.value)}
-            />
-
-            <input
-              type="number"
-              min={0}
-              max={60}
-              className="border p-2 rounded-lg"
-              placeholder="Exam Score (Max 60)"
-              value={exam}
-              onChange={(e) => setExam(e.target.value)}
-            />
-          </div>
-
-          <button
-            onClick={createResult}
-            disabled={saving}
-            className="mt-4 bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-xl flex items-center gap-2 disabled:opacity-50 transition-colors"
-          >
-            {saving && <Loader2 size={16} className="animate-spin" />}
-            {saving ? "Saving..." : "Save Result"}
-          </button>
         </div>
       )}
 
-      {/* Main Table */}
-      <div className="bg-white rounded-xl border overflow-hidden shadow-sm">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-gray-100 border-b">
-            <tr>
-              <th className="p-3">Student</th>
-              <th className="p-3">Admission No</th>
-              <th className="p-3">Class</th>
-              <th className="p-3">Subject</th>
-              <th className="p-3">Term</th>
-              <th className="p-3">Session</th>
-              <th className="p-3">Total</th>
-              <th className="p-3">Grade</th>
-              <th className="p-3">Action</th>
-            </tr>
-          </thead>
+      {/* TEACHER WORKFLOW */}
+      {isTeacher ? (
+        <div className="space-y-6">
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-bold text-lg text-emerald-950">
+                Bulk Result Entry
+              </h2>
+            </div>
 
-          <tbody>
-            {results.map((r) => (
-              <tr key={r.id} className="border-b last:border-0 hover:bg-gray-50">
-                <td className="p-3">{r.student_name}</td>
-                <td className="p-3">{r.admission_number}</td>
-                <td className="p-3">{r.class_name}</td>
-                <td className="p-3">{r.subject_name}</td>
-                <td className="p-3">{r.term_name}</td>
-                <td className="p-3">{r.session_name}</td>
-                <td className="p-3 font-semibold">{r.total_score}</td>
-                <td className="p-3">{r.grade ?? "-"}</td>
-                <td className="p-3">
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={`/dashboard/schools/${schoolId}/students/${r.student_id}/report-card`}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
-                    >
-                      Report Card
-                    </Link>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
+              <select
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                value={bulkClassId}
+                onChange={(e) => {
+                  setBulkClassId(e.target.value);
+                  setBulkSubjectId("");
+                  setBulkStudents([]);
+                }}
+              >
+                <option value="">Select Class</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
 
+              <button
+                onClick={loadBulkStudents}
+                disabled={bulkLoading || !bulkClassId}
+                className="bg-emerald-800 hover:bg-emerald-900 text-white rounded-lg flex items-center justify-center gap-2 px-3 py-2 disabled:opacity-50 text-sm font-medium transition-colors"
+              >
+                {bulkLoading && <Loader2 size={16} className="animate-spin" />}
+                {bulkLoading ? "Loading..." : "Load Students"}
+              </button>
+
+              <select
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                value={bulkSubjectId}
+                onChange={(e) => setBulkSubjectId(e.target.value)}
+              >
+                <option value="">Select Subject</option>
+                {getAvailableSubjects(bulkClassId).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                value={bulkTermId}
+                onChange={(e) => setBulkTermId(e.target.value)}
+              >
+                <option value="">Select Term</option>
+                {terms.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                value={bulkSessionId}
+                onChange={(e) => setBulkSessionId(e.target.value)}
+              >
+                <option value="">Select Session</option>
+                {sessions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {bulkStudents.length > 0 && (
+              <>
+                <div className="mb-4 relative max-w-sm">
+                  <Search
+                    size={16}
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search loaded students..."
+                    value={bulkSearchQuery}
+                    onChange={(e) => setBulkSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 text-sm"
+                  />
+                  {bulkSearchQuery && (
                     <button
-                      onClick={() => deleteResult(r.id)}
-                      className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
+                      onClick={() => setBulkSearchQuery("")}
+                      className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
-                      <Trash2 size={15} />
-                      Delete
+                      <X size={14} />
                     </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  )}
+                </div>
 
-            {results.length === 0 && (
-              <tr>
-                <td colSpan={9} className="p-6 text-center text-gray-500">
-                  {userRole === "TEACHER"
-                    ? "No assigned results found"
-                    : "No results found"}
-                </td>
-              </tr>
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <table className="w-full border-collapse">
+                    <thead className="bg-emerald-50/50 border-b border-slate-200 text-sm text-emerald-950 font-semibold">
+                      <tr>
+                        <th className="p-3 text-left">Student</th>
+                        <th className="p-3 text-left w-36">CA Score (Max 40)</th>
+                        <th className="p-3 text-left w-36">Exam Score (Max 60)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm">
+                      {filteredBulkStudents.map((student) => (
+                        <tr
+                          key={student.id}
+                          className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                        >
+                          <td className="p-3 font-medium text-slate-800">
+                            {student.first_name}{" "}
+                            {student.middle_name ? `${student.middle_name} ` : ""}
+                            {student.last_name}
+                            {student.admission_number && (
+                              <span className="text-xs text-slate-400 ml-1">
+                                ({student.admission_number})
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <input
+                              type="number"
+                              min={0}
+                              max={40}
+                              className="border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600 p-1.5 rounded w-28 text-sm"
+                              placeholder="0 - 40"
+                              value={bulkScores[student.id]?.ca || ""}
+                              onChange={(e) =>
+                                updateBulkScore(student.id, "ca", e.target.value)
+                              }
+                            />
+                          </td>
+                          <td className="p-3">
+                            <input
+                              type="number"
+                              min={0}
+                              max={60}
+                              className="border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600 p-1.5 rounded w-28 text-sm"
+                              placeholder="0 - 60"
+                              value={bulkScores[student.id]?.exam || ""}
+                              onChange={(e) =>
+                                updateBulkScore(student.id, "exam", e.target.value)
+                              }
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredBulkStudents.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="p-4 text-center text-slate-500 text-sm">
+                            No loaded students match "{bulkSearchQuery}"
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <button
+                  onClick={saveBulkResults}
+                  disabled={bulkSaving}
+                  className="mt-5 bg-emerald-800 hover:bg-emerald-900 text-white font-medium px-5 py-2.5 rounded-xl flex items-center gap-2 disabled:opacity-50 transition-colors text-sm shadow-xs"
+                >
+                  {bulkSaving && <Loader2 size={16} className="animate-spin" />}
+                  {bulkSaving ? "Saving..." : "Save Bulk Results"}
+                </button>
+              </>
             )}
-          </tbody>
-        </table>
-      </div>
+          </div>
+
+          <div className="flex justify-start">
+            <button
+              onClick={() => setSavedResultsDrawerOpen(true)}
+              className="flex items-center gap-2 bg-indigo-900 hover:bg-indigo-950 text-white px-5 py-3 rounded-xl font-medium text-sm transition-colors shadow-xs"
+            >
+              <BookOpen size={18} />
+              View Saved Results
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* ADMIN WORKFLOW */
+        <>
+          <div className="mb-6 relative max-w-md">
+            <Search
+              size={18}
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+            />
+            <input
+              type="text"
+              placeholder="Search by student name, admission no, class, or subject..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 text-sm shadow-xs"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead className="bg-emerald-50/50 border-b border-slate-200 text-emerald-950">
+                <tr>
+                  <th className="p-3 font-semibold">Student</th>
+                  <th className="p-3 font-semibold">Admission No</th>
+                  <th className="p-3 font-semibold">Class</th>
+                  <th className="p-3 font-semibold">Subject</th>
+                  <th className="p-3 font-semibold">Term</th>
+                  <th className="p-3 font-semibold">Session</th>
+                  <th className="p-3 font-semibold">Total</th>
+                  <th className="p-3 font-semibold">Grade</th>
+                  <th className="p-3 font-semibold">Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredResults.map((r) => (
+                  <tr key={r.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                    <td className="p-3 font-medium text-slate-900">{r.student_name}</td>
+                    <td className="p-3 text-slate-600">{r.admission_number || "N/A"}</td>
+                    <td className="p-3 text-slate-600">{r.class_name || "N/A"}</td>
+                    <td className="p-3 text-slate-600">{r.subject_name}</td>
+                    <td className="p-3 text-slate-600">{r.term_name}</td>
+                    <td className="p-3 text-slate-600">{r.session_name}</td>
+                    <td className="p-3 font-semibold text-slate-900">{r.total_score}</td>
+                    <td className="p-3">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                          r.grade === "F9" || r.grade === "F"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-emerald-100 text-emerald-800"
+                        }`}
+                      >
+                        {r.grade ?? "-"}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/dashboard/schools/${schoolId}/students/${r.student_id}/report-card`}
+                          className="bg-indigo-800 hover:bg-indigo-900 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                        >
+                          Report Card
+                        </Link>
+
+                        <button
+                          onClick={() => deleteResult(r.id)}
+                          className="flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                        >
+                          <Trash2 size={14} />
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+                {filteredResults.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="p-6 text-center text-slate-500">
+                      {searchQuery
+                        ? `No results match "${searchQuery}"`
+                        : "No results found"}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* TEACHER REVIEW DRAWER */}
+      {savedResultsDrawerOpen && (
+        <div className="fixed inset-0 z-40 flex justify-end bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col p-6 border-l border-slate-200">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-200">
+              <div className="flex items-center gap-2 text-indigo-900 font-bold text-lg">
+                <BookOpen size={20} />
+                <span>Saved Results Review</span>
+              </div>
+              <button
+                onClick={() => setSavedResultsDrawerOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 mt-2 mb-4">
+              Filter by class or search students to inspect recorded score records.
+            </p>
+
+            <div className="space-y-3 mb-4">
+              {/* Select Class Filter */}
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none">
+                  <Filter size={15} />
+                </div>
+                <select
+                  value={drawerClassFilter}
+                  onChange={(e) => setDrawerClassFilter(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                >
+                  <option value="">All Classes</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative">
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  type="text"
+                  placeholder="Search assigned students..."
+                  value={drawerSearchQuery}
+                  onChange={(e) => setDrawerSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                />
+                {drawerSearchQuery && (
+                  <button
+                    onClick={() => setDrawerSearchQuery("")}
+                    className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              {filteredDrawerStudents.map((s) => (
+                <div
+                  key={s.id}
+                  className="flex justify-between items-center p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:border-slate-300 hover:bg-white transition-all"
+                >
+                  <div>
+                    <h4 className="font-semibold text-sm text-slate-800">
+                      {s.first_name} {s.middle_name ? `${s.middle_name} ` : ""}{s.last_name}
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      Class: <span className="font-medium text-slate-700">{getClassName(s)}</span> • Adm: {s.admission_number || "N/A"}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => handleOpenStudentScores(s)}
+                    className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shrink-0 border border-emerald-200/60"
+                  >
+                    <Eye size={14} />
+                    View Scores
+                  </button>
+                </div>
+              ))}
+
+              {filteredDrawerStudents.length === 0 && (
+                <div className="text-center py-10 text-slate-400 text-sm">
+                  No assigned students match your criteria.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW SCORES MODAL */}
+      {studentScoresModalOpen && selectedStudentForScores && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-150 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-start pb-3 border-b border-slate-200">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">
+                  {selectedStudentForScores.first_name}{" "}
+                  {selectedStudentForScores.middle_name
+                    ? `${selectedStudentForScores.middle_name} `
+                    : ""}
+                  {selectedStudentForScores.last_name}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Admission Number:{" "}
+                  <span className="font-semibold text-slate-700">
+                    {selectedStudentForScores.admission_number || "N/A"}
+                  </span>{" "}
+                  | Class:{" "}
+                  <span className="font-semibold text-slate-700">
+                    {getClassName(selectedStudentForScores)}
+                  </span>
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setStudentScoresModalOpen(false);
+                  setSelectedStudentForScores(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto py-4 space-y-3 pr-1">
+              {studentScoresLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+                  <Loader2 size={24} className="animate-spin text-emerald-800" />
+                  <span className="text-sm">Fetching recorded scores...</span>
+                </div>
+              ) : studentFetchedResults.length > 0 ? (
+                studentFetchedResults.map((res, index) => (
+                  <div
+                    key={res.id || index}
+                    className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2 shadow-2xs"
+                  >
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-bold text-slate-800 text-sm">
+                        {res.subject_name}
+                      </h4>
+                      <span
+                        className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                          res.grade === "F9" || res.grade === "F"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-emerald-100 text-emerald-800"
+                        }`}
+                      >
+                        Grade: {res.grade ?? "N/A"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-xs pt-2 border-t border-slate-200/80">
+                      <div>
+                        <span className="text-slate-500 block">CA Score</span>
+                        <span className="font-semibold text-slate-800 text-sm">
+                          {res.ca_score !== undefined && res.ca_score !== null
+                            ? res.ca_score
+                            : "-"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block">Exam Score</span>
+                        <span className="font-semibold text-slate-800 text-sm">
+                          {res.exam_score !== undefined && res.exam_score !== null
+                            ? res.exam_score
+                            : "-"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block">Total</span>
+                        <span className="font-bold text-slate-900 text-sm">
+                          {res.total_score}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12 text-slate-400 text-sm">
+                  No recorded scores found for this student.
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-200 flex justify-end">
+              <button
+                onClick={() => {
+                  setStudentScoresModalOpen(false);
+                  setSelectedStudentForScores(null);
+                }}
+                className="bg-slate-900 hover:bg-slate-800 text-white font-medium px-5 py-2 rounded-xl text-sm transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
