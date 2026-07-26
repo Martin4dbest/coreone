@@ -21,7 +21,17 @@ class SchoolRepository:
 
     async def get_by_code(self, school_code: str):
         result = await self.db.execute(
-            select(School).where(School.school_code == school_code)
+            select(School).where(
+                School.school_code == school_code
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_by_slug(self, slug: str):
+        result = await self.db.execute(
+            select(School).where(
+                School.school_code == slug.upper()
+            )
         )
         return result.scalar_one_or_none()
 
@@ -35,7 +45,6 @@ class SchoolRepository:
         await self.db.commit()
         await self.db.refresh(school)
         return school
-
 
     async def delete(self, school: School):
         await self.db.delete(school)

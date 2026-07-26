@@ -74,6 +74,32 @@ class School(Base, BaseModel):
         String(255),
     )
 
+    # -----------------------------
+    # Tenant Management
+    # -----------------------------
+
+    domain: Mapped[str | None] = mapped_column(
+        String(255),
+        unique=True,
+        index=True,
+    )
+
+    custom_domain: Mapped[str | None] = mapped_column(
+        String(255),
+        unique=True,
+        index=True,
+    )
+
+    domain_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+    )
+
+    tenant_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+    )
+
     subscription_status: Mapped[SubscriptionStatus] = mapped_column(
         SQLEnum(SubscriptionStatus),
         default=SubscriptionStatus.ACTIVE,

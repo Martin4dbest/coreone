@@ -13,7 +13,7 @@ class StudentRepository:
 
     async def get_all(
     self,
-    school_id: int | None = None,
+    school_id: int,
     class_id: int | None = None,
     teacher_id: int | None = None,
 ):
@@ -54,7 +54,7 @@ class StudentRepository:
     async def get_by_id(
         self,
         student_id: int,
-        school_id: int | None = None,
+        school_id: int,
         teacher_id: int | None = None,
     ):
         query = (

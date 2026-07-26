@@ -9,7 +9,16 @@ const nextConfig: NextConfig = {
         port: "8000",
         pathname: "/uploads/**",
       },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
     ],
+  },
+
+  turbopack: {
+    root: __dirname,
   },
 };
 

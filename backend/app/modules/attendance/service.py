@@ -19,11 +19,12 @@ class AttendanceService:
         self,
         payload: AttendanceCreateRequest,
         current_user,
+        tenant,
     ):
 
         if current_user.role.name != "SUPER_ADMIN":
 
-            if payload.school_id != current_user.school_id:
+            if payload.school_id != tenant.school_id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="You cannot create attendance for another school",
@@ -59,7 +60,7 @@ class AttendanceService:
 
 
         attendance = Attendance(
-            school_id=payload.school_id,
+            school_id=tenant.school_id,
             student_id=payload.student_id,
             classroom_id=payload.classroom_id,
             attendance_date=payload.attendance_date,
@@ -75,12 +76,10 @@ class AttendanceService:
     async def get_attendance(
         self,
         current_user,
+        tenant,
     ):
 
-        school_id = None
-
-        if current_user.role.name != "SUPER_ADMIN":
-            school_id = current_user.school_id
+        school_id = tenant.school_id
 
 
         return await self.repository.get_all(
@@ -93,12 +92,10 @@ class AttendanceService:
         self,
         attendance_id: int,
         current_user,
+        tenant,
     ):
 
-        school_id = None
-
-        if current_user.role.name != "SUPER_ADMIN":
-            school_id = current_user.school_id
+        school_id = tenant.school_id
 
 
         attendance = await self.repository.get_by_id(

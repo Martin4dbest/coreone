@@ -41,6 +41,7 @@ class Classroom(Base, BaseModel, SchoolMixin, ActiveMixin):
     class_teacher = relationship(
         "Teacher",
         foreign_keys="Classroom.class_teacher_id",
+        back_populates="class_teacher_of",
         lazy="joined",
     )
 
@@ -51,8 +52,7 @@ class Classroom(Base, BaseModel, SchoolMixin, ActiveMixin):
 
     school = relationship("School")
 
-
-teacher_subjects = relationship(
-    "TeacherSubject",
-    back_populates="classroom",
-)
+    teacher_subjects = relationship(
+        "TeacherSubject",
+        back_populates="classroom",
+    )

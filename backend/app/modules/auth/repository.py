@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.user import User
 
@@ -12,10 +13,21 @@ class AuthRepository:
     async def get_user_by_email(
         self,
         email: str,
+        school_id: int | None = None,
     ) -> User | None:
-        result = await self.db.execute(
-            select(User).where(User.email == email)
+
+        stmt = (
+            select(User)
+            .options(
+                selectinload(User.role)
+            )
+            .where(User.email == email)
         )
+
+        if school_id is not None:
+            stmt = stmt.where(User.school_id == school_id)
+
+        result = await self.db.execute(stmt)
 
         return result.scalar_one_or_none()
 
@@ -23,8 +35,13 @@ class AuthRepository:
         self,
         user_id: int,
     ) -> User | None:
+
         result = await self.db.execute(
-            select(User).where(User.id == user_id)
+            select(User)
+            .options(
+                selectinload(User.role)
+            )
+            .where(User.id == user_id)
         )
 
         return result.scalar_one_or_none()
@@ -33,6 +50,7 @@ class AuthRepository:
         self,
         user: User,
     ) -> User:
+
         await self.db.commit()
         await self.db.refresh(user)
 

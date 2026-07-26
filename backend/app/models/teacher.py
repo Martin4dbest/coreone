@@ -36,6 +36,12 @@ class Teacher(Base, BaseModel, SchoolMixin):
         cascade="all, delete-orphan",
     )
 
+    class_teacher_of = relationship(
+        "Classroom",
+        foreign_keys="Classroom.class_teacher_id",
+        back_populates="class_teacher",
+    )
+
     @property
     def assignments(self):
         return self.teacher_subjects

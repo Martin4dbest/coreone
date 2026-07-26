@@ -128,17 +128,20 @@ class ResultService:
     async def get_results(
         self,
         current_user,
-        school_id: int | None = None,
+        tenant,
     ):
         role = current_user.role.name
 
+        school_id = tenant.school_id
+
         if role == "TEACHER":
-            return await self.repository.get_teacher_results(current_user.id)
+            return await self.repository.get_teacher_results(
+                current_user.id
+            )
 
-        if role != "SUPER_ADMIN":
-            school_id = current_user.school_id
-
-        return await self.repository.get_all(school_id)
+        return await self.repository.get_all(
+            school_id
+        )
 
     async def get_result(self, result_id: int):
         result = await self.repository.get_by_id(result_id)

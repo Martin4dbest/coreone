@@ -7,8 +7,6 @@ class StudentCreateRequest(BaseModel):
     email: EmailStr
     password: str
 
-    school_id: int
-
     classroom_id: int | None = None
 
     admission_number: str

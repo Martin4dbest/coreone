@@ -1,17 +1,15 @@
+from __future__ import annotations
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.auth.jwt import create_access_token, create_password_reset_token
+from app.modules.auth.security import verify_password
+
 from app.modules.auth.exceptions import InvalidCredentialsException
-from app.modules.auth.email_service import send_password_reset_email
-from app.modules.auth.jwt import (
-    create_access_token,
-    create_password_reset_token,
-    decode_access_token,
-)
+from app.core.tenant.context import TenantContext
+
 from app.modules.auth.repository import AuthRepository
-from app.modules.auth.security import (
-    hash_password,
-    verify_password,
-)
+from app.modules.auth.email_service import send_password_reset_email
 
 
 class AuthService:
@@ -23,8 +21,11 @@ class AuthService:
         self,
         email: str,
         password: str,
+        tenant: TenantContext,
     ):
-        user = await self.repository.get_user_by_email(email)
+        user = await self.repository.get_user_by_email(
+            email=email,
+        )
 
         if user is None:
             raise InvalidCredentialsException()
@@ -34,6 +35,24 @@ class AuthService:
             user.hashed_password,
         ):
             raise InvalidCredentialsException()
+
+        #
+        # Tenant access enforcement
+        #
+        if (
+            tenant.resolved
+            and tenant.school_id is not None
+        ):
+            #
+            # Only non-super admins are restricted
+            # to their tenant school.
+            #
+            if (
+                user.role
+                and user.role.name != "SUPER_ADMIN"
+                and user.school_id != tenant.school_id
+            ):
+                raise InvalidCredentialsException()
 
         access_token = create_access_token(
             {
@@ -52,6 +71,7 @@ class AuthService:
         self,
         email: str,
     ) -> str | None:
+
         user = await self.repository.get_user_by_email(email)
 
         if user is None:
@@ -65,37 +85,3 @@ class AuthService:
         )
 
         return reset_token
-
-    async def reset_password(
-        self,
-        token: str,
-        new_password: str,
-    ) -> bool:
-        payload = decode_access_token(token)
-
-        if not payload:
-            return False
-
-        if payload.get("token_type") != "password_reset":
-            return False
-
-        user_id = payload.get("sub")
-
-        if not user_id:
-            return False
-
-        try:
-            user_id_int = int(user_id)
-        except (TypeError, ValueError):
-            return False
-
-        user = await self.repository.get_user_by_id(user_id_int)
-
-        if user is None:
-            return False
-
-        user.hashed_password = hash_password(new_password)
-
-        await self.repository.update_user(user)
-
-        return True

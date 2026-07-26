@@ -45,8 +45,8 @@ async def get_schools(
 
 
 @router.get(
-"/me",
-response_model=SchoolResponse,
+    "/me",
+    response_model=SchoolResponse,
 )
 async def get_my_school(
     db: AsyncSession = Depends(get_db),
@@ -78,6 +78,18 @@ async def get_my_school(
         school.secondary_color = branding.secondary_color
 
     return school
+
+
+@router.get(
+    "/by-slug/{slug}",
+    response_model=SchoolResponse,
+)
+async def get_school_by_slug(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+):
+    service = SchoolService(db)
+    return await service.get_school_by_slug(slug)
 
 
 @router.get(

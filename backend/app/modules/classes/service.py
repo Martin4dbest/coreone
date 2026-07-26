@@ -23,16 +23,10 @@ class ClassService:
     async def create_class(
         self,
         payload: ClassCreateRequest,
+        tenant,
         current_user,
     ):
-        school_id = payload.school_id
-
-        if current_user.role.name != "SUPER_ADMIN":
-            if school_id != current_user.school_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You cannot create classes for another school",
-                )
+        school_id = tenant.school_id
 
         result = await self.db.execute(
             select(Level).where(
@@ -74,11 +68,10 @@ class ClassService:
 
     async def get_classes(
         self,
+        tenant,
         current_user,
-        school_id: int | None = None,
     ):
-        if current_user.role.name != "SUPER_ADMIN":
-            school_id = current_user.school_id
+        school_id = tenant.school_id
 
         return await self.repository.get_all(
             school_id
@@ -88,12 +81,10 @@ class ClassService:
     async def get_class(
         self,
         class_id: int,
+        tenant,
         current_user,
     ):
-        school_id = None
-
-        if current_user.role.name != "SUPER_ADMIN":
-            school_id = current_user.school_id
+        school_id = tenant.school_id
 
         classroom = await self.repository.get_by_id(
             class_id,
@@ -112,13 +103,12 @@ class ClassService:
     async def activate_class(
         self,
         class_id: int,
+        tenant,
         current_user,
     ):
         classroom = await self.repository.get_by_id(
             class_id,
-            current_user.school_id
-            if current_user.role.name != "SUPER_ADMIN"
-            else None,
+            tenant.school_id,
         )
 
         if not classroom:
@@ -135,13 +125,12 @@ class ClassService:
     async def deactivate_class(
         self,
         class_id: int,
+        tenant,
         current_user,
     ):
         classroom = await self.repository.get_by_id(
             class_id,
-            current_user.school_id
-            if current_user.role.name != "SUPER_ADMIN"
-            else None,
+            tenant.school_id,
         )
 
         if not classroom:
@@ -158,10 +147,12 @@ class ClassService:
     async def delete_class(
         self,
         class_id: int,
+        tenant,
         current_user,
     ):
         classroom = await self.get_class(
             class_id,
+            tenant,
             current_user,
         )
 
@@ -174,57 +165,131 @@ class ClassService:
 
 
 
-    async def assign_class_teacher(
-        self,
-        class_id: int,
-        teacher_id: int,
+    
+async def assign_class_teacher(
+    self,
+    class_id: int,
+    teacher_id: int,
+    tenant,
+    current_user,
+):
+    classroom = await self.get_class(
+        class_id,
+        tenant,
         current_user,
+    )
+
+    result = await self.db.execute(
+        select(Teacher)
+        .options(
+            selectinload(Teacher.user)
+        )
+        .where(
+            Teacher.id == teacher_id
+        )
+    )
+
+    teacher = result.scalar_one_or_none()
+
+    if not teacher:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Teacher not found",
+        )
+
+    if (
+        not teacher.user
+        or teacher.user.school_id != classroom.school_id
     ):
-        classroom = await self.get_class(
-            class_id,
-            current_user,
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Teacher does not belong to this school",
         )
 
-        result = await self.db.execute(
-            select(Teacher)
-            .options(selectinload(Teacher.user))
-            .where(Teacher.id == teacher_id)
+    if classroom.class_teacher_id == teacher.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This teacher is already assigned to this class.",
         )
 
-        teacher = result.scalar_one_or_none()
+    existing_assignment = await self.db.execute(
+        select(Classroom)
+        .where(
+            Classroom.class_teacher_id == teacher.id,
+            Classroom.id != classroom.id,
+        )
+    )
 
-        if not teacher:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Teacher not found",
-            )
+    existing_class = existing_assignment.scalar_one_or_none()
 
-        if not teacher.user or teacher.user.school_id != classroom.school_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Teacher does not belong to this school",
-            )
+    if existing_class:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"{teacher.first_name} {teacher.last_name} "
+                f"is already the class teacher of "
+                f"{existing_class.name}."
+            ),
+        )
 
-        classroom.class_teacher_id = teacher.id
-        classroom.class_teacher_assigned_by = current_user.id
+    from datetime import datetime
 
-        from datetime import datetime
+    classroom.class_teacher_id = teacher.id
+    classroom.class_teacher_assigned_by = current_user.id
+    classroom.class_teacher_assigned_at = datetime.utcnow()
 
-        classroom.class_teacher_assigned_at = datetime.utcnow()
+    await self.db.commit()
+    await self.db.refresh(classroom)
 
-        await self.db.commit()
-        await self.db.refresh(classroom)
+    return {
+        "message": "Class teacher assigned successfully.",
+        "classroom": classroom,
+    }
 
-        return classroom
 
-    async def get_class_teachers(
+
+
+async def remove_class_teacher(
+    self,
+    class_id: int,
+    tenant,
+    current_user,
+):
+    classroom = await self.get_class(
+        class_id,
+        tenant,
+        current_user,
+    )
+
+    if classroom.class_teacher_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This class has no class teacher assigned.",
+        )
+
+    classroom.class_teacher_id = None
+    classroom.class_teacher_assigned_by = None
+    classroom.class_teacher_assigned_at = None
+
+    await self.db.commit()
+    await self.db.refresh(classroom)
+
+    return {
+        "message": "Class teacher removed successfully.",
+        "classroom": classroom,
+    }
+
+
+async def get_class_teachers(
         self,
         class_id: int,
+        tenant,
         current_user,
     ):
     
         classroom = await self.get_class(
             class_id,
+            tenant,
             current_user,
         )
     

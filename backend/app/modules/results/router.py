@@ -6,6 +6,12 @@ from app.db.database import get_db
 from app.models.user import User
 from app.modules.auth.dependencies.current_user import get_current_user
 
+from app.core.tenant.context import TenantContext
+from app.core.tenant.dependencies import get_tenant_from_request
+
+from app.core.tenant.context import TenantContext
+from app.core.tenant.dependencies import get_tenant_from_request
+
 from app.modules.results.schemas import (
     ResultCreateRequest,
     ResultUpdateRequest,
@@ -31,11 +37,12 @@ router = APIRouter(
 async def get_results(
     school_id: int | None = None,
     db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_from_request),
     current_user: User = Depends(get_current_user),
 ):
     return await ResultService(db).get_results(
         current_user,
-        school_id,
+        tenant,
     )
 
 

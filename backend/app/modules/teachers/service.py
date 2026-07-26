@@ -17,13 +17,17 @@ class TeacherService:
 
     async def get_teachers(
         self,
+        tenant,
         current_user,
         requested_school_id: int | None = None,
     ):
-        if current_user.role.name == "SUPER_ADMIN":
+        if (
+            current_user.role.name == "SUPER_ADMIN"
+            and requested_school_id is not None
+        ):
             school_id = requested_school_id
         else:
-            school_id = current_user.school_id
+            school_id = tenant.school_id
 
         return await self.repository.get_all(
             school_id
@@ -32,12 +36,18 @@ class TeacherService:
     async def get_teacher(
         self,
         teacher_id: int,
+        tenant,
         current_user,
+        requested_school_id=None,
     ):
-        school_id = None
 
-        if current_user.role.name != "SUPER_ADMIN":
-            school_id = current_user.school_id
+        if (
+            current_user.role.name == "SUPER_ADMIN"
+            and requested_school_id
+        ):
+            school_id = requested_school_id
+        else:
+            school_id = tenant.school_id
 
         teacher = await self.repository.get_by_id(
             teacher_id,
@@ -55,16 +65,16 @@ class TeacherService:
     async def create_teacher(
         self,
         payload: TeacherCreateRequest,
+        tenant,
         current_user,
     ):
         if (
-            current_user.role.name != "SUPER_ADMIN"
-            and payload.school_id != current_user.school_id
+            current_user.role.name == "SUPER_ADMIN"
+            and payload.school_id is not None
         ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You cannot create teachers for another school",
-            )
+            school_id = payload.school_id
+        else:
+            school_id = tenant.school_id
 
         result = await self.db.execute(
             select(Role).where(
@@ -85,13 +95,13 @@ class TeacherService:
         user = await user_service.create_internal_user(
             email=payload.email,
             password=payload.password,
-            school_id=payload.school_id,
+            school_id=school_id,
             role_id=teacher_role.id,
         )
 
         teacher = Teacher(
             user_id=user.id,
-            school_id=payload.school_id,
+            school_id=school_id,
             employee_number=payload.employee_number,
             first_name=payload.first_name,
             last_name=payload.last_name,
@@ -102,12 +112,18 @@ class TeacherService:
     async def get_teacher_assignments_summary(
         self,
         teacher_id: int,
+        tenant,
         current_user,
+        requested_school_id=None,
     ):
-        school_id = None
 
-        if current_user.role.name != "SUPER_ADMIN":
-            school_id = current_user.school_id
+        if (
+            current_user.role.name == "SUPER_ADMIN"
+            and requested_school_id
+        ):
+            school_id = requested_school_id
+        else:
+            school_id = tenant.school_id
 
 
         teacher = await self.repository.get_by_id(
@@ -166,4 +182,37 @@ class TeacherService:
 
                 for assignment in assignments
             ],
+        }
+
+
+    async def delete_teacher(
+        self,
+        teacher_id: int,
+        tenant,
+        current_user,
+        requested_school_id=None,
+    ):
+        if (
+            current_user.role.name == "SUPER_ADMIN"
+            and requested_school_id
+        ):
+            school_id = requested_school_id
+        else:
+            school_id = tenant.school_id
+
+        teacher = await self.repository.get_by_id(
+            teacher_id,
+            school_id,
+        )
+
+        if not teacher:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Teacher not found",
+            )
+
+        await self.repository.delete(teacher)
+
+        return {
+            "message": "Teacher deleted successfully"
         }

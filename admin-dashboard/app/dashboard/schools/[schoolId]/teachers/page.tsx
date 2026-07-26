@@ -94,6 +94,30 @@ export default function TeachersPage({ params }: TeacherPageProps) {
   });
 
   // Data Loading
+  const handleDeleteTeacher = async (teacherId: number) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this teacher?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/teachers/${teacherId}`, {
+          params: {
+            school_id: Number(schoolId),
+          },
+        });
+
+      alert("Teacher deleted successfully.");
+
+      fetchTeachers();
+    } catch (err) {
+      console.error("Delete teacher failed:", err);
+      alert("Failed to delete teacher.");
+    }
+  };
+
+
   const fetchTeachers = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -384,12 +408,12 @@ export default function TeachersPage({ params }: TeacherPageProps) {
                       </Link>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-500" onClick={(e) => e.stopPropagation()}>
-                      <Link
-                        href={`/dashboard/schools/${schoolId}/teachers/${teacher.id}`}
-                        className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
+                      <button
+                        onClick={() => handleDeleteTeacher(teacher.id)}
+                        className="inline-flex items-center justify-center rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm hover:bg-red-50 transition-colors"
                       >
-                        View Profile
-                      </Link>
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 ))}

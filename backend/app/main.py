@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from app.middleware.tenant import TenantMiddleware
 
 from app.core.config import settings
 from app.db.database import AsyncSessionLocal
@@ -41,8 +42,8 @@ from app.modules.reports.router import router as reports_router
 from app.modules.settings.router import router as settings_router
 from app.modules.branding.router import router as branding_router
 from app.modules.audit_logs.router import router as audit_logs_router
+from app.routes_test import router as routes_test_router
 from app.modules.teacher_assignments.router import router as teacher_assignments_router
-from app.modules.class_teachers.router import router as class_teachers_router
 
 
 @asynccontextmanager
@@ -71,6 +72,10 @@ app.mount(
 )
 
 
+
+app.add_middleware(
+    TenantMiddleware,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -124,11 +129,6 @@ app.include_router(
 
 app.include_router(
     teacher_assignments_router,
-    prefix=settings.API_V1_STR,
-)
-
-app.include_router(
-    class_teachers_router,
     prefix=settings.API_V1_STR,
 )
 
@@ -285,6 +285,11 @@ app.include_router(
 app.include_router(
     audit_logs_router,
     prefix=settings.API_V1_STR,
+)
+
+
+app.include_router(
+    routes_test_router,
 )
 
 @app.get("/", tags=["Root"])

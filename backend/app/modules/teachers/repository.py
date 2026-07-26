@@ -15,7 +15,7 @@ class TeacherRepository:
 
     async def get_all(
         self,
-        school_id: int | None = None,
+        school_id: int,
     ):
 
         query = (
@@ -26,7 +26,7 @@ class TeacherRepository:
             )
         )
 
-        if school_id:
+        if school_id is not None:
             query = query.where(
                 Teacher.school_id == school_id
             )
@@ -40,7 +40,7 @@ class TeacherRepository:
     async def get_by_id(
         self,
         teacher_id: int,
-        school_id: int | None = None,
+        school_id: int,
     ):
 
         query = (
@@ -54,7 +54,7 @@ class TeacherRepository:
             )
         )
 
-        if school_id:
+        if school_id is not None:
             query = query.where(
                 Teacher.school_id == school_id
             )
@@ -139,7 +139,7 @@ class TeacherRepository:
     async def get_teacher_assignments_summary(
         self,
         teacher_id: int,
-        school_id: int | None = None,
+        school_id: int,
     ):
 
         query = (
@@ -158,7 +158,7 @@ class TeacherRepository:
         )
 
 
-        if school_id:
+        if school_id is not None:
 
             query = query.where(
                 TeacherSubject.school_id == school_id
@@ -168,3 +168,11 @@ class TeacherRepository:
         result = await self.db.execute(query)
 
         return result.scalars().unique().all()
+
+
+    async def delete(
+        self,
+        teacher
+    ):
+        await self.db.delete(teacher)
+        await self.db.commit()

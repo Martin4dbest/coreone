@@ -49,7 +49,15 @@ export default function Topbar() {
 
   function handleLogout() {
     localStorage.removeItem("access_token");
-    router.replace("/login");
+
+    const tenant = localStorage.getItem("tenant_slug");
+    localStorage.removeItem("tenant_slug");
+
+    if (tenant) {
+      router.replace(`/${tenant}/login`);
+    } else {
+      router.replace("/login");
+    }
   }
 
   function handleSearch(event: FormEvent) {

@@ -35,19 +35,13 @@ class StudentService:
     async def create_student(
         self,
         payload: StudentCreateRequest,
+        tenant,
         current_user,
     ):
         self._ensure_teacher_cannot_manage_students(current_user)
 
 
-        school_id = payload.school_id
-
-        if current_user.role.name != "SUPER_ADMIN":
-            if school_id != current_user.school_id:
-                raise HTTPException(
-                    status_code=403,
-                    detail="You cannot create students for another school",
-                )
+        school_id = tenant.school_id
 
         classroom = None
 
@@ -116,6 +110,7 @@ class StudentService:
 
     async def get_students(
         self,
+        tenant,
         current_user,
         class_id: int | None = None,
     ):
@@ -125,7 +120,7 @@ class StudentService:
         role = current_user.role.name
 
         if role != "SUPER_ADMIN":
-            school_id = current_user.school_id
+            school_id = tenant.school_id
 
         if role == "TEACHER":
             result = await self.db.execute(
@@ -193,13 +188,14 @@ class StudentService:
     async def get_student(
         self,
         student_id: int,
+        tenant,
         current_user,
     ):
         school_id = None
         teacher_id = None
 
         if current_user.role.name != "SUPER_ADMIN":
-            school_id = current_user.school_id
+            school_id = tenant.school_id
 
         teacher_id = await self._get_teacher_id(
             current_user
@@ -241,7 +237,7 @@ class StudentService:
         school_id = None
 
         if current_user.role.name != "SUPER_ADMIN":
-            school_id = current_user.school_id
+            school_id = tenant.school_id
 
         student = await self.repository.get_by_id(
             student_id,
@@ -279,7 +275,7 @@ class StudentService:
         school_id = None
 
         if current_user.role.name != "SUPER_ADMIN":
-            school_id = current_user.school_id
+            school_id = tenant.school_id
 
         student = await self.repository.get_by_id(
             student_id,
@@ -323,7 +319,6 @@ class StudentService:
 
         if (
             current_user.role.name != "SUPER_ADMIN"
-            and current_user.school_id != school_id
         ):
             raise HTTPException(
                 status_code=403,
@@ -563,6 +558,7 @@ class StudentService:
     async def upload_passport(
         self,
         student_id: int,
+        tenant,
         file: UploadFile,
         current_user,
     ):
@@ -571,7 +567,7 @@ class StudentService:
         school_id = None
 
         if current_user.role.name != "SUPER_ADMIN":
-            school_id = current_user.school_id
+            school_id = tenant.school_id
 
         student = await self.repository.get_by_id(
             student_id,

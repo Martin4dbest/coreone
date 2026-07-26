@@ -1,7 +1,9 @@
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.school import School
+from app.models.school_branding import SchoolBranding
 from app.modules.schools.repository import SchoolRepository
 from app.modules.schools.schemas import SchoolCreateRequest
 
@@ -9,7 +11,31 @@ from app.modules.schools.schemas import SchoolCreateRequest
 class SchoolService:
 
     def __init__(self, db: AsyncSession):
+        self.db = db
         self.repository = SchoolRepository(db)
+
+    async def _apply_branding(
+        self,
+        school: School,
+    ) -> School:
+        branding_result = await self.db.execute(
+            select(SchoolBranding).where(
+                SchoolBranding.school_id == school.id
+            )
+        )
+
+        branding = branding_result.scalar_one_or_none()
+
+        if branding:
+            school.logo_url = branding.logo_url
+            school.motto = branding.motto
+            school.primary_color = branding.primary_color
+            school.secondary_color = branding.secondary_color
+
+            if hasattr(branding, "splash_image_url"):
+                school.login_background_url = branding.splash_image_url
+
+        return school
 
     async def create_school(
         self,
@@ -39,7 +65,12 @@ class SchoolService:
         return await self.repository.create(school)
 
     async def get_schools(self):
-        return await self.repository.get_all()
+        schools = await self.repository.get_all()
+
+        for school in schools:
+            await self._apply_branding(school)
+
+        return schools
 
     async def get_school(
         self,
@@ -53,7 +84,21 @@ class SchoolService:
                 detail="School not found",
             )
 
-        return school
+        return await self._apply_branding(school)
+
+    async def get_school_by_slug(
+        self,
+        slug: str,
+    ):
+        school = await self.repository.get_by_slug(slug)
+
+        if school is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="School not found",
+            )
+
+        return await self._apply_branding(school)
 
     async def deactivate_school(
         self,
@@ -109,7 +154,6 @@ class SchoolService:
                 detail="School not found",
             )
 
-        # Protection check for system school
         if (
             school.school_code.upper() == "SYSTEM"
             or school.name.lower() == "presense"
