@@ -166,121 +166,121 @@ class ClassService:
 
 
     
-async def assign_class_teacher(
-    self,
-    class_id: int,
-    teacher_id: int,
-    tenant,
-    current_user,
-):
-    classroom = await self.get_class(
-        class_id,
+    async def assign_class_teacher(
+        self,
+        class_id: int,
+        teacher_id: int,
         tenant,
         current_user,
-    )
-
-    result = await self.db.execute(
-        select(Teacher)
-        .options(
-            selectinload(Teacher.user)
-        )
-        .where(
-            Teacher.id == teacher_id
-        )
-    )
-
-    teacher = result.scalar_one_or_none()
-
-    if not teacher:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Teacher not found",
-        )
-
-    if (
-        not teacher.user
-        or teacher.user.school_id != classroom.school_id
     ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Teacher does not belong to this school",
+        classroom = await self.get_class(
+            class_id,
+            tenant,
+            current_user,
         )
 
-    if classroom.class_teacher_id == teacher.id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This teacher is already assigned to this class.",
+        result = await self.db.execute(
+            select(Teacher)
+            .options(
+                selectinload(Teacher.user)
+            )
+            .where(
+                Teacher.id == teacher_id
+            )
         )
 
-    existing_assignment = await self.db.execute(
-        select(Classroom)
-        .where(
-            Classroom.class_teacher_id == teacher.id,
-            Classroom.id != classroom.id,
+        teacher = result.scalar_one_or_none()
+
+        if not teacher:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Teacher not found",
+            )
+
+        if (
+            not teacher.user
+            or teacher.user.school_id != classroom.school_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Teacher does not belong to this school",
+            )
+
+        if classroom.class_teacher_id == teacher.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This teacher is already assigned to this class.",
+            )
+
+        existing_assignment = await self.db.execute(
+            select(Classroom)
+            .where(
+                Classroom.class_teacher_id == teacher.id,
+                Classroom.id != classroom.id,
+            )
         )
-    )
 
-    existing_class = existing_assignment.scalar_one_or_none()
+        existing_class = existing_assignment.scalar_one_or_none()
 
-    if existing_class:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"{teacher.first_name} {teacher.last_name} "
-                f"is already the class teacher of "
-                f"{existing_class.name}."
-            ),
-        )
+        if existing_class:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"{teacher.first_name} {teacher.last_name} "
+                    f"is already the class teacher of "
+                    f"{existing_class.name}."
+                ),
+            )
 
-    from datetime import datetime
+        from datetime import datetime
 
-    classroom.class_teacher_id = teacher.id
-    classroom.class_teacher_assigned_by = current_user.id
-    classroom.class_teacher_assigned_at = datetime.utcnow()
+        classroom.class_teacher_id = teacher.id
+        classroom.class_teacher_assigned_by = current_user.id
+        classroom.class_teacher_assigned_at = datetime.utcnow()
 
-    await self.db.commit()
-    await self.db.refresh(classroom)
+        await self.db.commit()
+        await self.db.refresh(classroom)
 
-    return {
-        "message": "Class teacher assigned successfully.",
-        "classroom": classroom,
-    }
-
+        return {
+            "message": "Class teacher assigned successfully.",
+            "classroom": classroom,
+        }
 
 
 
-async def remove_class_teacher(
-    self,
-    class_id: int,
-    tenant,
-    current_user,
-):
-    classroom = await self.get_class(
-        class_id,
+
+    async def remove_class_teacher(
+        self,
+        class_id: int,
         tenant,
         current_user,
-    )
-
-    if classroom.class_teacher_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This class has no class teacher assigned.",
+    ):
+        classroom = await self.get_class(
+            class_id,
+            tenant,
+            current_user,
         )
 
-    classroom.class_teacher_id = None
-    classroom.class_teacher_assigned_by = None
-    classroom.class_teacher_assigned_at = None
+        if classroom.class_teacher_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This class has no class teacher assigned.",
+            )
 
-    await self.db.commit()
-    await self.db.refresh(classroom)
+        classroom.class_teacher_id = None
+        classroom.class_teacher_assigned_by = None
+        classroom.class_teacher_assigned_at = None
 
-    return {
-        "message": "Class teacher removed successfully.",
-        "classroom": classroom,
-    }
+        await self.db.commit()
+        await self.db.refresh(classroom)
+
+        return {
+            "message": "Class teacher removed successfully.",
+            "classroom": classroom,
+        }
 
 
-async def get_class_teachers(
+    async def get_class_teachers(
         self,
         class_id: int,
         tenant,

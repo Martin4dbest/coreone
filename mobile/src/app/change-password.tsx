@@ -1,0 +1,286 @@
+import {
+View,
+Text,
+TextInput,
+Pressable,
+StyleSheet,
+Alert,
+ActivityIndicator
+} from "react-native";
+
+
+import {
+useState
+} from "react";
+
+
+import {
+router
+} from "expo-router";
+
+
+import {
+LinearGradient
+} from "expo-linear-gradient";
+
+
+import api from "@/services/api";
+
+
+
+export default function ChangePassword(){
+
+
+const [currentPassword,setCurrentPassword]
+=
+useState("");
+
+
+const [newPassword,setNewPassword]
+=
+useState("");
+
+
+const [loading,setLoading]
+=
+useState(false);
+
+
+
+async function submit(){
+
+
+try{
+
+
+setLoading(true);
+
+
+
+await api.post(
+"/auth/change-password",
+{
+
+current_password:
+currentPassword,
+
+
+new_password:
+newPassword
+
+}
+
+);
+
+
+
+Alert.alert(
+"Success",
+"Password updated successfully"
+);
+
+
+
+router.replace(
+"/student/dashboard"
+);
+
+
+
+}
+
+catch(error){
+
+
+Alert.alert(
+"Error",
+"Unable to change password"
+);
+
+
+}
+
+finally{
+
+setLoading(false);
+
+}
+
+
+}
+
+
+
+
+return (
+
+<LinearGradient
+
+colors={[
+"#020617",
+"#0f172a"
+]}
+
+style={styles.container}
+
+>
+
+
+<View style={styles.header}>
+
+
+<Text style={styles.title}>
+Secure Your Account
+</Text>
+
+
+<Text style={styles.subtitle}>
+Create a new password before continuing
+</Text>
+
+
+</View>
+
+
+
+<View style={styles.card}>
+
+
+<TextInput
+
+placeholder="Current Password"
+
+placeholderTextColor="#94a3b8"
+
+secureTextEntry
+
+style={styles.input}
+
+value={currentPassword}
+
+onChangeText={setCurrentPassword}
+
+/>
+
+
+
+<TextInput
+
+placeholder="New Password"
+
+placeholderTextColor="#94a3b8"
+
+secureTextEntry
+
+style={styles.input}
+
+value={newPassword}
+
+onChangeText={setNewPassword}
+
+/>
+
+
+
+<Pressable
+
+style={styles.button}
+
+onPress={submit}
+
+>
+
+
+{
+
+loading ?
+
+<ActivityIndicator color="#020617"/>
+
+:
+
+<Text style={styles.buttonText}>
+Update Password
+</Text>
+
+}
+
+
+</Pressable>
+
+
+</View>
+
+
+
+</LinearGradient>
+
+);
+
+
+}
+
+
+
+const styles =
+StyleSheet.create({
+
+container:{
+flex:1,
+justifyContent:"center",
+padding:25
+},
+
+
+header:{
+alignItems:"center",
+marginBottom:40
+},
+
+
+title:{
+color:"#fff",
+fontSize:30,
+fontWeight:"900"
+},
+
+
+subtitle:{
+color:"#94a3b8",
+marginTop:10
+},
+
+
+card:{
+backgroundColor:"#1e293b",
+padding:25,
+borderRadius:25
+},
+
+
+input:{
+height:55,
+backgroundColor:"#020617",
+borderRadius:15,
+paddingHorizontal:20,
+color:"#fff",
+marginBottom:15
+},
+
+
+button:{
+height:55,
+borderRadius:30,
+backgroundColor:"#38bdf8",
+alignItems:"center",
+justifyContent:"center"
+},
+
+
+buttonText:{
+fontWeight:"900",
+fontSize:17
+}
+
+
+});

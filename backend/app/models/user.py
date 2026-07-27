@@ -46,6 +46,12 @@ class User(Base, BaseModel):
         default=False,
     )
 
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+
     last_login: Mapped[datetime | None] = mapped_column(
         DateTime,
     )

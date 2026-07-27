@@ -7,12 +7,19 @@ from app.core.tenant.context import TenantContext
 from app.db.database import get_db
 from app.models.user import User
 from app.modules.auth.dependencies.current_user import get_current_user
+from app.modules.auth.mobile_schemas import (
+    MobileLoginRequest,
+    MobileLoginResponse,
+)
+
 from app.modules.auth.schemas import (
     ForgotPasswordRequest,
     ForgotPasswordResponse,
     ResetPasswordRequest,
     ResetPasswordResponse,
     TokenResponse,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
 )
 from app.modules.auth.schema_user import CurrentUserResponse
 from app.modules.auth.service import AuthService
@@ -96,3 +103,38 @@ async def reset_password(
     return {
         "message": "Password reset successfully."
     }
+
+@router.post(
+    "/mobile-login",
+    response_model=MobileLoginResponse,
+)
+async def mobile_login(
+    payload: MobileLoginRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    service = AuthService(db)
+
+    return await service.mobile_login(
+        payload.school_code,
+        payload.email,
+        payload.password,
+    )
+
+
+@router.post(
+    "/change-password",
+    response_model=ChangePasswordResponse,
+)
+async def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+
+    service = AuthService(db)
+
+    return await service.change_password(
+        current_user,
+        payload.current_password,
+        payload.new_password,
+    )

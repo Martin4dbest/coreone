@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   BookOpen,
@@ -60,6 +61,8 @@ const hexToRgba = (hex?: string, alpha: number = 1): string => {
 };
 
 export default function TeacherDashboardPage() {
+const params = useParams();
+const tenant = params.tenant as string;
   const [data, setData] = useState<TeacherDashboard | null>(null);
   const [school, setSchool] = useState<SchoolBranding | null>(null);
   const [loading, setLoading] = useState(true);
@@ -264,7 +267,7 @@ export default function TeacherDashboardPage() {
         
         <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
           <Link
-            href={`/dashboard/schools/${school?.id}/results`}
+            href={`/${tenant}/teacher/results`}
             className="group flex flex-col items-center justify-center rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80 hover:shadow-md transition-all text-center"
           >
             <div 
@@ -278,7 +281,7 @@ export default function TeacherDashboardPage() {
           </Link>
 
           <Link
-            href={`/dashboard/schools/${school?.id}/attendance`}
+            href={`/${tenant}/teacher/attendance`}
             className="group flex flex-col items-center justify-center rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80 hover:border-emerald-300 hover:shadow-md transition-all text-center"
           >
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 group-hover:scale-110 transition-transform">
@@ -289,7 +292,7 @@ export default function TeacherDashboardPage() {
           </Link>
 
           <Link
-            href={`/dashboard/schools/${school?.id}/students`}
+            href={`/${tenant}/teacher/students`}
             className="group flex flex-col items-center justify-center rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80 hover:border-purple-300 hover:shadow-md transition-all text-center"
           >
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-50 text-purple-600 group-hover:scale-110 transition-transform">
@@ -300,7 +303,7 @@ export default function TeacherDashboardPage() {
           </Link>
 
           <Link
-            href={`/dashboard/schools/${school?.id}`}
+            href={`/${tenant}/teacher/dashboard`}
             className="group flex flex-col items-center justify-center rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80 hover:border-amber-300 hover:shadow-md transition-all text-center"
           >
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600 group-hover:scale-110 transition-transform">
@@ -331,7 +334,7 @@ export default function TeacherDashboardPage() {
             {data.classes.map((item) => (
               <Link
                 key={`${item.classroom_id}-${item.subject_id}`}
-                href={`/dashboard/schools/${school?.id}/results?class_id=${item.classroom_id}&subject_id=${item.subject_id}`}
+                href={`/${tenant}/teacher/results?class_id=${item.classroom_id}&subject_id=${item.subject_id}`}
                 className="group flex flex-col justify-between rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80 hover:shadow-md transition-all"
               >
                 <div className="space-y-3">

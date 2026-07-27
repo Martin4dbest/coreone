@@ -157,6 +157,12 @@ class TeacherService:
                 + teacher.last_name
             ),
 
+            "email": (
+                teacher.user.email
+                if teacher.user
+                else None
+            ),
+
             "class_teacher_of": (
                 [
                     class_teacher.name

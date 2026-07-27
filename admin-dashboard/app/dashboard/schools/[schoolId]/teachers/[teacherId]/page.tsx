@@ -13,10 +13,10 @@ import {
   GraduationCap, 
   Users, 
   UserRound, 
-  School, 
-  CheckCircle 
+  School 
 } from "lucide-react";
 import api from "@/lib/api";
+import { useTenant } from "@/context/TenantContext";
 
 // Types
 interface Assignment {
@@ -27,6 +27,7 @@ interface Assignment {
 
 interface TeacherSummary {
   teacher: string;
+  email?: string;
   class_teacher_of: string[];
   subjects: Assignment[];
 }
@@ -34,6 +35,12 @@ interface TeacherSummary {
 interface ClassroomOption {
   id: number;
   name: string;
+  class_teacher?: {
+    id: number;
+    name?: string;
+    first_name?: string;
+    last_name?: string;
+  } | null;
 }
 
 interface SubjectOption {
@@ -91,6 +98,8 @@ export default function Page({ params }: TeacherPageProps) {
   const numericSchoolId = Number(schoolId);
   const numericTeacherId = Number(teacherId);
 
+  const { tenant } = useTenant();
+
   // State
   const [summaryData, setSummaryData] = useState<TeacherSummary | null>(null);
   const [classes, setClasses] = useState<ClassroomOption[]>([]);
@@ -117,15 +126,31 @@ export default function Page({ params }: TeacherPageProps) {
     sessionId: ""
   });
 
+  // Modal Cleanup Helper
+  const closeAndResetModals = useCallback(() => {
+    setActiveModal(null);
+    setModalError(null);
+    setSelectedClassId("");
+    setTargetClassroomName(null);
+    setTargetSubjectAssignmentId(null);
+    
+    const activeSession = sessions.find(s => s.is_active);
+    setSubjectForm({
+      classId: "",
+      subjectId: "",
+      sessionId: activeSession ? String(activeSession.id) : ""
+    });
+  }, [sessions]);
+
   // Data Loading
-  const loadTeacherWorkspace = useCallback(async () => {
+  const loadTeacherWorkspace = useCallback(async (showLoading = true) => {
     if (!numericSchoolId || !numericTeacherId || Number.isNaN(numericSchoolId) || Number.isNaN(numericTeacherId)) {
       setIsLoadingMain(false);
       return;
     }
 
     try {
-      setIsLoadingMain(true);
+      if (showLoading) setIsLoadingMain(true);
       setMainError("");
       
       const [summaryRes, classesRes, subjectsRes, sessionsRes] = await Promise.all([
@@ -156,7 +181,7 @@ export default function Page({ params }: TeacherPageProps) {
     loadTeacherWorkspace();
   }, [loadTeacherWorkspace]);
 
-  // Handle ESC key configuration rules to terminate active modals
+  // Handle ESC key to terminate active modals
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && activeModal !== null && !isModalSubmitting) {
@@ -165,23 +190,7 @@ export default function Page({ params }: TeacherPageProps) {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeModal, isModalSubmitting]);
-
-  // Modal Cleanup Helper
-  const closeAndResetModals = () => {
-    setActiveModal(null);
-    setModalError(null);
-    setSelectedClassId("");
-    setTargetClassroomName(null);
-    setTargetSubjectAssignmentId(null);
-    
-    const activeSession = sessions.find(s => s.is_active);
-    setSubjectForm({
-      classId: "",
-      subjectId: "",
-      sessionId: activeSession ? String(activeSession.id) : ""
-    });
-  };
+  }, [activeModal, isModalSubmitting, closeAndResetModals]);
 
   // Event Handlers: Class Teacher Scope Assignments
   const handleAssignClassTeacher = async (e: React.FormEvent) => {
@@ -195,7 +204,7 @@ export default function Page({ params }: TeacherPageProps) {
         teacher_id: numericTeacherId
       });
       closeAndResetModals();
-      await loadTeacherWorkspace();
+      await loadTeacherWorkspace(false);
     } catch (err: unknown) {
       setModalError(parseApiError(err));
     } finally {
@@ -206,7 +215,6 @@ export default function Page({ params }: TeacherPageProps) {
   const handleRemoveClassTeacher = async () => {
     if (!targetClassroomName || isModalSubmitting) return;
 
-    // Dynamically look up class identity matching the displayed name record array matching string
     const matchingClass = classes.find(c => c.name === targetClassroomName);
     if (!matchingClass) {
       setModalError("Unable to locate mapping references for the specified class identification.");
@@ -218,7 +226,7 @@ export default function Page({ params }: TeacherPageProps) {
     try {
       await api.delete(`/classes/${matchingClass.id}/class-teacher`);
       closeAndResetModals();
-      await loadTeacherWorkspace();
+      await loadTeacherWorkspace(false);
     } catch (err: unknown) {
       setModalError(parseApiError(err));
     } finally {
@@ -243,7 +251,7 @@ export default function Page({ params }: TeacherPageProps) {
         academic_session_id: Number(sessionId)
       });
       closeAndResetModals();
-      await loadTeacherWorkspace();
+      await loadTeacherWorkspace(false);
     } catch (err: unknown) {
       setModalError(parseApiError(err));
     } finally {
@@ -259,7 +267,7 @@ export default function Page({ params }: TeacherPageProps) {
     try {
       await api.delete(`/teacher-assignments/${targetSubjectAssignmentId}`);
       closeAndResetModals();
-      await loadTeacherWorkspace();
+      await loadTeacherWorkspace(false);
     } catch (err: unknown) {
       setModalError(parseApiError(err));
     } finally {
@@ -290,7 +298,7 @@ export default function Page({ params }: TeacherPageProps) {
     return (
       <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-4">
         <Link
-          href={`/dashboard/schools/${schoolId}/teachers`}
+          href={`/${tenant.slug}/login`}
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
         >
           <ArrowLeft size={16} />
@@ -302,7 +310,7 @@ export default function Page({ params }: TeacherPageProps) {
             <h3 className="text-sm font-bold text-red-800">Workspace Initialization Error</h3>
             <p className="mt-1 text-sm text-red-700">{mainError}</p>
             <button
-              onClick={loadTeacherWorkspace}
+              onClick={() => loadTeacherWorkspace(true)}
               className="mt-3 rounded-md bg-red-100 px-3.5 py-1.5 text-xs font-semibold text-red-800 hover:bg-red-200 transition-colors"
             >
               Retry Connection Pipeline
@@ -318,7 +326,7 @@ export default function Page({ params }: TeacherPageProps) {
     return (
       <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-4">
         <Link
-          href={`/dashboard/schools/${schoolId}/teachers`}
+          href={`/${tenant.slug}/login`}
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
         >
           <ArrowLeft size={16} />
@@ -341,7 +349,7 @@ export default function Page({ params }: TeacherPageProps) {
       {/* Top Left Navigation Header */}
       <div>
         <Link
-          href={`/dashboard/schools/${schoolId}/teachers`}
+          href={`/${tenant.slug}/login`}
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors group"
         >
           <ArrowLeft className="h-4 w-4 transform transition-transform group-hover:-translate-x-0.5" />
@@ -413,6 +421,12 @@ export default function Page({ params }: TeacherPageProps) {
               <div>
                 <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Teacher ID</span>
                 <span className="font-mono text-slate-700">#{teacherId}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Email Address</span>
+                <span className="text-slate-800 font-medium">
+                  {summaryData.email || "No email available"}
+                </span>
               </div>
               <div>
                 <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">School Registration Code</span>
@@ -540,7 +554,7 @@ export default function Page({ params }: TeacherPageProps) {
       {/* Modal A: Assign Class Teacher */}
       {activeModal === "assignClass" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl border border-slate-200 transform transition-all animate-in fade-in zoom-in-95 duration-150">
+          <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl border border-slate-200 transform transition-all">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-base font-bold text-slate-900">Assign Class Homeroom Leadership</h3>
               <button 
@@ -600,7 +614,7 @@ export default function Page({ params }: TeacherPageProps) {
       {/* Modal B: Assign Subject Module */}
       {activeModal === "assignSubject" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl border border-slate-200 transform transition-all animate-in fade-in zoom-in-95 duration-150">
+          <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl border border-slate-200 transform transition-all">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-base font-bold text-slate-900">Assign Subject Curricular Workload</h3>
               <button 
@@ -692,7 +706,7 @@ export default function Page({ params }: TeacherPageProps) {
       {/* Modal C: Confirm Delete Class Teacher Relationship */}
       {activeModal === "confirmDeleteClass" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-sm rounded-xl bg-white p-6 shadow-xl border border-slate-200 transform transition-all animate-in fade-in zoom-in-95 duration-150">
+          <div className="relative w-full max-w-sm rounded-xl bg-white p-6 shadow-xl border border-slate-200 transform transition-all">
             <div className="flex items-start gap-3 mb-4">
               <div className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600">
                 <AlertCircle className="h-5 w-5" />
@@ -744,7 +758,7 @@ export default function Page({ params }: TeacherPageProps) {
       {/* Modal D: Confirm Delete Subject Assignment */}
       {activeModal === "confirmDeleteSubject" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-sm rounded-xl bg-white p-6 shadow-xl border border-slate-200 transform transition-all animate-in fade-in zoom-in-95 duration-150">
+          <div className="relative w-full max-w-sm rounded-xl bg-white p-6 shadow-xl border border-slate-200 transform transition-all">
             <div className="flex items-start gap-3 mb-4">
               <div className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600">
                 <AlertCircle className="h-5 w-5" />

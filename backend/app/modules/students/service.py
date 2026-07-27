@@ -319,6 +319,7 @@ class StudentService:
 
         if (
             current_user.role.name != "SUPER_ADMIN"
+            and current_user.school_id != school_id
         ):
             raise HTTPException(
                 status_code=403,

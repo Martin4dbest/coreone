@@ -17,7 +17,10 @@ from app.modules.teachers.schemas import (
     TeacherAssignmentSummaryResponse,
 )
 
-from app.modules.teachers.dashboard_schemas import TeacherDashboardResponse
+from app.modules.teachers.dashboard_schemas import (
+    TeacherDashboardResponse,
+    TeacherStudentResponse,
+)
 from app.modules.teachers.service import TeacherService
 from app.modules.teachers.dashboard_service import TeacherDashboardService
 
@@ -70,7 +73,6 @@ async def create_teacher(
         payload,
         tenant,
         current_user,
-        school_id,
     )
 
 
@@ -83,6 +85,20 @@ async def teacher_dashboard(
     current_user: User = Depends(get_current_user),
 ):
     return await TeacherDashboardService(db).get_dashboard(
+        current_user
+    )
+
+
+
+@router.get(
+    "/my/students",
+    response_model=list[TeacherStudentResponse],
+)
+async def my_students(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await TeacherDashboardService(db).get_my_students(
         current_user
     )
 

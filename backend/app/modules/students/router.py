@@ -56,7 +56,7 @@ async def import_students(
     ),
 ):
     return await StudentService(db).import_students(
-        tenant,
+        tenant.school_id,
         file,
         current_user,
     )

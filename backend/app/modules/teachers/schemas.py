@@ -38,5 +38,6 @@ class TeacherSubjectSummary(BaseModel):
 
 class TeacherAssignmentSummaryResponse(BaseModel):
     teacher: str
+    email: str | None = None
     class_teacher_of: list[str]
     subjects: list[TeacherSubjectSummary]
