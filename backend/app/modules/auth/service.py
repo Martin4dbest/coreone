@@ -99,6 +99,12 @@ class AuthService:
         email: str,
         password: str,
     ):
+        print("=" * 70)
+        print("MOBILE LOGIN HIT")
+        print("EMAIL:", email)
+        print("SCHOOL:", school_code)
+        print("=" * 70)
+
 
         school_repository = SchoolRepository(
             self.repository.db

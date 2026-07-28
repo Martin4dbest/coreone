@@ -89,7 +89,24 @@ async def get_school_by_slug(
     db: AsyncSession = Depends(get_db),
 ):
     service = SchoolService(db)
-    return await service.get_school_by_slug(slug)
+
+    school = await service.get_school_by_slug(slug)
+
+    branding_result = await db.execute(
+        select(SchoolBranding).where(
+            SchoolBranding.school_id == school.id
+        )
+    )
+
+    branding = branding_result.scalar_one_or_none()
+
+    if branding:
+        school.logo_url = branding.logo_url
+        school.motto = branding.motto
+        school.primary_color = branding.primary_color
+        school.secondary_color = branding.secondary_color
+
+    return school
 
 
 @router.get(

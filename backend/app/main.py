@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from app.modules.students.mobile_router import router as mobile_student_router
 from app.middleware.tenant import TenantMiddleware
 
 from app.core.config import settings
@@ -306,3 +307,8 @@ async def health():
     return {
         "status": "healthy",
     }
+
+app.include_router(
+    mobile_student_router,
+    prefix="/api/v1"
+)

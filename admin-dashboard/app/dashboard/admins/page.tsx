@@ -11,6 +11,7 @@ type Admin = {
   email: string;
   school_id: number;
   school_name?: string;
+  school_code?: string; // Added school_code property
   role_id: number;
   is_active: boolean;
   is_verified: boolean;
@@ -110,6 +111,11 @@ export default function AdminsPage() {
                   School
                 </th>
 
+                {/* Added School Code Header */}
+                <th className="p-5">
+                  School Code
+                </th>
+
                 <th className="p-5">
                   Status
                 </th>
@@ -140,6 +146,14 @@ export default function AdminsPage() {
                   <td className="p-5">
                     {admin.school_name ||
                       `School #${admin.school_id}`}
+                  </td>
+
+
+                  {/* Added School Code Column */}
+                  <td className="p-5">
+                    <span className="font-mono text-sm font-semibold text-slate-600">
+                      {admin.school_code || "N/A"}
+                    </span>
                   </td>
 
 

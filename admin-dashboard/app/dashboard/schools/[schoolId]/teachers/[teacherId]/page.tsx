@@ -99,6 +99,7 @@ export default function Page({ params }: TeacherPageProps) {
   const numericTeacherId = Number(teacherId);
 
   const { tenant } = useTenant();
+const loginHref = tenant ? `//login` : "/login";
 
   // State
   const [summaryData, setSummaryData] = useState<TeacherSummary | null>(null);
@@ -298,7 +299,7 @@ export default function Page({ params }: TeacherPageProps) {
     return (
       <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-4">
         <Link
-          href={`/${tenant.slug}/login`}
+          href={loginHref}
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
         >
           <ArrowLeft size={16} />
@@ -326,7 +327,7 @@ export default function Page({ params }: TeacherPageProps) {
     return (
       <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-4">
         <Link
-          href={`/${tenant.slug}/login`}
+          href={loginHref}
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
         >
           <ArrowLeft size={16} />
@@ -349,7 +350,7 @@ export default function Page({ params }: TeacherPageProps) {
       {/* Top Left Navigation Header */}
       <div>
         <Link
-          href={`/${tenant.slug}/login`}
+          href={loginHref}
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors group"
         >
           <ArrowLeft className="h-4 w-4 transform transition-transform group-hover:-translate-x-0.5" />

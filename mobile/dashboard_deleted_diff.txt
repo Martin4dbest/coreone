@@ -1,0 +1,130 @@
+diff --git a/mobile/src/app/student/dashboard.tsx b/mobile/src/app/student/dashboard.tsx
+index 41b929e..e69de29 100644
+--- a/mobile/src/app/student/dashboard.tsx
++++ b/mobile/src/app/student/dashboard.tsx
+@@ -1,125 +0,0 @@
+-import {
+-View,
+-Text,
+-StyleSheet
+-} from "react-native";
+-
+-
+-import {
+-useAuth
+-} from "@/context/AuthContext";
+-
+-
+-import {
+-LinearGradient
+-} from "expo-linear-gradient";
+-
+-
+-
+-export default function StudentDashboard(){
+-
+-const {
+-user,
+-tenant
+-}=useAuth();
+-
+-
+-
+-return (
+-
+-<LinearGradient
+-
+-colors={[
+-"#020617",
+-"#0f172a"
+-]}
+-
+-style={styles.container}
+-
+->
+-
+-
+-<Text style={styles.school}>
+-{tenant?.name}
+-</Text>
+-
+-
+-<Text style={styles.title}>
+-Welcome Student 👋
+-</Text>
+-
+-
+-
+-<View style={styles.card}>
+-
+-<Text style={styles.cardTitle}>
+-My Learning
+-</Text>
+-
+-
+-<Text style={styles.item}>
+-📚 Results
+-</Text>
+-
+-
+-<Text style={styles.item}>
+-📝 Assignments
+-</Text>
+-
+-
+-<Text style={styles.item}>
+-📅 Attendance
+-</Text>
+-
+-
+-</View>
+-
+-
+-</LinearGradient>
+-
+-);
+-
+-}
+-
+-
+-
+-const styles=StyleSheet.create({
+-
+-container:{
+-flex:1,
+-padding:30
+-},
+-
+-school:{
+-color:"#38bdf8",
+-fontSize:18,
+-marginTop:50
+-},
+-
+-title:{
+-color:"#fff",
+-fontSize:32,
+-fontWeight:"900",
+-marginTop:20
+-},
+-
+-card:{
+-marginTop:40,
+-backgroundColor:"#1e293b",
+-padding:25,
+-borderRadius:25
+-},
+-
+-cardTitle:{
+-color:"#fff",
+-fontSize:22,
+-fontWeight:"800"
+-},
+-
+-item:{
+-color:"#cbd5e1",
+-fontSize:18,
+-marginTop:20
+-}
+-
+-});
