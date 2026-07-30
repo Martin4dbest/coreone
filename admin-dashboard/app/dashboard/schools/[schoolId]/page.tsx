@@ -235,6 +235,21 @@ return (
                   {school.school_code}
                 </p>
 
+                <div className="mt-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Tenant URL
+                  </p>
+
+                  <a
+                    href={`/${school.school_code.toLowerCase()}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-block text-sm font-medium text-blue-600 hover:underline break-all"
+                  >
+                    {`${window.location.origin}/${school.school_code.toLowerCase()}`}
+                  </a>
+                </div>
+
                 <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
                   {school.name}
                 </h1>

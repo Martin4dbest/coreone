@@ -30,7 +30,7 @@ export async function getStudentAttendance(){
 
 export async function getStudentResults(){
     const response = await api.get(
-        "/students/results"
+        "/mobile/student/results"
     );
 
     return response.data;

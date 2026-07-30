@@ -43,6 +43,11 @@ class SchoolAdminRepository:
                 if admin.school
                 else None
             )
+            admin.school_code = (
+                admin.school.school_code
+                if admin.school
+                else None
+            )
 
         return admins
 
@@ -67,6 +72,7 @@ class SchoolAdminRepository:
 
         if admin and admin.school:
             admin.school_name = admin.school.name
+            admin.school_code = admin.school.school_code
 
         return admin
 

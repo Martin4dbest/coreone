@@ -33,6 +33,15 @@ api.interceptors.request.use((config) => {
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    const tenant =
+      localStorage.getItem("tenant_slug") ||
+      localStorage.getItem("school_code") ||
+      localStorage.getItem("tenant");
+
+    if (tenant) {
+      config.headers["X-Tenant"] = tenant;
+    }
   }
 
 

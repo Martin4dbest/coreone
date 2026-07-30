@@ -620,13 +620,17 @@ class StudentService:
 
 
     async def delete_student(
-                self,
+        self,
         student_id: int,
+        tenant,
         current_user,
     ):
         self._ensure_teacher_cannot_manage_students(current_user)
 
-        student = await self.repository.get_by_id(student_id)
+        student = await self.repository.get_by_id(
+            student_id,
+            tenant.school_id,
+        )
 
         if not student:
             raise HTTPException(

@@ -11,6 +11,7 @@ class SchoolAdminResponse(BaseModel):
     id: int
     school_id: int
     school_name: str | None = None
+    school_code: str | None = None
     role_id: int
     email: EmailStr
     is_active: bool

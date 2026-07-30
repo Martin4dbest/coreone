@@ -7,7 +7,6 @@ import {
   ScrollView,
   Pressable,
   RefreshControl,
-  StatusBar,
   Dimensions,
   ActivityIndicator,
 } from "react-native";
@@ -82,7 +81,7 @@ const KNOWN_SCHOOL_BRANDS: Record<
   string,
   { primary: string; secondary: string; accent: string; fallbackLogoUrl?: string }
 > = {
-  "LIBERTY BELLS SCHOOL": {
+  "": {
     primary: "#1E293B", // Elegant Navy / Slate
     secondary: "#0F172A",
     accent: "#D4AF37", // Classical Gold
@@ -102,15 +101,22 @@ export default function StudentDashboard() {
 
   // State
   const [studentDetails, setStudentDetails] = useState<StudentInfo | null>(null);
-  const [tenantInfo, setTenantInfo] = useState<any>(null);
+  const [tenantInfo, setTenantInfo] = useState<{
+    name: string;
+    code: string;
+    logo: string | null;
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  } | null>(null);
   const [academicData, setAcademicData] = useState<AcademicOverviewData | null>(null);
   const [todaySchedule, setTodaySchedule] = useState<TimetableClass[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<string>("Home");
-  const [logoError, setLogoError] = useState<boolean>(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState("Home");
+  const [logoError, setLogoError] = useState(false);
 
   // Fetch student dashboard data
   const fetchDashboardData = async () => {
@@ -130,13 +136,22 @@ export default function StudentDashboard() {
         data?.student?.school_name ||
         tenant?.name ||
         user?.tenant?.name ||
-        "LIBERTY BELLS SCHOOL"
+        ""
       ).trim();
 
-      const schoolNameUpper = rawSchoolName.toUpperCase();
-      const presetBrand = KNOWN_SCHOOL_BRANDS[schoolNameUpper] || KNOWN_SCHOOL_BRANDS["DEFAULT"];
+      const schoolCode =
+        tenant?.school_code ||
+        tenant?.code ||
+        data?.student?.school_code ||
+        user?.tenant?.school_code ||
+        "";
 
-      const primaryColor = tenant?.primary_color || tenant?.theme_color || presetBrand.primary;
+      const schoolNameUpper = rawSchoolName.toUpperCase();
+      const presetBrand =
+        KNOWN_SCHOOL_BRANDS[schoolNameUpper] || KNOWN_SCHOOL_BRANDS["DEFAULT"];
+
+      const primaryColor =
+        tenant?.primary_color || tenant?.theme_color || presetBrand.primary;
       const secondaryColor = tenant?.secondary_color || presetBrand.secondary;
       const accentColor = tenant?.accent_color || presetBrand.accent;
 
@@ -161,14 +176,15 @@ export default function StudentDashboard() {
         id: tenant?.id || tenant?.school_id,
         logo_url: rawLogoPath,
         name: rawSchoolName,
+        code: schoolCode,
         primaryColor,
       });
-      console.log("Logo URL:", resolvedLogo);
-      console.log("-----------------------------------------");
 
-      setTenantInfo({
+      console.log("🔥 FINAL MOBILE LOGO:", resolvedLogo);
+
+  setTenantInfo({
         name: rawSchoolName,
-        code: tenant?.school_code || "",
+        code: schoolCode,
         logo: resolvedLogo,
         primaryColor,
         secondaryColor,
@@ -190,8 +206,8 @@ export default function StudentDashboard() {
         });
       }
 
-      setTodaySchedule([]);
-      setAnnouncements([]);
+      setTodaySchedule(data?.today_schedule || []);
+      setAnnouncements(data?.announcements || []);
     } catch (error) {
       console.error("❌ Error loading dashboard data:", error);
     } finally {
@@ -221,7 +237,7 @@ export default function StudentDashboard() {
     id: user?.id || "",
     first_name: user?.first_name || "",
     last_name: user?.last_name || "",
-    school_name: user?.tenant?.name || "LIBERTY BELLS SCHOOL",
+    school_name: user?.tenant?.name || "",
     class_level: null,
     department: null,
     admission_number: null,
@@ -230,7 +246,8 @@ export default function StudentDashboard() {
   };
 
   const school = tenantInfo || {
-    name: "LIBERTY BELLS SCHOOL",
+    name: "",
+    code: "",
     logo: null,
     primaryColor: "#1E293B",
     secondaryColor: "#0F172A",
@@ -255,7 +272,7 @@ export default function StudentDashboard() {
 
   // Helper to render logo safely
   const renderSchoolLogo = () => {
-    const logoUri = normalizeImageUrl(school.logo);
+    const logoUri = tenantInfo?.logo;
 
     if (logoUri && !logoError) {
       return (
@@ -265,7 +282,7 @@ export default function StudentDashboard() {
           contentFit="contain"
           cachePolicy="disk"
           onError={(e) => {
-            console.warn("⚠️ Failed to render remote logo from:", logoUri, e?.error || e);
+            console.warn("⚠️ Failed to render remote logo from:", logoUri, e);
             setLogoError(true);
           }}
         />
@@ -283,9 +300,7 @@ export default function StudentDashboard() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-        
         {/* BRANDED CLASSICAL HEADER */}
         <View style={styles.topHeader}>
           <View style={styles.brandRow}>
@@ -371,8 +386,7 @@ export default function StudentDashboard() {
                   <Text style={styles.studentName} numberOfLines={1}>
                     {student.first_name} {student.last_name}
                   </Text>
-                  
-                  {/* CHANGED: Replaced red accent color with elegant soft gold */}
+
                   <Text style={styles.schoolNameText} numberOfLines={1}>
                     {school.name}
                   </Text>
@@ -396,6 +410,14 @@ export default function StudentDashboard() {
                     <Text style={styles.detailValue}>{student.admission_number}</Text>
                   </View>
                 )}
+                {school.code ? (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>School Code</Text>
+                    <View style={styles.schoolCodeBadge}>
+                      <Text style={styles.schoolCodeBadgeText}>{school.code}</Text>
+                    </View>
+                  </View>
+                ) : null}
                 {student.email && (
                   <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Email Address</Text>
@@ -750,7 +772,6 @@ export default function StudentDashboard() {
             </Pressable>
           </View>
         </SafeAreaView>
-
       </SafeAreaView>
     </View>
   );
@@ -767,6 +788,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginVertical: 12,
   },
+  pressedState: { opacity: 0.8 },
   topHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -880,13 +902,11 @@ const styles = StyleSheet.create({
   avatarText: { color: "#FFFFFF", fontSize: 20, fontWeight: "700" },
   profileMainInfo: { flex: 1 },
   studentName: { color: "#FFFFFF", fontSize: 17, fontWeight: "800", letterSpacing: -0.2 },
-  
-  // CHANGED: Soft warm gold classical color (Replacing harsh red)
   schoolNameText: {
     fontSize: 12,
     marginTop: 3,
     fontWeight: "700",
-    color: "#FDE68A", 
+    color: "#FDE68A",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -905,7 +925,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.12)",
     marginVertical: 14,
   },
-  profileDetailsGrid: { flexDirection: "row", justifyContent: "space-between" },
+  profileDetailsGrid: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
   detailItem: { flex: 1 },
   detailLabel: {
     color: "rgba(255, 255, 255, 0.55)",
@@ -915,6 +935,22 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   detailValue: { color: "#FFFFFF", fontSize: 12, fontWeight: "600", marginTop: 2 },
+  schoolCodeBadge: {
+    backgroundColor: "rgba(212, 175, 55, 0.25)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: "flex-start",
+    marginTop: 3,
+    borderWidth: 1,
+    borderColor: "rgba(212, 175, 55, 0.5)",
+  },
+  schoolCodeBadgeText: {
+    color: "#FDE68A",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1044,31 +1080,30 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   categoryBadge: {
+    backgroundColor: "#F1F5F9",
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 6,
-    backgroundColor: "rgba(30, 41, 59, 0.08)",
   },
-  categoryBadgeText: { fontSize: 10, fontWeight: "700", color: "#1E293B" },
+  categoryBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#475569",
+    textTransform: "uppercase",
+  },
   announcementDate: { fontSize: 10, color: "#94A3B8" },
-  announcementTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#0F172A",
-    lineHeight: 18,
-  },
-  pressedState: { opacity: 0.82, transform: [{ scale: 0.985 }] },
-  bottomNavSafeArea: {
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
-  },
+  announcementTitle: { fontSize: 13, fontWeight: "700", color: "#0F172A" },
+  bottomNavSafeArea: { backgroundColor: "#FFFFFF" },
   bottomNavContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
-    paddingVertical: 8,
+    alignItems: "center",
+    paddingVertical: 10,
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
   },
-  navItem: { alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
-  navLabel: { fontSize: 10, color: "#64748B", fontWeight: "500", marginTop: 2 },
-  activeNavLabel: { color: "#1E293B", fontWeight: "800" },
+  navItem: { alignItems: "center", justifyContent: "center" },
+  navLabel: { fontSize: 10, marginTop: 4, color: "#64748B", fontWeight: "500" },
+  activeNavLabel: { fontWeight: "700" },
 });

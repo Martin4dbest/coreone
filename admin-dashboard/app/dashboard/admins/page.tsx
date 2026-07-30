@@ -117,6 +117,10 @@ export default function AdminsPage() {
                 </th>
 
                 <th className="p-5">
+                  Tenant URL
+                </th>
+
+                <th className="p-5">
                   Status
                 </th>
 
@@ -156,6 +160,17 @@ export default function AdminsPage() {
                     </span>
                   </td>
 
+
+                  <td className="p-5">
+                    <a
+                      href={`/${admin.school_code?.toLowerCase()}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline text-xs break-all"
+                    >
+                      {`${window.location.origin}/${admin.school_code?.toLowerCase()}`}
+                    </a>
+                  </td>
 
                   <td className="p-5">
 

@@ -6,6 +6,7 @@ from app.models.classroom import Classroom
 from app.models.student import Student
 from app.models.user import User
 from app.models.school_branding import SchoolBranding
+from app.modules.results.service import ResultService
 
 
 class MobileStudentService:
@@ -156,3 +157,46 @@ class MobileStudentService:
                 },
             ],
         }
+
+    async def get_results(
+        self,
+        current_user: User,
+    ):
+        student_result = await self.db.execute(
+            select(Student).where(
+                Student.user_id == current_user.id
+            )
+        )
+
+        student = student_result.scalar_one_or_none()
+
+        if not student:
+            return {
+                "message": "Student profile not found"
+            }
+
+        return await ResultService(self.db).get_student_report(
+            student.id,
+            current_user,
+        )
+
+    async def get_results_pdf(
+        self,
+        current_user: User,
+    ):
+        student_result = await self.db.execute(
+            select(Student).where(
+                Student.user_id == current_user.id
+            )
+        )
+
+        student = student_result.scalar_one_or_none()
+
+        if not student:
+            return None
+
+        return await ResultService(self.db).generate_student_report_pdf(
+            student.id,
+            current_user,
+        )
+

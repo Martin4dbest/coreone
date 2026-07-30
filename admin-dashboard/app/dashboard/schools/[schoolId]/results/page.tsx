@@ -76,7 +76,7 @@ export default function ResultsPage({
   // Raw teacher allocations
   const [teacherAllocations, setTeacherAllocations] = useState<any[]>([]);
 
-  // Main Search Filter State (Admin view)
+  // Main Search Filter State
   const [searchQuery, setSearchQuery] = useState("");
 
   // Single Result Modal State
@@ -135,6 +135,7 @@ export default function ResultsPage({
   const [ca, setCa] = useState("");
   const [exam, setExam] = useState("");
 
+  const canEnterResults = ["TEACHER", "SCHOOL_ADMIN", "SUPER_ADMIN"].includes(userRole);
   const isTeacher = userRole === "TEACHER";
 
   const formatErrorMessage = (error: any): string => {
@@ -687,9 +688,9 @@ export default function ResultsPage({
       {/* Error / Pop-Up Dialog */}
       {errorModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-emerald-100 animate-in fade-in zoom-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-red-100 animate-in fade-in zoom-in duration-150">
             <div className="flex items-start gap-4 mb-4">
-              <div className="p-3 bg-amber-100 rounded-full text-amber-600 shrink-0">
+              <div className="p-3 bg-red-100 rounded-full text-red-600 shrink-0">
                 <AlertTriangle size={24} />
               </div>
               <div className="flex-1">
@@ -704,7 +705,7 @@ export default function ResultsPage({
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => setErrorModal(null)}
-                className="bg-emerald-800 hover:bg-emerald-900 text-white font-medium px-5 py-2 rounded-xl text-sm transition-colors"
+                className="bg-red-700 hover:bg-red-800 text-white font-medium px-5 py-2 rounded-xl text-sm transition-colors"
               >
                 Understand & Close
               </button>
@@ -716,9 +717,9 @@ export default function ResultsPage({
       {/* Quick Add Student Modal */}
       {addStudentOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-emerald-100 animate-in fade-in zoom-in duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-red-100 animate-in fade-in zoom-in duration-150">
             <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-2 text-emerald-800 font-bold text-lg">
+              <div className="flex items-center gap-2 text-red-700 font-bold text-lg">
                 <UserPlus size={22} />
                 <span>Quick Add Student</span>
               </div>
@@ -738,7 +739,7 @@ export default function ResultsPage({
                 <input
                   type="text"
                   placeholder="e.g. John"
-                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
                   value={newStudentFirstName}
                   onChange={(e) => setNewStudentFirstName(e.target.value)}
                 />
@@ -751,7 +752,7 @@ export default function ResultsPage({
                 <input
                   type="text"
                   placeholder="e.g. Paul"
-                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
                   value={newStudentMiddleName}
                   onChange={(e) => setNewStudentMiddleName(e.target.value)}
                 />
@@ -764,7 +765,7 @@ export default function ResultsPage({
                 <input
                   type="text"
                   placeholder="e.g. Doe"
-                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
                   value={newStudentLastName}
                   onChange={(e) => setNewStudentLastName(e.target.value)}
                 />
@@ -777,7 +778,7 @@ export default function ResultsPage({
                 <input
                   type="text"
                   placeholder="e.g. ADM-2026-001"
-                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
                   value={newStudentAdmNo}
                   onChange={(e) => setNewStudentAdmNo(e.target.value)}
                 />
@@ -788,7 +789,7 @@ export default function ResultsPage({
                   Gender *
                 </label>
                 <select
-                  className="w-full border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="w-full border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
                   value={newStudentGender}
                   onChange={(e) => setNewStudentGender(e.target.value)}
                 >
@@ -804,7 +805,7 @@ export default function ResultsPage({
                 </label>
                 <input
                   type="date"
-                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
                   value={newStudentDob}
                   onChange={(e) => setNewStudentDob(e.target.value)}
                 />
@@ -817,7 +818,7 @@ export default function ResultsPage({
                 <input
                   type="email"
                   placeholder="student@school.com"
-                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
                   value={newStudentEmail}
                   onChange={(e) => setNewStudentEmail(e.target.value)}
                 />
@@ -830,7 +831,7 @@ export default function ResultsPage({
                 <input
                   type="password"
                   placeholder="••••••••"
-                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
                   value={newStudentPassword}
                   onChange={(e) => setNewStudentPassword(e.target.value)}
                 />
@@ -841,7 +842,7 @@ export default function ResultsPage({
                   Class *
                 </label>
                 <select
-                  className="w-full border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="w-full border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
                   value={newStudentClassId}
                   onChange={(e) => setNewStudentClassId(e.target.value)}
                 >
@@ -867,7 +868,7 @@ export default function ResultsPage({
                 type="button"
                 onClick={handleQuickAddStudent}
                 disabled={addingStudent}
-                className="bg-emerald-800 hover:bg-emerald-900 text-white font-medium px-5 py-2 rounded-xl text-sm flex items-center gap-2 transition-colors disabled:opacity-50"
+                className="bg-red-700 hover:bg-red-800 text-white font-medium px-5 py-2 rounded-xl text-sm flex items-center gap-2 transition-colors disabled:opacity-50"
               >
                 {addingStudent && <Loader2 size={16} className="animate-spin" />}
                 {addingStudent ? "Adding..." : "Save Student"}
@@ -880,8 +881,8 @@ export default function ResultsPage({
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-emerald-950">Academic Results</h1>
-          {isTeacher && (
+          <h1 className="text-2xl font-bold text-red-950">Academic Results</h1>
+          {canEnterResults && (
             <p className="text-sm text-slate-500">
               Teacher Results Management Portal
             </p>
@@ -889,13 +890,13 @@ export default function ResultsPage({
         </div>
 
         <div className="flex flex-wrap gap-3">
-          {!isTeacher && (
+          {!canEnterResults && (
             <button
               onClick={() => {
                 if (classId) setNewStudentClassId(classId);
                 setAddStudentOpen(true);
               }}
-              className="flex items-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white px-4 py-2 rounded-xl transition-colors font-medium text-sm shadow-xs"
+              className="flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-xl transition-colors font-medium text-sm shadow-xs"
             >
               <UserPlus size={18} />
               Add Student
@@ -904,17 +905,17 @@ export default function ResultsPage({
 
           <button
             onClick={() => setOpen(true)}
-            className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl transition-colors font-medium text-sm shadow-xs"
+            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl transition-colors font-medium text-sm shadow-xs"
           >
             <Plus size={18} />
             Add Single Result
           </button>
 
-          {!isTeacher && (
+          {!canEnterResults && (
             <button
               onClick={deleteAllResults}
               disabled={deletingAll}
-              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl disabled:opacity-50 transition-colors font-medium text-sm shadow-xs"
+              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl disabled:opacity-50 transition-colors font-medium text-sm shadow-xs"
             >
               {deletingAll ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -930,9 +931,9 @@ export default function ResultsPage({
       {/* Single Result Modal */}
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-emerald-100 animate-in fade-in zoom-in duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-red-100 animate-in fade-in zoom-in duration-150">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="font-bold text-lg text-emerald-950">Add Single Result</h2>
+              <h2 className="font-bold text-lg text-red-950">Add Single Result</h2>
               <button
                 onClick={() => setOpen(false)}
                 className="text-slate-400 hover:text-slate-600"
@@ -943,7 +944,7 @@ export default function ResultsPage({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <select
-                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
                 value={classId}
                 onChange={(e) => {
                   const selectedId = e.target.value;
@@ -962,7 +963,7 @@ export default function ResultsPage({
 
               <div className="flex gap-2">
                 <select
-                  className="border p-2 rounded-lg bg-white text-sm flex-1 border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="border p-2 rounded-lg bg-white text-sm flex-1 border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
                   value={studentId}
                   onChange={(e) => setStudentId(e.target.value)}
                   disabled={!classId || loadingModalStudents}
@@ -986,14 +987,14 @@ export default function ResultsPage({
                   ))}
                 </select>
 
-                {!isTeacher && (
+                {!canEnterResults && (
                   <button
                     type="button"
                     onClick={() => {
                       if (classId) setNewStudentClassId(classId);
                       setAddStudentOpen(true);
                     }}
-                    className="bg-emerald-800 hover:bg-emerald-900 text-white px-3 py-2 rounded-lg text-xs font-semibold shrink-0 flex items-center gap-1"
+                    className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs font-semibold shrink-0 flex items-center gap-1"
                     title="Quick Add New Student"
                   >
                     <UserPlus size={16} />
@@ -1003,7 +1004,7 @@ export default function ResultsPage({
               </div>
 
               <select
-                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
                 value={subjectId}
                 onChange={(e) => setSubjectId(e.target.value)}
               >
@@ -1016,7 +1017,7 @@ export default function ResultsPage({
               </select>
 
               <select
-                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
                 value={termId}
                 onChange={(e) => setTermId(e.target.value)}
               >
@@ -1029,7 +1030,7 @@ export default function ResultsPage({
               </select>
 
               <select
-                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600 col-span-1 sm:col-span-2"
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600 col-span-1 sm:col-span-2"
                 value={sessionId}
                 onChange={(e) => setSessionId(e.target.value)}
               >
@@ -1045,7 +1046,7 @@ export default function ResultsPage({
                 type="number"
                 min={0}
                 max={40}
-                className="border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                className="border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
                 placeholder="CA Score (Max 40)"
                 value={ca}
                 onChange={(e) => setCa(e.target.value)}
@@ -1055,7 +1056,7 @@ export default function ResultsPage({
                 type="number"
                 min={0}
                 max={60}
-                className="border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                className="border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
                 placeholder="Exam Score (Max 60)"
                 value={exam}
                 onChange={(e) => setExam(e.target.value)}
@@ -1073,7 +1074,7 @@ export default function ResultsPage({
               <button
                 onClick={createResult}
                 disabled={saving || !studentId || !classId || !subjectId}
-                className="bg-emerald-800 hover:bg-emerald-900 text-white font-medium px-5 py-2 rounded-xl text-sm flex items-center gap-2 disabled:opacity-50 transition-colors"
+                className="bg-red-700 hover:bg-red-800 text-white font-medium px-5 py-2 rounded-xl text-sm flex items-center gap-2 disabled:opacity-50 transition-colors"
               >
                 {saving && <Loader2 size={16} className="animate-spin" />}
                 {saving ? "Saving..." : "Save Result"}
@@ -1084,18 +1085,18 @@ export default function ResultsPage({
       )}
 
       {/* TEACHER WORKFLOW */}
-      {isTeacher ? (
+      {canEnterResults ? (
         <div className="space-y-6">
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="font-bold text-lg text-emerald-950">
+              <h2 className="font-bold text-lg text-red-950">
                 Bulk Result Entry
               </h2>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
               <select
-                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:ring-2 focus:ring-red-600 focus:outline-none"
                 value={bulkClassId}
                 onChange={(e) => {
                   setBulkClassId(e.target.value);
@@ -1114,14 +1115,14 @@ export default function ResultsPage({
               <button
                 onClick={loadBulkStudents}
                 disabled={bulkLoading || !bulkClassId}
-                className="bg-emerald-800 hover:bg-emerald-900 text-white rounded-lg flex items-center justify-center gap-2 px-3 py-2 disabled:opacity-50 text-sm font-medium transition-colors"
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg flex items-center justify-center gap-2 px-3 py-2 disabled:opacity-50 text-sm font-medium transition-colors"
               >
                 {bulkLoading && <Loader2 size={16} className="animate-spin" />}
                 {bulkLoading ? "Loading..." : "Load Students"}
               </button>
 
               <select
-                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:ring-2 focus:ring-red-600 focus:outline-none"
                 value={bulkSubjectId}
                 onChange={(e) => setBulkSubjectId(e.target.value)}
               >
@@ -1134,7 +1135,7 @@ export default function ResultsPage({
               </select>
 
               <select
-                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:ring-2 focus:ring-red-600 focus:outline-none"
                 value={bulkTermId}
                 onChange={(e) => setBulkTermId(e.target.value)}
               >
@@ -1147,7 +1148,7 @@ export default function ResultsPage({
               </select>
 
               <select
-                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                className="border p-2 rounded-lg bg-white text-sm border-slate-200 focus:ring-2 focus:ring-red-600 focus:outline-none"
                 value={bulkSessionId}
                 onChange={(e) => setBulkSessionId(e.target.value)}
               >
@@ -1172,7 +1173,7 @@ export default function ResultsPage({
                     placeholder="Search loaded students..."
                     value={bulkSearchQuery}
                     onChange={(e) => setBulkSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 text-sm"
+                    className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600 text-sm"
                   />
                   {bulkSearchQuery && (
                     <button
@@ -1186,7 +1187,7 @@ export default function ResultsPage({
 
                 <div className="border border-slate-200 rounded-lg overflow-hidden">
                   <table className="w-full border-collapse">
-                    <thead className="bg-emerald-50/50 border-b border-slate-200 text-sm text-emerald-950 font-semibold">
+                    <thead className="bg-red-50/50 border-b border-slate-200 text-sm text-red-950 font-semibold">
                       <tr>
                         <th className="p-3 text-left">Student</th>
                         <th className="p-3 text-left w-36">CA Score (Max 40)</th>
@@ -1214,7 +1215,7 @@ export default function ResultsPage({
                               type="number"
                               min={0}
                               max={40}
-                              className="border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600 p-1.5 rounded w-28 text-sm"
+                              className="border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600 p-1.5 rounded w-28 text-sm"
                               placeholder="0 - 40"
                               value={bulkScores[student.id]?.ca || ""}
                               onChange={(e) =>
@@ -1227,7 +1228,7 @@ export default function ResultsPage({
                               type="number"
                               min={0}
                               max={60}
-                              className="border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600 p-1.5 rounded w-28 text-sm"
+                              className="border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600 p-1.5 rounded w-28 text-sm"
                               placeholder="0 - 60"
                               value={bulkScores[student.id]?.exam || ""}
                               onChange={(e) =>
@@ -1251,7 +1252,7 @@ export default function ResultsPage({
                 <button
                   onClick={saveBulkResults}
                   disabled={bulkSaving}
-                  className="mt-5 bg-emerald-800 hover:bg-emerald-900 text-white font-medium px-5 py-2.5 rounded-xl flex items-center gap-2 disabled:opacity-50 transition-colors text-sm shadow-xs"
+                  className="mt-5 bg-red-700 hover:bg-red-800 text-white font-medium px-5 py-2.5 rounded-xl flex items-center gap-2 disabled:opacity-50 transition-colors text-sm shadow-xs"
                 >
                   {bulkSaving && <Loader2 size={16} className="animate-spin" />}
                   {bulkSaving ? "Saving..." : "Save Bulk Results"}
@@ -1263,7 +1264,7 @@ export default function ResultsPage({
           <div className="flex justify-start">
             <button
               onClick={() => setSavedResultsDrawerOpen(true)}
-              className="flex items-center gap-2 bg-indigo-900 hover:bg-indigo-950 text-white px-5 py-3 rounded-xl font-medium text-sm transition-colors shadow-xs"
+              className="flex items-center gap-2 bg-slate-900 hover:bg-black text-white px-5 py-3 rounded-xl font-medium text-sm transition-colors shadow-xs"
             >
               <BookOpen size={18} />
               View Saved Results
@@ -1283,7 +1284,7 @@ export default function ResultsPage({
               placeholder="Search by student name, admission no, class, or subject..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 text-sm shadow-xs"
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-600 text-sm shadow-xs"
             />
             {searchQuery && (
               <button
@@ -1297,7 +1298,7 @@ export default function ResultsPage({
 
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
             <table className="w-full text-left border-collapse text-sm">
-              <thead className="bg-emerald-50/50 border-b border-slate-200 text-emerald-950">
+              <thead className="bg-red-50/50 border-b border-slate-200 text-red-950">
                 <tr>
                   <th className="p-3 font-semibold">Student</th>
                   <th className="p-3 font-semibold">Admission No</th>
@@ -1336,14 +1337,14 @@ export default function ResultsPage({
                       <div className="flex items-center gap-2">
                         <Link
                           href={`/dashboard/schools/${schoolId}/students/${r.student_id}/report-card`}
-                          className="bg-indigo-800 hover:bg-indigo-900 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                          className="bg-red-800 hover:bg-red-900 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                         >
                           Report Card
                         </Link>
 
                         <button
                           onClick={() => deleteResult(r.id)}
-                          className="flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                          className="flex items-center gap-1 bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                         >
                           <Trash2 size={14} />
                           Delete
@@ -1373,7 +1374,7 @@ export default function ResultsPage({
         <div className="fixed inset-0 z-40 flex justify-end bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col p-6 border-l border-slate-200">
             <div className="flex justify-between items-center pb-4 border-b border-slate-200">
-              <div className="flex items-center gap-2 text-indigo-900 font-bold text-lg">
+              <div className="flex items-center gap-2 text-red-900 font-bold text-lg">
                 <BookOpen size={20} />
                 <span>Saved Results Review</span>
               </div>
@@ -1398,7 +1399,7 @@ export default function ResultsPage({
                 <select
                   value={drawerClassFilter}
                   onChange={(e) => setDrawerClassFilter(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
                 >
                   <option value="">All Classes</option>
                   {classes.map((c) => (
@@ -1420,7 +1421,7 @@ export default function ResultsPage({
                   placeholder="Search assigned students..."
                   value={drawerSearchQuery}
                   onChange={(e) => setDrawerSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
                 />
                 {drawerSearchQuery && (
                   <button
@@ -1450,7 +1451,7 @@ export default function ResultsPage({
 
                   <button
                     onClick={() => handleOpenStudentScores(s)}
-                    className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shrink-0 border border-emerald-200/60"
+                    className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-800 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shrink-0 border border-red-200/60"
                   >
                     <Eye size={14} />
                     View Scores
@@ -1507,7 +1508,7 @@ export default function ResultsPage({
             <div className="flex-1 overflow-y-auto py-4 space-y-3 pr-1">
               {studentScoresLoading ? (
                 <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
-                  <Loader2 size={24} className="animate-spin text-emerald-800" />
+                  <Loader2 size={24} className="animate-spin text-red-700" />
                   <span className="text-sm">Fetching recorded scores...</span>
                 </div>
               ) : studentFetchedResults.length > 0 ? (
