@@ -14,6 +14,7 @@ from app.modules.users.router import router as users_router
 from app.modules.admins.router import router as admins_router
 from app.modules.super_admins.router import router as super_admins_router
 from app.modules.schools.router import router as schools_router
+from app.modules.school_features.router import router as school_features_router
 from app.modules.roles.router import router as roles_router
 from app.modules.parents.router import router as parents_router
 from app.modules.teachers.router import router as teachers_router
@@ -37,6 +38,7 @@ from app.modules.results.router import router as results_router
 from app.modules.ebooks.router import router as ebooks_router
 from app.modules.browser.router import router as browser_router
 from app.modules.youtube_learning.router import router as youtube_learning_router
+from app.modules.cbt.router import router as cbt_router
 from app.modules.gallery.router import router as gallery_router
 from app.modules.dashboard.router import router as dashboard_router
 from app.modules.reports.router import router as reports_router
@@ -108,6 +110,12 @@ app.include_router(
 
 app.include_router(
     schools_router,
+    prefix=settings.API_V1_STR,
+)
+
+
+app.include_router(
+    school_features_router,
     prefix=settings.API_V1_STR,
 )
 
@@ -250,6 +258,12 @@ app.include_router(
 
 
 app.include_router(
+    cbt_router,
+    prefix=settings.API_V1_STR,
+)
+
+
+app.include_router(
     youtube_learning_router,
     prefix=settings.API_V1_STR,
 )
@@ -312,3 +326,18 @@ app.include_router(
     mobile_student_router,
     prefix="/api/v1"
 )
+
+
+print("=" * 80)
+print("FASTAPI ROUTES AFTER REGISTRATION")
+print("=" * 80)
+
+from fastapi.routing import APIRoute
+
+count = 0
+for route in app.router.routes:
+    if isinstance(route, APIRoute):
+        count += 1
+        print(route.path)
+
+print("TOTAL:", count)

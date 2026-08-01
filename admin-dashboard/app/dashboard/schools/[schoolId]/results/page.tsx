@@ -372,7 +372,7 @@ export default function ResultsPage({
         middle_name: newStudentMiddleName || null,
         last_name: newStudentLastName,
         admission_number: newStudentAdmNo || undefined,
-        class_id: Number(newStudentClassId),
+        classroom_id: Number(newStudentClassId),
         gender: newStudentGender,
         date_of_birth: newStudentDob,
         email: newStudentEmail,

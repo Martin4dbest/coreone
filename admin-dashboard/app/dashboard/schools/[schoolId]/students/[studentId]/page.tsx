@@ -26,6 +26,9 @@ type Student = {
   gender?: string;
   date_of_birth?: string;
   passport?: string | null;
+  passport_url?: string | null;
+  avatar?: string | null;
+  photo?: string | null;
   classroom?: {
     id: number;
     name: string;
@@ -52,36 +55,86 @@ export default function StudentProfile({
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
-  // Helper function to safely construct image URL
-  function getImageUrl(passportPath?: string | null) {
-    if (!passportPath) return null;
+  // Helper function to safely construct image URL for FastAPI static files
+  function getImageUrl(studentObj: Student | null): string | null {
+    if (!studentObj) return null;
 
-    // If it's already a full HTTP/HTTPS URL
+    // Check all common backend field names for student images
+    const path =
+      studentObj.passport_url ||
+      studentObj.passport ||
+      studentObj.avatar ||
+      studentObj.photo;
+
+    if (!path) return null;
+
+    // Return directly if already a full HTTP/HTTPS URL or Base64 string
     if (
-      passportPath.startsWith("http://") ||
-      passportPath.startsWith("https://")
+      path.startsWith("http://") ||
+      path.startsWith("https://") ||
+      path.startsWith("data:")
     ) {
-      return passportPath;
+      return path;
     }
 
-    // Ensure leading slash for relative backend paths
-    const cleanPath = passportPath.startsWith("/")
-      ? passportPath
-      : `/${passportPath}`;
+    // Extract root backend host origin (e.g., http://127.0.0.1:8000)
+    const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-    // Get Base Backend API URL
-    const baseUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+    // Remove trailing slash and strip /api/v1 (or any /api/v*) prefix for static file routes
+    const serverBaseUrl = rawApiUrl
+      .replace(/\/$/, "")
+      .replace(/\/api\/v\d+$/i, "");
 
-    return `${baseUrl.replace(/\/$/, "")}${cleanPath}`;
+    const cleanPath = path.startsWith("/") ? path : `/${path}`;
+
+    return `${serverBaseUrl}${cleanPath}`;
+  }
+
+  // Render fallback icon based on gender when picture is absent or fails to load
+  function renderGenderFallbackIcon(gender?: string) {
+    const formattedGender = gender?.trim().toLowerCase();
+
+    if (formattedGender === "male" || formattedGender === "m") {
+      return (
+        <div className="flex flex-col items-center justify-center text-blue-500">
+          <UserRound size={42} />
+          <span className="text-[10px] font-bold uppercase mt-[2px] tracking-wider text-blue-600">
+            Male
+          </span>
+        </div>
+      );
+    }
+
+    if (formattedGender === "female" || formattedGender === "f") {
+      return (
+        <div className="flex flex-col items-center justify-center text-pink-500">
+          <UserRound size={42} />
+          <span className="text-[10px] font-bold uppercase mt-[2px] tracking-wider text-pink-600">
+            Female
+          </span>
+        </div>
+      );
+    }
+
+    return <UserRound size={40} className="text-slate-400" />;
   }
 
   async function loadStudent() {
     try {
-      const response = await api.get(`/students/${studentId}`);
+      setImageError(false);
+      // Primary multi-tenant route
+      const response = await api.get(
+        `/schools/${schoolId}/students/${studentId}`
+      );
       setStudent(response.data);
     } catch (error) {
-      console.error("Failed to load student", error);
+      // Fallback endpoint if tenant scoping is handled via session headers
+      try {
+        const response = await api.get(`/students/${studentId}`);
+        setStudent(response.data);
+      } catch (fallbackErr) {
+        console.error("Failed to load student profile", fallbackErr);
+      }
     } finally {
       setLoading(false);
     }
@@ -95,17 +148,23 @@ export default function StudentProfile({
     if (!confirmed) return;
 
     try {
-      await api.delete(`/students/${studentId}`);
+      await api.delete(`/schools/${schoolId}/students/${studentId}`);
       router.push(`/dashboard/schools/${schoolId}/students`);
     } catch (error) {
-      console.error("Failed deleting student", error);
+      // Fallback if endpoint is non-scoped
+      try {
+        await api.delete(`/students/${studentId}`);
+        router.push(`/dashboard/schools/${schoolId}/students`);
+      } catch (fallbackErr) {
+        console.error("Failed deleting student", fallbackErr);
+      }
     }
   }
 
   useEffect(() => {
     loadStudent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId]);
+  }, [studentId, schoolId]);
 
   if (loading) {
     return (
@@ -135,7 +194,7 @@ export default function StudentProfile({
     );
   }
 
-  const avatarUrl = getImageUrl(student.passport);
+  const avatarUrl = getImageUrl(student);
 
   return (
     <div className="space-y-6">
@@ -159,17 +218,20 @@ export default function StudentProfile({
 
       <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
         <div className="flex items-center gap-5">
-          {/* Safe Avatar / Passport Display */}
-          <div className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full overflow-hidden bg-rose-50 border-2 border-rose-200 text-rose-500 shadow-sm">
+          {/* Avatar Container with Image & Gender-Aware Fallback */}
+          <div className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full overflow-hidden bg-slate-50 border-2 border-slate-200 shadow-sm">
             {avatarUrl && !imageError ? (
               <img
                 src={avatarUrl}
                 alt={`${student.first_name} passport`}
                 className="h-full w-full object-cover rounded-full"
-                onError={() => setImageError(true)}
+                onError={() => {
+                  console.warn("Could not load image at:", avatarUrl);
+                  setImageError(true);
+                }}
               />
             ) : (
-              <UserRound size={40} />
+              renderGenderFallbackIcon(student.gender)
             )}
           </div>
 

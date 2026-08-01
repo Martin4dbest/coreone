@@ -244,7 +244,7 @@ export default function StudentsPage({
         "/students/",
         {
           school_id: selectedSchoolId,
-          class_id: Number(form.classroom_id),
+          classroom_id: Number(form.classroom_id),
           admission_number: admissionNumber,
           first_name: form.first_name.trim(),
           last_name: form.last_name.trim(),

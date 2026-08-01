@@ -3,10 +3,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ebook import Ebook
 from app.modules.ebooks.repository import EbookRepository
+from app.modules.school_features.repository import SchoolFeatureRepository
 from app.modules.ebooks.schemas import EbookCreateRequest
+from app.modules.school_features.service import SchoolFeatureService
+
 
 
 class EbookService:
+
+    async def _ensure_enabled(
+        self,
+        school_id: int,
+    ):
+        feature = await SchoolFeatureRepository(
+            self.repository.db
+        ).get_feature(
+            school_id,
+            "ebooks",
+        )
+
+        if feature and not feature.enabled:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Ebooks have been disabled for this school.",
+            )
 
     def __init__(self, db: AsyncSession):
         self.repository = EbookRepository(db)
@@ -14,15 +34,27 @@ class EbookService:
     async def create_ebook(
         self,
         payload: EbookCreateRequest,
+        current_user,
     ):
+        await SchoolFeatureService(
+            self.repository.db
+        ).ensure_enabled(
+            school_id=current_user.school_id,
+            feature_key="ebooks",
+        )
+
+        await self._ensure_enabled(
+            payload.school_id
+        )
+
         ebook = Ebook(
-            school_id=payload.school_id,
+            school_id=current_user.school_id,
             title=payload.title,
             author=payload.author,
             description=payload.description,
             file_url=payload.file_url,
             category=payload.category,
-            uploaded_by=payload.uploaded_by,
+            uploaded_by=current_user.id,
             is_active=True,
         )
 
@@ -30,8 +62,20 @@ class EbookService:
             ebook
         )
 
-    async def get_ebooks(self):
-        return await self.repository.get_all()
+    async def get_ebooks(
+        self,
+        current_user,
+    ):
+        await SchoolFeatureService(
+            self.repository.db
+        ).ensure_enabled(
+            school_id=current_user.school_id,
+            feature_key="ebooks",
+        )
+
+        return await self.repository.get_all(
+            current_user.school_id
+        )
 
     async def get_ebook(
         self,

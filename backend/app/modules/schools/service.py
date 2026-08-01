@@ -62,7 +62,21 @@ class SchoolService:
             country=payload.country,
         )
 
-        return await self.repository.create(school)
+        school = await self.repository.create(
+            school
+        )
+
+        from app.modules.school_features.service import (
+            SchoolFeatureService,
+        )
+
+        await SchoolFeatureService(
+            self.db
+        ).create_defaults(
+            school.id
+        )
+
+        return school
 
     async def get_schools(self):
         schools = await self.repository.get_all()

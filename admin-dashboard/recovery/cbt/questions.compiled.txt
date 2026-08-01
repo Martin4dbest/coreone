@@ -1,0 +1,252 @@
+function CBTQuestionsPage() {
+    const params = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useParams"])();
+    const schoolId = params.schoolId;
+    const [exams, setExams] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])([]);
+    const [examId, setExamId] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("");
+    const [question, setQuestion] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("");
+    const [optionA, setOptionA] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("");
+    const [optionB, setOptionB] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("");
+    const [optionC, setOptionC] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("");
+    const [optionD, setOptionD] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("");
+    const [correct, setCorrect] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("A");
+    const [questions, setQuestions] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])([]);
+    async function loadExams() {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${("TURBOPACK compile-time value", "http://127.0.0.1:8000/api/v1")}/cbt/schools/${schoolId}/exams`, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+        if (res.ok) {
+            setExams(await res.json());
+        }
+    }
+    async function loadQuestions() {
+        if (!examId) return;
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${("TURBOPACK compile-time value", "http://127.0.0.1:8000/api/v1")}/cbt/exams/${examId}/questions`, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+        if (res.ok) {
+            setQuestions(await res.json());
+        }
+    }
+    async function createQuestion() {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${("TURBOPACK compile-time value", "http://127.0.0.1:8000/api/v1")}/cbt/questions`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                exam_id: Number(examId),
+                question,
+                option_a: optionA,
+                option_b: optionB,
+                option_c: optionC,
+                option_d: optionD,
+                correct_answer: correct,
+                marks: 1
+            })
+        });
+        if (res.ok) {
+            setQuestion("");
+            loadQuestions();
+        }
+    }
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
+        loadExams();
+    }, []);
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
+        loadQuestions();
+    }, [
+        examId
+    ]);
+    return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+        className: "space-y-6",
+        children: [
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h1", {
+                className: "text-3xl font-bold",
+                children: "CBT Question Bank"
+            }, void 0, false, {
+                fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                lineNumber: 168,
+                columnNumber: 1
+            }, this),
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                className: "border rounded-xl p-5 space-y-4",
+                children: [
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
+                        className: "border p-3 rounded w-full",
+                        value: examId,
+                        onChange: (e)=>setExamId(e.target.value),
+                        children: [
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                value: "",
+                                children: "Select Exam"
+                            }, void 0, false, {
+                                fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                                lineNumber: 189,
+                                columnNumber: 1
+                            }, this),
+                            exams.map((exam)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                    value: exam.id,
+                                    children: exam.title
+                                }, exam.id, false, {
+                                    fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                                    lineNumber: 198,
+                                    columnNumber: 1
+                                }, this))
+                        ]
+                    }, void 0, true, {
+                        fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                        lineNumber: 177,
+                        columnNumber: 1
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("textarea", {
+                        className: "border p-3 rounded w-full",
+                        placeholder: "Question",
+                        value: question,
+                        onChange: (e)=>setQuestion(e.target.value)
+                    }, void 0, false, {
+                        fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                        lineNumber: 217,
+                        columnNumber: 1
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
+                        className: "border p-3 rounded w-full",
+                        placeholder: "Option A",
+                        value: optionA,
+                        onChange: (e)=>setOptionA(e.target.value)
+                    }, void 0, false, {
+                        fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                        lineNumber: 232,
+                        columnNumber: 1
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
+                        className: "border p-3 rounded w-full",
+                        placeholder: "Option B",
+                        value: optionB,
+                        onChange: (e)=>setOptionB(e.target.value)
+                    }, void 0, false, {
+                        fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                        lineNumber: 240,
+                        columnNumber: 1
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
+                        className: "border p-3 rounded w-full",
+                        placeholder: "Option C",
+                        value: optionC,
+                        onChange: (e)=>setOptionC(e.target.value)
+                    }, void 0, false, {
+                        fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                        lineNumber: 248,
+                        columnNumber: 1
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
+                        className: "border p-3 rounded w-full",
+                        placeholder: "Option D",
+                        value: optionD,
+                        onChange: (e)=>setOptionD(e.target.value)
+                    }, void 0, false, {
+                        fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                        lineNumber: 256,
+                        columnNumber: 1
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
+                        className: "border p-3 rounded",
+                        value: correct,
+                        onChange: (e)=>setCorrect(e.target.value),
+                        children: [
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                value: "A",
+                                children: "Correct A"
+                            }, void 0, false, {
+                                fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                                lineNumber: 277,
+                                columnNumber: 1
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                value: "B",
+                                children: "Correct B"
+                            }, void 0, false, {
+                                fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                                lineNumber: 281,
+                                columnNumber: 1
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                value: "C",
+                                children: "Correct C"
+                            }, void 0, false, {
+                                fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                                lineNumber: 285,
+                                columnNumber: 1
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                value: "D",
+                                children: "Correct D"
+                            }, void 0, false, {
+                                fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                                lineNumber: 289,
+                                columnNumber: 1
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                        lineNumber: 265,
+                        columnNumber: 1
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                        className: "bg-black text-white px-5 py-3 rounded",
+                        onClick: createQuestion,
+                        children: "Add Question"
+                    }, void 0, false, {
+                        fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                        lineNumber: 298,
+                        columnNumber: 1
+                    }, this)
+                ]
+            }, void 0, true, {
+                fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                lineNumber: 174,
+                columnNumber: 1
+            }, this),
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                className: "border rounded-xl p-5",
+                children: [
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
+                        className: "font-bold mb-4",
+                        children: "Questions"
+                    }, void 0, false, {
+                        fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                        lineNumber: 319,
+                        columnNumber: 1
+                    }, this),
+                    questions.map((q)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                            className: "border-b py-3",
+                            children: q.question
+                        }, q.id, false, {
+                            fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                            lineNumber: 328,
+                            columnNumber: 1
+                        }, this))
+                ]
+            }, void 0, true, {
+                fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+                lineNumber: 316,
+                columnNumber: 1
+            }, this)
+        ]
+    }, void 0, true, {
+        fileName: "[project]/app/dashboard/schools/[schoolId]/cbt/questions/page.tsx",
+        lineNumber: 165,
+        columnNumber: 1
+    }, this);
+}
+}),
+];
+
+//# sourceMappingURL=app_dashboard_schools_%5BschoolId%5D_cbt_questions_page_tsx_0d7512c._.js.map

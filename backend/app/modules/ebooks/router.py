@@ -26,8 +26,11 @@ async def create_ebook(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await EbookService(db).create_ebook(
-        payload
+    return await EbookService(
+        db
+    ).create_ebook(
+        payload,
+        current_user,
     )
 
 
@@ -39,7 +42,11 @@ async def get_ebooks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await EbookService(db).get_ebooks()
+    return await EbookService(
+        db
+    ).get_ebooks(
+        current_user
+    )
 
 
 @router.get(

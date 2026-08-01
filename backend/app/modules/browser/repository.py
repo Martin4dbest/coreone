@@ -6,33 +6,73 @@ from app.models.browser_link import BrowserLink
 
 class BrowserLinkRepository:
 
-    def __init__(self, db: AsyncSession):
+
+    def __init__(
+        self,
+        db: AsyncSession
+    ):
+
         self.db = db
 
-    async def get_all(self):
-        result = await self.db.execute(
-            select(BrowserLink).order_by(
-                BrowserLink.title
-            )
+
+
+    async def get_all(
+        self,
+        school_id: int | None = None,
+    ):
+
+        query = select(
+            BrowserLink
         )
+
+
+        if school_id is not None:
+
+            query = query.where(
+                BrowserLink.school_id == school_id
+            )
+
+
+        query = query.order_by(
+            BrowserLink.title
+        )
+
+
+        result = await self.db.execute(
+            query
+        )
+
+
         return result.scalars().all()
+
+
 
     async def get_by_id(
         self,
-        link_id: int,
+        link_id:int,
     ):
+
         result = await self.db.execute(
-            select(BrowserLink).where(
+            select(BrowserLink)
+            .where(
                 BrowserLink.id == link_id
             )
         )
+
+
         return result.scalar_one_or_none()
+
+
 
     async def create(
         self,
-        link: BrowserLink,
+        link:BrowserLink,
     ):
+
         self.db.add(link)
+
         await self.db.commit()
+
         await self.db.refresh(link)
+
         return link

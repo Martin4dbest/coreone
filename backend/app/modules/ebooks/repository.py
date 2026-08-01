@@ -9,12 +9,19 @@ class EbookRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_all(self):
+    async def get_all(
+        self,
+        school_id: int,
+    ):
         result = await self.db.execute(
-            select(Ebook).order_by(
-                Ebook.title
+            select(Ebook)
+            .where(
+                Ebook.school_id == school_id,
+                Ebook.is_active == True,
             )
+            .order_by(Ebook.title)
         )
+
         return result.scalars().all()
 
     async def get_by_id(self, ebook_id: int):

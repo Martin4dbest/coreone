@@ -38,6 +38,12 @@ class StudentService:
         tenant,
         current_user,
     ):
+        print("=" * 80)
+        print("CREATE STUDENT PAYLOAD")
+        print(payload.model_dump())
+        print("classroom_id =", payload.classroom_id)
+        print("=" * 80)
+
         self._ensure_teacher_cannot_manage_students(current_user)
 
 

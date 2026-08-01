@@ -27,7 +27,8 @@ async def create_video(
     current_user: User = Depends(get_current_user),
 ):
     return await YoutubeLearningService(db).create_video(
-        payload
+        payload,
+        current_user
     )
 
 
@@ -39,7 +40,9 @@ async def get_videos(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await YoutubeLearningService(db).get_videos()
+    return await YoutubeLearningService(db).get_videos(
+        current_user
+    )
 
 
 @router.get(

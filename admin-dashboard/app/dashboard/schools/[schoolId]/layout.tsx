@@ -147,6 +147,11 @@ const [branding, setBranding] = useState<BrandingData | null>(null);
       icon: ClipboardCheck,
     },
     {
+      name: "Learning",
+      href: `${basePath}/learning`,
+      icon: BookOpen,
+    },
+    {
       name: "Events",
       href: `${basePath}/events`,
       icon: CalendarDays,

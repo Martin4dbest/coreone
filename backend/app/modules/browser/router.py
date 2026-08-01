@@ -27,7 +27,8 @@ async def create_browser_link(
     current_user: User = Depends(get_current_user),
 ):
     return await BrowserLinkService(db).create_link(
-        payload
+        payload,
+        current_user
     )
 
 
@@ -39,7 +40,9 @@ async def get_browser_links(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await BrowserLinkService(db).get_links()
+    return await BrowserLinkService(db).get_links(
+        current_user
+    )
 
 
 @router.get(

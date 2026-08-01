@@ -50,3 +50,13 @@ from app.models.school_branding import SchoolBranding
 from app.models.result import Result
 
 from app.models.teacher_subject import TeacherSubject
+
+from app.models.cbt_exam import CBTExam
+
+from app.models.cbt_question import CBTQuestion
+
+from app.models.cbt_attempt import CBTAttempt
+
+from app.models.cbt_answer import CBTAnswer
+from .cbt_provider import CBTProvider
+from .google_token import GoogleToken

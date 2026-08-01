@@ -16,6 +16,10 @@ import {
 Settings,
   CalendarDays,
   ClipboardCheck,
+  LibraryBig,
+  MonitorPlay,
+  Globe,
+  FileQuestion,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -193,6 +197,42 @@ return (
       href: `/dashboard/schools/${schoolId}/events`,
     },
 
+
+    {
+      title: "Learning Centre",
+      description: "Digital learning resources",
+      icon: LibraryBig,
+      href: `/dashboard/schools/${schoolId}/learning`,
+    },
+
+    {
+      title: "CBT",
+      description: "Computer Based Tests",
+      icon: FileQuestion,
+      href: `/dashboard/schools/${schoolId}/cbt`,
+    },
+
+    {
+      title: "Ebooks",
+      description: "Digital library",
+      icon: BookOpen,
+      href: `/dashboard/schools/${schoolId}/ebooks`,
+    },
+
+    {
+      title: "Internal Browser",
+      description: "Approved educational websites",
+      icon: Globe,
+      href: `/dashboard/schools/${schoolId}/browser`,
+    },
+
+    {
+      title: "YouTube Learning",
+      description: "Educational video resources",
+      icon: MonitorPlay,
+      href: `/dashboard/schools/${schoolId}/youtube-learning`,
+    },
+
   ];
 
   async function toggleSchool() {
@@ -237,7 +277,7 @@ return (
 
                 <div className="mt-3">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                    Tenant URL
+                    SCHOOL URL/LINK
                   </p>
 
                   <a
