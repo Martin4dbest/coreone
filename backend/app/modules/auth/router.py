@@ -42,11 +42,28 @@ async def login(
 ):
     service = AuthService(db)
 
-    return await service.login(
+    result = await service.login(
         form_data.username,
         form_data.password,
         tenant,
     )
+
+    current_user = await service.repository.get_user_by_email(
+        email=form_data.username,
+    )
+
+    if current_user.role.name not in (
+        "SUPER_ADMIN",
+        "SCHOOL_ADMIN",
+    ):
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=403,
+            detail="This portal is for School Administrators only. Please use the appropriate portal for your account."
+        )
+
+    return result
 
 
 @router.get(

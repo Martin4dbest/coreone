@@ -1,3 +1,5 @@
+from datetime import datetime
+
 
 
 DEFAULT_PROVIDERS = [
@@ -139,14 +141,9 @@ class CBTService:
         if current_user.role.name != "SUPER_ADMIN":
             school_id = current_user.school_id
 
-        exams = await self.repository.list_exams(
+        return await self.repository.list_exams(
             school_id
         )
-
-        for exam in exams:
-            exam.status = "Published" if exam.is_active else "Draft"
-
-        return exams
 
     async def get_exam(
         self,
@@ -330,7 +327,8 @@ class CBTService:
                 exam.pass_mark
             )
 
-        attempt.submitted = True
+        attempt.completed = True
+        attempt.submitted_at = datetime.utcnow()
 
         await self.repository.update_attempt(
             attempt
@@ -484,7 +482,6 @@ class CBTService:
     ):
         exam = await self.get_exam(exam_id, current_user)
 
-        exam.status = "Published"
         exam.is_active = True
 
         return await self.repository.update_exam(exam)
@@ -496,7 +493,6 @@ class CBTService:
     ):
         exam = await self.get_exam(exam_id, current_user)
 
-        exam.status = "Draft"
         exam.is_active = False
 
         return await self.repository.update_exam(exam)

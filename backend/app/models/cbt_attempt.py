@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import Boolean
 from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
+from sqlalchemy import Float
 from sqlalchemy import Integer
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
@@ -48,6 +49,16 @@ class CBTAttempt(Base, BaseModel):
     total_marks: Mapped[int] = mapped_column(
         Integer,
         default=0,
+    )
+
+    percentage: Mapped[float] = mapped_column(
+        Float,
+        default=0,
+    )
+
+    passed: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
     )
 
     completed: Mapped[bool] = mapped_column(

@@ -45,7 +45,12 @@ async def create_exam(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    exam = CBTExam(**payload.model_dump())
+    exam = CBTExam(
+        **payload.model_dump()
+    )
+
+    # New exams are always Draft
+    exam.is_active = False
 
     return await CBTService(db).create_exam(
         exam,
@@ -320,6 +325,21 @@ async def submit_answer(
     return await CBTService(db).save_answer(
         answer
     )
+
+
+@router.post(
+    "/attempts/{attempt_id}/submit",
+    response_model=CBTAttemptResponse,
+)
+async def submit_attempt(
+    attempt_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await CBTService(db).auto_mark(
+        attempt_id
+    )
+
 
 
 @router.put(

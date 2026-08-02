@@ -64,7 +64,43 @@ class CBTRepository:
                 CBTExam.created_at.desc()
             )
         )
-        return result.scalars().all()
+
+        exams = result.scalars().all()
+
+        response = []
+
+        for exam in exams:
+            response.append({
+                "id": exam.id,
+                "school_id": exam.school_id,
+                "title": exam.title,
+                "description": exam.description,
+
+                "subject_id": exam.subject_id,
+                "class_id": exam.class_id,
+
+                "duration_minutes": exam.duration_minutes,
+                "total_questions": len(exam.questions),
+
+                "total_marks": exam.total_marks,
+                "pass_mark": exam.pass_mark,
+
+                "randomize_questions": exam.randomize_questions,
+                "randomize_options": exam.randomize_options,
+                "allow_resume": exam.allow_resume,
+                "show_result_immediately": exam.show_result_immediately,
+
+                "negative_marking": exam.negative_marking,
+                "negative_mark": exam.negative_mark,
+
+                "is_active": exam.is_active,
+
+                "status": "Published" if exam.is_active else "Draft",
+
+                "created_at": exam.created_at,
+            })
+
+        return response
 
     # -------------------------
     # Questions

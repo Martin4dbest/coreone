@@ -117,6 +117,8 @@ class CBTAttemptResponse(BaseModel):
 
     score: int
     total_marks: int
+    percentage: float
+    passed: bool
 
     completed: bool
 

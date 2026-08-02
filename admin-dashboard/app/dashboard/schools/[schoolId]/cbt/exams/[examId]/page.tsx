@@ -17,8 +17,6 @@ import {
   FileCheck,
   ShieldAlert,
   Sliders,
-  FileText,
-  Loader2,
   ChevronRight,
 } from "lucide-react";
 
@@ -28,19 +26,99 @@ export default function CBTExamViewPage() {
   const [exam, setExam] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // States for fallback name resolution
+  const [subjectName, setSubjectName] = useState<string>("");
+  const [className, setClassName] = useState<string>("");
+
   useEffect(() => {
     if (!examId) return;
-    
+
     api
       .get(`/cbt/exams/${examId}`)
-      .then((res) => {
-        setExam(res.data?.data || res.data);
+      .then(async (res) => {
+        const data = res.data?.data || res.data;
+        setExam(data);
+
+        // 1. Resolve Subject Name
+        const sub =
+          data.subject?.name ??
+          data.subject_name ??
+          data.subjectName ??
+          (typeof data.subject === "string" ? data.subject : null);
+
+        if (sub) {
+          setSubjectName(sub);
+        } else if (data.subject_id || data.subjectId) {
+          const sId = data.subject_id || data.subjectId;
+          try {
+            const subRes = await api.get(`/subjects/${sId}`);
+            setSubjectName(
+              subRes.data?.name ||
+                subRes.data?.data?.name ||
+                subRes.data?.title ||
+                `Subject #${sId}`
+            );
+          } catch {
+            setSubjectName(`Subject #${sId}`);
+          }
+        }
+
+        // 2. Resolve Class Name (Fixed to try multiple endpoint patterns & fields)
+        const cls =
+          data.classroom?.name ??
+          data.class?.name ??
+          data.class_name ??
+          data.className ??
+          data.target_class ??
+          (typeof data.classroom === "string"
+            ? data.classroom
+            : typeof data.class === "string"
+            ? data.class
+            : null);
+
+        if (cls) {
+          setClassName(cls);
+        } else if (data.class_id || data.classId || data.classroom_id) {
+          const cId = data.class_id || data.classId || data.classroom_id;
+
+          // Attempt fetching class details from common endpoints
+          try {
+            const clsRes =
+              (await api.get(`/classes/${cId}`).catch(() => null)) ||
+              (await api.get(`/classrooms/${cId}`).catch(() => null)) ||
+              (schoolId
+                ? await api
+                    .get(`/schools/${schoolId}/classes/${cId}`)
+                    .catch(() => null)
+                : null);
+
+            if (clsRes && clsRes.data) {
+              const resData = clsRes.data?.data || clsRes.data;
+              const fetchedClassName =
+                resData.name ||
+                resData.class_name ||
+                resData.className ||
+                resData.title ||
+                resData.label;
+
+              if (fetchedClassName) {
+                setClassName(fetchedClassName);
+              } else {
+                setClassName(`Class #${cId}`);
+              }
+            } else {
+              setClassName(`Class #${cId}`);
+            }
+          } catch {
+            setClassName(`Class #${cId}`);
+          }
+        }
       })
       .catch((err) => {
         console.error("Failed to fetch exam:", err);
       })
       .finally(() => setLoading(false));
-  }, [examId]);
+  }, [examId, schoolId]);
 
   const handleBack = () => {
     if (schoolId) {
@@ -87,7 +165,8 @@ export default function CBTExamViewPage() {
             Assessment Not Found
           </h2>
           <p className="text-sm text-slate-500">
-            The exam record you are attempting to view might have been moved, deleted, or does not exist.
+            The exam record you are attempting to view might have been moved,
+            deleted, or does not exist.
           </p>
           <button
             onClick={handleBack}
@@ -101,30 +180,39 @@ export default function CBTExamViewPage() {
     );
   }
 
-  const isPublished = exam.is_active || exam.status === "Published";
+  const isPublished =
+    exam.is_active === true ||
+    exam.is_published === true ||
+    exam.status?.toLowerCase() === "published";
 
   const cards = [
     {
       title: "Subject",
-      value: exam.subject?.name ?? exam.subject_name ?? exam.subject_id ?? "N/A",
+      value: subjectName || "N/A",
       icon: BookOpen,
       color: "text-indigo-600 bg-indigo-50 border-indigo-100",
     },
     {
       title: "Target Class",
-      value: exam.classroom?.name ?? exam.class_name ?? exam.class_id ?? "N/A",
+      value: className || "N/A",
       icon: GraduationCap,
       color: "text-blue-600 bg-blue-50 border-blue-100",
     },
     {
       title: "Duration",
-      value: `${exam.duration_minutes ?? exam.durationMinutes ?? 0} Mins`,
+      value: `${
+        exam.duration_minutes ?? exam.durationMinutes ?? exam.duration ?? 0
+      } Mins`,
       icon: Clock,
       color: "text-amber-600 bg-amber-50 border-amber-100",
     },
     {
       title: "Questions",
-      value: exam.total_questions ?? exam.questionsCount ?? 0,
+      value:
+        exam.total_questions ??
+        exam.questionsCount ??
+        exam.questions_count ??
+        (Array.isArray(exam.questions) ? exam.questions.length : 0),
       icon: HelpCircle,
       color: "text-purple-600 bg-purple-50 border-purple-100",
     },
@@ -136,7 +224,7 @@ export default function CBTExamViewPage() {
     },
     {
       title: "Pass Mark",
-      value: exam.pass_mark ?? exam.passingScore ?? 0,
+      value: exam.pass_mark ?? exam.passingScore ?? exam.passMark ?? 0,
       icon: FileCheck,
       color: "text-teal-600 bg-teal-50 border-teal-100",
     },
@@ -154,27 +242,27 @@ export default function CBTExamViewPage() {
   const settingsConfig = [
     {
       label: "Randomize Questions",
-      enabled: exam.randomize_questions ?? exam.shuffle_questions ?? false,
+      enabled: Boolean(exam.randomize_questions ?? exam.shuffle_questions),
       desc: "Questions appear in shuffled order per student",
     },
     {
       label: "Randomize Options",
-      enabled: exam.randomize_options ?? false,
+      enabled: Boolean(exam.randomize_options ?? exam.shuffle_options),
       desc: "Multiple choice options are shuffled for each item",
     },
     {
       label: "Allow Resume",
-      enabled: exam.allow_resume ?? true,
+      enabled: Boolean(exam.allow_resume ?? true),
       desc: "Candidates can resume test in case of network disruptions",
     },
     {
       label: "Immediate Results",
-      enabled: exam.show_result_immediately ?? false,
+      enabled: Boolean(exam.show_result_immediately ?? exam.immediate_results),
       desc: "Display total score immediately upon test submission",
     },
     {
       label: "Negative Marking",
-      enabled: exam.negative_marking ?? false,
+      enabled: Boolean(exam.negative_marking),
       desc: `Deduct points for incorrect attempts (${exam.negative_mark ?? 0} pts)`,
     },
   ];
@@ -182,7 +270,6 @@ export default function CBTExamViewPage() {
   return (
     <div className="min-h-screen bg-slate-50/60 text-slate-800 p-4 sm:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
-        
         {/* Navigation Breadcrumb */}
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
           <Link
@@ -215,17 +302,20 @@ export default function CBTExamViewPage() {
                 <ArrowLeft size={18} />
               </button>
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-                {exam.title}
+                {exam.title || "Untitled Assessment"}
               </h1>
             </div>
             <p className="text-slate-500 text-sm leading-relaxed max-w-2xl pl-11">
-              {exam.description || "No specific instructions provided for this exam."}
+              {exam.description ||
+                "No specific instructions provided for this exam."}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100">
             <Link
-              href={`/dashboard/schools/${schoolId}/cbt/exams/${exam.id || examId}/edit`}
+              href={`/dashboard/schools/${schoolId}/cbt/exams/${
+                exam.id || examId
+              }/edit`}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold transition shadow-sm"
             >
               <Edit size={16} />
@@ -233,7 +323,9 @@ export default function CBTExamViewPage() {
             </Link>
 
             <Link
-              href={`/dashboard/schools/${schoolId}/cbt/questions?examId=${exam.id || examId}`}
+              href={`/dashboard/schools/${schoolId}/cbt/questions?examId=${
+                exam.id || examId
+              }`}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition shadow-sm"
             >
               <HelpCircle size={16} />
@@ -267,7 +359,9 @@ export default function CBTExamViewPage() {
                     >
                       <span
                         className={`w-2 h-2 rounded-full ${
-                          isPublished ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                          isPublished
+                            ? "bg-emerald-500 animate-pulse"
+                            : "bg-amber-500"
                         }`}
                       />
                       {card.value}
@@ -335,8 +429,7 @@ export default function CBTExamViewPage() {
             ))}
           </div>
         </div>
-
       </div>
     </div>
   );
-}            
+}

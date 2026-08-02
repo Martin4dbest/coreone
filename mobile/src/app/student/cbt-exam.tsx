@@ -14,6 +14,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import api from "@/services/api";
 
+import {
+  saveCBTAnswer,
+  submitCBTAttempt,
+} from "@/services/cbt";
+
 export default function CBTExam() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -572,3 +577,6 @@ const styles = StyleSheet.create({
     color: "#1E1B4B",
   },
 });
+
+
+

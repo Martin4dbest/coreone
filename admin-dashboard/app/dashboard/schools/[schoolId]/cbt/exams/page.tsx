@@ -238,27 +238,30 @@ export default function CBTExamsPage() {
     }
   }, [schoolId]);
 
-  const fetchExams = useCallback(async () => {
-    if (!schoolId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await api.get(`/cbt/schools/${schoolId}/exams`);
-      const data = Array.isArray(response.data)
-        ? response.data
-        : response.data?.data || [];
-      setExams(data);
-    } catch (err: unknown) {
-      const errorObj = err as Record<string, any>;
-      const msg =
-        errorObj?.response?.data?.message ||
-        errorObj?.message ||
-        "Failed to load CBT exams. Please try again.";
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  }, [schoolId]);
+  const fetchExams = useCallback(
+    async (silent = false) => {
+      if (!schoolId) return;
+      if (!silent) setLoading(true);
+      setError(null);
+      try {
+        const response = await api.get(`/cbt/schools/${schoolId}/exams`);
+        const data = Array.isArray(response.data)
+          ? response.data
+          : response.data?.data || [];
+        setExams(data);
+      } catch (err: unknown) {
+        const errorObj = err as Record<string, any>;
+        const msg =
+          errorObj?.response?.data?.message ||
+          errorObj?.message ||
+          "Failed to load CBT exams. Please try again.";
+        setError(msg);
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [schoolId]
+  );
 
   useEffect(() => {
     if (schoolId) {
@@ -365,7 +368,7 @@ export default function CBTExamsPage() {
       await api.post(`/cbt/exams`, payload);
       setSuccessMessage("CBT Exam created successfully!");
       setFormData(initialFormState);
-      await fetchExams();
+      await fetchExams(true);
     } catch (err: unknown) {
       const errorObj = err as Record<string, any>;
       const msg =
@@ -385,7 +388,6 @@ export default function CBTExamsPage() {
   };
 
   const handlePublish = async (examId: string) => {
-
     const confirmPublish = window.confirm(
       "Do you want to publish this exam? Students will be able to see it on their portal."
     );
@@ -396,11 +398,13 @@ export default function CBTExamsPage() {
 
     try {
       await api.post(`/cbt/exams/${examId}/publish`, {});
-
+      setExams((prev) =>
+        prev.map((exam) =>
+          String(exam.id) === examId ? { ...exam, is_active: true } : exam
+        )
+      );
       alert("Exam published successfully!");
-
-      await fetchExams();
-
+      await fetchExams(true);
     } catch (err: unknown) {
       const errorObj = err as Record<string, any>;
       alert(errorObj?.response?.data?.message || "Failed to publish exam.");
@@ -410,7 +414,12 @@ export default function CBTExamsPage() {
   const handleUnpublish = async (examId: string) => {
     try {
       await api.post(`/cbt/exams/${examId}/unpublish`, {});
-      await fetchExams();
+      setExams((prev) =>
+        prev.map((exam) =>
+          String(exam.id) === examId ? { ...exam, is_active: false } : exam
+        )
+      );
+      await fetchExams(true);
     } catch (err: unknown) {
       const errorObj = err as Record<string, any>;
       alert(errorObj?.response?.data?.message || "Failed to unpublish exam.");
@@ -419,8 +428,12 @@ export default function CBTExamsPage() {
 
   const handleDuplicate = async (examId: string) => {
     try {
-      await api.post(`/cbt/exams/${examId}/duplicate`, {});
-      await fetchExams();
+      const response = await api.post(`/cbt/exams/${examId}/duplicate`, {});
+      const newExam = response.data?.data || response.data;
+      if (newExam && typeof newExam === "object" && newExam.id) {
+        setExams((prev) => [newExam, ...prev]);
+      }
+      await fetchExams(true);
     } catch (err: unknown) {
       const errorObj = err as Record<string, any>;
       alert(errorObj?.response?.data?.message || "Failed to duplicate exam.");
@@ -433,11 +446,30 @@ export default function CBTExamsPage() {
     }
     try {
       await api.delete(`/cbt/exams/${examId}`);
-      await fetchExams();
+      setExams((prev) => prev.filter((exam) => String(exam.id) !== examId));
+      await fetchExams(true);
     } catch (err: unknown) {
       const errorObj = err as Record<string, any>;
       alert(errorObj?.response?.data?.message || "Failed to delete exam.");
     }
+  };
+
+  // Resolve Real Subject Name for Display
+  const getSubjectName = (exam: RawExamData) => {
+    if (exam.subjectName) return exam.subjectName;
+    if (exam.subject_name) return exam.subject_name;
+    const rawId = String(exam.subjectId || exam.subject_id || "");
+    const found = subjects.find((s) => s.id === rawId);
+    return found ? found.name : rawId || "-";
+  };
+
+  // Resolve Real Class Name for Display
+  const getClassName = (exam: RawExamData) => {
+    if (exam.className) return exam.className;
+    if (exam.class_name) return exam.class_name;
+    const rawId = String(exam.classId || exam.class_id || "");
+    const found = classes.find((c) => c.id === rawId);
+    return found ? found.name : rawId || "-";
   };
 
   const filteredExams = useMemo(() => {
@@ -445,8 +477,8 @@ export default function CBTExamsPage() {
     const query = searchQuery.toLowerCase();
     return exams.filter((exam) => {
       const title = String(exam.title || "").toLowerCase();
-      const subject = String(exam.subjectName || exam.subject_name || "").toLowerCase();
-      const className = String(exam.className || exam.class_name || "").toLowerCase();
+      const subject = String(getSubjectName(exam)).toLowerCase();
+      const className = String(getClassName(exam)).toLowerCase();
       const status = exam.is_active ? "published" : "draft";
 
       return (
@@ -456,7 +488,7 @@ export default function CBTExamsPage() {
         status.includes(query)
       );
     });
-  }, [exams, searchQuery]);
+  }, [exams, searchQuery, subjects, classes]);
 
   const renderStatusBadge = (status: string) => {
     switch (status) {
@@ -830,7 +862,7 @@ export default function CBTExamsPage() {
             <div className="p-8 text-center">
               <p className="text-slate-700 font-medium text-sm mb-3">{error}</p>
               <button
-                onClick={fetchExams}
+                onClick={() => fetchExams()}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition"
               >
                 Retry
@@ -865,10 +897,8 @@ export default function CBTExamsPage() {
                 <tbody className="divide-y divide-slate-100 text-sm">
                   {filteredExams.map((exam) => {
                     const examId = String(exam.id || "");
-                    const subjectDisplay =
-                      exam.subjectName || exam.subject_name || exam.subjectId || exam.subject_id || "-";
-                    const classDisplay =
-                      exam.className || exam.class_name || exam.classId || exam.class_id || "-";
+                    const subjectDisplay = getSubjectName(exam);
+                    const classDisplay = getClassName(exam);
                     const durationDisplay = exam.durationMinutes || exam.duration_minutes || 0;
                     const questionsDisplay = exam.questionsCount ?? exam.total_questions ?? 0;
                     const totalMarksDisplay = exam.totalMarks ?? exam.total_marks ?? "-";
