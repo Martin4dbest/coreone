@@ -1,4 +1,5 @@
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.cbt_exam import CBTExam
@@ -33,7 +34,13 @@ class CBTRepository:
         exam_id: int,
     ):
         result = await self.db.execute(
-            select(CBTExam).where(
+            select(CBTExam)
+            .options(
+                selectinload(CBTExam.subject),
+                selectinload(CBTExam.classroom),
+                selectinload(CBTExam.questions),
+            )
+            .where(
                 CBTExam.id == exam_id
             )
         )
@@ -45,6 +52,11 @@ class CBTRepository:
     ):
         result = await self.db.execute(
             select(CBTExam)
+            .options(
+                selectinload(CBTExam.subject),
+                selectinload(CBTExam.classroom),
+                selectinload(CBTExam.questions),
+            )
             .where(
                 CBTExam.school_id == school_id
             )
@@ -139,4 +151,40 @@ class CBTRepository:
             attempt
         )
         return attempt
+
+
+    async def update_exam(
+        self,
+        exam: CBTExam,
+    ):
+        await self.db.commit()
+        await self.db.refresh(exam)
+        return exam
+
+    async def delete_exam(
+        self,
+        exam: CBTExam,
+    ):
+        await self.db.delete(exam)
+        await self.db.commit()
+
+    async def duplicate_exam(
+        self,
+        exam: CBTExam,
+    ):
+        data = {
+            c.name: getattr(exam, c.name)
+            for c in CBTExam.__table__.columns
+            if c.name not in (
+                "id",
+                "created_at",
+                "updated_at",
+            )
+        }
+
+        duplicate = CBTExam(**data)
+        self.db.add(duplicate)
+        await self.db.commit()
+        await self.db.refresh(duplicate)
+        return duplicate
 

@@ -121,6 +121,17 @@ api.interceptors.response.use(
         !error.config?.url?.includes("/auth/login")
       ) {
         localStorage.removeItem("access_token");
+
+        const tenant =
+          localStorage.getItem("tenant_slug") ||
+          localStorage.getItem("school_code") ||
+          localStorage.getItem("tenant");
+
+        if (tenant) {
+          window.location.href = `/${tenant}/login`;
+        } else {
+          window.location.href = "/login";
+        }
       }
 
     }

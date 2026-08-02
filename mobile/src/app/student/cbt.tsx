@@ -1,0 +1,541 @@
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  ScrollView,
+  Modal,
+  Alert,
+  RefreshControl,
+  SafeAreaView,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { getStudentCBTExams, startCBTAttempt } from "@/services/cbt";
+
+export default function StudentCBT() {
+  const router = useRouter();
+
+  const [exams, setExams] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [startingId, setStartingId] = useState<number | null>(null);
+
+  // Modal State
+  const [selectedExam, setSelectedExam] = useState<any | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  useEffect(() => {
+    loadExams();
+  }, []);
+
+  async function loadExams() {
+    try {
+      const data = await getStudentCBTExams();
+      console.log("PUBLISHED CBT EXAMS:", data);
+      setExams(Array.isArray(data) ? data : data?.data || []);
+    } catch (error) {
+      console.log("CBT LOAD ERROR:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadExams();
+  };
+
+  // Trigger modal when user clicks start
+  function openStartConfirmation(exam: any) {
+    setSelectedExam(exam);
+    setShowConfirmModal(true);
+  }
+
+  // Action after confirming in modal
+  async function confirmAndStartExam() {
+    if (!selectedExam) return;
+
+    const examId = selectedExam.id;
+    setShowConfirmModal(false);
+    setStartingId(examId);
+
+    try {
+      const attempt = await startCBTAttempt(examId);
+      console.log("ATTEMPT:", attempt);
+
+      router.push({
+        pathname: "/student/cbt-exam",
+        params: {
+          attemptId: String(attempt.id || attempt?.data?.id),
+          examId: String(examId),
+        },
+      });
+    } catch (error) {
+      console.log("START ERROR:", error);
+      Alert.alert(
+        "Error",
+        "Could not start the examination. Please try again."
+      );
+    } finally {
+      setStartingId(null);
+      setSelectedExam(null);
+    }
+  }
+
+  function formatDate(date: string) {
+    if (!date) return "N/A";
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "N/A";
+    return d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#2563EB" />
+        <Text style={styles.loadingText}>Loading CBT examinations...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.safeContainer}>
+      {/* ARE YOU READY UX MODAL */}
+      <Modal
+        visible={showConfirmModal}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalBadge}>
+              <Text style={styles.modalBadgeIcon}>✍️</Text>
+            </View>
+
+            <Text style={styles.modalTitle}>Are you ready to start?</Text>
+            <Text style={styles.modalSubtitle}>
+              You are about to begin{" "}
+              <Text style={styles.highlightText}>
+                {selectedExam?.title || "this examination"}
+              </Text>
+              .
+            </Text>
+
+            {/* Exam Quick Specs */}
+            <View style={styles.modalSpecs}>
+              <View style={styles.specItem}>
+                <Text style={styles.specLabel}>Duration</Text>
+                <Text style={styles.specValue}>
+                  {selectedExam?.duration_minutes ?? selectedExam?.durationMinutes ?? 0} mins
+                </Text>
+              </View>
+
+              <View style={styles.specDivider} />
+
+              <View style={styles.specItem}>
+                <Text style={styles.specLabel}>Questions</Text>
+                <Text style={styles.specValue}>
+                  {selectedExam?.total_questions ?? selectedExam?.totalQuestions ?? 0}
+                </Text>
+              </View>
+
+              <View style={styles.specDivider} />
+
+              <View style={styles.specItem}>
+                <Text style={styles.specLabel}>Marks</Text>
+                <Text style={styles.specValue}>
+                  {selectedExam?.total_marks ?? selectedExam?.totalMarks ?? 0} pts
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.warningText}>
+              ⚠️ Once started, the countdown timer will begin immediately.
+            </Text>
+
+            {/* Modal Actions */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={styles.cancelBtn}
+                onPress={() => {
+                  setShowConfirmModal(false);
+                  setSelectedExam(null);
+                }}
+              >
+                <Text style={styles.cancelBtnText}>Not Now</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.confirmBtn}
+                onPress={confirmAndStartExam}
+              >
+                <Text style={styles.confirmBtnText}>Yes, Start Exam</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MAIN SCREEN CONTENT */}
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#2563EB"
+          />
+        }
+      >
+        <View style={styles.header}>
+          <Text style={styles.heading}>CBT Examinations</Text>
+          <Text style={styles.subtitle}>Available online examinations & tests</Text>
+        </View>
+
+        {exams.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyTitle}>No Exams Available</Text>
+            <Text style={styles.emptyText}>
+              Your school has not published any active examinations at the moment.
+            </Text>
+          </View>
+        ) : (
+          exams.map((exam) => {
+            const isStarting = startingId === exam.id;
+            const duration = exam.duration_minutes ?? exam.durationMinutes ?? 0;
+            const questionsCount = exam.total_questions ?? exam.totalQuestions ?? 0;
+            const totalMarks = exam.total_marks ?? exam.totalMarks ?? 0;
+
+            return (
+              <View key={exam.id} style={styles.card}>
+                <View style={styles.topRow}>
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>PUBLISHED</Text>
+                  </View>
+
+                  <Text style={styles.date}>
+                    📅 {formatDate(exam.created_at || exam.startDate)}
+                  </Text>
+                </View>
+
+                <Text style={styles.title}>{exam.title}</Text>
+
+                {exam.description ? (
+                  <Text style={styles.description} numberOfLines={2}>
+                    {exam.description}
+                  </Text>
+                ) : null}
+
+                <View style={styles.infoRow}>
+                  <View style={styles.infoBox}>
+                    <Text style={styles.icon}>⏱</Text>
+                    <Text style={styles.infoText}>{duration} mins</Text>
+                  </View>
+
+                  <View style={styles.infoBox}>
+                    <Text style={styles.icon}>📝</Text>
+                    <Text style={styles.infoText}>{questionsCount} Qs</Text>
+                  </View>
+
+                  <View style={styles.infoBox}>
+                    <Text style={styles.icon}>⭐</Text>
+                    <Text style={styles.infoText}>{totalMarks} Marks</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  disabled={startingId !== null}
+                  style={[styles.button, isStarting && styles.disabledButton]}
+                  onPress={() => openStartConfirmation(exam)}
+                >
+                  {isStarting ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.buttonText}>Start Examination</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            );
+          })
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeContainer: {
+    flex: 1,
+    backgroundColor: "#F1F5F9",
+  },
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 18,
+    paddingBottom: 30,
+  },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
+  },
+  loadingText: {
+    marginTop: 12,
+    color: "#64748B",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  header: {
+    marginBottom: 20,
+  },
+  heading: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#0F172A",
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    marginTop: 4,
+    color: "#64748B",
+    fontSize: 14,
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    elevation: 2,
+  },
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  badge: {
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+  },
+  badgeText: {
+    color: "#166534",
+    fontWeight: "700",
+    fontSize: 11,
+  },
+  date: {
+    color: "#64748B",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  title: {
+    marginTop: 12,
+    fontSize: 19,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  description: {
+    marginTop: 6,
+    color: "#475569",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 16,
+    gap: 8,
+  },
+  infoBox: {
+    backgroundColor: "#F8FAFC",
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+    alignItems: "center",
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+  },
+  icon: {
+    fontSize: 16,
+  },
+  infoText: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#334155",
+    fontWeight: "700",
+  },
+  button: {
+    marginTop: 18,
+    backgroundColor: "#2563EB",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  disabledButton: {
+    opacity: 0.7,
+  },
+  buttonText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 15,
+  },
+  emptyBox: {
+    backgroundColor: "#FFFFFF",
+    padding: 30,
+    borderRadius: 18,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  emptyText: {
+    marginTop: 6,
+    textAlign: "center",
+    color: "#64748B",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+
+  /* MODAL STYLES */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 22,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  modalBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#EFF6FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  modalBadgeIcon: {
+    fontSize: 26,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#0F172A",
+    textAlign: "center",
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: "#64748B",
+    textAlign: "center",
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  highlightText: {
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  modalSpecs: {
+    flexDirection: "row",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    marginVertical: 16,
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+  },
+  specItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  specLabel: {
+    fontSize: 11,
+    color: "#94A3B8",
+    fontWeight: "600",
+  },
+  specValue: {
+    fontSize: 13,
+    color: "#0F172A",
+    fontWeight: "800",
+    marginTop: 2,
+  },
+  specDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: "#E2E8F0",
+  },
+  warningText: {
+    fontSize: 11,
+    color: "#DC2626",
+    textAlign: "center",
+    fontWeight: "600",
+    marginBottom: 18,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+  },
+  cancelBtnText: {
+    color: "#475569",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  confirmBtn: {
+    flex: 1.4,
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: "#2563EB",
+    alignItems: "center",
+  },
+  confirmBtnText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 14,
+  },
+});

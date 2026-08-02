@@ -3,6 +3,24 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
+import {
+  FileText,
+  Plus,
+  Search,
+  RotateCcw,
+  Loader2,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Eye,
+  HelpCircle,
+  Edit,
+  Globe,
+  GlobeOff,
+  Copy,
+  Trash2,
+  ArrowLeft,
+} from "lucide-react";
 
 interface Subject {
   id: string;
@@ -24,29 +42,40 @@ interface Term {
   name: string;
 }
 
-interface Exam {
+// Flexible Record Type for raw exam data coming from backend endpoints
+type RawExamData = Record<string, any>;
+
+export interface Exam {
   id: string;
   title: string;
   description?: string;
-  subjectId: string;
+  subjectId?: string;
   subjectName?: string;
-  classId: string;
+  subject_name?: string;
+  subject_id?: string;
+  classId?: string;
   className?: string;
-  academicSessionId: string;
+  class_name?: string;
+  class_id?: string;
+  academicSessionId?: string;
   academicSessionName?: string;
-  termId: string;
+  termId?: string;
   termName?: string;
-  durationMinutes: number;
-  totalMarks: number;
-  passingScore: number;
-  startDate: string;
-  endDate: string;
-  shuffleQuestions: boolean;
-  showResultImmediately: boolean;
-  isActive: boolean;
+  durationMinutes?: number;
+  duration_minutes?: number;
+  totalMarks?: number;
+  total_marks?: number;
+  passingScore?: number;
+  startDate?: string;
+  endDate?: string;
+  shuffleQuestions?: boolean;
+  showResultImmediately?: boolean;
+  isActive?: boolean;
   status: "Draft" | "Published" | "Closed";
   questionsCount?: number;
-  createdAt: string;
+  total_questions?: number;
+  createdAt?: string;
+  created_at?: string;
 }
 
 interface CreateExamFormData {
@@ -88,7 +117,7 @@ export default function CBTExamsPage() {
   const router = useRouter();
   const schoolId = params?.schoolId as string;
 
-  const [exams, setExams] = useState<Exam[]>([]);
+  const [exams, setExams] = useState<RawExamData[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [sessions, setSessions] = useState<AcademicSession[]>([]);
@@ -103,6 +132,14 @@ export default function CBTExamsPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [formData, setFormData] = useState<CreateExamFormData>(initialFormState);
 
+  const handleBack = () => {
+    if (schoolId) {
+      router.push(`/dashboard/schools/${schoolId}/cbt`);
+    } else {
+      router.back();
+    }
+  };
+
   const fetchMetadata = useCallback(async () => {
     if (!schoolId) return;
     try {
@@ -113,28 +150,22 @@ export default function CBTExamsPage() {
         api.get(`/terms?school_id=${schoolId}`),
       ]);
 
-      // Handle Subjects response
       if (subjectsRes.status === "fulfilled") {
         const raw = subjectsRes.value.data;
-        console.log("Subjects API Payload:", raw);
-
         const list = Array.isArray(raw)
           ? raw
           : raw?.data?.data || raw?.data || raw?.subjects || raw?.results || [];
 
         setSubjects(
-          list.map((item: any) => ({
-            id: item.id || item._id,
+          list.map((item: Record<string, any>) => ({
+            id: String(item.id || item._id),
             name: item.name || item.title || item.subject_name || item.label || "Unnamed Subject",
           }))
         );
       }
 
-      // Handle Classes response
       if (classesRes.status === "fulfilled") {
         const raw = classesRes.value.data;
-        console.log("Classes API Payload:", raw);
-
         const list = Array.isArray(raw)
           ? raw
           : raw?.data?.data ||
@@ -145,8 +176,8 @@ export default function CBTExamsPage() {
             [];
 
         setClasses(
-          list.map((item: any) => ({
-            id: item.id || item._id,
+          list.map((item: Record<string, any>) => ({
+            id: String(item.id || item._id),
             name:
               item.name ??
               item.class_name ??
@@ -158,11 +189,8 @@ export default function CBTExamsPage() {
         );
       }
 
-      // Handle Academic Sessions response
       if (sessionsRes.status === "fulfilled") {
         const raw = sessionsRes.value.data;
-        console.log("Sessions API Payload:", raw);
-
         const list = Array.isArray(raw)
           ? raw
           : raw?.data?.data ||
@@ -173,8 +201,8 @@ export default function CBTExamsPage() {
             [];
 
         setSessions(
-          list.map((item: any) => ({
-            id: item.id || item._id,
+          list.map((item: Record<string, any>) => ({
+            id: String(item.id || item._id),
             name:
               item.name ||
               item.title ||
@@ -186,18 +214,15 @@ export default function CBTExamsPage() {
         );
       }
 
-      // Handle Terms response
       if (termsRes.status === "fulfilled") {
         const raw = termsRes.value.data;
-        console.log("Terms API Payload:", raw);
-
         const list = Array.isArray(raw)
           ? raw
           : raw?.data?.data || raw?.data || raw?.terms || raw?.results || [];
 
         setTerms(
-          list.map((item: any) => ({
-            id: item.id || item._id,
+          list.map((item: Record<string, any>) => ({
+            id: String(item.id || item._id),
             name:
               item.name ||
               item.title ||
@@ -223,10 +248,11 @@ export default function CBTExamsPage() {
         ? response.data
         : response.data?.data || [];
       setExams(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorObj = err as Record<string, any>;
       const msg =
-        err?.response?.data?.message ||
-        err?.message ||
+        errorObj?.response?.data?.message ||
+        errorObj?.message ||
         "Failed to load CBT exams. Please try again.";
       setError(msg);
     } finally {
@@ -319,21 +345,32 @@ export default function CBTExamsPage() {
     setSubmitting(true);
     try {
       const payload = {
-        ...formData,
-        schoolId,
-        durationMinutes: Number(formData.durationMinutes),
-        totalMarks: Number(formData.totalMarks),
-        passingScore: Number(formData.passingScore),
+        title: formData.title,
+        description: formData.description,
+        school_id: Number(schoolId),
+        subject_id: Number(formData.subjectId),
+        class_id: Number(formData.classId),
+        academic_session_id: Number(formData.academicSessionId),
+        term_id: Number(formData.termId),
+        duration_minutes: Number(formData.durationMinutes),
+        total_marks: Number(formData.totalMarks),
+        pass_mark: Number(formData.passingScore),
+        start_date: formData.startDate,
+        end_date: formData.endDate,
+        shuffle_questions: formData.shuffleQuestions,
+        show_result_immediately: formData.showResultImmediately,
+        is_active: formData.isActive,
       };
 
       await api.post(`/cbt/exams`, payload);
       setSuccessMessage("CBT Exam created successfully!");
       setFormData(initialFormState);
       await fetchExams();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorObj = err as Record<string, any>;
       const msg =
-        err?.response?.data?.message ||
-        err?.message ||
+        errorObj?.response?.data?.message ||
+        errorObj?.message ||
         "Failed to create exam. Please check your inputs and try again.";
       setFormError(msg);
     } finally {
@@ -348,11 +385,25 @@ export default function CBTExamsPage() {
   };
 
   const handlePublish = async (examId: string) => {
+
+    const confirmPublish = window.confirm(
+      "Do you want to publish this exam? Students will be able to see it on their portal."
+    );
+
+    if (!confirmPublish) {
+      return;
+    }
+
     try {
       await api.post(`/cbt/exams/${examId}/publish`, {});
+
+      alert("Exam published successfully!");
+
       await fetchExams();
-    } catch (err: any) {
-      alert(err?.response?.data?.message || "Failed to publish exam.");
+
+    } catch (err: unknown) {
+      const errorObj = err as Record<string, any>;
+      alert(errorObj?.response?.data?.message || "Failed to publish exam.");
     }
   };
 
@@ -360,8 +411,9 @@ export default function CBTExamsPage() {
     try {
       await api.post(`/cbt/exams/${examId}/unpublish`, {});
       await fetchExams();
-    } catch (err: any) {
-      alert(err?.response?.data?.message || "Failed to unpublish exam.");
+    } catch (err: unknown) {
+      const errorObj = err as Record<string, any>;
+      alert(errorObj?.response?.data?.message || "Failed to unpublish exam.");
     }
   };
 
@@ -369,8 +421,9 @@ export default function CBTExamsPage() {
     try {
       await api.post(`/cbt/exams/${examId}/duplicate`, {});
       await fetchExams();
-    } catch (err: any) {
-      alert(err?.response?.data?.message || "Failed to duplicate exam.");
+    } catch (err: unknown) {
+      const errorObj = err as Record<string, any>;
+      alert(errorObj?.response?.data?.message || "Failed to duplicate exam.");
     }
   };
 
@@ -379,87 +432,129 @@ export default function CBTExamsPage() {
       return;
     }
     try {
-      await api.post(`/cbt/exams/${examId}/delete`, {});
+      await api.delete(`/cbt/exams/${examId}`);
       await fetchExams();
-    } catch (err: any) {
-      alert(err?.response?.data?.message || "Failed to delete exam.");
+    } catch (err: unknown) {
+      const errorObj = err as Record<string, any>;
+      alert(errorObj?.response?.data?.message || "Failed to delete exam.");
     }
   };
 
   const filteredExams = useMemo(() => {
     if (!searchQuery.trim()) return exams;
     const query = searchQuery.toLowerCase();
-    return exams.filter(
-      (exam) =>
-        exam.title.toLowerCase().includes(query) ||
-        (exam.subjectName && exam.subjectName.toLowerCase().includes(query)) ||
-        (exam.className && exam.className.toLowerCase().includes(query)) ||
-        (exam.status && exam.status.toLowerCase().includes(query))
-    );
+    return exams.filter((exam) => {
+      const title = String(exam.title || "").toLowerCase();
+      const subject = String(exam.subjectName || exam.subject_name || "").toLowerCase();
+      const className = String(exam.className || exam.class_name || "").toLowerCase();
+      const status = exam.is_active ? "published" : "draft";
+
+      return (
+        title.includes(query) ||
+        subject.includes(query) ||
+        className.includes(query) ||
+        status.includes(query)
+      );
+    });
   }, [exams, searchQuery]);
 
-  const renderStatusBadge = (status: Exam["status"]) => {
+  const renderStatusBadge = (status: string) => {
     switch (status) {
       case "Published":
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
             Published
           </span>
         );
       case "Closed":
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/80">
+            <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
             Closed
           </span>
         );
       case "Draft":
       default:
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/80">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
             Draft
           </span>
         );
     }
   };
 
+  const inputStyles =
+    "w-full px-3.5 py-2.5 bg-slate-50/80 border border-slate-200 rounded-xl text-sm font-normal text-slate-900 placeholder-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all shadow-sm";
+  const labelStyles = "block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5";
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-4 md:p-8 transition-colors duration-200">
+    <div className="min-h-screen bg-slate-50/60 text-slate-800 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-gray-200 dark:border-gray-800 pb-5">
+        {/* Header Banner */}
+        <div className="flex flex-col gap-4 pb-6 border-b border-slate-200/80">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-              CBT Exams
-            </h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Manage, configure, and issue Computer Based Tests for your school.
-            </p>
+            <button
+              onClick={handleBack}
+              type="button"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-indigo-600 bg-white hover:bg-slate-100/80 border border-slate-200/80 rounded-xl transition shadow-sm w-fit"
+            >
+              <ArrowLeft size={16} />
+              <span>Back to Hub</span>
+            </button>
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-100">
+                  <FileText size={22} />
+                </div>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                  CBT Exams Management
+                </h1>
+              </div>
+              <p className="mt-1.5 text-sm text-slate-500 max-w-2xl">
+                Configure, schedule, and oversee Computer Based Tests across subject modules and academic terms.
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Create Exam Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-700 pb-3">
-            Create New Exam
-          </h2>
+        {/* Create Exam Form Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 md:p-8">
+          <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-100">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Plus size={18} className="text-indigo-600" />
+                Create New Assessment
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Fill in the details below to create a draft exam setup.
+              </p>
+            </div>
+          </div>
 
           {formError && (
-            <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400 text-sm">
-              {formError}
+            <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-2.5">
+              <AlertCircle size={18} className="shrink-0" />
+              <span>{formError}</span>
             </div>
           )}
 
           {successMessage && (
-            <div className="mb-6 p-4 rounded-lg bg-green-50 border border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400 text-sm">
-              {successMessage}
+            <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm flex items-center gap-2.5">
+              <CheckCircle2 size={18} className="shrink-0" />
+              <span>{successMessage}</span>
             </div>
           )}
 
           <form onSubmit={handleCreateExam} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               <div className="lg:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Exam Title <span className="text-red-500">*</span>
+                <label className={labelStyles}>
+                  Exam Title <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -467,20 +562,20 @@ export default function CBTExamsPage() {
                   value={formData.title}
                   onChange={handleInputChange}
                   placeholder="e.g. Mid-Term Mathematics Assessment"
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  className={inputStyles}
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Subject <span className="text-red-500">*</span>
+                <label className={labelStyles}>
+                  Subject <span className="text-rose-500">*</span>
                 </label>
                 <select
                   name="subjectId"
                   value={formData.subjectId}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  className={inputStyles}
                   required
                 >
                   <option value="">Select Subject</option>
@@ -493,14 +588,14 @@ export default function CBTExamsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Class <span className="text-red-500">*</span>
+                <label className={labelStyles}>
+                  Class <span className="text-rose-500">*</span>
                 </label>
                 <select
                   name="classId"
                   value={formData.classId}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  className={inputStyles}
                   required
                 >
                   <option value="">Select Class</option>
@@ -513,14 +608,14 @@ export default function CBTExamsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Academic Session <span className="text-red-500">*</span>
+                <label className={labelStyles}>
+                  Academic Session <span className="text-rose-500">*</span>
                 </label>
                 <select
                   name="academicSessionId"
                   value={formData.academicSessionId}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  className={inputStyles}
                   required
                 >
                   <option value="">Select Session</option>
@@ -533,14 +628,14 @@ export default function CBTExamsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Term <span className="text-red-500">*</span>
+                <label className={labelStyles}>
+                  Term <span className="text-rose-500">*</span>
                 </label>
                 <select
                   name="termId"
                   value={formData.termId}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  className={inputStyles}
                   required
                 >
                   <option value="">Select Term</option>
@@ -553,8 +648,8 @@ export default function CBTExamsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Duration (Minutes) <span className="text-red-500">*</span>
+                <label className={labelStyles}>
+                  Duration (Minutes) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -562,14 +657,14 @@ export default function CBTExamsPage() {
                   value={formData.durationMinutes}
                   onChange={handleInputChange}
                   min="1"
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  className={inputStyles}
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Total Marks <span className="text-red-500">*</span>
+                <label className={labelStyles}>
+                  Total Marks <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -577,14 +672,14 @@ export default function CBTExamsPage() {
                   value={formData.totalMarks}
                   onChange={handleInputChange}
                   min="1"
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  className={inputStyles}
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Passing Score <span className="text-red-500">*</span>
+                <label className={labelStyles}>
+                  Passing Score <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -592,320 +687,279 @@ export default function CBTExamsPage() {
                   value={formData.passingScore}
                   onChange={handleInputChange}
                   min="0"
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  className={inputStyles}
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Start Date & Time <span className="text-red-500">*</span>
+                <label className={labelStyles}>
+                  Start Date & Time <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="datetime-local"
                   name="startDate"
                   value={formData.startDate}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  className={inputStyles}
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  End Date & Time <span className="text-red-500">*</span>
+                <label className={labelStyles}>
+                  End Date & Time <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="datetime-local"
                   name="endDate"
                   value={formData.endDate}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  className={inputStyles}
                   required
                 />
               </div>
 
               <div className="lg:col-span-3">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Description
-                </label>
+                <label className={labelStyles}>Description</label>
                 <textarea
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
-                  rows={3}
-                  placeholder="Provide brief instructions or details about the exam..."
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  rows={2}
+                  placeholder="Provide brief instructions or guidelines for candidates..."
+                  className={inputStyles}
                 />
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-6 pt-2">
-              <label className="inline-flex items-center space-x-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+            {/* Checkbox Toggles */}
+            <div className="flex flex-wrap items-center gap-6 p-4 rounded-xl bg-slate-50/70 border border-slate-200/60">
+              <label className="inline-flex items-center space-x-2.5 cursor-pointer text-sm font-medium text-slate-700 hover:text-slate-900 transition">
                 <input
                   type="checkbox"
                   name="shuffleQuestions"
                   checked={formData.shuffleQuestions}
                   onChange={handleInputChange}
-                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900"
+                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 transition"
                 />
                 <span>Shuffle Questions</span>
               </label>
 
-              <label className="inline-flex items-center space-x-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+              <label className="inline-flex items-center space-x-2.5 cursor-pointer text-sm font-medium text-slate-700 hover:text-slate-900 transition">
                 <input
                   type="checkbox"
                   name="showResultImmediately"
                   checked={formData.showResultImmediately}
                   onChange={handleInputChange}
-                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900"
+                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 transition"
                 />
                 <span>Show Result Immediately</span>
               </label>
 
-              <label className="inline-flex items-center space-x-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+              <label className="inline-flex items-center space-x-2.5 cursor-pointer text-sm font-medium text-slate-700 hover:text-slate-900 transition">
                 <input
                   type="checkbox"
                   name="isActive"
                   checked={formData.isActive}
                   onChange={handleInputChange}
-                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900"
+                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 transition"
                 />
-                <span>Active</span>
+                <span>Active Status</span>
               </label>
             </div>
 
-            <div className="flex items-center justify-end space-x-4 border-t border-gray-100 dark:border-gray-700 pt-4">
+            {/* Form Actions */}
+            <div className="flex items-center justify-end space-x-3 pt-2">
               <button
                 type="button"
                 onClick={handleResetForm}
                 disabled={submitting}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition disabled:opacity-50"
               >
+                <RotateCcw size={15} />
                 Reset
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition disabled:opacity-50 flex items-center space-x-2"
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50 shadow-sm"
               >
                 {submitting ? (
                   <>
-                    <svg
-                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
+                    <Loader2 size={16} className="animate-spin" />
                     <span>Creating...</span>
                   </>
                 ) : (
-                  <span>Create Exam</span>
+                  <>
+                    <Plus size={16} />
+                    <span>Create Exam</span>
+                  </>
                 )}
               </button>
             </div>
           </form>
         </div>
 
-        {/* Exams Table Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Existing Exams
-            </h2>
+        {/* Table Section */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Exams Repository</h2>
+              <p className="text-xs text-slate-500">View and manage existing examinations</p>
+            </div>
 
             <div className="relative w-full sm:w-72">
+              <Search size={16} className="text-slate-400 absolute left-3 top-3" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search exams..."
-                className="w-full pl-9 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                placeholder="Search by title, subject..."
+                className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-indigo-500 outline-none transition"
               />
-              <svg
-                className="w-4 h-4 text-gray-400 absolute left-3 top-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
             </div>
           </div>
 
           {loading ? (
-            <div className="p-6 space-y-4">
-              {[1, 2, 3, 4, 5].map((idx) => (
-                <div key={idx} className="animate-pulse flex items-center space-x-4">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/6"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/6"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/12"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/12"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/12"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/6"></div>
-                </div>
-              ))}
+            <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-2 text-sm">
+              <Loader2 size={18} className="animate-spin text-indigo-600" />
+              Loading exams database...
             </div>
           ) : error ? (
             <div className="p-8 text-center">
-              <p className="text-gray-800 dark:text-gray-200 font-medium mb-2">{error}</p>
+              <p className="text-slate-700 font-medium text-sm mb-3">{error}</p>
               <button
                 onClick={fetchExams}
-                className="mt-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 text-xs font-semibold rounded-lg transition"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition"
               >
-                Retry Loading
+                Retry
               </button>
             </div>
           ) : filteredExams.length === 0 ? (
             <div className="p-12 text-center">
-              <svg
-                className="mx-auto h-12 w-12 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.5"
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-                No CBT Exams Found
-              </h3>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              <FileText className="mx-auto h-10 w-10 text-slate-300" />
+              <h3 className="mt-3 text-sm font-semibold text-slate-900">No CBT Exams Found</h3>
+              <p className="mt-1 text-xs text-slate-500">
                 {searchQuery
-                  ? "No exams matched your search criteria."
-                  : "Get started by creating a new CBT exam using the form above."}
+                  ? "No matches found for your query."
+                  : "Get started by creating a new exam above."}
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    <th className="py-3 px-4 font-semibold">Title</th>
-                    <th className="py-3 px-4 font-semibold">Subject</th>
-                    <th className="py-3 px-4 font-semibold">Class</th>
-                    <th className="py-3 px-4 font-semibold">Duration</th>
-                    <th className="py-3 px-4 font-semibold">Questions</th>
-                    <th className="py-3 px-4 font-semibold">Total Marks</th>
-                    <th className="py-3 px-4 font-semibold">Status</th>
-                    <th className="py-3 px-4 font-semibold">Created Date</th>
-                    <th className="py-3 px-4 font-semibold text-right">Actions</th>
+                  <tr className="bg-slate-50/80 border-b border-slate-200 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+                    <th className="py-3 px-4">Title</th>
+                    <th className="py-3 px-4">Subject</th>
+                    <th className="py-3 px-4">Class</th>
+                    <th className="py-3 px-4">Duration</th>
+                    <th className="py-3 px-4">Questions</th>
+                    <th className="py-3 px-4">Total Marks</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4">Created</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-                  {filteredExams.map((exam) => (
-                    <tr
-                      key={exam.id}
-                      className="hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors"
-                    >
-                      <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">
-                        {exam.title}
-                      </td>
-                      <td className="py-3 px-4 text-gray-600 dark:text-gray-300">
-                        {exam.subjectName || exam.subjectId || "-"}
-                      </td>
-                      <td className="py-3 px-4 text-gray-600 dark:text-gray-300">
-                        {exam.className || exam.classId || "-"}
-                      </td>
-                      <td className="py-3 px-4 text-gray-600 dark:text-gray-300">
-                        {exam.durationMinutes} mins
-                      </td>
-                      <td className="py-3 px-4 text-gray-600 dark:text-gray-300">
-                        {exam.questionsCount ?? 0}
-                      </td>
-                      <td className="py-3 px-4 text-gray-600 dark:text-gray-300">
-                        {exam.totalMarks}
-                      </td>
-                      <td className="py-3 px-4">{renderStatusBadge(exam.status)}</td>
-                      <td className="py-3 px-4 text-gray-500 dark:text-gray-400 text-xs">
-                        {new Date(exam.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end space-x-2">
-                          <button
-                            onClick={() =>
-                              router.push(
-                                `/dashboard/schools/${schoolId}/cbt/exams/${exam.id}`
-                              )
-                            }
-                            className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() =>
-                              router.push(
-                                `/dashboard/schools/${schoolId}/cbt/exams/${exam.id}/questions`
-                              )
-                            }
-                            className="px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium"
-                          >
-                            Questions
-                          </button>
-                          <button
-                            onClick={() =>
-                              router.push(
-                                `/dashboard/schools/${schoolId}/cbt/exams/${exam.id}/edit`
-                              )
-                            }
-                            className="px-2 py-1 text-xs text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white font-medium"
-                          >
-                            Edit
-                          </button>
-                          {exam.status === "Published" ? (
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {filteredExams.map((exam) => {
+                    const examId = String(exam.id || "");
+                    const subjectDisplay =
+                      exam.subjectName || exam.subject_name || exam.subjectId || exam.subject_id || "-";
+                    const classDisplay =
+                      exam.className || exam.class_name || exam.classId || exam.class_id || "-";
+                    const durationDisplay = exam.durationMinutes || exam.duration_minutes || 0;
+                    const questionsDisplay = exam.questionsCount ?? exam.total_questions ?? 0;
+                    const totalMarksDisplay = exam.totalMarks ?? exam.total_marks ?? "-";
+                    const createdDateRaw = exam.createdAt || exam.created_at;
+
+                    return (
+                      <tr key={examId} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3.5 px-4 font-semibold text-slate-900">
+                          {exam.title || "Untitled Exam"}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600">{subjectDisplay}</td>
+                        <td className="py-3.5 px-4 text-slate-600">{classDisplay}</td>
+                        <td className="py-3.5 px-4 text-slate-600">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock size={13} className="text-slate-400" />
+                            {durationDisplay}m
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600 font-medium">
+                          {questionsDisplay}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600">{totalMarksDisplay}</td>
+                        <td className="py-3.5 px-4">{renderStatusBadge(exam.is_active ? "Published" : "Draft")}</td>
+                        <td className="py-3.5 px-4 text-slate-400 text-xs">
+                          {createdDateRaw ? new Date(createdDateRaw).toLocaleDateString() : "-"}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
                             <button
-                              onClick={() => handleUnpublish(exam.id)}
-                              className="px-2 py-1 text-xs text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 font-medium"
+                              title="View Exam"
+                              onClick={() =>
+                                router.push(`/dashboard/schools/${schoolId}/cbt/exams/${examId}`)
+                              }
+                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition"
                             >
-                              Unpublish
+                              <Eye size={15} />
                             </button>
-                          ) : (
                             <button
-                              onClick={() => handlePublish(exam.id)}
-                              className="px-2 py-1 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 font-medium"
+                              title="Manage Questions"
+                              onClick={() =>
+                                router.push(`/dashboard/schools/${schoolId}/cbt/questions?examId=${examId}`)
+                              }
+                              className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition"
                             >
-                              Publish
+                              <HelpCircle size={15} />
                             </button>
-                          )}
-                          <button
-                            onClick={() => handleDuplicate(exam.id)}
-                            className="px-2 py-1 text-xs text-teal-600 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300 font-medium"
-                          >
-                            Duplicate
-                          </button>
-                          <button
-                            onClick={() => handleDelete(exam.id)}
-                            className="px-2 py-1 text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            <button
+                              title="Edit Exam"
+                              onClick={() =>
+                                router.push(`/dashboard/schools/${schoolId}/cbt/exams/${examId}/edit`)
+                              }
+                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
+                            >
+                              <Edit size={15} />
+                            </button>
+                            {exam.is_active ? (
+                              <button
+                                title="Unpublish Exam"
+                                onClick={() => handleUnpublish(examId)}
+                                className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                              >
+                                <GlobeOff size={15} />
+                              </button>
+                            ) : (
+                              <button
+                                title="Publish Exam"
+                                onClick={() => handlePublish(examId)}
+                                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                              >
+                                <Globe size={15} />
+                              </button>
+                            )}
+                            <button
+                              title="Duplicate"
+                              onClick={() => handleDuplicate(examId)}
+                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
+                            >
+                              <Copy size={15} />
+                            </button>
+                            <button
+                              title="Delete"
+                              onClick={() => handleDelete(examId)}
+                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

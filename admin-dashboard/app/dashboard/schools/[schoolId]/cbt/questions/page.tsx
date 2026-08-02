@@ -123,7 +123,26 @@ export default function CBTQuestionsPage() {
       const data = Array.isArray(response.data)
         ? response.data
         : response.data?.data || [];
-      setQuestions(data);
+
+      setQuestions(
+        data.map((q: any) => ({
+          id: String(q.id),
+          examId: String(q.exam_id),
+          questionText: q.question ?? "",
+          optionA: q.option_a ?? "",
+          optionB: q.option_b ?? "",
+          optionC: q.option_c ?? "",
+          optionD: q.option_d ?? "",
+          correctAnswer: q.correct_answer ?? "A",
+          marks: Number(q.marks ?? 1),
+          explanation: q.explanation ?? "",
+          difficulty: q.difficulty ?? "Medium",
+          imageUrl: q.image_url ?? "",
+          audioUrl: q.audio_url ?? "",
+          videoUrl: q.video_url ?? "",
+          createdAt: q.created_at ?? "",
+        }))
+      );
     } catch (err: any) {
       const msg =
         err?.response?.data?.message ||
@@ -164,16 +183,37 @@ export default function CBTQuestionsPage() {
     setFormData((prev) => ({ ...prev, examId: id }));
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, fieldName: "imageUrl" | "audioUrl") => {
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    fieldName: "imageUrl" | "audioUrl"
+) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData((prev) => ({ ...prev, [fieldName]: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    const form = new FormData();
+    form.append("file", file);
+
+    const endpoint =
+        fieldName === "imageUrl"
+            ? "/cbt/upload/image"
+            : "/cbt/upload/audio";
+
+    try {
+        const res = await api.post(endpoint, form, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+
+        setFormData((prev) => ({
+            ...prev,
+            [fieldName]: res.data.url,
+        }));
+    } catch (err) {
+        console.error(err);
+        alert("File upload failed.");
     }
-  };
+};
 
   const validateForm = (): boolean => {
     if (!formData.examId) {
@@ -219,8 +259,19 @@ export default function CBTQuestionsPage() {
     setSubmitting(true);
     try {
       const payload = {
-        ...formData,
+        exam_id: Number(formData.examId),
+        question: formData.questionText,
+        option_a: formData.optionA,
+        option_b: formData.optionB,
+        option_c: formData.optionC,
+        option_d: formData.optionD,
+        option_e: null,
+        correct_answer: formData.correctAnswer,
+        explanation: formData.explanation || null,
         marks: Number(formData.marks),
+        image_url: formData.imageUrl || null,
+        audio_url: formData.audioUrl || null,
+        video_url: formData.videoUrl || null,
       };
 
       if (editingQuestionId) {
@@ -258,19 +309,19 @@ export default function CBTQuestionsPage() {
   const handleEdit = (q: Question) => {
     setEditingQuestionId(q.id);
     setFormData({
-      examId: q.examId,
-      questionText: q.questionText,
-      optionA: q.optionA,
-      optionB: q.optionB,
-      optionC: q.optionC,
-      optionD: q.optionD,
-      correctAnswer: q.correctAnswer,
-      marks: q.marks,
-      explanation: q.explanation || "",
-      difficulty: q.difficulty,
-      imageUrl: q.imageUrl || "",
-      audioUrl: q.audioUrl || "",
-      videoUrl: q.videoUrl || "",
+      examId: q.examId ?? "",
+      questionText: q.questionText ?? "",
+      optionA: q.optionA ?? "",
+      optionB: q.optionB ?? "",
+      optionC: q.optionC ?? "",
+      optionD: q.optionD ?? "",
+      correctAnswer: q.correctAnswer ?? "A",
+      marks: q.marks ?? 1,
+      explanation: q.explanation ?? "",
+      difficulty: q.difficulty ?? "Medium",
+      imageUrl: q.imageUrl ?? "",
+      audioUrl: q.audioUrl ?? "",
+      videoUrl: q.videoUrl ?? "",
     });
     setFormError(null);
     setSuccessMessage(null);
@@ -291,22 +342,7 @@ export default function CBTQuestionsPage() {
 
   const handleDuplicate = async (q: Question) => {
     try {
-      const payload = {
-        examId: q.examId,
-        questionText: `${q.questionText} (Copy)`,
-        optionA: q.optionA,
-        optionB: q.optionB,
-        optionC: q.optionC,
-        optionD: q.optionD,
-        correctAnswer: q.correctAnswer,
-        marks: q.marks,
-        explanation: q.explanation,
-        difficulty: q.difficulty,
-        imageUrl: q.imageUrl,
-        audioUrl: q.audioUrl,
-        videoUrl: q.videoUrl,
-      };
-      await api.post(`/cbt/questions`, payload);
+      await api.post(`/cbt/questions/${q.id}/duplicate`);
       if (selectedExamId) {
         await fetchQuestions(selectedExamId);
       }
@@ -316,7 +352,15 @@ export default function CBTQuestionsPage() {
   };
 
   const openPreview = (item: QuestionFormData | Question) => {
-    setPreviewQuestion(item);
+    setPreviewQuestion({
+      ...item,
+      questionText: (item as any).questionText ?? (item as any).question ?? "",
+      optionA: (item as any).optionA ?? (item as any).option_a ?? "",
+      optionB: (item as any).optionB ?? (item as any).option_b ?? "",
+      optionC: (item as any).optionC ?? (item as any).option_c ?? "",
+      optionD: (item as any).optionD ?? (item as any).option_d ?? "",
+      correctAnswer: (item as any).correctAnswer ?? (item as any).correct_answer ?? "A",
+    });
     setShowPreviewModal(true);
   };
 
@@ -821,7 +865,7 @@ export default function CBTQuestionsPage() {
             <h3 className="text-lg font-bold border-b border-gray-100 dark:border-gray-700 pb-2">
               Question Preview
             </h3>
-            <p className="text-sm font-medium">{previewQuestion.questionText}</p>
+            <p className="text-sm font-medium">{(previewQuestion as any).questionText}</p>
 
             <div className="space-y-2 text-sm">
               <div
@@ -831,7 +875,7 @@ export default function CBTQuestionsPage() {
                     : "border-gray-200 dark:border-gray-700"
                 }`}
               >
-                A. {previewQuestion.optionA}
+                A. {(previewQuestion as any).optionA}
               </div>
               <div
                 className={`p-2 rounded border ${
@@ -840,7 +884,7 @@ export default function CBTQuestionsPage() {
                     : "border-gray-200 dark:border-gray-700"
                 }`}
               >
-                B. {previewQuestion.optionB}
+                B. {(previewQuestion as any).optionB}
               </div>
               <div
                 className={`p-2 rounded border ${
@@ -849,7 +893,7 @@ export default function CBTQuestionsPage() {
                     : "border-gray-200 dark:border-gray-700"
                 }`}
               >
-                C. {previewQuestion.optionC}
+                C. {(previewQuestion as any).optionC}
               </div>
               <div
                 className={`p-2 rounded border ${
@@ -858,7 +902,7 @@ export default function CBTQuestionsPage() {
                     : "border-gray-200 dark:border-gray-700"
                 }`}
               >
-                D. {previewQuestion.optionD}
+                D. {(previewQuestion as any).optionD}
               </div>
             </div>
 

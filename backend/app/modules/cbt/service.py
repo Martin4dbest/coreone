@@ -139,9 +139,14 @@ class CBTService:
         if current_user.role.name != "SUPER_ADMIN":
             school_id = current_user.school_id
 
-        return await self.repository.list_exams(
+        exams = await self.repository.list_exams(
             school_id
         )
+
+        for exam in exams:
+            exam.status = "Published" if exam.is_active else "Draft"
+
+        return exams
 
     async def get_exam(
         self,
@@ -414,4 +419,85 @@ class CBTService:
             )
 
         await self.repository.db.commit()
+
+
+    async def update_exam(
+        self,
+        exam_id: int,
+        payload,
+        current_user,
+    ):
+        exam = await self.get_exam(
+            exam_id,
+            current_user,
+        )
+
+        data = payload.model_dump(exclude_unset=True)
+
+        for key, value in data.items():
+            setattr(exam, key, value)
+
+        return await self.repository.update_exam(
+            exam
+        )
+
+    async def delete_exam(
+        self,
+        exam_id: int,
+        current_user,
+    ):
+        exam = await self.get_exam(
+            exam_id,
+            current_user,
+        )
+
+        await self.repository.delete_exam(
+            exam
+        )
+
+        return {
+            "success": True,
+            "message": "Exam deleted successfully",
+        }
+
+    async def duplicate_exam(
+        self,
+        exam_id: int,
+        current_user,
+    ):
+        exam = await self.get_exam(
+            exam_id,
+            current_user,
+        )
+
+        exam.title = f"{exam.title} (Copy)"
+
+        return await self.repository.duplicate_exam(
+            exam
+        )
+
+
+    async def publish_exam(
+        self,
+        exam_id: int,
+        current_user,
+    ):
+        exam = await self.get_exam(exam_id, current_user)
+
+        exam.status = "Published"
+        exam.is_active = True
+
+        return await self.repository.update_exam(exam)
+
+    async def unpublish_exam(
+        self,
+        exam_id: int,
+        current_user,
+    ):
+        exam = await self.get_exam(exam_id, current_user)
+
+        exam.status = "Draft"
+        exam.is_active = False
+
+        return await self.repository.update_exam(exam)
 

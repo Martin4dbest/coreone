@@ -2,11 +2,13 @@
 
 import { FormEvent, use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   CalendarDays,
   Loader2,
   Plus,
+  RefreshCw,
   X,
 } from "lucide-react";
 
@@ -25,9 +27,11 @@ export default function AcademicSessionsPage({
   params: Promise<{ schoolId: string }>;
 }) {
   const { schoolId } = use(params);
+  const router = useRouter();
 
   const [sessions, setSessions] = useState<AcademicSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [changingSessionId, setChangingSessionId] = useState<number | null>(
     null
@@ -37,9 +41,13 @@ export default function AcademicSessionsPage({
   const [isCurrent, setIsCurrent] = useState(false);
   const [error, setError] = useState("");
 
-  const loadSessions = useCallback(async () => {
+  const loadSessions = useCallback(async (isManualRefresh = false) => {
     try {
-      setLoading(true);
+      if (isManualRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError("");
 
       const response = await api.get("/academic-sessions", {
@@ -52,6 +60,7 @@ export default function AcademicSessionsPage({
       setError("Unable to load academic sessions.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [schoolId]);
 
@@ -76,7 +85,11 @@ export default function AcademicSessionsPage({
       setIsCurrent(false);
       setShowForm(false);
 
+      // 1. Fetch latest sessions list for this component
       await loadSessions();
+
+      // 2. Refresh Next.js layout & server data automatically across the app
+      router.refresh();
     } catch (err) {
       console.error("Failed to create academic session:", err);
       setError("Unable to create academic session.");
@@ -94,7 +107,9 @@ export default function AcademicSessionsPage({
         `/academic-sessions/${sessionId}/make-current`
       );
 
+      // Re-sync local state & trigger Next.js refresh
       await loadSessions();
+      router.refresh();
     } catch (err) {
       console.error(
         "Failed to make academic session current:",
@@ -196,9 +211,24 @@ export default function AcademicSessionsPage({
       )}
 
       <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900">
-          School Sessions
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-slate-900">
+            School Sessions
+          </h2>
+
+          <button
+            type="button"
+            onClick={() => loadSessions(true)}
+            disabled={loading || refreshing}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            <RefreshCw
+              size={14}
+              className={refreshing ? "animate-spin text-rose-500" : ""}
+            />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
 
         {loading ? (
           <div className="flex items-center gap-3 py-10 text-sm text-slate-500">

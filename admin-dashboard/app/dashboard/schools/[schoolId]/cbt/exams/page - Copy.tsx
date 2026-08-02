@@ -826,7 +826,7 @@ export default function CBTExamsPage() {
                           <button
                             onClick={() =>
                               router.push(
-                                `/dashboard/schools/${schoolId}/cbt/exams/${exam.id}/questions`
+                                `/dashboard/schools/${schoolId}/cbt/questions?examId=${exam.id}`
                               )
                             }
                             className="px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium"

@@ -21,7 +21,9 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),
 ):
 
+    print("TOKEN:", token[:30] + "..." if token else None)
     payload = decode_access_token(token)
+    print("PAYLOAD:", payload)
 
     if not payload:
         raise HTTPException(
@@ -53,6 +55,7 @@ async def get_current_user(
 
 
     user = result.scalar_one_or_none()
+    print("USER:", user)
 
 
     if not user:

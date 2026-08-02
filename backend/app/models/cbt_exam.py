@@ -61,6 +61,35 @@ class CBTExam(
         default=50,
     )
 
+    pass_mark: Mapped[int] = mapped_column(
+        Integer,
+        default=50,
+    )
+
+    randomize_questions: Mapped[bool] = mapped_column(
+        default=True,
+    )
+
+    randomize_options: Mapped[bool] = mapped_column(
+        default=True,
+    )
+
+    allow_resume: Mapped[bool] = mapped_column(
+        default=True,
+    )
+
+    show_result_immediately: Mapped[bool] = mapped_column(
+        default=False,
+    )
+
+    negative_marking: Mapped[bool] = mapped_column(
+        default=False,
+    )
+
+    negative_mark: Mapped[float] = mapped_column(
+        default=0.0,
+    )
+
     source_type: Mapped[QuestionSource] = mapped_column(
         SQLEnum(QuestionSource),
         default=QuestionSource.INTERNAL,
@@ -85,3 +114,13 @@ class CBTExam(
     created_by: Mapped[int] = mapped_column()
 
     school = relationship("School")
+
+    subject = relationship("Subject")
+
+    classroom = relationship("Classroom")
+
+    questions = relationship(
+        "CBTQuestion",
+        back_populates="exam",
+        cascade="all, delete-orphan",
+    )

@@ -29,21 +29,30 @@ class CBTExamResponse(BaseModel):
     school_id: int
     title: str
     description: str | None = None
+
     subject_id: int
     class_id: int | None
+
     duration_minutes: int
+    total_questions: int
     total_marks: int
     pass_mark: int
+
     randomize_questions: bool
     randomize_options: bool
     allow_resume: bool
     show_result_immediately: bool
+
     negative_marking: bool
     negative_mark: float
+
     is_active: bool
+
+    created_at: datetime
 
     class Config:
         from_attributes = True
+
 
 
 # =====================================================
@@ -99,7 +108,6 @@ class CBTQuestionResponse(BaseModel):
 
 class CBTAttemptCreateRequest(BaseModel):
     exam_id: int
-    student_id: int
 
 
 class CBTAttemptResponse(BaseModel):
@@ -107,14 +115,12 @@ class CBTAttemptResponse(BaseModel):
     exam_id: int
     student_id: int
 
-    score: float
+    score: int
+    total_marks: int
 
-    percentage: float
-
-    submitted: bool
+    completed: bool
 
     started_at: datetime | None
-
     submitted_at: datetime | None
 
     class Config:
