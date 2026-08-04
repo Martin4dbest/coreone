@@ -10,6 +10,52 @@ from app.models.cbt_answer import CBTAnswer
 
 class CBTRepository:
 
+
+    async def clear_results(
+        self,
+        school_id: int,
+    ):
+        from sqlalchemy import delete
+        from app.models.cbt_attempt import CBTAttempt
+        from app.models.cbt_answer import CBTAnswer
+        from app.models.cbt_exam import CBTExam
+
+        exam_ids = (
+            await self.db.execute(
+                select(CBTExam.id).where(
+                    CBTExam.school_id == school_id
+                )
+            )
+        ).scalars().all()
+
+        if not exam_ids:
+            return 0
+
+        attempt_ids = (
+            await self.db.execute(
+                select(CBTAttempt.id).where(
+                    CBTAttempt.exam_id.in_(exam_ids)
+                )
+            )
+        ).scalars().all()
+
+        if attempt_ids:
+            await self.db.execute(
+                delete(CBTAnswer).where(
+                    CBTAnswer.attempt_id.in_(attempt_ids)
+                )
+            )
+
+        result = await self.db.execute(
+            delete(CBTAttempt).where(
+                CBTAttempt.exam_id.in_(exam_ids)
+            )
+        )
+
+        await self.db.commit()
+
+        return result.rowcount
+
     def __init__(
         self,
         db: AsyncSession,

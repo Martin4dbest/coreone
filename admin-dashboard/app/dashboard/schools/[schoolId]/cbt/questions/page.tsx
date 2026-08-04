@@ -19,7 +19,7 @@ interface Question {
   optionB: string;
   optionC: string;
   optionD: string;
-  correctAnswer: "A" | "B" | "C" | "D";
+  correctAnswer: "A" | "B" | "C" | "D" | "";
   marks: number;
   explanation?: string;
   difficulty: "Easy" | "Medium" | "Hard";
@@ -36,7 +36,7 @@ interface QuestionFormData {
   optionB: string;
   optionC: string;
   optionD: string;
-  correctAnswer: "A" | "B" | "C" | "D";
+  correctAnswer: "A" | "B" | "C" | "D" | "";
   marks: number | "";
   explanation: string;
   difficulty: "Easy" | "Medium" | "Hard";
@@ -61,9 +61,52 @@ const initialFormState: QuestionFormData = {
   videoUrl: "",
 };
 
+/**
+ * Normalizes any backend answer representation into "A", "B", "C", or "D".
+ * Cross-references text value against option choices if necessary.
+ */
+const normalizeCorrectAnswer = (
+  raw: any,
+  options?: { optionA?: string; optionB?: string; optionC?: string; optionD?: string }
+): "A" | "B" | "C" | "D" | "" => {
+  if (raw === undefined || raw === null || raw === "") return "";
+
+  const str = String(raw).trim();
+  const upper = str.toUpperCase();
+
+  // 1. Direct letter match: "A", "B", "C", "D"
+  if (["A", "B", "C", "D"].includes(upper)) {
+    return upper as "A" | "B" | "C" | "D";
+  }
+
+  // 2. Format like "OPTION_A", "OPTION A", "OPTIONA"
+  if (/\bOPTION[_\s]?A\b/i.test(str) || upper === "OPTIONA") return "A";
+  if (/\bOPTION[_\s]?B\b/i.test(str) || upper === "OPTIONB") return "B";
+  if (/\bOPTION[_\s]?C\b/i.test(str) || upper === "OPTIONC") return "C";
+  if (/\bOPTION[_\s]?D\b/i.test(str) || upper === "OPTIOND") return "D";
+
+  // 3. Numeric Index Checks (Supports 0-based [0,1,2,3] and 1-based [1,2,3,4])
+  if (str === "0") return "A";
+  if (str === "1") return "B";
+  if (str === "2") return "C";
+  if (str === "3") return "D";
+  if (str === "4") return "D";
+
+  // 4. Match against option text values directly (e.g. raw = "y", optionA = "y")
+  if (options) {
+    const cleanStr = str.toLowerCase();
+    if (options.optionA && options.optionA.toString().trim().toLowerCase() === cleanStr) return "A";
+    if (options.optionB && options.optionB.toString().trim().toLowerCase() === cleanStr) return "B";
+    if (options.optionC && options.optionC.toString().trim().toLowerCase() === cleanStr) return "C";
+    if (options.optionD && options.optionD.toString().trim().toLowerCase() === cleanStr) return "D";
+  }
+
+  return "";
+};
+
 export default function CBTQuestionsPage() {
   const params = useParams();
-  const schoolId = params?.schoolId as string;
+  const schoolId = params?.schoolId as string | undefined;
 
   const [exams, setExams] = useState<Exam[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -124,24 +167,50 @@ export default function CBTQuestionsPage() {
         ? response.data
         : response.data?.data || [];
 
+      // Debug log to inspect response keys
+      console.log("Fetched Questions Raw Data:", data);
+
       setQuestions(
-        data.map((q: any) => ({
-          id: String(q.id),
-          examId: String(q.exam_id),
-          questionText: q.question ?? "",
-          optionA: q.option_a ?? "",
-          optionB: q.option_b ?? "",
-          optionC: q.option_c ?? "",
-          optionD: q.option_d ?? "",
-          correctAnswer: q.correct_answer ?? "A",
-          marks: Number(q.marks ?? 1),
-          explanation: q.explanation ?? "",
-          difficulty: q.difficulty ?? "Medium",
-          imageUrl: q.image_url ?? "",
-          audioUrl: q.audio_url ?? "",
-          videoUrl: q.video_url ?? "",
-          createdAt: q.created_at ?? "",
-        }))
+        data.map((q: any) => {
+          const optA = q.option_a ?? q.optionA ?? q.option1 ?? "";
+          const optB = q.option_b ?? q.optionB ?? q.option2 ?? "";
+          const optC = q.option_c ?? q.optionC ?? q.option3 ?? "";
+          const optD = q.option_d ?? q.optionD ?? q.option4 ?? "";
+
+          const rawAns =
+            q.correct_answer ??
+            q.correctAnswer ??
+            q.answer ??
+            q.correct_option ??
+            q.correctOption ??
+            q.answer_key ??
+            q.correct;
+
+          const normAns = normalizeCorrectAnswer(rawAns, {
+            optionA: optA,
+            optionB: optB,
+            optionC: optC,
+            optionD: optD,
+          });
+
+          return {
+            id: String(q.id),
+            examId: String(q.exam_id || q.examId || examId),
+            questionText: q.question ?? q.questionText ?? q.question_text ?? "",
+            optionA: optA,
+            optionB: optB,
+            optionC: optC,
+            optionD: optD,
+            correctAnswer: normAns,
+            marks: Number(q.marks ?? 1),
+            explanation: q.explanation ?? "",
+            difficulty: q.difficulty ?? "Medium",
+            imageUrl: q.image_url ?? q.imageUrl ?? "",
+            audioUrl: q.audio_url ?? q.audioUrl ?? "",
+            videoUrl: q.video_url ?? q.videoUrl ?? "",
+            createdAt: q.created_at ?? q.createdAt ?? "",
+          };
+        })
       );
     } catch (err: any) {
       const msg =
@@ -186,7 +255,7 @@ export default function CBTQuestionsPage() {
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     fieldName: "imageUrl" | "audioUrl"
-) => {
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -194,26 +263,24 @@ export default function CBTQuestionsPage() {
     form.append("file", file);
 
     const endpoint =
-        fieldName === "imageUrl"
-            ? "/cbt/upload/image"
-            : "/cbt/upload/audio";
+      fieldName === "imageUrl" ? "/cbt/upload/image" : "/cbt/upload/audio";
 
     try {
-        const res = await api.post(endpoint, form, {
-            headers: {
-                "Content-Type": "multipart/form-data",
-            },
-        });
+      const res = await api.post(endpoint, form, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
-        setFormData((prev) => ({
-            ...prev,
-            [fieldName]: res.data.url,
-        }));
+      setFormData((prev) => ({
+        ...prev,
+        [fieldName]: res.data.url,
+      }));
     } catch (err) {
-        console.error(err);
-        alert("File upload failed.");
+      console.error(err);
+      alert("File upload failed.");
     }
-};
+  };
 
   const validateForm = (): boolean => {
     if (!formData.examId) {
@@ -240,6 +307,10 @@ export default function CBTQuestionsPage() {
       setFormError("Option D is required.");
       return false;
     }
+    if (!formData.correctAnswer) {
+      setFormError("Please select a correct answer option.");
+      return false;
+    }
     if (formData.marks === "" || Number(formData.marks) <= 0) {
       setFormError("Marks must be a positive number.");
       return false;
@@ -260,22 +331,40 @@ export default function CBTQuestionsPage() {
     try {
       const payload = {
         exam_id: Number(formData.examId),
+        examId: Number(formData.examId),
         question: formData.questionText,
+        question_text: formData.questionText,
+        questionText: formData.questionText,
         option_a: formData.optionA,
+        optionA: formData.optionA,
         option_b: formData.optionB,
+        optionB: formData.optionB,
         option_c: formData.optionC,
+        optionC: formData.optionC,
         option_d: formData.optionD,
+        optionD: formData.optionD,
         option_e: null,
         correct_answer: formData.correctAnswer,
+        correctAnswer: formData.correctAnswer,
+        answer: formData.correctAnswer,
         explanation: formData.explanation || null,
         marks: Number(formData.marks),
+        difficulty: formData.difficulty,
         image_url: formData.imageUrl || null,
         audio_url: formData.audioUrl || null,
         video_url: formData.videoUrl || null,
       };
 
       if (editingQuestionId) {
-        await api.post(`/cbt/questions/${editingQuestionId}/update`, payload);
+        try {
+          await api.put(`/cbt/questions/${editingQuestionId}`, payload);
+        } catch {
+          try {
+            await api.post(`/cbt/questions/${editingQuestionId}/update`, payload);
+          } catch {
+            await api.post(`/cbt/questions/${editingQuestionId}`, payload);
+          }
+        }
         setSuccessMessage("Question updated successfully!");
       } else {
         await api.post(`/cbt/questions`, payload);
@@ -307,6 +396,14 @@ export default function CBTQuestionsPage() {
   };
 
   const handleEdit = (q: Question) => {
+    const normAns =
+      normalizeCorrectAnswer(q.correctAnswer, {
+        optionA: q.optionA,
+        optionB: q.optionB,
+        optionC: q.optionC,
+        optionD: q.optionD,
+      }) || "A";
+
     setEditingQuestionId(q.id);
     setFormData({
       examId: q.examId ?? "",
@@ -315,7 +412,7 @@ export default function CBTQuestionsPage() {
       optionB: q.optionB ?? "",
       optionC: q.optionC ?? "",
       optionD: q.optionD ?? "",
-      correctAnswer: q.correctAnswer ?? "A",
+      correctAnswer: normAns,
       marks: q.marks ?? 1,
       explanation: q.explanation ?? "",
       difficulty: q.difficulty ?? "Medium",
@@ -330,13 +427,35 @@ export default function CBTQuestionsPage() {
 
   const handleDelete = async (questionId: string) => {
     if (!confirm("Are you sure you want to delete this question?")) return;
+
+    // Save current list in case we need to restore it
+    const previousQuestions = questions;
+
+    // Optimistically remove the question immediately
+    setQuestions(prev => prev.filter(q => q.id !== questionId));
+
     try {
-      await api.post(`/cbt/questions/${questionId}/delete`, {});
+      try {
+        await api.delete(`/cbt/questions/${questionId}`);
+      } catch {
+        await api.post(`/cbt/questions/${questionId}/delete`, {});
+      }
+
+      setSuccessMessage("Question deleted successfully.");
+
+      // Refresh silently to keep everything in sync
       if (selectedExamId) {
-        await fetchQuestions(selectedExamId);
+        fetchQuestions(selectedExamId).catch(() => {});
       }
     } catch (err: any) {
-      alert(err?.response?.data?.message || "Failed to delete question.");
+      // Restore if delete fails
+      setQuestions(previousQuestions);
+
+      alert(
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        "Failed to delete question."
+      );
     }
   };
 
@@ -352,14 +471,30 @@ export default function CBTQuestionsPage() {
   };
 
   const openPreview = (item: QuestionFormData | Question) => {
+    const optA = (item as any).optionA ?? (item as any).option_a ?? "";
+    const optB = (item as any).optionB ?? (item as any).option_b ?? "";
+    const optC = (item as any).optionC ?? (item as any).option_c ?? "";
+    const optD = (item as any).optionD ?? (item as any).option_d ?? "";
+    const rawAns =
+      item.correctAnswer ||
+      (item as any).correct_answer ||
+      (item as any).answer;
+
+    const normAns = normalizeCorrectAnswer(rawAns, {
+      optionA: optA,
+      optionB: optB,
+      optionC: optC,
+      optionD: optD,
+    });
+
     setPreviewQuestion({
       ...item,
       questionText: (item as any).questionText ?? (item as any).question ?? "",
-      optionA: (item as any).optionA ?? (item as any).option_a ?? "",
-      optionB: (item as any).optionB ?? (item as any).option_b ?? "",
-      optionC: (item as any).optionC ?? (item as any).option_c ?? "",
-      optionD: (item as any).optionD ?? (item as any).option_d ?? "",
-      correctAnswer: (item as any).correctAnswer ?? (item as any).correct_answer ?? "A",
+      optionA: optA,
+      optionB: optB,
+      optionC: optC,
+      optionD: optD,
+      correctAnswer: normAns,
     });
     setShowPreviewModal(true);
   };
@@ -774,59 +909,76 @@ export default function CBTQuestionsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-                    {paginatedQuestions.map((q) => (
-                      <tr
-                        key={q.id}
-                        className="hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors"
-                      >
-                        <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">
-                          <p className="line-clamp-2">{q.questionText}</p>
-                        </td>
-                        <td className="py-3 px-4 text-xs text-gray-600 dark:text-gray-300">
-                          <div className="space-y-0.5">
-                            <div><span className="font-semibold">A:</span> {q.optionA}</div>
-                            <div><span className="font-semibold">B:</span> {q.optionB}</div>
-                            <div><span className="font-semibold">C:</span> {q.optionC}</div>
-                            <div><span className="font-semibold">D:</span> {q.optionD}</div>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 font-bold text-blue-600 dark:text-blue-400">
-                          Option {q.correctAnswer}
-                        </td>
-                        <td className="py-3 px-4 text-gray-600 dark:text-gray-300">
-                          {q.marks}
-                        </td>
-                        <td className="py-3 px-4">{renderDifficultyBadge(q.difficulty)}</td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end space-x-2">
-                            <button
-                              onClick={() => openPreview(q)}
-                              className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 font-medium"
-                            >
-                              Preview
-                            </button>
-                            <button
-                              onClick={() => handleEdit(q)}
-                              className="px-2 py-1 text-xs text-gray-600 hover:text-gray-800 dark:text-gray-300 font-medium"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDuplicate(q)}
-                              className="px-2 py-1 text-xs text-teal-600 hover:text-teal-800 dark:text-teal-400 font-medium"
-                            >
-                              Duplicate
-                            </button>
-                            <button
-                              onClick={() => handleDelete(q.id)}
-                              className="px-2 py-1 text-xs text-red-600 hover:text-red-800 dark:text-red-400 font-medium"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {paginatedQuestions.map((q) => {
+                      const displayAnswer = normalizeCorrectAnswer(q.correctAnswer, {
+                        optionA: q.optionA,
+                        optionB: q.optionB,
+                        optionC: q.optionC,
+                        optionD: q.optionD,
+                      });
+
+                      return (
+                        <tr
+                          key={q.id}
+                          className="hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors"
+                        >
+                          <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">
+                            <p className="line-clamp-2">{q.questionText}</p>
+                          </td>
+                          <td className="py-3 px-4 text-xs text-gray-600 dark:text-gray-300">
+                            <div className="space-y-0.5">
+                              <div>
+                                <span className="font-semibold">A:</span> {q.optionA}
+                              </div>
+                              <div>
+                                <span className="font-semibold">B:</span> {q.optionB}
+                              </div>
+                              <div>
+                                <span className="font-semibold">C:</span> {q.optionC}
+                              </div>
+                              <div>
+                                <span className="font-semibold">D:</span> {q.optionD}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 font-bold text-blue-600 dark:text-blue-400">
+                            {displayAnswer ? `Option ${displayAnswer}` : "—"}
+                          </td>
+                          <td className="py-3 px-4 text-gray-600 dark:text-gray-300">
+                            {q.marks}
+                          </td>
+                          <td className="py-3 px-4">{renderDifficultyBadge(q.difficulty)}</td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end space-x-2">
+                              <button
+                                onClick={() => openPreview(q)}
+                                className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 font-medium"
+                              >
+                                Preview
+                              </button>
+                              <button
+                                onClick={() => handleEdit(q)}
+                                className="px-2 py-1 text-xs text-gray-600 hover:text-gray-800 dark:text-gray-300 font-medium"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDuplicate(q)}
+                                className="px-2 py-1 text-xs text-teal-600 hover:text-teal-800 dark:text-teal-400 font-medium"
+                              >
+                                Duplicate
+                              </button>
+                              <button
+                                onClick={() => handleDelete(q.id)}
+                                className="px-2 py-1 text-xs text-red-600 hover:text-red-800 dark:text-red-400 font-medium"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

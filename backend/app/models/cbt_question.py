@@ -63,6 +63,11 @@ class CBTQuestion(Base, BaseModel):
         default=1,
     )
 
+    difficulty: Mapped[str] = mapped_column(
+        String(20),
+        default="Medium",
+    )
+
     randomize_options: Mapped[bool] = mapped_column(
         Boolean,
         default=True,

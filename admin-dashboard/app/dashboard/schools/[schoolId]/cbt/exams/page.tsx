@@ -19,6 +19,7 @@ import {
   GlobeOff,
   Copy,
   Trash2,
+  BarChart3,
   ArrowLeft,
 } from "lucide-react";
 
@@ -125,6 +126,8 @@ export default function CBTExamsPage() {
 
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -133,6 +136,7 @@ export default function CBTExamsPage() {
   const [formData, setFormData] = useState<CreateExamFormData>(initialFormState);
 
   const handleBack = () => {
+    setActionLoading("back");
     if (schoolId) {
       router.push(`/dashboard/schools/${schoolId}/cbt`);
     } else {
@@ -392,10 +396,9 @@ export default function CBTExamsPage() {
       "Do you want to publish this exam? Students will be able to see it on their portal."
     );
 
-    if (!confirmPublish) {
-      return;
-    }
+    if (!confirmPublish) return;
 
+    setActionLoading(`publish-${examId}`);
     try {
       await api.post(`/cbt/exams/${examId}/publish`, {});
       setExams((prev) =>
@@ -408,10 +411,13 @@ export default function CBTExamsPage() {
     } catch (err: unknown) {
       const errorObj = err as Record<string, any>;
       alert(errorObj?.response?.data?.message || "Failed to publish exam.");
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const handleUnpublish = async (examId: string) => {
+    setActionLoading(`unpublish-${examId}`);
     try {
       await api.post(`/cbt/exams/${examId}/unpublish`, {});
       setExams((prev) =>
@@ -419,24 +425,31 @@ export default function CBTExamsPage() {
           String(exam.id) === examId ? { ...exam, is_active: false } : exam
         )
       );
+      alert("Exam unpublished successfully!");
       await fetchExams(true);
     } catch (err: unknown) {
       const errorObj = err as Record<string, any>;
       alert(errorObj?.response?.data?.message || "Failed to unpublish exam.");
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const handleDuplicate = async (examId: string) => {
+    setActionLoading(`duplicate-${examId}`);
     try {
       const response = await api.post(`/cbt/exams/${examId}/duplicate`, {});
       const newExam = response.data?.data || response.data;
       if (newExam && typeof newExam === "object" && newExam.id) {
         setExams((prev) => [newExam, ...prev]);
       }
+      alert("Exam duplicated successfully!");
       await fetchExams(true);
     } catch (err: unknown) {
       const errorObj = err as Record<string, any>;
       alert(errorObj?.response?.data?.message || "Failed to duplicate exam.");
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -444,14 +457,25 @@ export default function CBTExamsPage() {
     if (!confirm("Are you sure you want to delete this exam? This action cannot be undone.")) {
       return;
     }
+
+    setActionLoading(`delete-${examId}`);
     try {
       await api.delete(`/cbt/exams/${examId}`);
+      // Optimistically remove instantly from UI
       setExams((prev) => prev.filter((exam) => String(exam.id) !== examId));
-      await fetchExams(true);
+      alert("Exam deleted successfully!");
     } catch (err: unknown) {
       const errorObj = err as Record<string, any>;
       alert(errorObj?.response?.data?.message || "Failed to delete exam.");
+      await fetchExams(true);
+    } finally {
+      setActionLoading(null);
     }
+  };
+
+  const handleNavigate = (path: string, actionKey: string) => {
+    setActionLoading(actionKey);
+    router.push(path);
   };
 
   // Resolve Real Subject Name for Display
@@ -529,11 +553,16 @@ export default function CBTExamsPage() {
           <div>
             <button
               onClick={handleBack}
+              disabled={actionLoading === "back"}
               type="button"
-              className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-indigo-600 bg-white hover:bg-slate-100/80 border border-slate-200/80 rounded-xl transition shadow-sm w-fit"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-indigo-600 bg-white hover:bg-slate-100/80 border border-slate-200/80 rounded-xl transition shadow-sm w-fit disabled:opacity-50"
             >
-              <ArrowLeft size={16} />
-              <span>Back to Hub</span>
+              {actionLoading === "back" ? (
+                <Loader2 size={16} className="animate-spin text-indigo-600" />
+              ) : (
+                <ArrowLeft size={16} />
+              )}
+              <span>{actionLoading === "back" ? "Loading..." : "Back to Hub"}</span>
             </button>
           </div>
 
@@ -820,7 +849,7 @@ export default function CBTExamsPage() {
                 {submitting ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    <span>Creating...</span>
+                    <span>Processing...</span>
                   </>
                 ) : (
                   <>
@@ -904,6 +933,15 @@ export default function CBTExamsPage() {
                     const totalMarksDisplay = exam.totalMarks ?? exam.total_marks ?? "-";
                     const createdDateRaw = exam.createdAt || exam.created_at;
 
+                    const isDeleting = actionLoading === `delete-${examId}`;
+                    const isPublishing = actionLoading === `publish-${examId}`;
+                    const isUnpublishing = actionLoading === `unpublish-${examId}`;
+                    const isDuplicating = actionLoading === `duplicate-${examId}`;
+                    const isViewing = actionLoading === `view-${examId}`;
+                    const isQuestions = actionLoading === `questions-${examId}`;
+                    const isEditing = actionLoading === `edit-${examId}`;
+                    const isResults = actionLoading === `results-${examId}`;
+
                     return (
                       <tr key={examId} className="hover:bg-slate-50/60 transition-colors">
                         <td className="py-3.5 px-4 font-semibold text-slate-900">
@@ -927,63 +965,105 @@ export default function CBTExamsPage() {
                         </td>
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            {/* View */}
                             <button
                               title="View Exam"
+                              disabled={Boolean(actionLoading)}
                               onClick={() =>
-                                router.push(`/dashboard/schools/${schoolId}/cbt/exams/${examId}`)
+                                handleNavigate(
+                                  `/dashboard/schools/${schoolId}/cbt/exams/${examId}`,
+                                  `view-${examId}`
+                                )
                               }
-                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition"
+                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition disabled:opacity-40"
                             >
-                              <Eye size={15} />
+                              {isViewing ? <Loader2 size={15} className="animate-spin text-indigo-600" /> : <Eye size={15} />}
                             </button>
+
+                            {/* Questions */}
                             <button
                               title="Manage Questions"
+                              disabled={Boolean(actionLoading)}
                               onClick={() =>
-                                router.push(`/dashboard/schools/${schoolId}/cbt/questions?examId=${examId}`)
+                                handleNavigate(
+                                  `/dashboard/schools/${schoolId}/cbt/questions?examId=${examId}`,
+                                  `questions-${examId}`
+                                )
                               }
-                              className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition"
+                              className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition disabled:opacity-40"
                             >
-                              <HelpCircle size={15} />
+                              {isQuestions ? <Loader2 size={15} className="animate-spin" /> : <HelpCircle size={15} />}
                             </button>
+
+                            {/* Edit */}
                             <button
                               title="Edit Exam"
+                              disabled={Boolean(actionLoading)}
                               onClick={() =>
-                                router.push(`/dashboard/schools/${schoolId}/cbt/exams/${examId}/edit`)
+                                handleNavigate(
+                                  `/dashboard/schools/${schoolId}/cbt/exams/${examId}/edit`,
+                                  `edit-${examId}`
+                                )
                               }
-                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
+                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition disabled:opacity-40"
                             >
-                              <Edit size={15} />
+                              {isEditing ? <Loader2 size={15} className="animate-spin text-slate-700" /> : <Edit size={15} />}
                             </button>
+
+                            {/* Publish / Unpublish */}
                             {exam.is_active ? (
                               <button
                                 title="Unpublish Exam"
+                                disabled={Boolean(actionLoading)}
                                 onClick={() => handleUnpublish(examId)}
-                                className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                                className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition disabled:opacity-40"
                               >
-                                <GlobeOff size={15} />
+                                {isUnpublishing ? <Loader2 size={15} className="animate-spin" /> : <GlobeOff size={15} />}
                               </button>
                             ) : (
                               <button
                                 title="Publish Exam"
+                                disabled={Boolean(actionLoading)}
                                 onClick={() => handlePublish(examId)}
-                                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition disabled:opacity-40"
                               >
-                                <Globe size={15} />
+                                {isPublishing ? <Loader2 size={15} className="animate-spin" /> : <Globe size={15} />}
                               </button>
                             )}
+
+                            {/* Duplicate */}
                             <button
                               title="Duplicate"
+                              disabled={Boolean(actionLoading)}
                               onClick={() => handleDuplicate(examId)}
-                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
+                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition disabled:opacity-40"
                             >
-                              <Copy size={15} />
+                              {isDuplicating ? <Loader2 size={15} className="animate-spin" /> : <Copy size={15} />}
                             </button>
+
+                            {/* Results */}
+                            <button
+                              title="View Results"
+                              disabled={Boolean(actionLoading)}
+                              onClick={() =>
+                                handleNavigate(
+                                  `/dashboard/schools/${schoolId}/cbt/results?examId=${examId}`,
+                                  `results-${examId}`
+                                )
+                              }
+                              className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition disabled:opacity-40"
+                            >
+                              {isResults ? <Loader2 size={15} className="animate-spin" /> : <BarChart3 size={15} />}
+                            </button>
+
+                            {/* Delete */}
                             <button
                               title="Delete"
+                              disabled={Boolean(actionLoading)}
                               onClick={() => handleDelete(examId)}
-                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition"
+                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition disabled:opacity-40"
                             >
-                              <Trash2 size={15} />
+                              {isDeleting ? <Loader2 size={15} className="animate-spin text-rose-600" /> : <Trash2 size={15} />}
                             </button>
                           </div>
                         </td>

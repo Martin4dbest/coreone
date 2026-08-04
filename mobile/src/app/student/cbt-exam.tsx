@@ -20,7 +20,8 @@ import {
 } from "@/services/cbt";
 
 export default function CBTExam() {
-  const router = useRouter();
+  const router = useRouter(</>
+);
   const params = useLocalSearchParams();
 
   const examId = Number(params.examId);
@@ -28,31 +29,131 @@ export default function CBTExam() {
 
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+const [submitting, setSubmitting] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [showGridModal, setShowGridModal] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
 
   useEffect(() => {
     fetchQuestions();
   }, []);
+  useEffect(() => {
+    if (timeLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleSubmit();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    
+return (
+<>
+<Modal
+    visible={submitting}
+    transparent
+    animationType="fade"
+>
+    <View
+        style={{
+            flex:1,
+            backgroundColor:"rgba(0,0,0,0.45)",
+            justifyContent:"center",
+            alignItems:"center",
+        }}
+    >
+        <View
+            style={{
+                backgroundColor:"#fff",
+                width:300,
+                borderRadius:18,
+                padding:25,
+                alignItems:"center",
+            }}
+        >
+            <ActivityIndicator
+                size="large"
+                color="#2563EB"
+            />
+
+            <Text
+                style={{
+                    marginTop:20,
+                    fontSize:20,
+                    fontWeight:"700",
+                    color:"#111827",
+                }}
+            >
+                Submitting Examination...
+            </Text>
+
+            <Text
+                style={{
+                    marginTop:12,
+                    textAlign:"center",
+                    color:"#6B7280",
+                }}
+            >
+                Please wait while your answers are being marked.
+            </Text>
+        </View>
+    </View>
+</Modal>
+) => clearInterval(timer);
+  }, [timeLeft]);
+
 
   async function fetchQuestions() {
     try {
       const response: any = await api.get(`/cbt/exams/${examId}/questions`);
-      setQuestions(response.data || []);
+      const data = response.data || [];
+      setQuestions(data);
+
+      const duration =
+        Number(
+          data?.[0]?.exam?.duration_minutes ??
+          data?.[0]?.duration_minutes ??
+          60
+        );
+
+      setTimeLeft(duration * 60);
     } catch (error) {
       console.log("LOAD QUESTIONS ERROR:", error);
+      setSubmitting(false);
+
       Alert.alert("Error", "Unable to load questions. Please check your connection.");
     } finally {
+      setSubmitting(false);
+
       setLoading(false);
     }
   }
 
-  function chooseAnswer(questionId: number, answerKey: string) {
-    setAnswers((prev) => ({
+  async function chooseAnswer(
+    questionId:number,
+    answerKey:string,
+  ){
+
+    setAnswers(prev=>({
       ...prev,
-      [questionId]: answerKey,
+      [questionId]:answerKey,
     }));
+
+    try{
+      await saveCBTAnswer(
+        attemptId,
+        questionId,
+        answerKey,
+      );
+    }catch(e){
+      console.log(e);
+    }
   }
 
   function nextQuestion() {
@@ -71,7 +172,9 @@ export default function CBTExam() {
     const totalAnswered = Object.keys(answers).length;
     const remaining = questions.length - totalAnswered;
 
-    Alert.alert(
+    setSubmitting(false);
+
+      Alert.alert(
       "Submit Assessment",
       remaining > 0
         ? `You still have ${remaining} unanswered question(s). Are you sure you want to finalize your submission?`
@@ -81,9 +184,34 @@ export default function CBTExam() {
         {
           text: "Submit Exam",
           style: "destructive",
-          onPress: () => {
-            // Place your API submission request here
-            router.back();
+          onPress: async () => {
+
+            try{
+
+              await submitCBTAttempt(
+                attemptId
+              );
+
+              setSubmitting(false);
+
+      Alert.alert(
+                "Success",
+                "Exam submitted successfully."
+              );
+
+              router.replace("/student/cbt");
+
+            }catch(e){
+
+              setSubmitting(false);
+
+      Alert.alert(
+                "Error",
+                "Unable to submit exam."
+              );
+
+            }
+
           },
         },
       ]
@@ -149,7 +277,10 @@ export default function CBTExam() {
           </TouchableOpacity>
 
           <View style={styles.timerBadge}>
-            <Text style={styles.timerText}>⏱ 59:45</Text>
+            <Text style={styles.timerText}>
+              ⏱ {Math.floor(timeLeft / 60)}:
+              {String(timeLeft % 60).padStart(2,"0")}
+            </Text>
           </View>
         </View>
       </View>

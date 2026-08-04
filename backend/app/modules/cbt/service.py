@@ -306,10 +306,6 @@ class CBTService:
             else:
                 answer.is_correct = False
 
-                if attempt.negative_marking:
-                    score -= attempt.negative_mark
-
-        attempt.score = score
 
         exam = await self.repository.get_exam(
             attempt.exam_id
@@ -317,15 +313,43 @@ class CBTService:
 
         if exam:
 
-            attempt.percentage = (
-                score / exam.total_marks
-            ) * 100
+            # Apply negative marking from the EXAM settings
+            if exam.negative_marking:
+
+                score = 0
+
+                for answer in answers:
+
+                    question = await self.repository.db.get(
+                        CBTQuestion,
+                        answer.question_id,
+                    )
+
+                    if question is None:
+                        continue
+
+                    if answer.selected_answer == question.correct_answer:
+                        score += question.marks
+                    else:
+                        score -= exam.negative_mark
+
+            # Never allow negative scores
+            score = max(score, 0)
+
+            attempt.score = score
+
+            if exam.total_marks > 0:
+                attempt.percentage = (
+                    score / exam.total_marks
+                ) * 100
+            else:
+                attempt.percentage = 0
 
             attempt.passed = (
-                attempt.percentage
-                >=
-                exam.pass_mark
+                attempt.percentage >= exam.pass_mark
             )
+        else:
+            attempt.score = score
 
         attempt.completed = True
         attempt.submitted_at = datetime.utcnow()
@@ -387,6 +411,15 @@ class CBTService:
     ):
 
         raise NotImplementedError
+
+
+    async def clear_results(
+        self,
+        school_id: int,
+    ):
+        return await self.repository.clear_results(
+            school_id
+        )
 
 
     async def initialize_default_providers(

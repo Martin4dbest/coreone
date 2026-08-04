@@ -68,3 +68,16 @@ export async function submitCBTAttempt(
 
 }
 
+
+
+export async function getCBTResult(
+  attemptId:number,
+){
+
+  const response = await api.get(
+    `/cbt/attempts/${attemptId}/result`
+  );
+
+  return response.data;
+
+}

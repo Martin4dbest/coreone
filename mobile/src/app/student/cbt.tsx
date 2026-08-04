@@ -214,6 +214,7 @@ export default function StudentCBT() {
         ) : (
           exams.map((exam) => {
             const isStarting = startingId === exam.id;
+            const isCompleted = exam.completed === true;
             const duration = exam.duration_minutes ?? exam.durationMinutes ?? 0;
             const questionsCount = exam.total_questions ?? exam.totalQuestions ?? 0;
             const totalMarks = exam.total_marks ?? exam.totalMarks ?? 0;
@@ -257,14 +258,30 @@ export default function StudentCBT() {
 
                 <TouchableOpacity
                   activeOpacity={0.8}
-                  disabled={startingId !== null}
-                  style={[styles.button, isStarting && styles.disabledButton]}
-                  onPress={() => openStartConfirmation(exam)}
+                  disabled={startingId !== null || isCompleted}
+                  style={[
+                    styles.button,
+                    (isStarting || isCompleted) && styles.disabledButton,
+                  ]}
+                  onPress={()=>{
+                    if(isCompleted){
+                      router.push({
+                        pathname:"/student/cbt-result",
+                        params:{
+                          attemptId:String(exam.attempt_id)
+                        }
+                      });
+                    }else{
+                      openStartConfirmation(exam);
+                    }
+                  }}
                 >
                   {isStarting ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.buttonText}>Start Examination</Text>
+                    <Text style={styles.buttonText}>
+                      {isCompleted ? "View Result" : "Start Examination"}
+                    </Text>
                   )}
                 </TouchableOpacity>
               </View>

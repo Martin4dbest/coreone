@@ -92,6 +92,10 @@ class CBTQuestionResponse(BaseModel):
     option_d: str
     option_e: str | None = None
 
+    correct_answer: str
+    explanation: str | None = None
+    difficulty: str | None = None
+
     marks: int
 
     image_url: str | None = None
