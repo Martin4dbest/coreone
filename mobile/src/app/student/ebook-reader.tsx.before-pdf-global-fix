@@ -14,11 +14,8 @@ import { Asset } from "expo-asset";
 
 import api from "../../services/api";
 
-/*
- * PDF.js is stored as a TXT asset because Metro does not need
- * to parse it as a JavaScript module.
- */
-const PDF_JS_ASSET = require("../../../assets/pdfjs/pdfjs-runtime.txt");
+// Path navigates 3 levels up from src/app/student/ to project assets
+const PDF_JS_ASSET = require("../../../assets/pdfjs/pdf.min.mjs");
 
 export default function EbookReader() {
   const router = useRouter();
@@ -62,43 +59,23 @@ export default function EbookReader() {
       setLoading(true);
       setError("");
 
-      /*
-       * Resolve the bundled PDF.js TXT asset.
-       *
-       * Asset.fromModule() is important here because require()
-       * returns a Metro asset reference, not the file contents.
-       */
-      const pdfJsAsset = Asset.fromModule(PDF_JS_ASSET);
+        /* Load PDF.js module from Expo Assets */
+        const pdfJsAsset = Asset.fromModule(PDF_JS_ASSET);
+        await pdfJsAsset.downloadAsync();
 
-      await pdfJsAsset.downloadAsync();
+        if (!pdfJsAsset.localUri) {
+          throw new Error("Failed to resolve PDF reader bundle.");
+        }
 
-      if (!pdfJsAsset.localUri) {
-        throw new Error("Failed to resolve PDF reader bundle.");
-      }
+        const jsText = await FileSystem.readAsStringAsync(
+          pdfJsAsset.localUri
+        );
+        setPdfJsContent(jsText);
 
-      const jsText = await FileSystem.readAsStringAsync(
-        pdfJsAsset.localUri
-      );
-
-      if (!jsText || jsText.length < 1000) {
-        throw new Error("PDF.js runtime is empty or incomplete.");
-      }
-
-      console.log(
-        "PDF.js runtime loaded:",
-        jsText.length,
-        "characters"
-      );
-
-      setPdfJsContent(jsText);
-
-      /*
-       * Local ebook storage.
-       */
+      /* Local ebook storage directory */
       const localDirectory = `${FileSystem.documentDirectory}ebooks`;
 
-      const directoryInfo =
-        await FileSystem.getInfoAsync(localDirectory);
+      const directoryInfo = await FileSystem.getInfoAsync(localDirectory);
 
       if (!directoryInfo.exists) {
         await FileSystem.makeDirectoryAsync(localDirectory, {
@@ -106,16 +83,10 @@ export default function EbookReader() {
         });
       }
 
-      const safeFilename =
-        fileName && fileName.toLowerCase().endsWith(".pdf")
-          ? fileName
-          : `ebook-${ebookId}.pdf`;
+      const filename = fileName || `ebook-${ebookId}.pdf`;
+      const localUri = `${localDirectory}/${filename}`;
 
-      const localUri = `${localDirectory}/${safeFilename}`;
-
-      /*
-       * Check for an offline copy first.
-       */
+      /* Check offline copy first */
       const local = await FileSystem.getInfoAsync(localUri);
 
       if (local.exists) {
@@ -123,62 +94,31 @@ export default function EbookReader() {
           encoding: FileSystem.EncodingType.Base64,
         });
 
-        if (!base64) {
-          throw new Error("Local ebook is empty.");
-        }
-
         setPdfData(base64);
         setOffline(true);
+        setLoading(false);
         return;
       }
 
-      /*
-       * Download the protected ebook from the backend.
-       */
+      /* Download protected ebook from backend */
       const response = await api.get(`/ebooks/${ebookId}/file`, {
         responseType: "arraybuffer",
       });
 
-      const data = response.data;
+      const bytes = new Uint8Array(response.data);
 
-      let bytes: Uint8Array;
-
-      if (data instanceof ArrayBuffer) {
-        bytes = new Uint8Array(data);
-      } else if (data?.buffer instanceof ArrayBuffer) {
-        bytes = new Uint8Array(
-          data.buffer,
-          data.byteOffset || 0,
-          data.byteLength
-        );
-      } else {
-        throw new Error("Unexpected ebook response format.");
-      }
-
-      /*
-       * Convert the PDF bytes to base64.
-       */
       let binary = "";
       const chunkSize = 0x8000;
 
       for (let i = 0; i < bytes.length; i += chunkSize) {
-        const chunk = bytes.subarray(
-          i,
-          Math.min(i + chunkSize, bytes.length)
+        binary += String.fromCharCode(
+          ...bytes.subarray(i, Math.min(i + chunkSize, bytes.length))
         );
-
-        binary += String.fromCharCode(...chunk);
       }
 
       const base64 = (globalThis as any).btoa(binary);
 
-      if (!base64) {
-        throw new Error("Downloaded ebook is empty.");
-      }
-
-      /*
-       * Save the PDF locally for offline reading.
-       */
+      /* Save ebook locally for offline reading */
       await FileSystem.writeAsStringAsync(localUri, base64, {
         encoding: FileSystem.EncodingType.Base64,
       });
@@ -199,26 +139,10 @@ export default function EbookReader() {
     }
   };
 
-  /*
-   * Build the complete HTML document for the WebView.
-   *
-   * PDF.js is injected directly into the page. Workers are disabled
-   * because React Native WebView does not reliably support the worker
-   * setup expected by the normal browser PDF.js build.
-   */
   const html = useMemo(() => {
     if (!pdfData || !pdfJsContent) {
       return "";
     }
-
-    /*
-     * Prevent PDF.js source from accidentally terminating our
-     * <script> element.
-     */
-    const safePdfJs = pdfJsContent.replace(
-      /<\/script/gi,
-      "<\\/script"
-    );
 
     return `
 <!DOCTYPE html>
@@ -241,38 +165,48 @@ export default function EbookReader() {
       background: #f3f4f6;
       width: 100%;
       min-height: 100%;
-      font-family: Arial, sans-serif;
+    }
+
+    body {
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Arial,
+        sans-serif;
+    }
+
+    #loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #ffffff;
+      color: #555;
+      font-size: 15px;
+      z-index: 10;
     }
 
     #viewer {
       width: 100%;
-      padding: 12px 0 30px 0;
+      padding: 10px 0 30px;
     }
 
     .page-wrapper {
       width: 100%;
+      margin: 0 auto 12px;
       display: flex;
       justify-content: center;
-      margin-bottom: 14px;
     }
 
     canvas.page {
       display: block;
       max-width: calc(100% - 20px);
       height: auto;
-      background: #ffffff;
-      box-shadow: 0 1px 5px rgba(0, 0, 0, 0.12);
-    }
-
-    #loading {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 30px;
-      text-align: center;
-      color: #6b7280;
-      font-size: 15px;
+      background: white;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.12);
     }
 
     #error {
@@ -296,152 +230,108 @@ export default function EbookReader() {
   <div id="viewer"></div>
 
   <script>
-    ${safePdfJs}
+    ${pdfJsContent}
   </script>
 
   <script>
-    (async function () {
+    const pdfBase64 = ${JSON.stringify(pdfData)};
+
+    function base64ToUint8Array(base64) {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+
+      return bytes;
+    }
+
+    async function loadPDF() {
+      const loading = document.getElementById("loading");
+      const viewer = document.getElementById("viewer");
+      const error = document.getElementById("error");
+
       try {
         const pdfjsLib = window.pdfjsLib;
 
         if (!pdfjsLib) {
-          throw new Error(
-            "PDF.js failed to initialize inside the WebView."
-          );
+          throw new Error("PDF.js failed to initialize.");
         }
 
-        const base64 = ${JSON.stringify(pdfData)};
+        const data = base64ToUint8Array(pdfBase64);
 
-        /*
-         * Convert base64 PDF data into Uint8Array.
-         */
-        const binaryString = atob(base64);
-        const len = binaryString.length;
-        const bytes = new Uint8Array(len);
-
-        for (let i = 0; i < len; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-
-        /*
-         * Disable workers.
-         *
-         * This avoids PDF.js trying to load a separate worker
-         * JavaScript file from the React Native WebView.
-         */
         const loadingTask = pdfjsLib.getDocument({
-          data: bytes,
-          disableWorker: true
+          data,
+          disableWorker: true,
         });
 
         const pdf = await loadingTask.promise;
 
-        const viewer = document.getElementById("viewer");
-        const loading = document.getElementById("loading");
-
         loading.style.display = "none";
 
-        /*
-         * Render every PDF page.
-         */
-        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+        for (
+          let pageNumber = 1;
+          pageNumber <= pdf.numPages;
+          pageNumber++
+        ) {
           const page = await pdf.getPage(pageNumber);
 
-          const baseViewport = page.getViewport({
-            scale: 1
-          });
-
-          const availableWidth =
-            Math.min(
-              window.innerWidth || 800,
-              900
-            ) - 20;
-
-          const scale =
-            availableWidth / baseViewport.width;
-
-          const viewport = page.getViewport({
-            scale: Math.max(scale, 0.5)
-          });
-
-          const wrapper =
-            document.createElement("div");
-
+          const wrapper = document.createElement("div");
           wrapper.className = "page-wrapper";
 
-          const canvas =
-            document.createElement("canvas");
-
+          const canvas = document.createElement("canvas");
           canvas.className = "page";
-
-          const context =
-            canvas.getContext("2d");
-
-          if (!context) {
-            throw new Error(
-              "Unable to create PDF canvas."
-            );
-          }
-
-          const outputScale =
-            window.devicePixelRatio || 1;
-
-          canvas.width =
-            Math.floor(viewport.width * outputScale);
-
-          canvas.height =
-            Math.floor(viewport.height * outputScale);
-
-          canvas.style.width =
-            Math.floor(viewport.width) + "px";
-
-          canvas.style.height =
-            Math.floor(viewport.height) + "px";
-
-          context.setTransform(
-            outputScale,
-            0,
-            0,
-            outputScale,
-            0,
-            0
-          );
 
           wrapper.appendChild(canvas);
           viewer.appendChild(wrapper);
 
+          const context = canvas.getContext("2d");
+
+          if (!context) {
+            throw new Error(
+              "Unable to create PDF canvas context."
+            );
+          }
+
+          const unscaledViewport =
+            page.getViewport({ scale: 1 });
+
+          const containerWidth = Math.max(
+            document.documentElement.clientWidth - 20,
+            280
+          );
+
+          const scale =
+            containerWidth / unscaledViewport.width;
+
+          const viewport =
+            page.getViewport({ scale });
+
+          canvas.width = Math.floor(viewport.width);
+          canvas.height = Math.floor(viewport.height);
+
           await page.render({
             canvasContext: context,
-            viewport: viewport
+            viewport,
           }).promise;
         }
 
       } catch (err) {
         console.error(
-          "PDF VIEWER ERROR:",
+          "PDF viewer error:",
           err
         );
 
-        const loading =
-          document.getElementById("loading");
+        loading.style.display = "none";
+        error.style.display = "block";
 
-        const error =
-          document.getElementById("error");
-
-        if (loading) {
-          loading.style.display = "none";
-        }
-
-        if (error) {
-          error.style.display = "block";
-          error.textContent =
-            "Unable to display this e-book. " +
-            (err && err.message
-              ? err.message
-              : "Unknown PDF error.");
-        }
+        error.textContent =
+          "Unable to open this ebook.";
       }
-    })();
+    }
+
+    loadPDF();
   </script>
 
 </body>
@@ -498,9 +388,7 @@ export default function EbookReader() {
           style={styles.back}
           onPress={() => router.back()}
         >
-          <Text style={styles.backIcon}>
-            ‹
-          </Text>
+          <Text style={styles.backIcon}>‹</Text>
         </Pressable>
 
         <View style={styles.titleContainer}>
@@ -521,14 +409,13 @@ export default function EbookReader() {
         source={{ html }}
         style={styles.webview}
         originWhitelist={["*"]}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        allowFileAccess={true}
-        allowUniversalAccessFromFileURLs={true}
-        mixedContentMode="always"
-        setSupportMultipleWindows={false}
+        javaScriptEnabled
+        domStorageEnabled
+        allowFileAccess
+        allowUniversalAccessFromFileURLs
         startInLoadingState={false}
-        showsVerticalScrollIndicator={true}
+        setSupportMultipleWindows={false}
+        showsVerticalScrollIndicator
         showsHorizontalScrollIndicator={false}
       />
     </SafeAreaView>

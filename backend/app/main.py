@@ -69,11 +69,30 @@ from pathlib import Path
 
 UPLOAD_DIR = Path.cwd() / "uploads"
 
-app.mount(
-    "/uploads",
-    StaticFiles(directory=str(UPLOAD_DIR)),
-    name="uploads",
-)
+# Public uploads remain available for non-sensitive assets.
+# Ebook files are NOT publicly mounted here.
+# Ebook files must be accessed through the authenticated
+# /api/v1/ebooks/{ebook_id}/file endpoint.
+_PUBLIC_UPLOAD_DIR = UPLOAD_DIR / "branding"
+
+if _PUBLIC_UPLOAD_DIR.exists():
+    app.mount(
+        "/uploads/branding",
+        StaticFiles(directory=str(_PUBLIC_UPLOAD_DIR)),
+        name="branding_uploads",
+    )
+
+# Ebook cover images are public.
+# The actual ebook files remain protected and are served only
+# through the authenticated ebook content endpoint.
+_EBOOK_COVERS_DIR = UPLOAD_DIR / "ebooks"
+
+if _EBOOK_COVERS_DIR.exists():
+    app.mount(
+        "/uploads/ebooks",
+        StaticFiles(directory=str(_EBOOK_COVERS_DIR)),
+        name="ebook_covers",
+    )
 
 
 

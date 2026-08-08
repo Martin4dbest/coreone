@@ -1,6 +1,7 @@
 import * as FileSystem from "expo-file-system/legacy";
-import * as IntentLauncher from "expo-intent-launcher";
+
 import React, { useEffect, useState } from "react";
+import { router } from "expo-router";
 import { 
   ActivityIndicator,
   Alert,
@@ -13,6 +14,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import api from "../../services/api";
+import { getToken } from "../../storage/auth";
 
 type Ebook = {
   id: number;
@@ -33,7 +35,12 @@ type Ebook = {
 export default function StudentEbooks() {
   const [ebooks, setEbooks] = useState<Ebook[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openingId, setOpeningId] = useState<number | null>(null);
+const [viewingId, setViewingId] = useState<number | null>(null);
+const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [activeAction, setActiveAction] = useState<{
+  id: number;
+  action: "view" | "download";
+} | null>(null);
 
   const getAbsoluteUrl = (
     url: string | null | undefined
@@ -111,123 +118,163 @@ export default function StudentEbooks() {
   ebook: Ebook,
   action: "view" | "download"
 ) => {
-  const url = getAbsoluteUrl(ebook.file_url);
-
-  if (!url) {
-    Alert.alert(
-      "Unavailable",
-      "This ebook does not have a valid file."
-    );
-    return;
-  }
-
   try {
-    setOpeningId(ebook.id);
+    if (action === "view") {
+      setViewingId(ebook.id);
 
-    console.log("========== OPENING EBOOK ==========");
-    console.log("Title:", ebook.title);
-    console.log("File URL:", url);
+      try {
+        // Record the view without blocking the reader.
+        try {
+          await api.post(`/ebooks/${ebook.id}/view`);
+        } catch (error) {
+          console.warn("Could not record ebook view:", error);
+        }
 
-    // Record the action without blocking ebook opening.
+        // Use the same private local directory as the Download action.
+        const ebookDirectory =
+          `${FileSystem.documentDirectory}ebooks`;
+
+        await FileSystem.makeDirectoryAsync(
+          ebookDirectory,
+          { intermediates: true }
+        );
+
+        // Use the same filename/path as the Download action.
+        const filename =
+          (ebook.file_name || `ebook-${ebook.id}.pdf`)
+            .replace(/[^a-zA-Z0-9._-]/g, "_");
+
+        const localUri =
+          `${ebookDirectory}/${filename}`;
+
+        // If the ebook is already stored locally,
+        // do NOT make another network request.
+        const existing =
+          await FileSystem.getInfoAsync(localUri);
+
+        if (!existing.exists) {
+          const fileUrl =
+            `${api.defaults.baseURL}/ebooks/${ebook.id}/file`;
+
+          await FileSystem.downloadAsync(
+            fileUrl,
+            localUri,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${await getToken()}`,
+              },
+            }
+          );
+        }
+
+        // Open the reader. The reader can now use the
+        // locally stored ebook.
+        router.push({
+          pathname: "/student/ebook-reader",
+          params: {
+            ebookId: String(ebook.id),
+            title: ebook.title,
+            fileName:
+              (ebook.file_name || `ebook-${ebook.id}.pdf`)
+                .replace(/[^a-zA-Z0-9._-]/g, "_"),
+          },
+        });
+
+        return;
+      } catch (error: any) {
+        console.error(
+          "Unable to prepare ebook for reading:",
+          error?.response?.data || error
+        );
+
+        Alert.alert(
+          "Ebook",
+          "This ebook is not downloaded yet. Please connect to the internet once to download it."
+        );
+
+        return;
+      }
+    }
+
+    setDownloadingId(ebook.id);
+
+    /*
+     * Download means:
+     *
+     * - download securely through the authenticated API
+     * - store it in the app's private document directory
+     * - NEVER open Android's external PDF viewer
+     * - NEVER place the file in the public Downloads folder
+     *
+     * The reader can then use this local copy offline.
+     */
+
+    const fileUrl = `${api.defaults.baseURL}/ebooks/${ebook.id}/file`;
+
+    const filename =
+      (ebook.file_name || `ebook-${ebook.id}.pdf`)
+        .replace(/[^a-zA-Z0-9._-]/g, "_");
+
+    const localUri =
+      `${FileSystem.documentDirectory}ebooks/${filename}`;
+
+    await FileSystem.makeDirectoryAsync(
+      `${FileSystem.documentDirectory}ebooks`,
+      { intermediates: true }
+    );
+
+    const existing =
+      await FileSystem.getInfoAsync(localUri);
+
+    if (!existing.exists) {
+      const result =
+        await FileSystem.downloadAsync(
+          fileUrl,
+          localUri,
+          {
+            headers: {
+              Authorization: `Bearer ${await getToken()}`,
+            },
+          }
+        );
+
+      console.log(
+        "Offline ebook saved:",
+        result.uri
+      );
+    }
+
     try {
-      await api.post(`/ebooks/${ebook.id}/${action}`);
+      await api.post(`/ebooks/${ebook.id}/download`);
     } catch (error) {
       console.warn(
-        `Could not record ebook ${action}:`,
+        "Could not record ebook download:",
         error
       );
     }
 
-    /*
-     * IMPORTANT:
-     *
-     * Do NOT use Linking.openURL().
-     *
-     * The ebook is downloaded directly from our backend
-     * and then handed to Android's native file viewer.
-     *
-     * This prevents browser/Google Help redirects.
-     */
-
-    const originalFilename =
-      ebook.file_url
-        .split("?")[0]
-        .split("/")
-        .pop() ||
-      `ebook-${ebook.id}.pdf`;
-
-    const safeFilename = originalFilename.replace(
-      /[^a-zA-Z0-9._-]/g,
-      "_"
+    Alert.alert(
+      "Downloaded",
+      `"${ebook.title}" is now available for offline reading inside the app.`
     );
-
-    const localUri =
-      `${FileSystem.cacheDirectory}${safeFilename}`;
-
-    console.log(
-      "Downloading ebook to:",
-      localUri
-    );
-
-    const downloadResult =
-      await FileSystem.downloadAsync(
-        url,
-        localUri
-      );
-
-    console.log(
-      "Ebook downloaded:",
-      downloadResult.uri
-    );
-
-    const contentUri =
-      await FileSystem.getContentUriAsync(
-        downloadResult.uri
-      );
-
-    const lowerFilename =
-      safeFilename.toLowerCase();
-
-    let mimeType = "application/pdf";
-
-    if (lowerFilename.endsWith(".epub")) {
-      mimeType = "application/epub+zip";
-    } else if (lowerFilename.endsWith(".txt")) {
-      mimeType = "text/plain";
-    }
-
-    console.log(
-      "Opening native ebook:",
-      contentUri
-    );
-
-    console.log(
-      "MIME type:",
-      mimeType
-    );
-
-    await IntentLauncher.startActivityAsync(
-      "android.intent.action.VIEW",
-      {
-        data: contentUri,
-        type: mimeType,
-        flags: 1,
-      }
-    );
-  } catch (error) {
+  } catch (error: any) {
     console.error(
-      "Native ebook opening error:",
-      error
+      "Ebook action failed:",
+      error?.response?.data || error
     );
 
     Alert.alert(
-      "Unable to open ebook",
-      "No compatible PDF or ebook application was found on this device."
+      "Ebook",
+      error?.response?.data?.detail ||
+        "Unable to process this ebook."
     );
   } finally {
-    setOpeningId(null);
+    setViewingId(null);
+    setDownloadingId(null);
   }
 };
+
 
 const renderEbook = ({
     item,
@@ -238,8 +285,11 @@ const renderEbook = ({
       item.cover_image_url
     );
 
-    const isOpening =
-      openingId === item.id;
+    const isViewing =
+      viewingId === item.id;
+
+    const isDownloading =
+      downloadingId === item.id;
 
     return (
       <View style={styles.card}>
@@ -349,7 +399,7 @@ const renderEbook = ({
             <Pressable
               style={[
                 styles.readButton,
-                isOpening &&
+                isViewing &&
                   styles.readButtonDisabled,
               ]}
               onPress={() =>
@@ -358,9 +408,9 @@ const renderEbook = ({
                   "view"
                 )
               }
-              disabled={isOpening}
+              disabled={!!activeAction}
             >
-              {isOpening ? (
+              {isViewing ? (
                 <ActivityIndicator
                   size="small"
                   color="#FFFFFF"
@@ -387,7 +437,7 @@ const renderEbook = ({
             <Pressable
               style={[
                 styles.downloadButton,
-                isOpening &&
+                isDownloading &&
                   styles.downloadButtonDisabled,
               ]}
               onPress={() =>
@@ -396,9 +446,9 @@ const renderEbook = ({
                   "download"
                 )
               }
-              disabled={isOpening}
+              disabled={!!activeAction}
             >
-              {isOpening ? (
+              {isDownloading ? (
                 <ActivityIndicator
                   size="small"
                   color="#334155"

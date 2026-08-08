@@ -62,6 +62,7 @@ export default function AdminEbooksPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
+const [showArchived, setShowArchived] = useState(false);
 
 const [activityEbook, setActivityEbook] = useState<Ebook | null>(null);
 const [activities, setActivities] = useState<EbookActivity[]>([]);
@@ -97,6 +98,7 @@ const [activityError, setActivityError] = useState("");
           school_id: schoolId,
           search: search || undefined,
           category: category || undefined,
+        include_archived: showArchived,
         },
       });
 
@@ -114,7 +116,7 @@ const [activityError, setActivityError] = useState("");
 
   useEffect(() => {
     loadEbooks();
-  }, [schoolId, search, category]);
+  }, [schoolId, search, category, showArchived]);
 
   const loadEbookActivity = async (ebook: Ebook) => {
   try {
@@ -291,7 +293,26 @@ const uploadFile = async (
     }
   };
 
-  const archiveEbook = async (id: number) => {
+  const restoreEbook = async (id: number) => {
+  if (!window.confirm("Restore this ebook to the active library?")) {
+    return;
+  }
+
+  try {
+    await api.patch(`/ebooks/${id}`, {
+      is_active: true,
+    });
+
+    await loadEbooks();
+  } catch (err: any) {
+    alert(
+      err?.response?.data?.detail ||
+        "Unable to restore ebook."
+    );
+  }
+};
+
+const archiveEbook = async (id: number) => {
     if (
       !window.confirm(
         "Archive this ebook?"
@@ -349,7 +370,34 @@ const uploadFile = async (
           </button>
         </div>
 
-        {/* Search & Filter Bar */}
+        {/* Active / Archived Tabs */}
+    <div className="flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white p-1.5 shadow-sm w-fit">
+      <button
+        type="button"
+        onClick={() => setShowArchived(false)}
+        className={`rounded-lg px-5 py-2 text-sm font-semibold transition-all ${
+          !showArchived
+            ? "bg-indigo-600 text-white shadow-sm"
+            : "text-slate-600 hover:bg-slate-100"
+        }`}
+      >
+        Active Ebooks
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setShowArchived(true)}
+        className={`rounded-lg px-5 py-2 text-sm font-semibold transition-all ${
+          showArchived
+            ? "bg-slate-700 text-white shadow-sm"
+            : "text-slate-600 hover:bg-slate-100"
+        }`}
+      >
+        Archived Ebooks
+      </button>
+    </div>
+
+    {/* Search & Filter Bar */}
         <div className="grid gap-3 sm:grid-cols-2 bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />

@@ -153,6 +153,79 @@ async def delete_ebook(
     }
 
 
+
+@router.get("/{ebook_id}/file")
+async def protected_ebook_file(
+    ebook_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Protected ebook file.
+
+    Files are stored in:
+        protected_ebooks/{school_id}/files/
+
+    The client must be authenticated and belong to
+    the same school as the ebook.
+    """
+
+    ebook = await EbookService(db).get_ebook(
+        ebook_id,
+        current_user.school_id,
+    )
+
+    if not ebook:
+        raise HTTPException(
+            status_code=404,
+            detail="Ebook not found.",
+        )
+
+    if not ebook.file_url:
+        raise HTTPException(
+            status_code=404,
+            detail="Ebook file not available.",
+        )
+
+    filename = Path(
+        ebook.file_url.split("?")[0]
+    ).name
+
+    protected_root = (
+        Path.cwd()
+        / "protected_ebooks"
+        / str(current_user.school_id)
+        / "files"
+    ).resolve()
+
+    file_path = (
+        protected_root / filename
+    ).resolve()
+
+    try:
+        file_path.relative_to(protected_root)
+    except ValueError:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid ebook path.",
+        )
+
+    if not file_path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="Ebook file not found.",
+        )
+
+    return FileResponse(
+        path=str(file_path),
+        media_type=ebook.file_type or "application/pdf",
+        filename=ebook.file_name or filename,
+        headers={
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
 @router.post(
     "/{ebook_id}/download",
     response_model=EbookResponse,
@@ -245,6 +318,63 @@ async def view_ebook(
     )
 
 # ============================================================
+# PROTECTED EBOOK COVER
+# ============================================================
+
+from pathlib import Path
+from fastapi.responses import FileResponse
+
+@router.get("/covers/{school_id}/{filename}")
+async def protected_ebook_cover(
+    school_id: int,
+    filename: str,
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.school_id != school_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied.",
+        )
+
+    cover_path = (
+        Path.cwd()
+        / "protected_ebooks"
+        / str(school_id)
+        / "covers"
+        / filename
+    ).resolve()
+
+    cover_root = (
+        Path.cwd()
+        / "protected_ebooks"
+        / str(school_id)
+        / "covers"
+    ).resolve()
+
+    try:
+        cover_path.relative_to(cover_root)
+    except ValueError:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid cover path.",
+        )
+
+    if not cover_path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="Cover image not found.",
+        )
+
+    return FileResponse(
+        path=str(cover_path),
+        headers={
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+# ============================================================
 # PROTECTED EBOOK CONTENT
 # ============================================================
 
@@ -259,6 +389,14 @@ async def protected_ebook_content(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """
+    Protected ebook content endpoint.
+
+    The PDF is stored inside protected_ebooks and is NEVER
+    exposed through the public /uploads directory.
+    Authentication + school ownership are required.
+    """
+
     service = EbookService(db)
 
     ebook = await service.get_ebook(
@@ -272,8 +410,12 @@ async def protected_ebook_content(
             detail="Ebook not found.",
         )
 
-    # The database stores the old/public-style URL.
-    # We resolve only the filename from it.
+    if not ebook.file_url:
+        raise HTTPException(
+            status_code=404,
+            detail="Ebook file unavailable.",
+        )
+
     filename = Path(
         ebook.file_url.split("?")[0]
     ).name
@@ -284,9 +426,24 @@ async def protected_ebook_content(
         / str(current_user.school_id)
         / "files"
         / filename
-    )
+    ).resolve()
 
-    if not protected_file.exists():
+    protected_root = (
+        Path.cwd()
+        / "protected_ebooks"
+        / str(current_user.school_id)
+        / "files"
+    ).resolve()
+
+    try:
+        protected_file.relative_to(protected_root)
+    except ValueError:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid ebook path.",
+        )
+
+    if not protected_file.is_file():
         raise HTTPException(
             status_code=404,
             detail="Ebook file is unavailable.",
@@ -297,7 +454,8 @@ async def protected_ebook_content(
         media_type=ebook.file_type or "application/pdf",
         filename=ebook.file_name or filename,
         headers={
-            "Cache-Control": "no-store",
+            "Cache-Control": "private, no-store",
             "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "inline",
         },
     )

@@ -6,6 +6,8 @@ from fastapi import HTTPException, UploadFile, status
 
 BASE_DIR = Path(__file__).resolve().parents[3]
 UPLOAD_DIR = BASE_DIR / "protected_ebooks"
+PUBLIC_UPLOAD_DIR = BASE_DIR / "uploads" / "ebooks"
+COVER_UPLOAD_DIR = BASE_DIR / "uploads" / "ebooks"
 
 MAX_EBOOK_SIZE = 50 * 1024 * 1024
 MAX_COVER_SIZE = 5 * 1024 * 1024
@@ -101,7 +103,7 @@ async def save_ebook_cover(
 
     extension = ALLOWED_COVER_TYPES[content_type]
 
-    school_dir = UPLOAD_DIR / str(school_id) / "covers"
+    school_dir = COVER_UPLOAD_DIR / str(school_id) / "covers"
     school_dir.mkdir(
         parents=True,
         exist_ok=True,
