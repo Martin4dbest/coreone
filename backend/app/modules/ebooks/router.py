@@ -5,16 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_db
 from app.models.user import User
 from app.models.ebook_activity import EbookActivity
-from app.modules.auth.dependencies.current_user import (
-    get_current_user,
-)
+from app.modules.auth.dependencies.current_user import get_current_user
 from app.modules.ebooks.schemas import (
     EbookCreateRequest,
     EbookResponse,
     EbookUpdateRequest,
 )
 from app.modules.ebooks.service import EbookService
-
 
 router = APIRouter(
     prefix="/ebooks",
@@ -32,10 +29,9 @@ async def list_ebooks(
     subject_id: int | None = Query(None),
     classroom_id: int | None = Query(None),
     featured: bool | None = Query(None),
+    include_archived: bool = Query(False),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(
-        get_current_user
-    ),
+    current_user: User = Depends(get_current_user),
 ):
     return await EbookService(db).list_ebooks(
         school_id=current_user.school_id,
@@ -44,6 +40,7 @@ async def list_ebooks(
         subject_id=subject_id,
         classroom_id=classroom_id,
         featured=featured,
+        include_archived=include_archived,
     )
 
 
@@ -54,9 +51,7 @@ async def list_ebooks(
 async def recent_ebooks(
     limit: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(
-        get_current_user
-    ),
+    current_user: User = Depends(get_current_user),
 ):
     return await EbookService(db).recent_ebooks(
         current_user.school_id,
@@ -70,9 +65,7 @@ async def recent_ebooks(
 )
 async def ebook_categories(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(
-        get_current_user
-    ),
+    current_user: User = Depends(get_current_user),
 ):
     return await EbookService(db).categories(
         current_user.school_id
@@ -86,9 +79,7 @@ async def ebook_categories(
 async def get_ebook(
     ebook_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(
-        get_current_user
-    ),
+    current_user: User = Depends(get_current_user),
 ):
     return await EbookService(db).get_ebook(
         ebook_id,
@@ -103,9 +94,7 @@ async def get_ebook(
 async def create_ebook(
     payload: EbookCreateRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(
-        get_current_user
-    ),
+    current_user: User = Depends(get_current_user),
 ):
     return await EbookService(db).create_ebook(
         payload,
@@ -121,9 +110,7 @@ async def update_ebook(
     ebook_id: int,
     payload: EbookUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(
-        get_current_user
-    ),
+    current_user: User = Depends(get_current_user),
 ):
     return await EbookService(db).update_ebook(
         ebook_id,
@@ -138,14 +125,32 @@ async def update_ebook(
 async def delete_ebook(
     ebook_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(
-        get_current_user
-    ),
+    current_user: User = Depends(get_current_user),
 ):
-    return await EbookService(db).delete_ebook(
+    """
+    Archive the ebook instead of permanently deleting it.
+    """
+    ebook = await EbookService(db).get_ebook(
         ebook_id,
-        current_user,
+        current_user.school_id,
     )
+
+    if not ebook:
+        raise HTTPException(
+            status_code=404,
+            detail="Ebook not found",
+        )
+
+    ebook.is_active = False
+
+    await db.commit()
+    await db.refresh(ebook)
+
+    return {
+        "message": "Ebook archived successfully",
+        "id": ebook.id,
+        "is_active": ebook.is_active,
+    }
 
 
 @router.post(
@@ -155,9 +160,7 @@ async def delete_ebook(
 async def download_ebook(
     ebook_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(
-        get_current_user
-    ),
+    current_user: User = Depends(get_current_user),
 ):
     return await EbookService(db).download_ebook(
         ebook_id,
@@ -173,7 +176,11 @@ async def ebook_activity(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Verify that the ebook belongs to the current school.
+    """
+    Return students/users who viewed or downloaded an ebook.
+    Results are restricted to the current school.
+    """
+
     ebook = await EbookService(db).get_ebook(
         ebook_id,
         current_user.school_id,
@@ -198,7 +205,9 @@ async def ebook_activity(
             EbookActivity.ebook_id == ebook_id,
             EbookActivity.school_id == current_user.school_id,
         )
-        .order_by(EbookActivity.created_at.desc())
+        .order_by(
+            EbookActivity.created_at.desc()
+        )
     )
 
     rows = result.all()
@@ -228,11 +237,67 @@ async def ebook_activity(
 async def view_ebook(
     ebook_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(
-        get_current_user
-    ),
+    current_user: User = Depends(get_current_user),
 ):
     return await EbookService(db).view_ebook(
         ebook_id,
         current_user,
+    )
+
+# ============================================================
+# PROTECTED EBOOK CONTENT
+# ============================================================
+
+from pathlib import Path
+from fastapi.responses import FileResponse
+from app.modules.ebooks.upload import BASE_DIR
+
+
+@router.get("/{ebook_id}/content")
+async def protected_ebook_content(
+    ebook_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = EbookService(db)
+
+    ebook = await service.get_ebook(
+        ebook_id,
+        current_user.school_id,
+    )
+
+    if not ebook:
+        raise HTTPException(
+            status_code=404,
+            detail="Ebook not found.",
+        )
+
+    # The database stores the old/public-style URL.
+    # We resolve only the filename from it.
+    filename = Path(
+        ebook.file_url.split("?")[0]
+    ).name
+
+    protected_file = (
+        Path.cwd()
+        / "protected_ebooks"
+        / str(current_user.school_id)
+        / "files"
+        / filename
+    )
+
+    if not protected_file.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Ebook file is unavailable.",
+        )
+
+    return FileResponse(
+        path=str(protected_file),
+        media_type=ebook.file_type or "application/pdf",
+        filename=ebook.file_name or filename,
+        headers={
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
     )

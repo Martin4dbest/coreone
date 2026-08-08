@@ -5,7 +5,7 @@ from fastapi import HTTPException, UploadFile, status
 
 
 BASE_DIR = Path(__file__).resolve().parents[3]
-UPLOAD_DIR = BASE_DIR / "uploads" / "ebooks"
+UPLOAD_DIR = BASE_DIR / "protected_ebooks"
 
 MAX_EBOOK_SIZE = 50 * 1024 * 1024
 MAX_COVER_SIZE = 5 * 1024 * 1024

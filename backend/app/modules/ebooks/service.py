@@ -45,6 +45,7 @@ class EbookService:
         subject_id: int | None = None,
         classroom_id: int | None = None,
         featured: bool | None = None,
+        include_archived: bool = False,
     ):
         await self._ensure_enabled(school_id)
 
@@ -55,6 +56,7 @@ class EbookService:
             subject_id=subject_id,
             classroom_id=classroom_id,
             featured=featured,
+            include_archived=include_archived,
         )
 
     async def recent_ebooks(

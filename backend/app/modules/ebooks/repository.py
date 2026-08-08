@@ -17,11 +17,18 @@ class EbookRepository:
         subject_id: int | None = None,
         classroom_id: int | None = None,
         featured: bool | None = None,
+        include_archived: bool = False,
     ):
         conditions = [
             Ebook.school_id == school_id,
-            Ebook.is_active.is_(True),
         ]
+
+        # By default only active ebooks are returned.
+        # When include_archived=True, archived ebooks are included too.
+        if not include_archived:
+            conditions.append(
+                Ebook.is_active.is_(True)
+            )
 
         if search:
             pattern = f"%{search.strip()}%"
