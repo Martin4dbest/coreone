@@ -18,6 +18,17 @@ router = APIRouter(
     tags=["Ebooks"],
 )
 
+def _ebook_response(ebook):
+    return EbookResponse.model_validate(ebook).model_copy(
+        update={
+            "file_url": f"/api/v1/ebooks/{ebook.id}/file"
+        }
+    )
+
+
+def _ebook_responses(ebooks):
+    return [_ebook_response(ebook) for ebook in ebooks]
+
 
 @router.get(
     "",
@@ -33,7 +44,7 @@ async def list_ebooks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await EbookService(db).list_ebooks(
+    ebooks = await EbookService(db).list_ebooks(
         school_id=current_user.school_id,
         search=search,
         category=category,
@@ -42,6 +53,7 @@ async def list_ebooks(
         featured=featured,
         include_archived=include_archived,
     )
+    return _ebook_responses(ebooks)
 
 
 @router.get(
@@ -53,10 +65,11 @@ async def recent_ebooks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await EbookService(db).recent_ebooks(
+    ebooks = await EbookService(db).recent_ebooks(
         current_user.school_id,
         limit,
     )
+    return _ebook_responses(ebooks)
 
 
 @router.get(
@@ -81,10 +94,18 @@ async def get_ebook(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await EbookService(db).get_ebook(
+    ebook = await EbookService(db).get_ebook(
         ebook_id,
         current_user.school_id,
     )
+
+    if not ebook:
+        raise HTTPException(
+            status_code=404,
+            detail="Ebook not found.",
+        )
+
+    return _ebook_response(ebook)
 
 
 @router.post(

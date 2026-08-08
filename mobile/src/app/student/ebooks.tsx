@@ -37,6 +37,8 @@ export default function StudentEbooks() {
   const [loading, setLoading] = useState(true);
 const [viewingId, setViewingId] = useState<number | null>(null);
 const [downloadingId, setDownloadingId] = useState<number | null>(null);
+const [downloadedIds, setDownloadedIds] = useState<Set<number>>(new Set());
+const [activeTab, setActiveTab] = useState<"all" | "downloaded">("all");
   const [activeAction, setActiveAction] = useState<{
   id: number;
   action: "view" | "download";
@@ -65,17 +67,43 @@ const [downloadingId, setDownloadingId] = useState<number | null>(null);
     return `${base}${url.startsWith("/") ? url : `/${url}`}`;
   };
 
-  const loadEbooks = async () => {
+  const getLocalUri = (ebook: Ebook) => {
+  const filename = (
+    ebook.file_name || `ebook-${ebook.id}.pdf`
+  ).replace(/[^a-zA-Z0-9._-]/g, "_");
+
+  return `${FileSystem.documentDirectory}ebooks/${filename}`;
+};
+
+const scanDownloadedEbooks = async (items: Ebook[]) => {
+  const downloaded = new Set<number>();
+
+  for (const ebook of items) {
+    try {
+      const info = await FileSystem.getInfoAsync(getLocalUri(ebook));
+      if (info.exists) {
+        downloaded.add(ebook.id);
+      }
+    } catch (error) {
+      console.warn("Could not check local ebook:", ebook.id, error);
+    }
+  }
+
+  setDownloadedIds(downloaded);
+};
+
+const loadEbooks = async () => {
     try {
       setLoading(true);
 
       const response = await api.get("/ebooks");
+  const items: Ebook[] =
+    Array.isArray(response.data)
+      ? response.data
+      : [];
 
-      setEbooks(
-        Array.isArray(response.data)
-          ? response.data
-          : []
-      );
+  setEbooks(items);
+  await scanDownloadedEbooks(items);
     } catch (error: any) {
       console.error(
         "Failed to load ebooks:",
@@ -94,6 +122,7 @@ const [downloadingId, setDownloadingId] = useState<number | null>(null);
   useEffect(() => {
     loadEbooks();
   }, []);
+
 
   const formatFileSize = (
     size?: number | null
@@ -245,6 +274,12 @@ const [downloadingId, setDownloadingId] = useState<number | null>(null);
       );
     }
 
+    setDownloadedIds((previous) => {
+      const next = new Set(previous);
+      next.add(ebook.id);
+      return next;
+    });
+
     try {
       await api.post(`/ebooks/${ebook.id}/download`);
     } catch (error) {
@@ -290,6 +325,9 @@ const renderEbook = ({
 
     const isDownloading =
       downloadingId === item.id;
+
+    const isDownloaded =
+      downloadedIds.has(item.id);
 
     return (
       <View style={styles.card}>
@@ -505,7 +543,53 @@ const renderEbook = ({
         </View>
       </View>
 
-      {ebooks.length === 0 ? (
+      <View style={styles.tabs}>
+    <Pressable
+      style={[
+        styles.tab,
+        activeTab === "all" && styles.activeTab,
+      ]}
+      onPress={() => setActiveTab("all")}
+    >
+      <Ionicons
+        name="library-outline"
+        size={17}
+        color={activeTab === "all" ? "#2563EB" : "#64748B"}
+      />
+      <Text
+        style={[
+          styles.tabText,
+          activeTab === "all" && styles.activeTabText,
+        ]}
+      >
+        All E-books
+      </Text>
+    </Pressable>
+
+    <Pressable
+      style={[
+        styles.tab,
+        activeTab === "downloaded" && styles.activeTab,
+      ]}
+      onPress={() => setActiveTab("downloaded")}
+    >
+      <Ionicons
+        name="cloud-done-outline"
+        size={17}
+        color={activeTab === "downloaded" ? "#2563EB" : "#64748B"}
+      />
+      <Text
+        style={[
+          styles.tabText,
+          activeTab === "downloaded" && styles.activeTabText,
+        ]}
+      >
+        Downloaded ({downloadedIds.size})
+      </Text>
+    </Pressable>
+  </View>
+
+  {ebooks.length === 0 ? (
         <View style={styles.empty}>
           <View style={styles.emptyIcon}>
             <Ionicons
@@ -526,7 +610,13 @@ const renderEbook = ({
         </View>
       ) : (
         <FlatList
-          data={ebooks}
+      data={
+        activeTab === "downloaded"
+          ? ebooks.filter((ebook) =>
+              downloadedIds.has(ebook.id)
+            )
+          : ebooks
+      }
           keyExtractor={(item) =>
             String(item.id)
           }
@@ -745,7 +835,82 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
 
-  empty: {
+  tabs: {
+  flexDirection: "row",
+  marginHorizontal: 16,
+  marginTop: 14,
+  marginBottom: 2,
+  padding: 4,
+  borderRadius: 12,
+  backgroundColor: "#E2E8F0",
+},
+
+tab: {
+  flex: 1,
+  minHeight: 42,
+  borderRadius: 9,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+},
+
+activeTab: {
+  backgroundColor: "#FFFFFF",
+  shadowColor: "#000000",
+  shadowOpacity: 0.05,
+  shadowRadius: 4,
+  shadowOffset: { width: 0, height: 1 },
+  elevation: 1,
+},
+
+tabText: {
+  fontSize: 12,
+  fontWeight: "700",
+  color: "#64748B",
+},
+
+activeTabText: {
+  color: "#2563EB",
+},
+
+downloadedBadge: {
+  alignSelf: "flex-start",
+  marginTop: 6,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 4,
+  paddingHorizontal: 7,
+  paddingVertical: 4,
+  borderRadius: 7,
+  backgroundColor: "#DCFCE7",
+},
+
+downloadedText: {
+  fontSize: 9,
+  fontWeight: "800",
+  color: "#166534",
+},
+
+browseButton: {
+  marginTop: 18,
+  minHeight: 42,
+  paddingHorizontal: 18,
+  borderRadius: 10,
+  backgroundColor: "#2563EB",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 7,
+},
+
+browseButtonText: {
+  color: "#FFFFFF",
+  fontSize: 12,
+  fontWeight: "800",
+},
+
+empty: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
