@@ -130,5 +130,3 @@ class GoogleQuestionMapper:
 
 
         return q
-
-

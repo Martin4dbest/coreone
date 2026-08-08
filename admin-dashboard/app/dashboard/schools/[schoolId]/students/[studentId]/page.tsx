@@ -122,19 +122,12 @@ export default function StudentProfile({
   async function loadStudent() {
     try {
       setImageError(false);
-      // Primary multi-tenant route
-      const response = await api.get(
-        `/schools/${schoolId}/students/${studentId}`
-      );
+
+      const response = await api.get(`/students/${studentId}`);
       setStudent(response.data);
+
     } catch (error) {
-      // Fallback endpoint if tenant scoping is handled via session headers
-      try {
-        const response = await api.get(`/students/${studentId}`);
-        setStudent(response.data);
-      } catch (fallbackErr) {
-        console.error("Failed to load student profile", fallbackErr);
-      }
+      console.error("Failed to load student profile", error);
     } finally {
       setLoading(false);
     }
@@ -148,16 +141,10 @@ export default function StudentProfile({
     if (!confirmed) return;
 
     try {
-      await api.delete(`/schools/${schoolId}/students/${studentId}`);
+      await api.delete(`/students/${studentId}`);
       router.push(`/dashboard/schools/${schoolId}/students`);
     } catch (error) {
-      // Fallback if endpoint is non-scoped
-      try {
-        await api.delete(`/students/${studentId}`);
-        router.push(`/dashboard/schools/${schoolId}/students`);
-      } catch (fallbackErr) {
-        console.error("Failed deleting student", fallbackErr);
-      }
+      console.error("Failed deleting student", error);
     }
   }
 

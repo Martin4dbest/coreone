@@ -28,16 +28,13 @@ type Student = {
   admission_number:string;
 };
 
-
 export default function ResultsPage({
   params,
 }:{
   params:Promise<{schoolId:string}>
 }) {
 
-
 const {schoolId}=use(params);
-
 
 const [results,setResults]=useState<Result[]>([]);
 const [students,setStudents]=useState<Student[]>([]);
@@ -66,8 +63,6 @@ const [bulkTermId,setBulkTermId]=useState("");
 const [bulkSessionId,setBulkSessionId]=useState("");
 const [bulkLoading,setBulkLoading]=useState(false);
 const [bulkSaving,setBulkSaving]=useState(false);
-
-
 
 async function loadData(){
 
@@ -109,14 +104,12 @@ school_id:schoolId
 
 ]);
 
-
 setResults(resultsRes.data);
 setStudents(studentsRes.data);
 setClasses(classesRes.data);
 setSubjects(subjectsRes.data);
 setTerms(termsRes.data);
 setSessions(sessionsRes.data);
-
 
 }catch(error){
 
@@ -127,19 +120,13 @@ error
 
 }
 
-
 }
-
-
 
 useEffect(()=>{
 
 loadData();
 
 },[]);
-
-
-
 
 async function loadBulkStudents(){
 
@@ -183,7 +170,6 @@ setBulkLoading(false);
 
 }
 
-
 function updateBulkScore(
 studentId:number,
 field:"ca"|"exam",
@@ -205,7 +191,6 @@ setBulkScores(prev=>({
 }));
 
 }
-
 
 async function saveBulkResults(){
 
@@ -237,13 +222,11 @@ exam_score:Number(score.exam || 0)
 
 };
 
-
 await api.post("/results/bulk-entry", payload);
 
 await loadData();
 
 setBulkOpen(false);
-
 
 }catch(error){
 
@@ -257,7 +240,6 @@ setBulkSaving(false);
 }
 
 }
-
 
 async function createResult(){
 
@@ -283,23 +265,17 @@ exam_score:Number(exam)
 
 });
 
-
 setOpen(false);
 
 await loadData();
 
 }
 
-
-
-
 return (
 
 <div className="min-h-screen bg-white text-gray-900 p-4">
 
-
 <div className="flex justify-between items-center mb-8">
-
 
 <div>
 
@@ -311,7 +287,6 @@ className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-blue-
 Back to Academics
 </a>
 
-
 <h1 className="text-base font-bold">
 <button
 onClick={()=>setBulkOpen(true)}
@@ -319,7 +294,6 @@ className="ml-3 inline-flex items-center gap-2 bg-gray-900 hover:bg-gray-800 tex
 >
 Bulk Score Entry
 </button>
-
 
 {bulkOpen && (
 
@@ -329,9 +303,7 @@ Bulk Score Entry
 Bulk Score Entry
 </h2>
 
-
 <div className="grid grid-cols-5 gap-3">
-
 
 <select
 className="border rounded-lg p-2 text-sm"
@@ -345,14 +317,12 @@ onChange={(e)=>setBulkClassId(e.target.value)}
 ))}
 </select>
 
-
 <button
 onClick={loadBulkStudents}
 className="bg-blue-600 text-white rounded-xl px-4"
 >
 {bulkLoading ? "Loading..." : "Load Students"}
 </button>
-
 
 <select
 className="border rounded-lg p-2 text-sm"
@@ -366,7 +336,6 @@ onChange={(e)=>setBulkSubjectId(e.target.value)}
 ))}
 </select>
 
-
 <select
 className="border rounded-lg p-2 text-sm"
 onChange={(e)=>setBulkTermId(e.target.value)}
@@ -378,7 +347,6 @@ onChange={(e)=>setBulkTermId(e.target.value)}
 </option>
 ))}
 </select>
-
 
 <select
 className="border rounded-lg p-2 text-sm"
@@ -392,9 +360,7 @@ onChange={(e)=>setBulkSessionId(e.target.value)}
 ))}
 </select>
 
-
 </div>
-
 
 <table className="w-full mt-6">
 
@@ -406,7 +372,6 @@ onChange={(e)=>setBulkSessionId(e.target.value)}
 </tr>
 </thead>
 
-
 <tbody>
 
 {bulkStudents.map(s=>(
@@ -417,7 +382,6 @@ onChange={(e)=>setBulkSessionId(e.target.value)}
 {s.first_name} {s.last_name}
 </td>
 
-
 <td>
 <input
 className="border rounded-lg p-2 w-24"
@@ -425,7 +389,6 @@ value={bulkScores[s.id]?.ca || ""}
 onChange={(e)=>updateBulkScore(s.id,"ca",e.target.value)}
 />
 </td>
-
 
 <td>
 <input
@@ -443,7 +406,6 @@ onChange={(e)=>updateBulkScore(s.id,"exam",e.target.value)}
 
 </table>
 
-
 <button
 onClick={saveBulkResults}
 disabled={bulkSaving}
@@ -452,11 +414,9 @@ className="mt-4 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg 
 {bulkSaving ? "Saving..." : "Save Bulk Results"}
 </button>
 
-
 </div>
 
 )}
-
 
 Results
 </h1>
@@ -466,8 +426,6 @@ Manage student academic performance and grades
 </p>
 
 </div>
-
-
 
 <button
 
@@ -483,25 +441,17 @@ Add Result
 
 </button>
 
-
 </div>
-
-
-
-
 
 {open && (
 
 <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-4 mb-8">
 
-
 <div className="flex justify-between mb-5">
-
 
 <h2 className="text-xl font-semibold">
 Create Result
 </h2>
-
 
 <button
 onClick={()=>setOpen(false)}
@@ -512,13 +462,9 @@ className="text-gray-500 hover:text-red-500"
 
 </button>
 
-
 </div>
 
-
-
 <div className="grid md:grid-cols-2 gap-4">
-
 
 <select
 className="border rounded-lg p-2 text-sm"
@@ -528,7 +474,6 @@ onChange={(e)=>setStudentId(e.target.value)}
 <option>
 Select Student
 </option>
-
 
 {students.map(s=>(
 
@@ -542,9 +487,6 @@ Select Student
 
 </select>
 
-
-
-
 <select
 className="border rounded-lg p-2 text-sm"
 onChange={(e)=>setClassId(e.target.value)}
@@ -553,7 +495,6 @@ onChange={(e)=>setClassId(e.target.value)}
 <option>
 Select Class
 </option>
-
 
 {classes.map(c=>(
 
@@ -567,9 +508,6 @@ Select Class
 
 </select>
 
-
-
-
 <select
 className="border rounded-lg p-2 text-sm"
 onChange={(e)=>setSubjectId(e.target.value)}
@@ -578,7 +516,6 @@ onChange={(e)=>setSubjectId(e.target.value)}
 <option>
 Select Subject
 </option>
-
 
 {subjects.map(s=>(
 
@@ -592,9 +529,6 @@ Select Subject
 
 </select>
 
-
-
-
 <select
 className="border rounded-lg p-2 text-sm"
 onChange={(e)=>setTermId(e.target.value)}
@@ -603,7 +537,6 @@ onChange={(e)=>setTermId(e.target.value)}
 <option>
 Select Term
 </option>
-
 
 {terms.map(t=>(
 
@@ -617,9 +550,6 @@ Select Term
 
 </select>
 
-
-
-
 <select
 className="border rounded-lg p-2 text-sm"
 onChange={(e)=>setSessionId(e.target.value)}
@@ -628,7 +558,6 @@ onChange={(e)=>setSessionId(e.target.value)}
 <option>
 Select Session
 </option>
-
 
 {sessions.map(s=>(
 
@@ -642,9 +571,6 @@ Select Session
 
 </select>
 
-
-
-
 <input
 
 placeholder="CA Score"
@@ -654,9 +580,6 @@ className="border rounded-lg p-2 text-sm"
 onChange={(e)=>setCa(e.target.value)}
 
 />
-
-
-
 
 <input
 
@@ -668,11 +591,7 @@ onChange={(e)=>setExam(e.target.value)}
 
 />
 
-
 </div>
-
-
-
 
 <button
 
@@ -698,24 +617,15 @@ onChange={(e)=>setExam(e.target.value)}
 
 </button>
 
-
-
 </div>
 
 )}
 
-
-
-
-
 <div className="bg-white border border-gray-200 rounded-xl shadow overflow-hidden">
-
 
 <table className="w-full">
 
-
 <thead className="bg-gray-100">
-
 
 <tr>
 
@@ -723,36 +633,27 @@ onChange={(e)=>setExam(e.target.value)}
 Student
 </th>
 
-
 <th className="text-left p-4">
 Class
 </th>
-
 
 <th className="text-left p-4">
 Subject
 </th>
 
-
 <th className="text-left p-4">
 Total
 </th>
-
 
 <th className="text-left p-4">
 Grade
 </th>
 
-
 </tr>
-
 
 </thead>
 
-
-
 <tbody>
-
 
 {results.map(r=>(
 
@@ -761,26 +662,21 @@ key={r.id}
 className="border-t hover:bg-gray-50"
 >
 
-
 <td className="p-4 font-medium">
 {r.student_name}
 </td>
-
 
 <td className="p-4">
 {r.class_name}
 </td>
 
-
 <td className="p-4">
 {r.subject_name}
 </td>
 
-
 <td className="p-4">
 {r.total_score}
 </td>
-
 
 <td className="p-4">
 
@@ -792,26 +688,18 @@ className="border-t hover:bg-gray-50"
 
 </td>
 
-
 </tr>
-
 
 ))}
 
-
 </tbody>
-
 
 </table>
 
-
 </div>
-
-
 
 </div>
 
 );
-
 
 }

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
 
     RESEND_API_KEY: str = ""
+
     EMAIL_FROM: str = "PreSense <onboarding@resend.dev>"
     FRONTEND_URL: str = "http://localhost:3000"
 

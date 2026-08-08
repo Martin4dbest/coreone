@@ -159,4 +159,3 @@ class ClassTeacherRepository:
         )
 
         return result.scalar_one_or_none()
-

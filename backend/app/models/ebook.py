@@ -1,4 +1,4 @@
-from sqlalchemy import String, Text
+from sqlalchemy import Boolean, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_model import BaseModel
@@ -35,7 +35,61 @@ class Ebook(Base, BaseModel, SchoolMixin, ActiveMixin):
     )
 
     uploaded_by: Mapped[int] = mapped_column(
+        Integer,
         nullable=False,
+    )
+
+    subject_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        index=True,
+    )
+
+    classroom_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        index=True,
+    )
+
+    cover_image_url: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    file_name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    file_size: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    file_type: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    featured: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+
+    download_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    view_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
     )
 
     school = relationship("School")

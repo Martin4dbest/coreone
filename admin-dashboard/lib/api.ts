@@ -9,7 +9,6 @@ const api = axios.create({
   },
 });
 
-
 /*
   SIMPLE GET CACHE
   Prevents repeated loading of the same dashboard data
@@ -23,7 +22,6 @@ const getCache = new Map<
     timestamp: number;
   }
 >();
-
 
 api.interceptors.request.use((config) => {
 
@@ -43,7 +41,6 @@ api.interceptors.request.use((config) => {
       config.headers["X-Tenant"] = tenant;
     }
   }
-
 
   // Cache GET requests
   if (config.method?.toLowerCase() === "get") {
@@ -69,12 +66,9 @@ api.interceptors.request.use((config) => {
 
   }
 
-
   return config;
 
 });
-
-
 
 api.interceptors.response.use(
 
@@ -90,7 +84,6 @@ api.interceptors.response.use(
           response.config.params || {}
         );
 
-
       getCache.set(key, {
         data: response.data,
         timestamp: Date.now(),
@@ -98,11 +91,9 @@ api.interceptors.response.use(
 
     }
 
-
     return response;
 
   },
-
 
   (error) => {
 
@@ -114,7 +105,6 @@ api.interceptors.response.use(
           error.response?.data || error
         );
       }
-
 
       if (
         error.response?.status === 401 &&
@@ -136,12 +126,28 @@ api.interceptors.response.use(
 
     }
 
-
     return Promise.reject(error);
 
   }
 
 );
 
-
 export default api;
+
+export function getAbsoluteUploadUrl(url: string | null | undefined): string {
+  if (!url) return "";
+
+  if (
+    url.startsWith("http://") ||
+    url.startsWith("https://")
+  ) {
+    return url;
+  }
+
+  const base =
+    api.defaults.baseURL?.replace(/\/api\/v1\/?$/, "") || "";
+
+  if (!base) return url;
+
+  return `${base}${url.startsWith("/") ? url : `/${url}`}`;
+}

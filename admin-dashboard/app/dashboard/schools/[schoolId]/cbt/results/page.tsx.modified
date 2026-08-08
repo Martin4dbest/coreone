@@ -1,0 +1,685 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import api from "@/lib/api";
+
+import jsPDF from "jspdf";
+import autoTable, { UserOptions } from "jspdf-autotable";
+import * as XLSX from "xlsx";
+
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
+
+interface ResultRow {
+  attempt_id: number;
+  student_name: string;
+  class_name?: string;
+  exam_title: string;
+  score: number;
+  total_marks: number;
+  percentage: number;
+  passed: boolean;
+  submitted_at: string;
+}
+
+interface Dashboard {
+  total_attempts: number;
+  passed: number;
+  failed: number;
+  average_score: number;
+  highest_score: number;
+  lowest_score: number;
+}
+
+export default function CBTResultsPage() {
+  const params = useParams();
+  const router = useRouter();
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const examId = searchParams.get("examId");
+
+  const schoolId = params?.schoolId as string;
+
+  const [loading, setLoading] = useState(true);
+  const [results, setResults] = useState<ResultRow[]>([]);
+  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+
+  // States for selection & saving actions
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [clearing, setClearing] = useState(false);
+
+  useEffect(() => {
+    if (schoolId) {
+      loadData();
+    }
+  }, [schoolId]);
+
+  async function loadData() {
+  try {
+    setLoading(true);
+
+    const [resultsRes, dashboardRes] = await Promise.all([
+      api.get(`/cbt/exams/${Number(examId)}/results`),
+      api.get(`/cbt/schools/${schoolId}/results/dashboard`).catch(() => ({
+        data: {
+          total_attempts: 0,
+          passed: 0,
+          failed: 0,
+          average_score: 0,
+          highest_score: 0,
+          lowest_score: 0,
+        },
+      })),
+    ]);
+
+    const rawResults = Array.isArray(resultsRes.data)
+      ? resultsRes.data
+      : resultsRes.data?.results || [];
+
+    const mergedResults = rawResults.map((row: any) => ({
+      ...row,
+      class_name:
+        row.class_name ??
+        row.classroom ??
+        row.student?.class_name ??
+        row.student?.classroom?.name ??
+        "-",
+    }));
+
+    setResults(mergedResults);
+    setDashboard(dashboardRes.data);
+  } catch (err) {
+    console.error("Error loading CBT results:", err);
+  } finally {
+    setLoading(false);
+  }
+}
+
+  // Checkbox Selection Handlers
+  function toggleSelectAll() {
+    if (selectedIds.length === results.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(results.map((r) => r.attempt_id));
+    }
+  }
+
+  function toggleSelectRow(id: number) {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  }
+
+  // SAVE SELECTED RESULTS FUNCTION
+  async function saveSelectedResults() {
+    if (selectedIds.length === 0) {
+      alert("Please select at least one student result to save.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const itemsToSave = results.filter((r) =>
+        selectedIds.includes(r.attempt_id)
+      );
+
+      // Save locally
+      const storageKey = `saved_cbt_results_${schoolId}`;
+      const existing = JSON.parse(localStorage.getItem(storageKey) || "[]");
+
+      // Merge without duplicates
+      const combined = [...existing];
+      itemsToSave.forEach((item) => {
+        if (!combined.some((c) => c.attempt_id === item.attempt_id)) {
+          combined.push(item);
+        }
+      });
+
+      localStorage.setItem(storageKey, JSON.stringify(combined));
+
+      // Also send to backend API (optional/best-effort)
+      try {
+        await api.post(`/cbt/schools/${schoolId}/results/save`, {
+          attempt_ids: selectedIds,
+          results: itemsToSave,
+        });
+      } catch {
+        // Backend route optional fallback
+      }
+
+      // Redirect user to the saved results page!
+      router.push(`/dashboard/schools/${schoolId}/cbt/results/saved`);
+    } catch (err) {
+      console.error("Failed to save results:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // CLEAR ALL RESULTS FUNCTION
+  async function clearAllResults() {
+    const confirmClear = window.confirm(
+      "Are you sure you want to clear all student results? This action cannot be undone."
+    );
+
+    if (!confirmClear) return;
+
+    try {
+      setClearing(true);
+      await api.delete(`/cbt/schools/${schoolId}/results/clear`);
+
+      setResults([]);
+      setSelectedIds([]);
+      setDashboard({
+        total_attempts: 0,
+        passed: 0,
+        failed: 0,
+        average_score: 0,
+        highest_score: 0,
+        lowest_score: 0,
+      });
+
+      alert("All student results have been cleared.");
+    } catch (err) {
+      console.error("Failed to clear results:", err);
+      alert("Error clearing results. Make sure the backend endpoint is defined.");
+    } finally {
+      setClearing(false);
+    }
+  }
+
+  // EXCEL EXPORT
+  function exportExcel() {
+    if (!results || results.length === 0) return;
+
+    const exportData = results.map((r) => ({
+      "Attempt ID": r.attempt_id,
+      "Student Name": r.student_name,
+      "Exam Title": r.exam_title,
+      Score: `${r.score} / ${r.total_marks}`,
+      "Percentage (%)": `${r.percentage.toFixed(1)}%`,
+      Status: r.passed ? "PASSED" : "FAILED",
+      "Submitted At": r.submitted_at
+        ? new Date(r.submitted_at).toLocaleString()
+        : "-",
+    }));
+
+    const sheet = XLSX.utils.json_to_sheet(exportData);
+
+    const colKeys = Object.keys(exportData[0]) as (keyof typeof exportData[0])[];
+    const colWidths = colKeys.map((key) => {
+      let maxLen = key.length;
+      exportData.forEach((row) => {
+        const valStr = String(row[key] ?? "");
+        if (valStr.length > maxLen) {
+          maxLen = valStr.length;
+        }
+      });
+      return { wch: maxLen + 4 };
+    });
+
+    sheet["!cols"] = colWidths;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, sheet, "CBT Results");
+    XLSX.writeFile(wb, "cbt-results.xlsx");
+  }
+
+  // PDF GENERATOR WITH EOF POSITIONING
+  function exportPDF(row: ResultRow) {
+    const doc = new jsPDF();
+    const primaryColor: [number, number, number] = [30, 41, 59];
+    const accentColor: [number, number, number] = [37, 99, 235];
+
+    doc.setFillColor(...primaryColor);
+    doc.rect(0, 0, 210, 28, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.text("COMPUTER BASED TEST RESULT", 14, 18);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(203, 213, 225);
+    const dateText = `Issued: ${new Date().toLocaleDateString()}`;
+    doc.text(dateText, 196, 18, { align: "right" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(...primaryColor);
+    doc.text("Candidate Performance Summary", 14, 40);
+
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.5);
+    doc.line(14, 43, 196, 43);
+
+    const tableOptions: UserOptions = {
+      startY: 48,
+      head: [["Assessment Field", "Details"]],
+      body: [
+        ["Student Name", row.student_name],
+        ["Exam Title", row.exam_title],
+        ["Score Obtained", `${row.score} / ${row.total_marks}`],
+        ["Percentage Score", `${row.percentage.toFixed(1)}%`],
+        ["Final Status", row.passed ? "PASSED" : "FAILED"],
+        [
+          "Submission Time",
+          row.submitted_at
+            ? new Date(row.submitted_at).toLocaleString()
+            : "N/A",
+        ],
+      ],
+      theme: "striped",
+      headStyles: {
+        fillColor: accentColor,
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        fontSize: 10,
+      },
+      bodyStyles: {
+        fontSize: 10,
+        textColor: [51, 65, 85],
+        cellPadding: 5,
+      },
+      columnStyles: {
+        0: { fontStyle: "bold", cellWidth: 60 },
+        1: { cellWidth: "auto" },
+      },
+      didParseCell: (data) => {
+        if (
+          data.section === "body" &&
+          data.column.index === 1 &&
+          data.row.index === 4
+        ) {
+          if (row.passed) {
+            data.cell.styles.textColor = [22, 163, 74];
+            data.cell.styles.fontStyle = "bold";
+          } else {
+            data.cell.styles.textColor = [220, 38, 38];
+            data.cell.styles.fontStyle = "bold";
+          }
+        }
+      },
+    };
+
+    autoTable(doc, tableOptions);
+
+    // End of File (EOF) dynamic Y position calculation
+    const finalY =
+      (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
+        .finalY || 120;
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Verification Key: ${row.attempt_id}-${Date.now()}`, 14, finalY + 15);
+
+    const pageHeight = doc.internal.pageSize.height;
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.setFont("helvetica", "italic");
+    doc.text(
+      "This is an officially generated electronic statement of results.",
+      105,
+      pageHeight - 12,
+      { align: "center" }
+    );
+
+    doc.save(
+      `${row.student_name.toLowerCase().replace(/\s+/g, "_")}_result.pdf`
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-sm font-medium text-gray-500 animate-pulse">
+          Loading CBT Results...
+        </div>
+      </div>
+    );
+  }
+
+  const pieData = dashboard
+    ? [
+        { name: "Passed", value: dashboard.passed },
+        { name: "Failed", value: dashboard.failed },
+      ]
+    : [];
+
+  const PIE_COLORS = ["#16a34a", "#dc2626"];
+
+  return (
+    <div className="p-6 space-y-6 bg-gray-50/50 min-h-screen text-gray-800">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+        <div className="flex items-center gap-3">
+          {/* Back Button */}
+          <button
+            onClick={() => router.back()}
+            className="inline-flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg transition-colors border border-gray-200"
+            title="Go to previous page"
+          >
+            ← Back
+          </button>
+
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-gray-900">
+              CBT Exam Results
+            </h1>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Overview of student exam performances and analytics
+            </p>
+          </div>
+        </div>
+
+        {/* Action Toolbar */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* View Saved Page Link */}
+          <button
+            onClick={() =>
+              router.push(`/dashboard/schools/${schoolId}/cbt/results/saved`)
+            }
+            className="inline-flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg transition-colors border border-gray-300"
+          >
+            Saved Page
+          </button>
+
+          {/* Save Selected Results Button */}
+          <button
+            onClick={saveSelectedResults}
+            disabled={saving || selectedIds.length === 0}
+            className="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors shadow-sm"
+          >
+            {saving ? "Saving..." : `Save Results (${selectedIds.length})`}
+          </button>
+
+          {/* Export Excel Button */}
+          <button
+            onClick={exportExcel}
+            className="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors shadow-sm"
+          >
+            Export Excel
+          </button>
+
+          {/* Clear All Results Button */}
+          <button
+            onClick={clearAllResults}
+            disabled={clearing || results.length === 0}
+            className="inline-flex items-center justify-center bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors shadow-sm"
+          >
+            {clearing ? "Clearing..." : "Clear All Results"}
+          </button>
+        </div>
+      </div>
+
+      {/* Quick Dashboard Stats */}
+      {dashboard && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3.5">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Total Attempts
+            </p>
+            <p className="text-xl font-bold text-gray-900 mt-1">
+              {dashboard.total_attempts}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3.5">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Passed
+            </p>
+            <p className="text-xl font-bold text-emerald-600 mt-1">
+              {dashboard.passed}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3.5">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Failed
+            </p>
+            <p className="text-xl font-bold text-red-600 mt-1">
+              {dashboard.failed}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3.5">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Average Score
+            </p>
+            <p className="text-xl font-bold text-gray-900 mt-1">
+              {dashboard.average_score}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3.5">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Highest Score
+            </p>
+            <p className="text-xl font-bold text-indigo-600 mt-1">
+              {dashboard.highest_score}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3.5">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Lowest Score
+            </p>
+            <p className="text-xl font-bold text-amber-600 mt-1">
+              {dashboard.lowest_score}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Results Table */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-800">
+            Student Performance Table
+          </h2>
+          <span className="text-xs text-gray-500">
+            {selectedIds.length} of {results.length} selected
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-gray-50 text-gray-600 uppercase font-semibold border-b border-gray-100">
+              <tr>
+                <th className="p-3 text-center w-10">
+                  <input
+                    type="checkbox"
+                    checked={
+                      results.length > 0 && selectedIds.length === results.length
+                    }
+                    onChange={toggleSelectAll}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                </th>
+                <th className="p-3">Student</th>
+                <th className="p-3">Class</th>
+                  <th className="p-3">Exam</th>
+                <th className="p-3 text-center">Score</th>
+                <th className="p-3 text-center">Percentage</th>
+                <th className="p-3 text-center">Status</th>
+                <th className="p-3 text-center">Submitted</th>
+                <th className="p-3 text-center">Action</th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-gray-100">
+              {results.map((row) => (
+                <tr
+                  key={row.attempt_id}
+                  className={`hover:bg-gray-50/80 transition-colors ${
+                    selectedIds.includes(row.attempt_id) ? "bg-blue-50/40" : ""
+                  }`}
+                >
+                  <td className="p-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(row.attempt_id)}
+                      onChange={() => toggleSelectRow(row.attempt_id)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                  </td>
+                  <td className="p-3 font-medium text-gray-900">
+                    {row.student_name}
+                  </td>
+                  <td className="p-3 text-gray-600">
+                    {row.class_name || "-"}
+                  </td>
+                  <td className="p-3 text-gray-600">{row.exam_title}</td>
+                  <td className="p-3 text-center font-medium text-gray-700">
+                    {row.score} / {row.total_marks}
+                  </td>
+                  <td className="p-3 text-center text-gray-700">
+                    {row.percentage.toFixed(1)}%
+                  </td>
+                  <td className="p-3 text-center">
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide ${
+                        row.passed
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-red-50 text-red-700 border border-red-200"
+                      }`}
+                    >
+                      {row.passed ? "PASS" : "FAIL"}
+                    </span>
+                  </td>
+                  <td className="p-3 text-center text-gray-500">
+                    {row.submitted_at
+                      ? new Date(row.submitted_at).toLocaleString([], {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        })
+                      : "-"}
+                  </td>
+                  <td className="p-3 text-center">
+                    <button
+                      onClick={() => exportPDF(row)}
+                      className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs px-2.5 py-1 rounded transition-colors"
+                    >
+                      PDF
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {results.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="p-6 text-center text-gray-400">
+                    No student results found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Graphical Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Student Score Bar Chart */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <h3 className="text-sm font-semibold text-gray-800 mb-4">
+            Individual Student Scores (%)
+          </h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={results}
+                margin={{ top: 10, right: 10, left: -20, bottom: 20 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#f1f5f9"
+                />
+                <XAxis
+                  dataKey="student_name"
+                  tick={{ fontSize: 11, fill: "#64748b" }}
+                  interval={0}
+                  angle={-15}
+                  textAnchor="end"
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fontSize: 11, fill: "#64748b" }}
+                />
+                <Tooltip
+                  formatter={(value: unknown) => [
+                    `${Number(value)}%`,
+                    "Percentage",
+                  ]}
+                  contentStyle={{ fontSize: "12px", borderRadius: "8px" }}
+                />
+                <Bar
+                  dataKey="percentage"
+                  fill="#3b82f6"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Pass vs Fail Pie Chart */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <h3 className="text-sm font-semibold text-gray-800 mb-4">
+            Pass / Fail Ratio
+          </h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={45}
+                  outerRadius={75}
+                  paddingAngle={4}
+                  label={({ name, percent }: { name?: string; percent?: number }) =>
+                    `${name ?? ""} ${((percent ?? 0) * 100).toFixed(0)}%`
+                  }
+                  style={{ fontSize: "11px" }}
+                >
+                  {pieData.map((_, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={PIE_COLORS[index % PIE_COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ fontSize: "12px", borderRadius: "8px" }}
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  height={36}
+                  wrapperStyle={{ fontSize: "11px" }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

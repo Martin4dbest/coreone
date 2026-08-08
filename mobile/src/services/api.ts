@@ -1,9 +1,10 @@
+import { AxiosHeaders } from "axios";
 import axios from "axios";
 import { getToken } from "@/storage/auth";
 
 
 const API_BASE_URL =
-  "http://10.120.64.196:8000/api/v1";
+  "http://10.235.113.196:8000/api/v1";
 
 
 const api = axios.create({
@@ -22,54 +23,28 @@ const api = axios.create({
 
 api.interceptors.request.use(
 
-async(config)=>{
+async (config) => {
 
+  const token = await getToken();
 
-const token =
-await getToken();
+  if (!config.headers) {
+    config.headers = new AxiosHeaders();
+  }
 
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
 
-console.log("========== API REQUEST ==========");
-console.log(
-  config.method?.toUpperCase(),
-  `${API_BASE_URL}${config.url}`
-);
+  console.log("========== API REQUEST ==========");
+  console.log(config.method?.toUpperCase(), `${API_BASE_URL}${config.url}`);
+  console.log("TOKEN:", token ? "FOUND" : "MISSING");
 
-
-if(config.data){
-
-console.log(
-  "BODY:",
-  config.data
-);
-
-}
-
-
-
-if(token){
-
-config.headers.Authorization =
-`Bearer ${token}`;
-
-}
-
-
-return config;
-
-
+  return config;
 },
 
-
-(error)=>{
-
-return Promise.reject(error);
-
-}
+(error) => Promise.reject(error)
 
 );
-
-
 
 api.interceptors.response.use(
 

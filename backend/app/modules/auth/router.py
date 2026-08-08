@@ -52,16 +52,8 @@ async def login(
         email=form_data.username,
     )
 
-    if current_user.role.name not in (
-        "SUPER_ADMIN",
-        "SCHOOL_ADMIN",
-    ):
-        from fastapi import HTTPException
-
-        raise HTTPException(
-            status_code=403,
-            detail="This portal is for School Administrators only. Please use the appropriate portal for your account."
-        )
+    # Allow all authenticated users for this tenant.
+    # Frontend will redirect users according to their role.
 
     return result
 

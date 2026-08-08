@@ -61,7 +61,7 @@ export default function Landing() {
               </View>
               <View style={styles.brandTitleGroup}>
                 <Text style={styles.brand}>PreSense</Text>
-                <Text style={styles.brandSubtitle}>School ERP System</Text>
+               
               </View>
             </View>
           </View>
@@ -87,18 +87,7 @@ export default function Landing() {
                 colors={["transparent", "rgba(15, 23, 42, 0.65)", "rgba(15, 23, 42, 0.95)"]}
                 style={styles.heroGradient}
               >
-                <View style={styles.heroPill}>
-                  <Ionicons name="earth-outline" size={12} color="#FCA5A5" />
-                  <Text style={styles.heroPillText}>PreSense NEXT-GEN EDUCATION ERP</Text>
-                </View>
-
-                <Text style={styles.heroTitle}>
-                  Empowering Schools.{"\n"}Inspiring Futures.
-                </Text>
-
-                <Text style={styles.heroSubtitle}>
-                  A complete digital ecosystem managing learning, attendance, and administrative workflows in one platform.
-                </Text>
+                
               </LinearGradient>
             </ImageBackground>
           </View>

@@ -233,8 +233,6 @@ color: "text-yellow-400",
 
   
 
-
-
 const teacherMenu = [
   {
     name: "Dashboard",
@@ -262,12 +260,6 @@ const teacherMenu = [
   },
 ];
 
-
-
-
-
-
-
   
 let menu = superAdminMenu;
 
@@ -278,7 +270,6 @@ if (role === "SCHOOL_ADMIN") {
 if (role === "TEACHER") {
   menu = teacherMenu;
 }
-
 
 function handleLogout() {
     clearWorkspaceCache();

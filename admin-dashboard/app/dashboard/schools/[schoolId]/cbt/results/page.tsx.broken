@@ -1,0 +1,46 @@
+$(sed '1,92p' app/dashboard/schools/[schoolId]/cbt/results/page.tsx)
+
+  function extractClassName(obj: any): string | null {
+    if (!obj || typeof obj !== "object") return null;
+
+    const possibleKeys = [
+      "classroom",
+      "class_name",
+      "className",
+      "class",
+      "student_class",
+      "grade_level",
+      "grade",
+      "level",
+      "arm",
+      "class_arm",
+    ];
+
+    for (const key of possibleKeys) {
+      const value = obj[key];
+
+      if (typeof value === "string" && value.trim()) {
+        return value.trim();
+      }
+
+      if (
+        value &&
+        typeof value === "object" &&
+        (value.name || value.title)
+      ) {
+        return (value.name || value.title).trim();
+      }
+    }
+
+    if (obj.classroom?.name) {
+      return obj.classroom.name;
+    }
+
+    if (obj.student) {
+      return extractClassName(obj.student);
+    }
+
+    return null;
+  }
+
+$(sed -n '131,$p' app/dashboard/schools/[schoolId]/cbt/results/page.tsx)

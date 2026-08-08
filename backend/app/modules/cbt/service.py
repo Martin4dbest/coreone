@@ -311,6 +311,16 @@ class CBTService:
             attempt.exam_id
         )
 
+        total_marks = 0
+
+        for answer in answers:
+            question = await self.repository.db.get(
+                CBTQuestion,
+                answer.question_id,
+            )
+            if question is not None:
+                total_marks += question.marks
+
         if exam:
 
             # Apply negative marking from the EXAM settings
@@ -337,6 +347,7 @@ class CBTService:
             score = max(score, 0)
 
             attempt.score = score
+            attempt.total_marks = total_marks
 
             if exam.total_marks > 0:
                 attempt.percentage = (
@@ -350,6 +361,7 @@ class CBTService:
             )
         else:
             attempt.score = score
+            attempt.total_marks = total_marks
 
         attempt.completed = True
         attempt.submitted_at = datetime.utcnow()
@@ -529,4 +541,3 @@ class CBTService:
         exam.is_active = False
 
         return await self.repository.update_exam(exam)
-

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import * as XLSX from "xlsx";
 import api from "@/lib/api";
 import {
   FileText,
@@ -21,6 +22,13 @@ import {
   Trash2,
   BarChart3,
   ArrowLeft,
+  Upload,
+  FileSpreadsheet,
+  X,
+  Download,
+  Info,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 interface Subject {
@@ -43,7 +51,6 @@ interface Term {
   name: string;
 }
 
-// Flexible Record Type for raw exam data coming from backend endpoints
 type RawExamData = Record<string, any>;
 
 export interface Exam {
@@ -96,6 +103,29 @@ interface CreateExamFormData {
   isActive: boolean;
 }
 
+// Fallback metadata options matching exact specifications
+const DEFAULT_SUBJECTS: Subject[] = [
+  { id: "1", name: "Basic Science" },
+  { id: "2", name: "Biology" },
+  { id: "3", name: "Physics" },
+];
+
+const DEFAULT_CLASSES: SchoolClass[] = [
+  { id: "1", name: "JSS1" },
+  { id: "2", name: "SS1" },
+];
+
+const DEFAULT_SESSIONS: AcademicSession[] = [
+  { id: "1", name: "2029/2030" },
+  { id: "2", name: "2028/2029" },
+  { id: "3", name: "2027/2028" },
+  { id: "4", name: "2026/2027" },
+];
+
+const DEFAULT_TERMS: Term[] = [
+  { id: "1", name: "First Term" },
+];
+
 const initialFormState: CreateExamFormData = {
   title: "",
   description: "",
@@ -117,12 +147,13 @@ export default function CBTExamsPage() {
   const params = useParams();
   const router = useRouter();
   const schoolId = params?.schoolId as string;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [exams, setExams] = useState<RawExamData[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [classes, setClasses] = useState<SchoolClass[]>([]);
-  const [sessions, setSessions] = useState<AcademicSession[]>([]);
-  const [terms, setTerms] = useState<Term[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>(DEFAULT_SUBJECTS);
+  const [classes, setClasses] = useState<SchoolClass[]>(DEFAULT_CLASSES);
+  const [sessions, setSessions] = useState<AcademicSession[]>(DEFAULT_SESSIONS);
+  const [terms, setTerms] = useState<Term[]>(DEFAULT_TERMS);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -134,6 +165,15 @@ export default function CBTExamsPage() {
 
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [formData, setFormData] = useState<CreateExamFormData>(initialFormState);
+
+  // --- Bulk Import Modal States ---
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+  const [selectedExamForImport, setSelectedExamForImport] = useState<string>("");
+  const [parsedQuestions, setParsedQuestions] = useState<any[]>([]);
+  const [importFileName, setImportFileName] = useState<string>("");
+  const [importing, setImporting] = useState<boolean>(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [showExampleTable, setShowExampleTable] = useState<boolean>(false);
 
   const handleBack = () => {
     setActionLoading("back");
@@ -160,12 +200,14 @@ export default function CBTExamsPage() {
           ? raw
           : raw?.data?.data || raw?.data || raw?.subjects || raw?.results || [];
 
-        setSubjects(
-          list.map((item: Record<string, any>) => ({
-            id: String(item.id || item._id),
-            name: item.name || item.title || item.subject_name || item.label || "Unnamed Subject",
-          }))
-        );
+        if (list.length > 0) {
+          setSubjects(
+            list.map((item: Record<string, any>) => ({
+              id: String(item.id || item._id),
+              name: item.name || item.title || item.subject_name || item.label || "Unnamed Subject",
+            }))
+          );
+        }
       }
 
       if (classesRes.status === "fulfilled") {
@@ -179,18 +221,20 @@ export default function CBTExamsPage() {
             raw?.results ||
             [];
 
-        setClasses(
-          list.map((item: Record<string, any>) => ({
-            id: String(item.id || item._id),
-            name:
-              item.name ??
-              item.class_name ??
-              item.className ??
-              item.title ??
-              item.label ??
-              `Class ${item.id}`,
-          }))
-        );
+        if (list.length > 0) {
+          setClasses(
+            list.map((item: Record<string, any>) => ({
+              id: String(item.id || item._id),
+              name:
+                item.name ??
+                item.class_name ??
+                item.className ??
+                item.title ??
+                item.label ??
+                `Class ${item.id}`,
+            }))
+          );
+        }
       }
 
       if (sessionsRes.status === "fulfilled") {
@@ -204,18 +248,20 @@ export default function CBTExamsPage() {
             raw?.results ||
             [];
 
-        setSessions(
-          list.map((item: Record<string, any>) => ({
-            id: String(item.id || item._id),
-            name:
-              item.name ||
-              item.title ||
-              item.sessionName ||
-              item.session_name ||
-              item.session ||
-              "Unnamed Session",
-          }))
-        );
+        if (list.length > 0) {
+          setSessions(
+            list.map((item: Record<string, any>) => ({
+              id: String(item.id || item._id),
+              name:
+                item.name ||
+                item.title ||
+                item.sessionName ||
+                item.session_name ||
+                item.session ||
+                "Unnamed Session",
+            }))
+          );
+        }
       }
 
       if (termsRes.status === "fulfilled") {
@@ -224,21 +270,23 @@ export default function CBTExamsPage() {
           ? raw
           : raw?.data?.data || raw?.data || raw?.terms || raw?.results || [];
 
-        setTerms(
-          list.map((item: Record<string, any>) => ({
-            id: String(item.id || item._id),
-            name:
-              item.name ||
-              item.title ||
-              item.termName ||
-              item.term_name ||
-              item.term ||
-              "Unnamed Term",
-          }))
-        );
+        if (list.length > 0) {
+          setTerms(
+            list.map((item: Record<string, any>) => ({
+              id: String(item.id || item._id),
+              name:
+                item.name ||
+                item.title ||
+                item.termName ||
+                item.term_name ||
+                item.term ||
+                "Unnamed Term",
+            }))
+          );
+        }
       }
     } catch (err) {
-      console.error("Failed to fetch metadata:", err);
+      console.error("Failed to fetch metadata, falling back to defaults:", err);
     }
   }, [schoolId]);
 
@@ -352,23 +400,28 @@ export default function CBTExamsPage() {
     setSubmitting(true);
     try {
       const payload = {
-        title: formData.title,
-        description: formData.description,
         school_id: Number(schoolId),
+        title: formData.title.trim(),
+        description: formData.description,
+
         subject_id: Number(formData.subjectId),
         class_id: Number(formData.classId),
-        academic_session_id: Number(formData.academicSessionId),
-        term_id: Number(formData.termId),
+
         duration_minutes: Number(formData.durationMinutes),
         total_marks: Number(formData.totalMarks),
         pass_mark: Number(formData.passingScore),
-        start_date: formData.startDate,
-        end_date: formData.endDate,
-        shuffle_questions: formData.shuffleQuestions,
+
+        randomize_questions: formData.shuffleQuestions,
+        randomize_options: true,
+        allow_resume: true,
         show_result_immediately: formData.showResultImmediately,
-        is_active: formData.isActive,
+        negative_marking: false,
+        negative_mark: 0,
       };
 
+      console.log("CBT PAYLOAD:", payload);
+
+      console.log("CBT PAYLOAD:", payload);
       await api.post(`/cbt/exams`, payload);
       setSuccessMessage("CBT Exam created successfully!");
       setFormData(initialFormState);
@@ -461,7 +514,6 @@ export default function CBTExamsPage() {
     setActionLoading(`delete-${examId}`);
     try {
       await api.delete(`/cbt/exams/${examId}`);
-      // Optimistically remove instantly from UI
       setExams((prev) => prev.filter((exam) => String(exam.id) !== examId));
       alert("Exam deleted successfully!");
     } catch (err: unknown) {
@@ -476,6 +528,114 @@ export default function CBTExamsPage() {
   const handleNavigate = (path: string, actionKey: string) => {
     setActionLoading(actionKey);
     router.push(path);
+  };
+
+  // --- Bulk Import Methods ---
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportFileName(file.name);
+    setImportError(null);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const binaryStr = event.target?.result;
+        const workbook = XLSX.read(binaryStr, { type: "binary" });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        if (jsonData.length === 0) {
+          setImportError("The uploaded spreadsheet contains no data.");
+          setParsedQuestions([]);
+          return;
+        }
+
+        const formatted = jsonData.map((row: any, idx) => ({
+          question_number: idx + 1,
+          question_text: row["question_text"] || row["Question"] || row["question"] || "",
+          question_type: row["question_type"] || row["Type"] || "multiple_choice",
+          marks: Number(row["marks"] || row["Marks"] || 1),
+          explanation: row["explanation"] || row["Explanation"] || "",
+          options: [
+            { text: String(row["option_a"] || row["Option A"] || ""), is_correct: String(row["correct_option"] || "").toUpperCase() === "A" },
+            { text: String(row["option_b"] || row["Option B"] || ""), is_correct: String(row["correct_option"] || "").toUpperCase() === "B" },
+            { text: String(row["option_c"] || row["Option C"] || ""), is_correct: String(row["correct_option"] || "").toUpperCase() === "C" },
+            { text: String(row["option_d"] || row["Option D"] || ""), is_correct: String(row["correct_option"] || "").toUpperCase() === "D" },
+          ].filter((opt) => opt.text.trim() !== ""),
+        }));
+
+        setParsedQuestions(formatted);
+      } catch (err) {
+        setImportError("Failed to parse the file. Ensure it is a valid Excel or CSV file.");
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleProcessImport = async () => {
+    if (!selectedExamForImport) {
+      setImportError("Please select a target exam to attach these questions.");
+      return;
+    }
+    if (parsedQuestions.length === 0) {
+      setImportError("No valid questions found to import.");
+      return;
+    }
+
+    setImporting(true);
+    setImportError(null);
+
+    try {
+      await api.post(`/cbt/exams/${selectedExamForImport}/questions/bulk`, {
+        questions: parsedQuestions,
+      });
+
+      alert(`Successfully imported ${parsedQuestions.length} questions!`);
+      setIsImportModalOpen(false);
+      setParsedQuestions([]);
+      setImportFileName("");
+      await fetchExams(true);
+    } catch (err: unknown) {
+      const errorObj = err as Record<string, any>;
+      setImportError(errorObj?.response?.data?.message || "Failed to import questions.");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const downloadSampleTemplate = () => {
+    const sampleData = [
+      {
+        question_text: "What is the capital of France?",
+        question_type: "multiple_choice",
+        marks: 2,
+        option_a: "Paris",
+        option_b: "London",
+        option_c: "Berlin",
+        option_d: "Madrid",
+        correct_option: "A",
+        explanation: "Paris is the capital city of France.",
+      },
+      {
+        question_text: "Water freezes at 0 degrees Celsius.",
+        question_type: "true_false",
+        marks: 1,
+        option_a: "True",
+        option_b: "False",
+        option_c: "",
+        option_d: "",
+        correct_option: "A",
+        explanation: "Standard freezing point of water.",
+      },
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(sampleData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Questions_Template");
+    XLSX.writeFile(wb, "CBT_Bulk_Questions_Template.xlsx");
   };
 
   // Resolve Real Subject Name for Display
@@ -580,6 +740,14 @@ export default function CBTExamsPage() {
                 Configure, schedule, and oversee Computer Based Tests across subject modules and academic terms.
               </p>
             </div>
+
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition shadow-sm w-fit"
+            >
+              <Upload size={16} />
+              <span>Bulk Import Questions</span>
+            </button>
           </div>
         </div>
 
@@ -622,12 +790,13 @@ export default function CBTExamsPage() {
                   name="title"
                   value={formData.title}
                   onChange={handleInputChange}
-                  placeholder="e.g. Mid-Term Mathematics Assessment"
+                  placeholder="e.g. Mid-Term Assessment"
                   className={inputStyles}
                   required
                 />
               </div>
 
+              {/* Subject Dropdown */}
               <div>
                 <label className={labelStyles}>
                   Subject <span className="text-rose-500">*</span>
@@ -648,6 +817,7 @@ export default function CBTExamsPage() {
                 </select>
               </div>
 
+              {/* Class Dropdown */}
               <div>
                 <label className={labelStyles}>
                   Class <span className="text-rose-500">*</span>
@@ -668,6 +838,7 @@ export default function CBTExamsPage() {
                 </select>
               </div>
 
+              {/* Academic Session Dropdown */}
               <div>
                 <label className={labelStyles}>
                   Academic Session <span className="text-rose-500">*</span>
@@ -688,6 +859,7 @@ export default function CBTExamsPage() {
                 </select>
               </div>
 
+              {/* Term Dropdown */}
               <div>
                 <label className={labelStyles}>
                   Term <span className="text-rose-500">*</span>
@@ -1075,6 +1247,202 @@ export default function CBTExamsPage() {
             </div>
           )}
         </div>
+
+        {/* --- BULK IMPORT QUESTIONS MODAL --- */}
+        {isImportModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 space-y-5 border border-slate-100 max-h-[90vh] overflow-y-auto">
+              
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <FileSpreadsheet className="text-emerald-600" size={22} />
+                  <h3 className="text-lg font-bold text-slate-900">Bulk Import Questions</h3>
+                </div>
+                <button
+                  onClick={() => setIsImportModalOpen(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Requirement Instructions Card */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                    <Info size={14} className="text-indigo-600" /> Required Excel Columns
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowExampleTable((prev) => !prev)}
+                    className="text-xs font-semibold text-indigo-600 hover:underline inline-flex items-center gap-1"
+                  >
+                    {showExampleTable ? "Hide Example Sheet" : "Preview Format Table"}
+                    {showExampleTable ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                </div>
+                
+                <p>Your spreadsheet column headers must match the following names exactly:</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono text-[11px]">
+                  <div className="p-1.5 bg-white border border-slate-200 rounded text-slate-800 font-semibold">
+                    question_text <span className="text-rose-500">*</span>
+                  </div>
+                  <div className="p-1.5 bg-white border border-slate-200 rounded text-slate-800 font-semibold">
+                    option_a <span className="text-rose-500">*</span>
+                  </div>
+                  <div className="p-1.5 bg-white border border-slate-200 rounded text-slate-800 font-semibold">
+                    option_b <span className="text-rose-500">*</span>
+                  </div>
+                  <div className="p-1.5 bg-white border border-slate-200 rounded text-slate-800">option_c</div>
+                  <div className="p-1.5 bg-white border border-slate-200 rounded text-slate-800">option_d</div>
+                  <div className="p-1.5 bg-white border border-slate-200 rounded text-slate-800 font-semibold">
+                    correct_option <span className="text-rose-500">*</span>
+                  </div>
+                  <div className="p-1.5 bg-white border border-slate-200 rounded text-slate-800">marks</div>
+                  <div className="p-1.5 bg-white border border-slate-200 rounded text-slate-800">explanation</div>
+                  <div className="p-1.5 bg-white border border-slate-200 rounded text-slate-800">question_type</div>
+                </div>
+
+                {/* Example Table Accordion */}
+                {showExampleTable && (
+                  <div className="mt-3 overflow-x-auto border border-slate-200 rounded-lg">
+                    <table className="w-full text-[11px] text-left border-collapse">
+                      <thead className="bg-slate-100 font-semibold border-b border-slate-200 text-slate-700">
+                        <tr>
+                          <th className="p-2 border-r">question_text</th>
+                          <th className="p-2 border-r">option_a</th>
+                          <th className="p-2 border-r">option_b</th>
+                          <th className="p-2 border-r">option_c</th>
+                          <th className="p-2 border-r">option_d</th>
+                          <th className="p-2 border-r">correct_option</th>
+                          <th className="p-2">marks</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 font-mono text-slate-600 bg-white">
+                        <tr>
+                          <td className="p-2 border-r whitespace-nowrap">Capital of France?</td>
+                          <td className="p-2 border-r">Paris</td>
+                          <td className="p-2 border-r">London</td>
+                          <td className="p-2 border-r">Berlin</td>
+                          <td className="p-2 border-r">Rome</td>
+                          <td className="p-2 border-r font-bold text-emerald-600">A</td>
+                          <td className="p-2">2</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 border-r whitespace-nowrap">Earth is flat.</td>
+                          <td className="p-2 border-r">True</td>
+                          <td className="p-2 border-r">False</td>
+                          <td className="p-2 border-r"></td>
+                          <td className="p-2 border-r"></td>
+                          <td className="p-2 border-r font-bold text-emerald-600">B</td>
+                          <td className="p-2">1</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {importError && (
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle size={16} />
+                  <span>{importError}</span>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className={labelStyles}>Target Exam</label>
+                  <select
+                    value={selectedExamForImport}
+                    onChange={(e) => setSelectedExamForImport(e.target.value)}
+                    className={inputStyles}
+                  >
+                    <option value="">-- Select Target Exam --</option>
+                    {exams.map((ex) => (
+                      <option key={String(ex.id)} value={String(ex.id)}>
+                        {ex.title || "Untitled Exam"} ({getSubjectName(ex)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className={labelStyles}>Upload Excel File (.xlsx / .csv)</label>
+                    <button
+                      type="button"
+                      onClick={downloadSampleTemplate}
+                      className="text-xs text-indigo-600 font-semibold hover:underline inline-flex items-center gap-1"
+                    >
+                      <Download size={13} /> Download .XLSX Template
+                    </button>
+                  </div>
+                  
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept=".xlsx, .xls, .csv"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-6 text-center transition flex flex-col items-center justify-center gap-2 bg-slate-50 hover:bg-indigo-50/20"
+                  >
+                    <Upload size={24} className="text-indigo-600" />
+                    <span className="text-sm font-semibold text-slate-700">
+                      {importFileName ? importFileName : "Click to select Excel spreadsheet"}
+                    </span>
+                    <span className="text-xs text-slate-400">Supports .xlsx, .xls, and .csv files</span>
+                  </button>
+                </div>
+
+                {parsedQuestions.length > 0 && (
+                  <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-xs text-emerald-800 font-medium flex items-center justify-between">
+                    <span>Questions Ready to Upload:</span>
+                    <span className="px-2 py-0.5 bg-emerald-600 text-white rounded-md font-bold">
+                      {parsedQuestions.length} Questions
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsImportModalOpen(false)}
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                
+                <button
+                  type="button"
+                  disabled={importing || parsedQuestions.length === 0}
+                  onClick={handleProcessImport}
+                  className="inline-flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition disabled:opacity-50 shadow-sm"
+                >
+                  {importing ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={16} />
+                      <span>Import Questions</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

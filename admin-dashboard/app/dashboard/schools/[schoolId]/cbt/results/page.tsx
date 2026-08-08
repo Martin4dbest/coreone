@@ -25,6 +25,7 @@ import {
 interface ResultRow {
   attempt_id: number;
   student_name: string;
+  class_name?: string; // Added Class property
   exam_title: string;
   score: number;
   total_marks: number;
@@ -69,6 +70,8 @@ export default function CBTResultsPage() {
         api.get(`/cbt/results/dashboard?school_id=${schoolId}`),
       ]);
 
+      console.log("FIRST RESULT", resultsRes.data?.[0]);
+      console.log("FIRST RESULT", resultsRes.data?.[0]);
       setResults(resultsRes.data);
       setDashboard(dashboardRes.data);
     } catch (err) {
@@ -178,6 +181,7 @@ export default function CBTResultsPage() {
     const exportData = results.map((r) => ({
       "Attempt ID": r.attempt_id,
       "Student Name": r.student_name,
+      Class: r.class_name || "-",
       "Exam Title": r.exam_title,
       Score: `${r.score} / ${r.total_marks}`,
       "Percentage (%)": `${r.percentage.toFixed(1)}%`,
@@ -242,6 +246,7 @@ export default function CBTResultsPage() {
       head: [["Assessment Field", "Details"]],
       body: [
         ["Student Name", row.student_name],
+        ["Class", row.class_name || "N/A"],
         ["Exam Title", row.exam_title],
         ["Score Obtained", `${row.score} / ${row.total_marks}`],
         ["Percentage Score", `${row.percentage.toFixed(1)}%`],
@@ -273,7 +278,7 @@ export default function CBTResultsPage() {
         if (
           data.section === "body" &&
           data.column.index === 1 &&
-          data.row.index === 4
+          data.row.index === 5
         ) {
           if (row.passed) {
             data.cell.styles.textColor = [22, 163, 74];
@@ -482,6 +487,7 @@ export default function CBTResultsPage() {
                   />
                 </th>
                 <th className="p-3">Student</th>
+                <th className="p-3">Class</th>
                 <th className="p-3">Exam</th>
                 <th className="p-3 text-center">Score</th>
                 <th className="p-3 text-center">Percentage</th>
@@ -510,6 +516,7 @@ export default function CBTResultsPage() {
                   <td className="p-3 font-medium text-gray-900">
                     {row.student_name}
                   </td>
+                  <td className="p-3 text-gray-600">{row.class_name || "-"}</td>
                   <td className="p-3 text-gray-600">{row.exam_title}</td>
                   <td className="p-3 text-center font-medium text-gray-700">
                     {row.score} / {row.total_marks}
@@ -548,7 +555,7 @@ export default function CBTResultsPage() {
               ))}
               {results.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="p-6 text-center text-gray-400">
+                  <td colSpan={9} className="p-6 text-center text-gray-400">
                     No student results found.
                   </td>
                 </tr>

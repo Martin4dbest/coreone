@@ -20,8 +20,7 @@ import {
 } from "@/services/cbt";
 
 export default function CBTExam() {
-  const router = useRouter(</>
-);
+  const router = useRouter();
   const params = useLocalSearchParams();
 
   const examId = Number(params.examId);
@@ -29,7 +28,7 @@ export default function CBTExam() {
 
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [showGridModal, setShowGridModal] = useState(false);
@@ -38,6 +37,7 @@ const [submitting, setSubmitting] = useState(false);
   useEffect(() => {
     fetchQuestions();
   }, []);
+
   useEffect(() => {
     if (timeLeft <= 0) return;
 
@@ -52,62 +52,8 @@ const [submitting, setSubmitting] = useState(false);
       });
     }, 1000);
 
-    
-return (
-<>
-<Modal
-    visible={submitting}
-    transparent
-    animationType="fade"
->
-    <View
-        style={{
-            flex:1,
-            backgroundColor:"rgba(0,0,0,0.45)",
-            justifyContent:"center",
-            alignItems:"center",
-        }}
-    >
-        <View
-            style={{
-                backgroundColor:"#fff",
-                width:300,
-                borderRadius:18,
-                padding:25,
-                alignItems:"center",
-            }}
-        >
-            <ActivityIndicator
-                size="large"
-                color="#2563EB"
-            />
-
-            <Text
-                style={{
-                    marginTop:20,
-                    fontSize:20,
-                    fontWeight:"700",
-                    color:"#111827",
-                }}
-            >
-                Submitting Examination...
-            </Text>
-
-            <Text
-                style={{
-                    marginTop:12,
-                    textAlign:"center",
-                    color:"#6B7280",
-                }}
-            >
-                Please wait while your answers are being marked.
-            </Text>
-        </View>
-    </View>
-</Modal>
-) => clearInterval(timer);
+    return () => clearInterval(timer);
   }, [timeLeft]);
-
 
   async function fetchQuestions() {
     try {
@@ -125,33 +71,29 @@ return (
       setTimeLeft(duration * 60);
     } catch (error) {
       console.log("LOAD QUESTIONS ERROR:", error);
-      setSubmitting(false);
-
       Alert.alert("Error", "Unable to load questions. Please check your connection.");
     } finally {
       setSubmitting(false);
-
       setLoading(false);
     }
   }
 
   async function chooseAnswer(
-    questionId:number,
-    answerKey:string,
-  ){
-
-    setAnswers(prev=>({
+    questionId: number,
+    answerKey: string,
+  ) {
+    setAnswers((prev) => ({
       ...prev,
-      [questionId]:answerKey,
+      [questionId]: answerKey,
     }));
 
-    try{
+    try {
       await saveCBTAnswer(
         attemptId,
         questionId,
         answerKey,
       );
-    }catch(e){
+    } catch (e) {
       console.log(e);
     }
   }
@@ -172,9 +114,7 @@ return (
     const totalAnswered = Object.keys(answers).length;
     const remaining = questions.length - totalAnswered;
 
-    setSubmitting(false);
-
-      Alert.alert(
+    Alert.alert(
       "Submit Assessment",
       remaining > 0
         ? `You still have ${remaining} unanswered question(s). Are you sure you want to finalize your submission?`
@@ -185,33 +125,26 @@ return (
           text: "Submit Exam",
           style: "destructive",
           onPress: async () => {
+            try {
+              setSubmitting(true);
 
-            try{
-
-              await submitCBTAttempt(
-                attemptId
-              );
+              await submitCBTAttempt(attemptId);
 
               setSubmitting(false);
 
-      Alert.alert(
+              Alert.alert(
                 "Success",
                 "Exam submitted successfully."
               );
 
               router.replace("/student/cbt");
-
-            }catch(e){
-
+            } catch (e) {
               setSubmitting(false);
-
-      Alert.alert(
+              Alert.alert(
                 "Error",
                 "Unable to submit exam."
               );
-
             }
-
           },
         },
       ]
@@ -258,6 +191,19 @@ return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1E293B" />
 
+      {/* SUBMITTING OVERLAY MODAL */}
+      <Modal visible={submitting} transparent animationType="fade">
+        <View style={styles.submittingOverlay}>
+          <View style={styles.submittingCard}>
+            <ActivityIndicator size="large" color="#2563EB" />
+            <Text style={styles.submittingTitle}>Submitting Examination...</Text>
+            <Text style={styles.submittingSubtitle}>
+              Please wait while your answers are being marked.
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
       {/* TOP APPBAR */}
       <View style={styles.header}>
         <View>
@@ -279,7 +225,7 @@ return (
           <View style={styles.timerBadge}>
             <Text style={styles.timerText}>
               ⏱ {Math.floor(timeLeft / 60)}:
-              {String(timeLeft % 60).padStart(2,"0")}
+              {String(timeLeft % 60).padStart(2, "0")}
             </Text>
           </View>
         </View>
@@ -460,6 +406,31 @@ const styles = StyleSheet.create({
   retryText: {
     color: "#FFFFFF",
     fontWeight: "600",
+  },
+  submittingOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  submittingCard: {
+    backgroundColor: "#fff",
+    width: 300,
+    borderRadius: 18,
+    padding: 25,
+    alignItems: "center",
+  },
+  submittingTitle: {
+    marginTop: 20,
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  submittingSubtitle: {
+    marginTop: 12,
+    textAlign: "center",
+    color: "#6B7280",
+    fontSize: 13,
   },
   header: {
     backgroundColor: "#1E293B",
@@ -708,6 +679,3 @@ const styles = StyleSheet.create({
     color: "#1E1B4B",
   },
 });
-
-
-

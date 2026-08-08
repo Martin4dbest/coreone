@@ -649,4 +649,3 @@ class StudentService:
 
         await self.db.delete(student)
         await self.db.commit()
-

@@ -105,4 +105,3 @@ async def upload_branding_image(
     return {
         "url": absolute_image_url,
     }
-

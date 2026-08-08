@@ -199,4 +199,3 @@ class MobileStudentService:
             student.id,
             current_user,
         )
-

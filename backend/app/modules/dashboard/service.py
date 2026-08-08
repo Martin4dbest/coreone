@@ -153,4 +153,3 @@ class DashboardService:
 
             "assigned_subjects": assigned_subjects.scalar_one(),
         }
-

@@ -258,10 +258,10 @@ export default function StudentCBT() {
 
                 <TouchableOpacity
                   activeOpacity={0.8}
-                  disabled={startingId !== null || isCompleted}
+                  disabled={isStarting}
                   style={[
                     styles.button,
-                    (isStarting || isCompleted) && styles.disabledButton,
+                    isStarting && styles.disabledButton,
                   ]}
                   onPress={()=>{
                     if(isCompleted){

@@ -433,6 +433,67 @@ async def submit_answer(
     )
 
 
+
+@router.get(
+    "/attempts/{attempt_id}/result",
+)
+async def get_attempt_result(
+    attempt_id: int,
+
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    attempt = (
+        await db.execute(
+            select(CBTAttempt)
+            .options(
+                joinedload(CBTAttempt.exam),
+                joinedload(CBTAttempt.student),
+            )
+            .where(CBTAttempt.id == attempt_id)
+        )
+    ).scalar_one_or_none()
+
+    if attempt is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Attempt not found",
+        )
+
+    answers = (
+        await db.execute(
+            select(CBTAnswer)
+            .options(
+                joinedload(CBTAnswer.question),
+            )
+            .where(
+                CBTAnswer.attempt_id == attempt_id
+            )
+        )
+    ).scalars().all()
+
+    return {
+        "attempt_id": attempt.id,
+        "exam_title": attempt.exam.title if attempt.exam else "",
+        "score": attempt.score,
+        "total_marks": attempt.total_marks,
+        "percentage": attempt.percentage,
+        "passed": attempt.passed,
+        "submitted_at": attempt.submitted_at,
+        "questions": [
+            {
+                "question_id": a.question.id,
+                "question": a.question.question,
+                "selected_answer": a.selected_answer,
+                "correct_answer": a.question.correct_answer,
+                "marks_awarded": a.marks_awarded,
+                "marks": a.question.marks,
+            }
+            for a in answers
+        ],
+    }
+
+
 @router.post(
     "/attempts/{attempt_id}/submit",
     response_model=CBTAttemptResponse,
@@ -483,28 +544,65 @@ async def exam_results(
         student = (
             await db.execute(
                 select(Student)
-                .options(joinedload(Student.user))
+                .options(
+                    joinedload(Student.user),
+                    joinedload(Student.classroom),
+                )
                 .where(
                     Student.id == attempt.student_id
                 )
             )
         ).scalar_one()
 
-        classroom = None
-
-        if student.classroom_id:
-            classroom = await db.get(
-                Classroom,
-                student.classroom_id,
-            )
+        print(
+            "DEBUG:",
+            student.id,
+            student.classroom_id,
+            student.classroom.name if student.classroom else None,
+        )
 
         response.append(
             {
                 "attempt_id": attempt.id,
                 "student_id": student.id,
                 "student_name": f"{student.user.first_name} {student.user.last_name}".strip(),
+
+                "student_class": (
+                    student.classroom.name
+                    if getattr(student, "classroom", None)
+                    else None
+                ),
+
+                "school_name": (
+                    student.school.name
+                    if getattr(student, "school", None)
+                    else None
+                ),
+
+                "school_logo": (
+                    student.school.branding.logo_url
+                    if getattr(student, "school", None)
+                    and getattr(student.school, "branding", None)
+                    else None
+                ),
+
+                "primary_color": (
+                    student.school.branding.primary_color
+                    if getattr(student, "school", None)
+                    and getattr(student.school, "branding", None)
+                    and student.school.branding.primary_color
+                    else "#2563EB"
+                ),
                 "admission_number": student.admission_number,
-                "classroom": classroom.name if classroom else "-",
+                "class_name": (
+                    (
+                        await db.execute(
+                            select(Classroom.name).where(
+                                Classroom.id == student.classroom_id
+                            )
+                        )
+                    ).scalar() or "-"
+                ),
                 "score": attempt.score,
                 "percentage": attempt.percentage,
                 "passed": attempt.passed,
@@ -565,7 +663,7 @@ async def school_cbt_results(
             select(CBTAttempt)
             .options(
                 joinedload(CBTAttempt.exam),
-                joinedload(CBTAttempt.student),
+                joinedload(CBTAttempt.student).joinedload(Student.classroom),
             )
             .join(
                 CBTExam,
@@ -600,6 +698,11 @@ async def school_cbt_results(
             "attempt_id": attempt.id,
             "student_id": attempt.student_id,
             "student_name": student_name,
+            "class_name": (
+                student.classroom.name
+                if student and student.classroom
+                else "-"
+            ),
             "exam_id": exam.id if exam else None,
             "exam_title": exam.title if exam else "",
             "score": attempt.score,

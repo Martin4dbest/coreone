@@ -36,6 +36,7 @@ from app.modules.messages.router import router as messages_router
 from app.modules.assessments.router import router as assessments_router
 from app.modules.results.router import router as results_router
 from app.modules.ebooks.router import router as ebooks_router
+from app.modules.ebooks.upload_router import router as ebooks_upload_router
 from app.modules.browser.router import router as browser_router
 from app.modules.youtube_learning.router import router as youtube_learning_router
 from app.modules.cbt.router import router as cbt_router
@@ -250,6 +251,11 @@ app.include_router(
     prefix=settings.API_V1_STR,
 )
 
+app.include_router(
+    ebooks_upload_router,
+    prefix=settings.API_V1_STR,
+)
+
 
 app.include_router(
     browser_router,
@@ -341,3 +347,13 @@ for route in app.router.routes:
         print(route.path)
 
 print("TOTAL:", count)
+# ============================
+# Mobile Student API
+# ============================
+from app.modules.students.mobile_router import router as mobile_student_router
+
+app.include_router(
+    mobile_student_router,
+    prefix="/api/v1",
+)
+
