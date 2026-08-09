@@ -124,6 +124,7 @@ class EbookService:
             category=payload.category,
             uploaded_by=current_user.id,
             school_id=school_id,
+            is_active=True,
             subject_id=payload.subject_id,
             classroom_id=payload.classroom_id,
             cover_image_url=payload.cover_image_url,

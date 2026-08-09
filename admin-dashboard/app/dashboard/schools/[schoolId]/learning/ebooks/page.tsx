@@ -88,6 +88,8 @@ const [activityError, setActivityError] = useState("");
     featured: false,
   });
 
+  const [deletingEbookId, setDeletingEbookId] = useState<number | null>(null);
+
   const loadEbooks = async () => {
     try {
       setLoading(true);
@@ -596,11 +598,21 @@ const archiveEbook = async (id: number) => {
                         }
 
                         try {
+                          setDeletingEbookId(ebook.id);
+
                           await api.delete(
                             `/ebooks/${ebook.id}/permanent`
                           );
 
-                          await loadEbooks();
+                          setEbooks((currentEbooks) =>
+                            currentEbooks.filter(
+                              (item) => item.id !== ebook.id
+                            )
+                          );
+
+                          alert(
+                            `"${ebook.title}" was permanently deleted successfully.`
+                          );
                         } catch (error) {
                           console.error(
                             "Failed to permanently delete ebook:",
@@ -610,12 +622,21 @@ const archiveEbook = async (id: number) => {
                           alert(
                             "Unable to permanently delete this ebook."
                           );
+                        } finally {
+                          setDeletingEbookId(null);
                         }
                       }}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors"
+                      disabled={deletingEbookId === ebook.id}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Delete
+                      {deletingEbookId === ebook.id ? (
+                        <>
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-red-300 border-t-red-700" />
+                          Deleting...
+                        </>
+                      ) : (
+                        "Delete"
+                      )}
                     </button>
                   )}
 
