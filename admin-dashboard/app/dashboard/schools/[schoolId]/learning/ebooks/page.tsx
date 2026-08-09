@@ -28,6 +28,7 @@ type EbookActivity = {
   id: number;
   user_id: number;
   student_name: string;
+  class_name?: string | null;
   email?: string | null;
   activity_type: "view" | "download" | string;
   created_at: string;
@@ -1049,6 +1050,9 @@ const archiveEbook = async (id: number) => {
                             <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
                               Student
                             </th>
+                              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Class
+                              </th>
                             <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
                               Activity
                             </th>
@@ -1075,6 +1079,12 @@ const archiveEbook = async (id: number) => {
                                   </p>
                                 )}
                               </td>
+
+                                <td className="px-4 py-4">
+                                  <p className="text-sm font-medium text-slate-700">
+                                    {activity.class_name || "—"}
+                                  </p>
+                                </td>
 
                               <td className="px-4 py-4">
                                 {activity.activity_type === "download" ? (

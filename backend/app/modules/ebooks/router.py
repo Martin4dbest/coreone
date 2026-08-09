@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.db.database import get_db
 from app.models.user import User
+from app.models.student import Student
 from app.models.ebook_activity import EbookActivity
 from app.modules.auth.dependencies.current_user import get_current_user
 from app.modules.ebooks.schemas import (
@@ -488,10 +490,18 @@ async def ebook_activity(
         select(
             EbookActivity,
             User,
+            Student,
         )
         .join(
             User,
             User.id == EbookActivity.user_id,
+        )
+        .outerjoin(
+            Student,
+            Student.user_id == User.id,
+        )
+        .options(
+            selectinload(Student.classroom),
         )
         .where(
             EbookActivity.ebook_id == ebook_id,
@@ -509,16 +519,34 @@ async def ebook_activity(
             "id": activity.id,
             "user_id": user.id,
             "student_name": (
-                getattr(user, "full_name", None)
+                (
+                    " ".join(
+                        part
+                        for part in [
+                            getattr(student, "first_name", None),
+                            getattr(student, "middle_name", None),
+                            getattr(student, "last_name", None),
+                        ]
+                        if part
+                    )
+                    if student
+                    else None
+                )
+                or getattr(user, "full_name", None)
                 or getattr(user, "name", None)
                 or getattr(user, "email", None)
                 or f"User #{user.id}"
+            ),
+            "class_name": (
+                student.classroom.name
+                if student and student.classroom
+                else None
             ),
             "email": getattr(user, "email", None),
             "activity_type": activity.activity_type,
             "created_at": activity.created_at,
         }
-        for activity, user in rows
+        for activity, user, student in rows
     ]
 
 
