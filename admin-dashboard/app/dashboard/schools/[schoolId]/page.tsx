@@ -300,20 +300,7 @@ return (
               </div>
             </div>
 
-            <button
-              onClick={toggleSchool}
-              className={`flex w-fit items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold ${
-                school.is_active
-                  ? "bg-red-50 text-red-600"
-                  : "bg-emerald-50 text-emerald-600"
-              }`}
-            >
-              <Power size={14} />
-
-              {school.is_active
-                ? "Deactivate School"
-                : "Activate School"}
-            </button>
+            
           </div>
 
           <div className="mt-8 grid gap-3 text-sm text-slate-600 md:grid-cols-3">

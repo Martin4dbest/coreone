@@ -40,6 +40,7 @@ from app.modules.ebooks.upload_router import router as ebooks_upload_router
 from app.modules.browser.router import router as browser_router
 from app.modules.browser.activity_router import router as browser_activity_router
 from app.modules.youtube_learning.router import router as youtube_learning_router
+from app.modules.youtube_learning.activity_router import router as youtube_activity_router
 from app.modules.cbt.router import router as cbt_router
 from app.modules.gallery.router import router as gallery_router
 from app.modules.dashboard.router import router as dashboard_router
@@ -103,7 +104,7 @@ app.add_middleware(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):[0-9]+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -304,6 +305,12 @@ app.include_router(
 
 
 app.include_router(
+    youtube_activity_router,
+    prefix=settings.API_V1_STR,
+)
+
+
+app.include_router(
     gallery_router,
     prefix=settings.API_V1_STR,
 )
@@ -355,11 +362,6 @@ async def health():
     return {
         "status": "healthy",
     }
-
-app.include_router(
-    mobile_student_router,
-    prefix="/api/v1"
-)
 
 
 print("=" * 80)

@@ -3,18 +3,15 @@ import axios from "axios";
 const api = axios.create({
   baseURL:
     process.env.NEXT_PUBLIC_API_URL ||
-    "http://localhost:8000/api/v1",
+    "http://127.0.0.1:8000/api/v1",
   headers: {
     "Content-Type": "application/json",
   },
 });
 
 /*
-  SIMPLE GET CACHE
-  Prevents repeated loading of the same dashboard data
-  within 30 seconds.
-*/
-
+ * GET cache
+ */
 const getCache = new Map<
   string,
   {
@@ -24,11 +21,18 @@ const getCache = new Map<
 >();
 
 api.interceptors.request.use((config) => {
-
   if (typeof window !== "undefined") {
-    const token = localStorage.getItem("access_token");
+    /*
+     * Use the same access token used by the admin login.
+     * Keep a fallback for older sessions that may have used
+     * a different key.
+     */
+    const token =
+      localStorage.getItem("access_token") ||
+      localStorage.getItem("token");
 
     if (token) {
+      config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
 
@@ -38,13 +42,15 @@ api.interceptors.request.use((config) => {
       localStorage.getItem("tenant");
 
     if (tenant) {
+      config.headers = config.headers || {};
       config.headers["X-Tenant"] = tenant;
     }
   }
 
-  // Cache GET requests
+  /*
+   * Cache GET requests for 30 seconds.
+   */
   if (config.method?.toLowerCase() === "get") {
-
     const key =
       config.url +
       JSON.stringify(config.params || {});
@@ -63,21 +69,16 @@ api.interceptors.request.use((config) => {
         config,
       });
     }
-
   }
 
   return config;
-
 });
 
 api.interceptors.response.use(
-
   (response) => {
-
     if (
       response.config.method?.toLowerCase() === "get"
     ) {
-
       const key =
         response.config.url +
         JSON.stringify(
@@ -88,17 +89,13 @@ api.interceptors.response.use(
         data: response.data,
         timestamp: Date.now(),
       });
-
     }
 
     return response;
-
   },
 
   (error) => {
-
     if (typeof window !== "undefined") {
-
       if (process.env.NODE_ENV === "development") {
         console.warn(
           "API Error Details:",
@@ -111,6 +108,7 @@ api.interceptors.response.use(
         !error.config?.url?.includes("/auth/login")
       ) {
         localStorage.removeItem("access_token");
+        localStorage.removeItem("token");
 
         const tenant =
           localStorage.getItem("tenant_slug") ||
@@ -123,18 +121,17 @@ api.interceptors.response.use(
           window.location.href = "/login";
         }
       }
-
     }
 
     return Promise.reject(error);
-
   }
-
 );
 
 export default api;
 
-export function getAbsoluteUploadUrl(url: string | null | undefined): string {
+export function getAbsoluteUploadUrl(
+  url: string | null | undefined
+): string {
   if (!url) return "";
 
   if (
@@ -145,7 +142,8 @@ export function getAbsoluteUploadUrl(url: string | null | undefined): string {
   }
 
   const base =
-    api.defaults.baseURL?.replace(/\/api\/v1\/?$/, "") || "";
+    api.defaults.baseURL?.replace(/\/api\/v1\/?$/, "") ||
+    "";
 
   if (!base) return url;
 

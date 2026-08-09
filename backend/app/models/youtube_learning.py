@@ -1,4 +1,4 @@
-from sqlalchemy import String, Text
+from sqlalchemy import Boolean, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_model import BaseModel
@@ -19,6 +19,11 @@ class YoutubeLearning(Base, BaseModel, SchoolMixin, ActiveMixin):
         nullable=False,
     )
 
+    youtube_url: Mapped[str] = mapped_column(
+        String(500),
+        nullable=False,
+    )
+
     description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
@@ -35,6 +40,17 @@ class YoutubeLearning(Base, BaseModel, SchoolMixin, ActiveMixin):
 
     uploaded_by: Mapped[int] = mapped_column(
         nullable=False,
+    )
+
+    created_by: Mapped[int] = mapped_column(
+        nullable=False,
+    )
+
+    published: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
     )
 
     school = relationship("School")

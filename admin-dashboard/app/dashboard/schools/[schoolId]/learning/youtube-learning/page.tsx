@@ -1,22 +1,25 @@
 "use client";
 
+import { useParams } from "next/navigation";
+import { useEffect } from "react";
 
-export default function YoutubeLearningPage(){
+export default function YoutubeLearningRedirectPage() {
+  const params = useParams();
+  const schoolId = String(params.schoolId);
 
-return (
+  useEffect(() => {
+    if (schoolId) {
+      window.location.replace(
+        `/dashboard/schools/${schoolId}/youtube-learning`
+      );
+    }
+  }, [schoolId]);
 
-<div>
-
-<h1 className="text-3xl font-bold">
-YouTube Learning
-</h1>
-
-<p className="text-slate-500 mt-2">
-Manage approved educational videos.
-</p>
-
-</div>
-
-);
-
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center">
+      <p className="text-sm text-slate-500">
+        Opening YouTube Learning...
+      </p>
+    </div>
+  );
 }

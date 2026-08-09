@@ -118,7 +118,9 @@ export default function BrowserResourcesPage({
     try {
       setActivityLoading(true);
 
-      const response = await api.get("/browser-links/activity");
+      const response = await api.get(
+        `/browser-links/activity?school_id=${schoolId}&_refresh=${Date.now()}`
+      );
 
       const data: BrowserActivity[] = Array.isArray(response.data)
         ? response.data

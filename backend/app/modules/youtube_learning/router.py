@@ -5,6 +5,7 @@ from app.db.database import get_db
 from app.models.user import User
 from app.modules.auth.dependencies.current_user import get_current_user
 from app.modules.youtube_learning.schemas import (
+    YoutubeLearningActivityResponse,
     YoutubeLearningCreateRequest,
     YoutubeLearningResponse,
 )
@@ -28,7 +29,7 @@ async def create_video(
 ):
     return await YoutubeLearningService(db).create_video(
         payload,
-        current_user
+        current_user,
     )
 
 
@@ -41,7 +42,7 @@ async def get_videos(
     current_user: User = Depends(get_current_user),
 ):
     return await YoutubeLearningService(db).get_videos(
-        current_user
+        current_user,
     )
 
 
@@ -55,5 +56,21 @@ async def get_video(
     current_user: User = Depends(get_current_user),
 ):
     return await YoutubeLearningService(db).get_video(
-        video_id
+        video_id,
+        current_user,
+    )
+
+
+@router.post(
+    "/{video_id}/activity",
+    response_model=YoutubeLearningActivityResponse,
+)
+async def record_activity(
+    video_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await YoutubeLearningService(db).record_activity(
+        video_id,
+        current_user,
     )

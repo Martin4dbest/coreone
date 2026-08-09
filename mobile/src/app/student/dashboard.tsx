@@ -27,13 +27,9 @@ import {
 
 const { width } = Dimensions.get("window");
 
-// 1. DYNAMIC API BASE URL RESOLUTION
+// DYNAMIC API BASE URL RESOLUTION
 const API_BASE_URL = api.defaults?.baseURL || "http://10.196.122.196:8000";
 
-/**
- * Extracts only the origin host (e.g. http://10.196.122.196:8000)
- * excluding path suffixes like /api/v1
- */
 const getOriginHost = (baseUrl: string): string => {
   try {
     const url = new URL(baseUrl);
@@ -45,20 +41,13 @@ const getOriginHost = (baseUrl: string): string => {
 
 const ORIGIN_HOST = getOriginHost(API_BASE_URL);
 
-/**
- * Normalizes relative and absolute image paths for mobile devices.
- * Replaces localhost or 127.0.0.1 loopback URLs with the active API origin host
- * and avoids appending /api/v1 to static asset upload paths.
- */
 const normalizeImageUrl = (url: string | null | undefined): string | null => {
   if (!url || typeof url !== "string") return null;
 
-  // 1. Strip localhost/127.0.0.1 prefix and keep relative path
   let cleanedUrl = url
     .replace(/^https?:\/\/localhost:8000\/?/, "/")
     .replace(/^https?:\/\/127\.0\.0\.1:8000\/?/, "/");
 
-  // 2. If it's already a valid external HTTP(S) or Data URI, return directly
   if (
     cleanedUrl.startsWith("http://") ||
     cleanedUrl.startsWith("https://") ||
@@ -67,12 +56,10 @@ const normalizeImageUrl = (url: string | null | undefined): string | null => {
     return cleanedUrl;
   }
 
-  // 3. Ensure path starts with a single leading slash
   if (!cleanedUrl.startsWith("/")) {
     cleanedUrl = `/${cleanedUrl}`;
   }
 
-  // 4. Prepend origin host (without /api/v1 prefix)
   return `${ORIGIN_HOST}${cleanedUrl}`;
 };
 
@@ -82,9 +69,9 @@ const KNOWN_SCHOOL_BRANDS: Record<
   { primary: string; secondary: string; accent: string; fallbackLogoUrl?: string }
 > = {
   "": {
-    primary: "#1E293B", // Elegant Navy / Slate
+    primary: "#1E293B",
     secondary: "#0F172A",
-    accent: "#D4AF37", // Classical Gold
+    accent: "#D4AF37",
     fallbackLogoUrl: `${ORIGIN_HOST}/media/school_logo.png`,
   },
   DEFAULT: {
@@ -109,7 +96,6 @@ export default function StudentDashboard() {
     secondaryColor: string;
     accentColor: string;
   } | null>(null);
-  const [academicData, setAcademicData] = useState<AcademicOverviewData | null>(null);
   const [todaySchedule, setTodaySchedule] = useState<TimetableClass[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
@@ -121,16 +107,10 @@ export default function StudentDashboard() {
   // Fetch student dashboard data
   const fetchDashboardData = async () => {
     try {
-      console.log("-----------------------------------------");
-      console.log("🔥 FETCHING DASHBOARD & TENANT BRANDING...");
       const { data } = await api.get("/mobile/student/dashboard");
 
       setLogoError(false);
 
-      // 1. Academic Overview
-      setAcademicData(data?.overview ?? null);
-
-      // 2. Multi-tenant Branding Resolution
       const tenant = data?.tenant || user?.tenant || data?.student?.tenant || {};
       const rawSchoolName = (
         data?.student?.school_name ||
@@ -155,7 +135,6 @@ export default function StudentDashboard() {
       const secondaryColor = tenant?.secondary_color || presetBrand.secondary;
       const accentColor = tenant?.accent_color || presetBrand.accent;
 
-      // Extract raw logo path
       const rawLogoPath =
         tenant?.logo_url ||
         tenant?.logo ||
@@ -168,21 +147,9 @@ export default function StudentDashboard() {
         data?.student?.school?.logo ||
         presetBrand?.fallbackLogoUrl;
 
-      // Normalize logo URL
       const resolvedLogo = normalizeImageUrl(rawLogoPath);
 
-      // Diagnostic Console Logs
-      console.log("School branding:", {
-        id: tenant?.id || tenant?.school_id,
-        logo_url: rawLogoPath,
-        name: rawSchoolName,
-        code: schoolCode,
-        primaryColor,
-      });
-
-      console.log("🔥 FINAL MOBILE LOGO:", resolvedLogo);
-
-  setTenantInfo({
+      setTenantInfo({
         name: rawSchoolName,
         code: schoolCode,
         logo: resolvedLogo,
@@ -191,7 +158,6 @@ export default function StudentDashboard() {
         accentColor,
       });
 
-      // 3. Student Details
       if (data?.student) {
         setStudentDetails({
           id: data.student.id ?? user?.id,
@@ -232,7 +198,6 @@ export default function StudentDashboard() {
     return "Good evening";
   };
 
-  // Fallbacks
   const student = studentDetails || {
     id: user?.id || "",
     first_name: user?.first_name || "",
@@ -270,7 +235,6 @@ export default function StudentDashboard() {
     .filter(Boolean)
     .join(" • ");
 
-  // Helper to render logo safely
   const renderSchoolLogo = () => {
     const logoUri = tenantInfo?.logo;
 
@@ -281,10 +245,7 @@ export default function StudentDashboard() {
           style={styles.schoolLogoImage}
           contentFit="contain"
           cachePolicy="disk"
-          onError={(e) => {
-            console.warn("⚠️ Failed to render remote logo from:", logoUri, e);
-            setLogoError(true);
-          }}
+          onError={() => setLogoError(true)}
         />
       );
     }
@@ -301,7 +262,7 @@ export default function StudentDashboard() {
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-        {/* BRANDED CLASSICAL HEADER */}
+        {/* TOP HEADER */}
         <View style={styles.topHeader}>
           <View style={styles.brandRow}>
             {renderSchoolLogo()}
@@ -358,14 +319,13 @@ export default function StudentDashboard() {
               </Text>
             </View>
 
-            {/* CLASSICAL STUDENT PROFILE CARD */}
+            {/* STUDENT PROFILE CARD */}
             <LinearGradient
               colors={[school.primaryColor || "#1E293B", school.secondaryColor || "#0F172A"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.profileCard}
             >
-              {/* Subtle Ambient Gold Crest Overlay */}
               <View style={styles.cardGoldAccentBorder} />
 
               <View style={styles.profileHeader}>
@@ -435,73 +395,67 @@ export default function StudentDashboard() {
             </View>
 
             <View style={styles.overviewGrid}>
-              <View style={styles.overviewCard}>
-                <View style={[styles.iconContainer, { backgroundColor: "#F8FAFC" }]}>
-                  <Ionicons name="calendar-outline" size={18} color="#1E293B" />
+              {/* Attendance Card */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.overviewCard,
+                  { borderColor: "#E0F2FE" },
+                  pressed && styles.pressedState,
+                ]}
+                onPress={() => router.push("/student/attendance")}
+              >
+                <View style={[styles.iconContainer, { backgroundColor: "#E0F2FE" }]}>
+                  <Ionicons name="calendar" size={20} color="#0284C7" />
                 </View>
-                <Text style={styles.overviewValue}>
-                  {academicData?.attendance_percentage ?? 0}%
-                </Text>
-                <Text style={styles.overviewLabel}>Attendance</Text>
-                <Pressable
-                  style={styles.cardActionButton}
-                  onPress={() => router.push("/student/attendance")}
-                >
-                  <Text style={styles.cardActionText}>View Attendance</Text>
-                  <Ionicons name="chevron-forward" size={11} color="#64748B" />
-                </Pressable>
-              </View>
+                <Text style={styles.overviewCardTitle}>Attendance Record</Text>
+                <View style={styles.cardActionButton}>
+                  <Text style={[styles.cardActionText, { color: "#0284C7" }]}>Check Attendance</Text>
+                  <Ionicons name="chevron-forward" size={12} color="#0284C7" />
+                </View>
+              </Pressable>
 
-              <View style={styles.overviewCard}>
-                <View style={[styles.iconContainer, { backgroundColor: "#F0FDF4" }]}>
-                  <Ionicons name="trophy-outline" size={18} color="#16A34A" />
+              {/* Termly Report Card / Result */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.overviewCard,
+                  { borderColor: "#D1FAE5" },
+                  pressed && styles.pressedState,
+                ]}
+                onPress={() => router.push("/student/results")}
+              >
+                <View style={[styles.iconContainer, { backgroundColor: "#D1FAE5" }]}>
+                  <Ionicons name="trophy" size={20} color="#059669" />
                 </View>
-                <Text style={styles.overviewValue}>
-                  {academicData?.latest_grade ?? "N/A"}
-                </Text>
-                <Text style={styles.overviewLabel}>Performance</Text>
-                <Pressable
-                  style={styles.cardActionButton}
-                  onPress={() => router.push("/student/results")}
-                >
-                  <Text style={styles.cardActionText}>View Results</Text>
-                  <Ionicons name="chevron-forward" size={11} color="#64748B" />
-                </Pressable>
-              </View>
+                <Text style={styles.overviewCardTitle}>Termly Report Card / Result</Text>
+                <View style={styles.cardActionButton}>
+                  <Text style={[styles.cardActionText, { color: "#059669" }]}>View Report Card</Text>
+                  <Ionicons name="chevron-forward" size={12} color="#059669" />
+                </View>
+              </Pressable>
 
-              <View style={styles.overviewCard}>
-                <View style={[styles.iconContainer, { backgroundColor: "#FFFBEB" }]}>
-                  <Ionicons name="document-text-outline" size={18} color="#D97706" />
+              {/* CBT (Tests & Exams) Card */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.overviewCard,
+                  { width: "100%", borderColor: "#DDD6FE" },
+                  pressed && styles.pressedState,
+                ]}
+                onPress={() => router.push("/student/cbt")}
+              >
+                <View style={styles.fullWidthCardRow}>
+                  <View style={[styles.iconContainer, { backgroundColor: "#F3E8FF", marginBottom: 0 }]}>
+                    <Ionicons name="hardware-chip" size={20} color="#7C3AED" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.overviewCardTitle}>CBT (Tests & Exams)</Text>
+                    <Text style={styles.overviewLabel}>Take online tests & review past exams</Text>
+                  </View>
+                  <View style={[styles.cardActionButton, { marginTop: 0 }]}>
+                    <Text style={[styles.cardActionText, { color: "#7C3AED" }]}>Open Portal</Text>
+                    <Ionicons name="chevron-forward" size={12} color="#7C3AED" />
+                  </View>
                 </View>
-                <Text style={styles.overviewValue}>
-                  {academicData?.pending_assignments_count ?? 0} Pending
-                </Text>
-                <Text style={styles.overviewLabel}>Assignments</Text>
-                <Pressable
-                  style={styles.cardActionButton}
-                  onPress={() => router.push("/student/assignments")}
-                >
-                  <Text style={styles.cardActionText}>View Assignments</Text>
-                  <Ionicons name="chevron-forward" size={11} color="#64748B" />
-                </Pressable>
-              </View>
-
-              <View style={styles.overviewCard}>
-                <View style={[styles.iconContainer, { backgroundColor: "#EFF6FF" }]}>
-                  <Ionicons name="hardware-chip-outline" size={18} color="#2563EB" />
-                </View>
-                <Text style={styles.overviewValue}>
-                  {academicData?.cbt_average_score ?? 0}%
-                </Text>
-                <Text style={styles.overviewLabel}>Average Score</Text>
-                <Pressable
-                  style={styles.cardActionButton}
-                  onPress={() => router.push("/student/cbt")}
-                >
-                  <Text style={styles.cardActionText}>Practice CBT</Text>
-                  <Ionicons name="chevron-forward" size={11} color="#64748B" />
-                </Pressable>
-              </View>
+              </Pressable>
             </View>
 
             {/* LEARNING HUB */}
@@ -511,70 +465,60 @@ export default function StudentDashboard() {
             </View>
 
             <View style={styles.learningHubGrid}>
+              {/* E-Books */}
               <Pressable
                 style={({ pressed }) => [styles.hubCard, pressed && styles.pressedState]}
                 onPress={() => router.push("/student/ebooks")}
               >
-                <LinearGradient colors={["#FFFFFF", "#FAFAFA"]} style={styles.hubGradient}>
-                  <View style={[styles.hubIconBadge, { backgroundColor: "#F8FAFC" }]}>
-                    <Ionicons name="book-outline" size={22} color="#1E293B" />
+                <LinearGradient colors={["#FFFFFF", "#F8FAFC"]} style={[styles.hubGradient, { borderColor: "#E0E7FF" }]}>
+                  <View style={[styles.hubIconBadge, { backgroundColor: "#EEF2FF" }]}>
+                    <Ionicons name="book" size={22} color="#4F46E5" />
                   </View>
                   <Text style={styles.hubTitle}>E-Books</Text>
-                  <Text style={styles.hubDescription}>Digital textbooks & library.</Text>
+                  <Text style={styles.hubDescription}>Digital textbooks & reading materials.</Text>
                   <View style={styles.hubMetaRow}>
-                    <Text style={styles.hubMetaText}>Access Library</Text>
-                    <Ionicons name="arrow-forward" size={12} color="#1E293B" />
+                    <Text style={[styles.hubMetaText, { color: "#4F46E5" }]}>Access Library</Text>
+                    <Ionicons name="arrow-forward" size={12} color="#4F46E5" />
                   </View>
                 </LinearGradient>
               </Pressable>
 
+              {/* Browser */}
               <Pressable
                 style={({ pressed }) => [styles.hubCard, pressed && styles.pressedState]}
                 onPress={() => router.push("/student/browser")}
               >
-                <LinearGradient colors={["#FFFFFF", "#FAFAFA"]} style={styles.hubGradient}>
-                  <View style={[styles.hubIconBadge, { backgroundColor: "#F0FDF4" }]}>
-                    <Ionicons name="globe-outline" size={22} color="#16A34A" />
+                <LinearGradient colors={["#FFFFFF", "#F8FAFC"]} style={[styles.hubGradient, { borderColor: "#CCFBF1" }]}>
+                  <View style={[styles.hubIconBadge, { backgroundColor: "#E6FFFA" }]}>
+                    <Ionicons name="globe" size={22} color="#0D9488" />
                   </View>
                   <Text style={styles.hubTitle}>Browser</Text>
-                  <Text style={styles.hubDescription}>Controlled portal search.</Text>
+                  <Text style={styles.hubDescription}>Controlled portal research search.</Text>
                   <View style={styles.hubMetaRow}>
-                    <Text style={styles.hubMetaText}>Browse Safely</Text>
-                    <Ionicons name="arrow-forward" size={12} color="#1E293B" />
+                    <Text style={[styles.hubMetaText, { color: "#0D9488" }]}>Browse Safely</Text>
+                    <Ionicons name="arrow-forward" size={12} color="#0D9488" />
                   </View>
                 </LinearGradient>
               </Pressable>
 
+              {/* Video Learning */}
               <Pressable
-                style={({ pressed }) => [styles.hubCard, pressed && styles.pressedState]}
+                style={({ pressed }) => [styles.hubCard, { width: "100%" }, pressed && styles.pressedState]}
                 onPress={() => router.push("/student/youtube-learning")}
               >
-                <LinearGradient colors={["#FFFFFF", "#FAFAFA"]} style={styles.hubGradient}>
-                  <View style={[styles.hubIconBadge, { backgroundColor: "#FEF2F2" }]}>
-                    <Ionicons name="logo-youtube" size={22} color="#DC2626" />
-                  </View>
-                  <Text style={styles.hubTitle}>Video Learning</Text>
-                  <Text style={styles.hubDescription}>Curated video lectures.</Text>
-                  <View style={styles.hubMetaRow}>
-                    <Text style={styles.hubMetaText}>Watch Videos</Text>
-                    <Ionicons name="arrow-forward" size={12} color="#1E293B" />
-                  </View>
-                </LinearGradient>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => [styles.hubCard, pressed && styles.pressedState]}
-                onPress={() => router.push("/student/cbt-practice")}
-              >
-                <LinearGradient colors={["#FFFFFF", "#FAFAFA"]} style={styles.hubGradient}>
-                  <View style={[styles.hubIconBadge, { backgroundColor: "#EFF6FF" }]}>
-                    <Ionicons name="laptop-outline" size={22} color="#2563EB" />
-                  </View>
-                  <Text style={styles.hubTitle}>CBT Practice</Text>
-                  <Text style={styles.hubDescription}>Online exams & practice tests.</Text>
-                  <View style={styles.hubMetaRow}>
-                    <Text style={styles.hubMetaText}>Start Test</Text>
-                    <Ionicons name="arrow-forward" size={12} color="#1E293B" />
+                <LinearGradient colors={["#FFFFFF", "#FFF5F5"]} style={[styles.hubGradient, { borderColor: "#FECDD3", height: "auto" }]}>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <View style={[styles.hubIconBadge, { backgroundColor: "#FEF2F2" }]}>
+                      <Ionicons name="logo-youtube" size={24} color="#DC2626" />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.hubTitle}>Video Learning</Text>
+                      <Text style={styles.hubDescription}>Watch approved video lessons & tutorials.</Text>
+                    </View>
+                    <View style={styles.hubMetaRow}>
+                      <Text style={[styles.hubMetaText, { color: "#DC2626" }]}>Watch</Text>
+                      <Ionicons name="arrow-forward" size={12} color="#DC2626" />
+                    </View>
                   </View>
                 </LinearGradient>
               </Pressable>
@@ -788,7 +732,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginVertical: 12,
   },
-  pressedState: { opacity: 0.8 },
+  pressedState: { opacity: 0.85 },
   topHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -863,7 +807,7 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: "rgba(212, 175, 55, 0.3)", // Subtle classical gold accent border
+    borderColor: "rgba(212, 175, 55, 0.3)",
     shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.14,
@@ -965,30 +909,35 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "space-between",
     marginBottom: 24,
-    gap: 10,
+    gap: 12,
   },
   overviewCard: {
-    width: (width - 50) / 2,
+    width: (width - 52) / 2,
     backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
     shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
     elevation: 2,
+    justifyContent: "space-between",
   },
+  fullWidthCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  overviewCardTitle: { fontSize: 14, fontWeight: "800", color: "#0F172A" },
   iconContainer: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  overviewValue: { fontSize: 18, fontWeight: "800", color: "#0F172A" },
   overviewLabel: {
     fontSize: 11,
     color: "#64748B",
@@ -998,10 +947,10 @@ const styles = StyleSheet.create({
   cardActionButton: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 12,
     gap: 4,
   },
-  cardActionText: { fontSize: 11, fontWeight: "700", color: "#1E293B" },
+  cardActionText: { fontSize: 11, fontWeight: "800" },
   learningHubGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1009,34 +958,33 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     gap: 12,
   },
-  hubCard: { width: (width - 52) / 2, borderRadius: 14, overflow: "hidden" },
+  hubCard: { width: (width - 52) / 2, borderRadius: 16, overflow: "hidden" },
   hubGradient: {
-    padding: 14,
-    borderRadius: 14,
+    padding: 16,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    height: 155,
+    height: 150,
     justifyContent: "space-between",
   },
   hubIconBadge: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
   hubTitle: { fontSize: 14, fontWeight: "800", color: "#0F172A", marginTop: 4 },
   hubDescription: {
-    fontSize: 10,
+    fontSize: 11,
     color: "#64748B",
     marginTop: 2,
-    lineHeight: 14,
+    lineHeight: 15,
   },
   hubMetaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
-  hubMetaText: { fontSize: 11, fontWeight: "700", color: "#1E293B" },
+  hubMetaText: { fontSize: 11, fontWeight: "800" },
   timetableCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     borderColor: "#E2E8F0",
