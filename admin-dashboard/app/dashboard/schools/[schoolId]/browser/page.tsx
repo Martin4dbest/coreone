@@ -14,6 +14,18 @@ type BrowserLink = {
   is_active: boolean;
 };
 
+type BrowserActivity = {
+  id: number;
+  browser_link_id: number;
+  resource_title: string;
+  student_id: number;
+  student_name: string;
+  class_name: string | null;
+  email: string | null;
+  activity_type: string;
+  created_at: string;
+};
+
 type FormState = {
   title: string;
   url: string;
@@ -55,6 +67,10 @@ export default function BrowserResourcesPage({
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [activities, setActivities] = useState<BrowserActivity[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+
 
   useEffect(() => {
     params.then((value) => {
@@ -97,6 +113,29 @@ export default function BrowserResourcesPage({
       loadLinks();
     }
   }, [schoolId]);
+
+  const loadActivity = async () => {
+    try {
+      setActivityLoading(true);
+
+      const response = await api.get("/browser-links/activity");
+
+      const data: BrowserActivity[] = Array.isArray(response.data)
+        ? response.data
+        : [];
+
+      setActivities(data);
+    } catch (err: any) {
+      console.error("Failed to load browser activity:", err);
+
+      setError(
+        err?.response?.data?.detail ||
+          "Unable to load browser activity."
+      );
+    } finally {
+      setActivityLoading(false);
+    }
+  };
 
   const resetForm = () => {
     setForm(EMPTY_FORM);
@@ -274,19 +313,34 @@ export default function BrowserResourcesPage({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setEditingId(null);
-              setForm(EMPTY_FORM);
-              setError("");
-              setSuccess("");
-              setShowForm(true);
-            }}
-            className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
-          >
-            + Add Resource
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setShowAnalytics((current) => !current);
+                if (!showAnalytics) {
+                  loadActivity();
+                }
+              }}
+              className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+            >
+              {showAnalytics ? "Hide Activity" : "View Activity"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setEditingId(null);
+                setForm(EMPTY_FORM);
+                setError("");
+                setSuccess("");
+                setShowForm(true);
+              }}
+              className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+            >
+              + Add Resource
+            </button>
+          </div>
         </div>
 
         {/* Alerts */}
@@ -444,6 +498,111 @@ export default function BrowserResourcesPage({
         )}
 
         {/* Resources */}
+          {/* Browser Activity Analytics */}
+          {showAnalytics && (
+            <div className="mb-8 rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    Browser Activity
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    See which students are using the approved browser resources.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={loadActivity}
+                  disabled={activityLoading}
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {activityLoading ? "Refreshing..." : "Refresh"}
+                </button>
+              </div>
+
+              {activityLoading ? (
+                <div className="px-6 py-10 text-center text-sm text-slate-500">
+                  Loading browser activity...
+                </div>
+              ) : activities.length === 0 ? (
+                <div className="px-6 py-10 text-center">
+                  <div className="text-3xl">📊</div>
+                  <p className="mt-3 text-sm font-semibold text-slate-700">
+                    No browser activity yet
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Student activity will appear here when they open an approved resource.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-100 bg-slate-50">
+                      <tr>
+                        <th className="px-6 py-3 font-semibold text-slate-600">
+                          Student
+                        </th>
+                        <th className="px-6 py-3 font-semibold text-slate-600">
+                          Class
+                        </th>
+                        <th className="px-6 py-3 font-semibold text-slate-600">
+                          Resource
+                        </th>
+                        <th className="px-6 py-3 font-semibold text-slate-600">
+                          Activity
+                        </th>
+                        <th className="px-6 py-3 font-semibold text-slate-600">
+                          Date
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-slate-100">
+                      {activities.map((activity) => (
+                        <tr
+                          key={activity.id}
+                          className="transition hover:bg-slate-50"
+                        >
+                          <td className="px-6 py-4">
+                            <div className="font-semibold text-slate-900">
+                              {activity.student_name}
+                            </div>
+                            {activity.email && (
+                              <div className="mt-1 text-xs text-slate-500">
+                                {activity.email}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="px-6 py-4 text-slate-600">
+                            {activity.class_name || "—"}
+                          </td>
+
+                          <td className="px-6 py-4 font-medium text-slate-800">
+                            {activity.resource_title}
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold capitalize text-blue-700">
+                              {activity.activity_type}
+                            </span>
+                          </td>
+
+                          <td className="whitespace-nowrap px-6 py-4 text-slate-500">
+                            {activity.created_at
+                              ? new Date(activity.created_at).toLocaleString()
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
         {loading ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
             <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />

@@ -57,8 +57,19 @@ export default function StudentBrowserPage() {
     }, [])
   );
 
-  const openResource = (resource: BrowserResource) => {
+  const openResource = async (resource: BrowserResource) => {
     setWebLoading(true);
+
+    try {
+      await api.post(`/browser-links/${resource.id}/activity`);
+    } catch (error) {
+      console.warn(
+        "Could not record browser activity:",
+        resource.id,
+        error
+      );
+    }
+
     setSelectedResource(resource);
   };
 
@@ -111,6 +122,14 @@ export default function StudentBrowserPage() {
             domStorageEnabled
             startInLoadingState={false}
             allowsBackForwardNavigationGestures
+        setSupportMultipleWindows={false}
+        javaScriptCanOpenWindowsAutomatically={false}
+        onShouldStartLoadWithRequest={(request) => {
+          return (
+            request.url.startsWith("http://") ||
+            request.url.startsWith("https://")
+          );
+        }}
           />
         </View>
       </SafeAreaView>

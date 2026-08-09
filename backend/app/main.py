@@ -38,6 +38,7 @@ from app.modules.results.router import router as results_router
 from app.modules.ebooks.router import router as ebooks_router
 from app.modules.ebooks.upload_router import router as ebooks_upload_router
 from app.modules.browser.router import router as browser_router
+from app.modules.browser.activity_router import router as browser_activity_router
 from app.modules.youtube_learning.router import router as youtube_learning_router
 from app.modules.cbt.router import router as cbt_router
 from app.modules.gallery.router import router as gallery_router
@@ -277,9 +278,17 @@ app.include_router(
 
 
 app.include_router(
+    browser_activity_router,
+    prefix=settings.API_V1_STR,
+)
+
+app.include_router(
     browser_router,
     prefix=settings.API_V1_STR,
 )
+
+
+
 
 
 app.include_router(
