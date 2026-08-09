@@ -7,6 +7,7 @@ from app.modules.auth.dependencies.current_user import get_current_user
 from app.modules.browser.schemas import (
     BrowserLinkCreateRequest,
     BrowserLinkResponse,
+    BrowserLinkUpdateRequest,
 )
 from app.modules.browser.service import BrowserLinkService
 
@@ -28,7 +29,7 @@ async def create_browser_link(
 ):
     return await BrowserLinkService(db).create_link(
         payload,
-        current_user
+        current_user,
     )
 
 
@@ -41,7 +42,7 @@ async def get_browser_links(
     current_user: User = Depends(get_current_user),
 ):
     return await BrowserLinkService(db).get_links(
-        current_user
+        current_user,
     )
 
 
@@ -55,5 +56,37 @@ async def get_browser_link(
     current_user: User = Depends(get_current_user),
 ):
     return await BrowserLinkService(db).get_link(
-        link_id
+        link_id,
+        current_user,
+    )
+
+
+@router.patch(
+    "/{link_id}",
+    response_model=BrowserLinkResponse,
+)
+async def update_browser_link(
+    link_id: int,
+    payload: BrowserLinkUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await BrowserLinkService(db).update_link(
+        link_id,
+        payload,
+        current_user,
+    )
+
+
+@router.delete(
+    "/{link_id}",
+)
+async def delete_browser_link(
+    link_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await BrowserLinkService(db).delete_link(
+        link_id,
+        current_user,
     )

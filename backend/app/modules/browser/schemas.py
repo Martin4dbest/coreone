@@ -1,13 +1,19 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class BrowserLinkCreateRequest(BaseModel):
-    school_id: int
     title: str
     url: str
     description: str | None = None
     category: str | None = None
-    created_by: int
+
+
+class BrowserLinkUpdateRequest(BaseModel):
+    title: str | None = None
+    url: str | None = None
+    description: str | None = None
+    category: str | None = None
+    is_active: bool | None = None
 
 
 class BrowserLinkResponse(BaseModel):
@@ -20,5 +26,4 @@ class BrowserLinkResponse(BaseModel):
     created_by: int
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
