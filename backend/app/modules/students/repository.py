@@ -22,6 +22,7 @@ class StudentRepository:
             .options(
                 selectinload(Student.user),
                 selectinload(Student.classroom),
+                selectinload(Student.school),
             )
         )
 
@@ -62,6 +63,7 @@ class StudentRepository:
             .options(
                 selectinload(Student.user),
                 selectinload(Student.classroom),
+                selectinload(Student.school),
             )
             .where(
                 Student.id == student_id

@@ -876,12 +876,35 @@ const archiveEbook = async (id: number) => {
                                 {name}
                               </p>
 
-                              {(student.admission_number || student.email) && (
-                                <p className="mt-0.5 truncate text-xs text-slate-500">
-                                  {student.admission_number ||
-                                    student.email}
+                              <div className="mt-1 space-y-0.5 text-xs text-slate-500">
+                                <p className="truncate">
+                                  <span className="font-medium text-slate-600">
+                                    School:
+                                  </span>{" "}
+                                  {student.school_name ||
+                                    student.school?.name ||
+                                    "—"}
                                 </p>
-                              )}
+
+                                <p className="truncate">
+                                  <span className="font-medium text-slate-600">
+                                    Class:
+                                  </span>{" "}
+                                  {student.class_name ||
+                                    student.classroom_name ||
+                                    student.classroom?.name ||
+                                    student.class?.name ||
+                                    student.level_name ||
+                                    "—"}
+                                </p>
+
+                                {(student.admission_number || student.email) && (
+                                  <p className="truncate">
+                                    {student.admission_number ||
+                                      student.email}
+                                  </p>
+                                )}
+                              </div>
                             </div>
 
                             <div className="ml-4 flex shrink-0 items-center gap-3">

@@ -146,11 +146,28 @@ class StudentService:
             teacher_id = teacher.id
 
 
-        return await self.repository.get_all(
+        students = await self.repository.get_all(
             school_id=school_id,
             class_id=class_id,
             teacher_id=teacher_id,
         )
+
+        # Add explicit school/class names for frontend consumers
+        # such as the ebook student-assignment modal.
+        for student in students:
+            student.school_name = (
+                student.school.name
+                if student.school
+                else None
+            )
+
+            student.class_name = (
+                student.classroom.name
+                if student.classroom
+                else None
+            )
+
+        return students
 
     async def _get_teacher_profile(self, current_user):
         if current_user.role.name != "TEACHER":
