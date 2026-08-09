@@ -37,6 +37,7 @@ __all__ = [
     "Term",
     "User",
 "Result",
+    "EbookStudentAccess",
 ]
 
 from app.models.attendance import Attendance
@@ -60,3 +61,4 @@ from app.models.cbt_attempt import CBTAttempt
 from app.models.cbt_answer import CBTAnswer
 from .cbt_provider import CBTProvider
 from .google_token import GoogleToken
+from app.models.ebook_student_access import EbookStudentAccess

@@ -2,6 +2,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ebook import Ebook
+from app.models.ebook_student_access import EbookStudentAccess
 
 
 class EbookRepository:
@@ -18,6 +19,8 @@ class EbookRepository:
         classroom_id: int | None = None,
         featured: bool | None = None,
         include_archived: bool = False,
+        student_only: bool = False,
+        student_id: int | None = None,
     ):
         conditions = [
             Ebook.school_id == school_id,
@@ -30,35 +33,25 @@ class EbookRepository:
                 Ebook.is_active.is_(True)
             )
 
-        if search:
-            pattern = f"%{search.strip()}%"
-
-            conditions.append(
-                or_(
-                    Ebook.title.ilike(pattern),
-                    Ebook.author.ilike(pattern),
-                    Ebook.description.ilike(pattern),
+        # is_active controls archive/restore.
+        # is_published controls student visibility.
+        if student_only:
+            if student_id is None:
+                raise ValueError(
+                    "student_id is required for student ebook access."
                 )
-            )
 
-        if category:
-            conditions.append(
-                Ebook.category == category
-            )
+            direct_access = select(
+                EbookStudentAccess.id
+            ).where(
+                EbookStudentAccess.ebook_id == Ebook.id,
+                EbookStudentAccess.student_id == student_id,
+                EbookStudentAccess.school_id == school_id,
+                EbookStudentAccess.is_active.is_(True),
+            ).exists()
 
-        if subject_id is not None:
             conditions.append(
-                Ebook.subject_id == subject_id
-            )
-
-        if classroom_id is not None:
-            conditions.append(
-                Ebook.classroom_id == classroom_id
-            )
-
-        if featured is not None:
-            conditions.append(
-                Ebook.featured == featured
+                Ebook.is_published.is_(True) | direct_access
             )
 
         result = await self.db.execute(
@@ -77,13 +70,34 @@ class EbookRepository:
         self,
         school_id: int,
         limit: int = 10,
+        student_only: bool = False,
+        student_id: int | None = None,
     ):
+        conditions = [
+            Ebook.school_id == school_id,
+            Ebook.is_active.is_(True),
+        ]
+
+        if student_only:
+            if student_id is None:
+                raise ValueError(
+                    "student_id is required for student ebook access."
+                )
+
+            direct_access = select(EbookStudentAccess.id).where(
+                EbookStudentAccess.ebook_id == Ebook.id,
+                EbookStudentAccess.student_id == student_id,
+                EbookStudentAccess.school_id == school_id,
+                EbookStudentAccess.is_active.is_(True),
+            ).exists()
+
+            conditions.append(
+                Ebook.is_published.is_(True) | direct_access
+            )
+
         result = await self.db.execute(
             select(Ebook)
-            .where(
-                Ebook.school_id == school_id,
-                Ebook.is_active.is_(True),
-            )
+            .where(*conditions)
             .order_by(
                 Ebook.created_at.desc()
             )

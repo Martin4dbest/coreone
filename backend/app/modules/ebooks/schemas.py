@@ -82,6 +82,7 @@ class EbookResponse(BaseModel):
     view_count: int
 
     is_active: bool
+    is_published: bool
 
     created_at: datetime | None = None
     updated_at: datetime | None = None

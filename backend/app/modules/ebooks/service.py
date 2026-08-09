@@ -1,9 +1,11 @@
 from datetime import datetime
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ebook import Ebook
 from app.models.ebook_activity import EbookActivity
+from app.models.student import Student
 from app.modules.ebooks.repository import EbookRepository
 from app.modules.ebooks.schemas import (
     EbookCreateRequest,
@@ -37,6 +39,27 @@ class EbookService:
             # ensure_enabled().
             pass
 
+    async def _get_student_for_user(
+        self,
+        current_user,
+    ):
+        result = await self.repository.db.execute(
+            select(Student).where(
+                Student.user_id == current_user.id,
+                Student.school_id == current_user.school_id,
+            )
+        )
+
+        student = result.scalar_one_or_none()
+
+        if not student:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Student profile not found.",
+            )
+
+        return student
+
     async def list_ebooks(
         self,
         school_id: int,
@@ -46,6 +69,8 @@ class EbookService:
         classroom_id: int | None = None,
         featured: bool | None = None,
         include_archived: bool = False,
+        student_only: bool = False,
+        student_id: int | None = None,
     ):
         await self._ensure_enabled(school_id)
 
@@ -57,12 +82,16 @@ class EbookService:
             classroom_id=classroom_id,
             featured=featured,
             include_archived=include_archived,
+            student_only=student_only,
+            student_id=student_id,
         )
 
     async def recent_ebooks(
         self,
         school_id: int,
         limit: int = 10,
+        student_only: bool = False,
+        student_id: int | None = None,
     ):
         await self._ensure_enabled(school_id)
 
@@ -71,6 +100,8 @@ class EbookService:
         return await self.repository.get_recent(
             school_id,
             limit,
+            student_only=student_only,
+            student_id=student_id,
         )
 
     async def categories(
@@ -132,6 +163,7 @@ class EbookService:
             file_size=payload.file_size,
             file_type=payload.file_type,
             featured=payload.featured,
+            is_published=False,
         )
 
         return await self.repository.create(ebook)
@@ -249,3 +281,123 @@ class EbookService:
             print(f"WARNING: Could not record ebook view: {exc}")
 
         return ebook
+
+
+    async def assign_ebook_to_student(
+        self,
+        ebook_id: int,
+        student_id: int,
+        current_user,
+    ):
+        from app.models.ebook_student_access import EbookStudentAccess
+        from app.models.student import Student
+
+        ebook = await self.repository.get_by_id(
+            ebook_id,
+            current_user.school_id,
+        )
+
+        if not ebook:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Ebook not found.",
+            )
+
+        student_result = await self.repository.db.execute(
+            select(Student).where(
+                Student.id == student_id,
+                Student.school_id == current_user.school_id,
+            )
+        )
+
+        student = student_result.scalar_one_or_none()
+
+        if not student:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student not found.",
+            )
+
+        result = await self.repository.db.execute(
+            select(EbookStudentAccess).where(
+                EbookStudentAccess.ebook_id == ebook_id,
+                EbookStudentAccess.student_id == student_id,
+                EbookStudentAccess.school_id == current_user.school_id,
+            )
+        )
+
+        access = result.scalar_one_or_none()
+
+        if access:
+            access.is_active = True
+            access.granted_by = current_user.id
+        else:
+            access = EbookStudentAccess(
+                ebook_id=ebook_id,
+                student_id=student_id,
+                school_id=current_user.school_id,
+                is_active=True,
+                granted_by=current_user.id,
+            )
+            self.repository.db.add(access)
+
+        await self.repository.db.commit()
+        await self.repository.db.refresh(access)
+
+        return access
+
+
+    async def revoke_ebook_from_student(
+        self,
+        ebook_id: int,
+        student_id: int,
+        current_user,
+    ):
+        from app.models.ebook_student_access import EbookStudentAccess
+
+        result = await self.repository.db.execute(
+            select(EbookStudentAccess).where(
+                EbookStudentAccess.ebook_id == ebook_id,
+                EbookStudentAccess.student_id == student_id,
+                EbookStudentAccess.school_id == current_user.school_id,
+            )
+        )
+
+        access = result.scalar_one_or_none()
+
+        if not access:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student ebook assignment not found.",
+            )
+
+        access.is_active = False
+
+        await self.repository.db.commit()
+
+        return {
+            "success": True,
+            "message": "Ebook access revoked from student.",
+            "ebook_id": ebook_id,
+            "student_id": student_id,
+        }
+
+
+    async def get_ebook_student_access(
+        self,
+        ebook_id: int,
+        student_id: int,
+        school_id: int,
+    ):
+        from app.models.ebook_student_access import EbookStudentAccess
+
+        result = await self.repository.db.execute(
+            select(EbookStudentAccess).where(
+                EbookStudentAccess.ebook_id == ebook_id,
+                EbookStudentAccess.student_id == student_id,
+                EbookStudentAccess.school_id == school_id,
+                EbookStudentAccess.is_active.is_(True),
+            )
+        )
+
+        return result.scalar_one_or_none()

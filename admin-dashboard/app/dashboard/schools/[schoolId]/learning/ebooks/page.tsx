@@ -90,6 +90,17 @@ const [activityError, setActivityError] = useState("");
 
   const [deletingEbookId, setDeletingEbookId] = useState<number | null>(null);
 
+
+    const [assignmentEbook, setAssignmentEbook] =
+      useState<Ebook | null>(null);
+    const [students, setStudents] = useState<any[]>([]);
+    const [assignedStudentIds, setAssignedStudentIds] =
+      useState<Set<number>>(new Set());
+    const [assignmentLoading, setAssignmentLoading] =
+      useState(false);
+    const [assignmentSaving, setAssignmentSaving] =
+      useState<number | null>(null);
+
   const loadEbooks = async () => {
     try {
       setLoading(true);
@@ -344,6 +355,124 @@ const archiveEbook = async (id: number) => {
     return `${(size / 1024 / 1024).toFixed(1)} MB`;
   };
 
+
+    const openAssignmentModal = async (ebook: Ebook) => {
+      try {
+        setAssignmentEbook(ebook);
+        setStudents([]);
+        setAssignedStudentIds(new Set());
+        setAssignmentLoading(true);
+
+        const response = await api.get("/students/", {
+          params: {
+            school_id: schoolId,
+          },
+        });
+
+        const studentList = Array.isArray(response.data)
+          ? response.data
+          : response.data?.students ||
+            response.data?.items ||
+            [];
+
+        setStudents(studentList);
+
+        const assigned = new Set<number>();
+
+        await Promise.all(
+          studentList.map(async (student: any) => {
+            try {
+              const accessResponse = await api.get(
+                `/ebooks/${ebook.id}/students/${student.id}`
+              );
+
+              if (
+                accessResponse.data?.assigned &&
+                accessResponse.data?.is_active
+              ) {
+                assigned.add(Number(student.id));
+              }
+            } catch (error) {
+              console.warn(
+                "Could not check ebook access for student:",
+                student.id,
+                error
+              );
+            }
+          })
+        );
+
+        setAssignedStudentIds(assigned);
+      } catch (error: any) {
+        console.error(
+          "Failed to load students for ebook assignment:",
+          error
+        );
+
+        alert(
+          error?.response?.data?.detail ||
+            "Unable to load students for ebook assignment."
+        );
+
+        setAssignmentEbook(null);
+      } finally {
+        setAssignmentLoading(false);
+      }
+    };
+
+    const closeAssignmentModal = () => {
+      setAssignmentEbook(null);
+      setStudents([]);
+      setAssignedStudentIds(new Set());
+      setAssignmentLoading(false);
+      setAssignmentSaving(null);
+    };
+
+    const toggleStudentAssignment = async (
+      studentId: number,
+      assigned: boolean
+    ) => {
+      if (!assignmentEbook) return;
+
+      try {
+        setAssignmentSaving(studentId);
+
+        if (assigned) {
+          await api.delete(
+            `/ebooks/${assignmentEbook.id}/students/${studentId}`
+          );
+
+          setAssignedStudentIds((current) => {
+            const next = new Set(current);
+            next.delete(studentId);
+            return next;
+          });
+        } else {
+          await api.post(
+            `/ebooks/${assignmentEbook.id}/students/${studentId}`
+          );
+
+          setAssignedStudentIds((current) => {
+            const next = new Set(current);
+            next.add(studentId);
+            return next;
+          });
+        }
+      } catch (error: any) {
+        console.error(
+          "Failed to update ebook assignment:",
+          error
+        );
+
+        alert(
+          error?.response?.data?.detail ||
+            "Unable to update ebook assignment."
+        );
+      } finally {
+        setAssignmentSaving(null);
+      }
+    };
+
   return (
     <div className="min-h-screen bg-slate-50/50 p-6 sm:p-8 text-slate-800">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -576,6 +705,15 @@ const archiveEbook = async (id: number) => {
                     Activity
                   </button>
 
+                    <button
+                      type="button"
+                      onClick={() => openAssignmentModal(ebook)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                    >
+                      Assign Students
+                    </button>
+
+
 
 
                       <button
@@ -648,7 +786,143 @@ const archiveEbook = async (id: number) => {
           </div>
         )}
 
-        {/* Ebook Activity Modal */}
+        
+          {/* Ebook Student Assignment Modal */}
+          {assignmentEbook && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+
+                <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">
+                      Assign Students
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {assignmentEbook.title}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={closeAssignmentModal}
+                    className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6">
+                  {assignmentLoading ? (
+                    <div className="flex min-h-[240px] items-center justify-center">
+                      <div className="flex items-center gap-3 text-sm text-slate-500">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Loading students...
+                      </div>
+                    </div>
+                  ) : students.length === 0 ? (
+                    <div className="flex min-h-[240px] flex-col items-center justify-center text-center">
+                      <BookOpen className="mb-3 h-10 w-10 text-slate-300" />
+                      <p className="text-sm font-semibold text-slate-700">
+                        No students found
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        There are no students available to assign this ebook to.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="mb-4 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">
+                            Students
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Select the students who should have access.
+                          </p>
+                        </div>
+
+                        <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+                          {assignedStudentIds.size} assigned
+                        </span>
+                      </div>
+
+                      {students.map((student: any) => {
+                        const studentId = Number(student.id);
+                        const isAssigned = assignedStudentIds.has(studentId);
+                        const isSaving = assignmentSaving === studentId;
+
+                        const name =
+                          [
+                            student.first_name,
+                            student.middle_name,
+                            student.last_name,
+                          ]
+                            .filter(Boolean)
+                            .join(" ") ||
+                          student.name ||
+                          `Student #${studentId}`;
+
+                        return (
+                          <label
+                            key={studentId}
+                            className={`flex cursor-pointer items-center justify-between rounded-xl border px-4 py-3 transition-colors ${
+                              isAssigned
+                                ? "border-emerald-200 bg-emerald-50/60"
+                                : "border-slate-200 bg-white hover:bg-slate-50"
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-slate-800">
+                                {name}
+                              </p>
+
+                              {(student.admission_number || student.email) && (
+                                <p className="mt-0.5 truncate text-xs text-slate-500">
+                                  {student.admission_number ||
+                                    student.email}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="ml-4 flex shrink-0 items-center gap-3">
+                              {isSaving && (
+                                <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                              )}
+
+                              <input
+                                type="checkbox"
+                                checked={isAssigned}
+                                disabled={isSaving}
+                                onChange={() =>
+                                  toggleStudentAssignment(
+                                    studentId,
+                                    isAssigned
+                                  )
+                                }
+                                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                              />
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-6 py-4">
+                  <button
+                    type="button"
+                    onClick={closeAssignmentModal}
+                    className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+{/* Ebook Activity Modal */}
     {activityEbook && (
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">

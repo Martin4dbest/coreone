@@ -78,6 +78,15 @@ class Ebook(Base, BaseModel, SchoolMixin, ActiveMixin):
         server_default="false",
     )
 
+    # Controls whether the ebook is visible to students.
+    # This is separate from is_active, which controls archive/restore.
+    is_published: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+
     download_count: Mapped[int] = mapped_column(
         Integer,
         nullable=False,

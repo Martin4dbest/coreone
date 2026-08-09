@@ -44,6 +44,23 @@ async def list_ebooks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Students must only see ebooks that have been explicitly published.
+    # Admins/teachers keep the current library behavior so an uploaded ebook
+    # remains visible to staff before it is assigned/published to students.
+    role_name = (
+        getattr(current_user.role, "name", "") or ""
+    ).upper()
+
+    student_only = role_name == "STUDENT"
+
+    student_id = None
+
+    if student_only:
+        student = await EbookService(db)._get_student_for_user(
+            current_user
+        )
+        student_id = student.id
+
     ebooks = await EbookService(db).list_ebooks(
         school_id=current_user.school_id,
         search=search,
@@ -52,6 +69,8 @@ async def list_ebooks(
         classroom_id=classroom_id,
         featured=featured,
         include_archived=include_archived,
+        student_only=student_only,
+        student_id=student_id,
     )
     return _ebook_responses(ebooks)
 
@@ -65,9 +84,25 @@ async def recent_ebooks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    role_name = (
+        getattr(current_user.role, "name", "") or ""
+    ).upper()
+
+    student_only = role_name == "STUDENT"
+
+    student_id = None
+
+    if student_only:
+        student = await EbookService(db)._get_student_for_user(
+            current_user
+        )
+        student_id = student.id
+
     ebooks = await EbookService(db).recent_ebooks(
         current_user.school_id,
         limit,
+        student_only=student_only,
+        student_id=student_id,
     )
     return _ebook_responses(ebooks)
 
@@ -83,6 +118,73 @@ async def ebook_categories(
     return await EbookService(db).categories(
         current_user.school_id
     )
+
+
+# ============================================================
+# INDIVIDUAL STUDENT EBOOK ACCESS
+# ============================================================
+
+@router.post(
+    "/{ebook_id}/students/{student_id}",
+)
+async def assign_ebook_to_student(
+    ebook_id: int,
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    access = await EbookService(db).assign_ebook_to_student(
+        ebook_id,
+        student_id,
+        current_user,
+    )
+
+    return {
+        "success": True,
+        "message": "Ebook assigned to student.",
+        "ebook_id": access.ebook_id,
+        "student_id": access.student_id,
+        "is_active": access.is_active,
+    }
+
+
+@router.delete(
+    "/{ebook_id}/students/{student_id}",
+)
+async def revoke_ebook_from_student(
+    ebook_id: int,
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await EbookService(db).revoke_ebook_from_student(
+        ebook_id,
+        student_id,
+        current_user,
+    )
+
+
+@router.get(
+    "/{ebook_id}/students/{student_id}",
+)
+async def get_ebook_student_access(
+    ebook_id: int,
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    access = await EbookService(db).get_ebook_student_access(
+        ebook_id,
+        student_id,
+        current_user.school_id,
+    )
+
+    return {
+        "assigned": access is not None,
+        "ebook_id": ebook_id,
+        "student_id": student_id,
+        "is_active": access.is_active if access else False,
+    }
 
 
 @router.get(
@@ -251,16 +353,20 @@ async def protected_ebook_file(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Protected ebook file.
+    Protected ebook file endpoint.
 
-    Files are stored in:
-        protected_ebooks/{school_id}/files/
+    Access rules:
+    - Staff/admin users in the same school may access the file.
+    - Students may access it only when:
+        1. the ebook is published school-wide, OR
+        2. the ebook is individually assigned to that student.
 
-    The client must be authenticated and belong to
-    the same school as the ebook.
+    The PDF remains inside protected_ebooks.
     """
 
-    ebook = await EbookService(db).get_ebook(
+    service = EbookService(db)
+
+    ebook = await service.get_ebook(
         ebook_id,
         current_user.school_id,
     )
@@ -270,6 +376,27 @@ async def protected_ebook_file(
             status_code=404,
             detail="Ebook not found.",
         )
+
+    role_name = (
+        getattr(current_user.role, "name", "") or ""
+    ).upper()
+
+    if role_name == "STUDENT":
+        student = await service._get_student_for_user(
+            current_user
+        )
+
+        access = await service.get_ebook_student_access(
+            ebook_id,
+            student.id,
+            current_user.school_id,
+        )
+
+        if not ebook.is_published and access is None:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to this ebook.",
+            )
 
     if not ebook.file_url:
         raise HTTPException(
@@ -313,8 +440,10 @@ async def protected_ebook_file(
         headers={
             "Cache-Control": "private, no-store",
             "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "inline",
         },
     )
+
 
 @router.post(
     "/{ebook_id}/download",
@@ -482,9 +611,13 @@ async def protected_ebook_content(
     """
     Protected ebook content endpoint.
 
-    The PDF is stored inside protected_ebooks and is NEVER
-    exposed through the public /uploads directory.
-    Authentication + school ownership are required.
+    Access rules:
+    - Staff/admin users in the same school may access the ebook.
+    - Students may access it only when:
+        1. the ebook is published school-wide, OR
+        2. the ebook is individually assigned to that student.
+
+    The PDF remains inside protected_ebooks.
     """
 
     service = EbookService(db)
@@ -499,6 +632,27 @@ async def protected_ebook_content(
             status_code=404,
             detail="Ebook not found.",
         )
+
+    role_name = (
+        getattr(current_user.role, "name", "") or ""
+    ).upper()
+
+    if role_name == "STUDENT":
+        student = await service._get_student_for_user(
+            current_user
+        )
+
+        access = await service.get_ebook_student_access(
+            ebook_id,
+            student.id,
+            current_user.school_id,
+        )
+
+        if not ebook.is_published and access is None:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to this ebook.",
+            )
 
     if not ebook.file_url:
         raise HTTPException(
@@ -549,3 +703,4 @@ async def protected_ebook_content(
             "Content-Disposition": "inline",
         },
     )
+
