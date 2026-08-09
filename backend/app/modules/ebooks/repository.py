@@ -187,3 +187,15 @@ class EbookRepository:
             "success": True,
             "message": "Ebook archived successfully.",
         }
+
+    async def delete_permanently(
+        self,
+        ebook: Ebook,
+    ):
+        await self.db.delete(ebook)
+        await self.db.commit()
+
+        return {
+            "success": True,
+            "message": "Ebook permanently deleted.",
+        }

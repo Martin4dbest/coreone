@@ -171,6 +171,28 @@ class EbookService:
             ebook
         )
 
+    async def delete_permanently(
+        self,
+        ebook_id: int,
+        current_user,
+    ):
+        ebook = await self.repository.get_by_id(
+            ebook_id,
+            current_user.school_id,
+        )
+
+        if not ebook:
+            return None
+
+        if ebook.is_active:
+            raise ValueError(
+                "Only archived ebooks can be permanently deleted."
+            )
+
+        return await self.repository.delete_permanently(
+            ebook
+        )
+
     async def download_ebook(
         self,
         ebook_id: int,

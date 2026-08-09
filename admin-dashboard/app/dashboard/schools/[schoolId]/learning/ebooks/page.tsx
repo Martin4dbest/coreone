@@ -583,6 +583,42 @@ const archiveEbook = async (id: number) => {
                         <Trash2 className="w-3.5 h-3.5" />
                         Archive
                       </button>
+                  {showArchived && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const confirmed = window.confirm(
+                          `Permanently delete "${ebook.title}"? This cannot be undone.`
+                        );
+
+                        if (!confirmed) {
+                          return;
+                        }
+
+                        try {
+                          await api.delete(
+                            `/ebooks/${ebook.id}/permanent`
+                          );
+
+                          await loadEbooks();
+                        } catch (error) {
+                          console.error(
+                            "Failed to permanently delete ebook:",
+                            error
+                          );
+
+                          alert(
+                            "Unable to permanently delete this ebook."
+                          );
+                        }
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete
+                    </button>
+                  )}
+
                     </div>
                   </div>
                 </div>

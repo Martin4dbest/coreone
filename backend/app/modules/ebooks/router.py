@@ -175,6 +175,75 @@ async def delete_ebook(
 
 
 
+
+@router.delete(
+    "/{ebook_id}/permanent",
+)
+async def permanently_delete_ebook(
+    ebook_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Permanently delete an ebook and its stored files.
+    """
+
+    ebook = await EbookService(db).repository.get_by_id(
+        ebook_id,
+        current_user.school_id,
+    )
+
+    if not ebook:
+        raise HTTPException(
+            status_code=404,
+            detail="Ebook not found.",
+        )
+
+    # Delete the protected ebook file.
+    if ebook.file_url:
+        filename = Path(
+            ebook.file_url.split("?")[0]
+        ).name
+
+        protected_file = (
+            Path.cwd()
+            / "protected_ebooks"
+            / str(current_user.school_id)
+            / "files"
+            / filename
+        )
+
+        if protected_file.is_file():
+            protected_file.unlink()
+
+    # Delete the protected cover.
+    if ebook.cover_image_url:
+        cover_filename = Path(
+            ebook.cover_image_url.split("?")[0]
+        ).name
+
+        cover_file = (
+            Path.cwd()
+            / "protected_ebooks"
+            / str(current_user.school_id)
+            / "covers"
+            / cover_filename
+        )
+
+        if cover_file.is_file():
+            cover_file.unlink()
+
+    # Permanently remove the database record.
+    await db.delete(ebook)
+    await db.commit()
+
+    return {
+        "success": True,
+        "message": "Ebook permanently deleted.",
+        "id": ebook_id,
+    }
+
+
 @router.get("/{ebook_id}/file")
 async def protected_ebook_file(
     ebook_id: int,
