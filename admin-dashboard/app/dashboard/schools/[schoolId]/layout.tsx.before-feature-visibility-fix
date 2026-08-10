@@ -157,11 +157,15 @@ export default function SchoolWorkspaceLayout({
   const basePath = `/dashboard/schools/${schoolId}`;
 
   const featureEnabled = (featureKey: string) => {
-    return features.some(
-      (feature) =>
-        feature.feature_key === featureKey &&
-        feature.enabled === true
+    const feature = features.find(
+      (item) => item.feature_key === featureKey
     );
+
+    /*
+     * Feature records are now provisioned for every school.
+     * A missing record therefore does NOT grant access.
+     */
+    return feature?.enabled === true;
   };
 
   const navigation: NavigationItem[] = [
@@ -272,7 +276,8 @@ export default function SchoolWorkspaceLayout({
     (item) =>
       (!item.superAdminOnly ||
         currentUser?.role?.name === "SUPER_ADMIN") &&
-      (!item.feature || featureEnabled(item.feature))
+      (!item.feature ||
+        featureEnabled(item.feature))
   );
 
   if (loading) {

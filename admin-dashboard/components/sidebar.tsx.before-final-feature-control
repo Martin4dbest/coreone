@@ -249,14 +249,12 @@ feature: "results",
 },
 {
       name: "Attendance",
-feature: "attendance",
       href: "/teacher/dashboard/attendance",
       icon: ClipboardCheck,
       color: "text-green-400",
     },
     {
       name: "Events",
-feature: "events",
       href: `${schoolBase}/events`,
       icon: CalendarDays,
       color: "text-pink-400",
@@ -301,41 +299,30 @@ const teacherMenu = [
   
 
 const featureEnabled = (featureKey: string) => {
-  /*
-   * Feature control is authoritative for School Admin.
-   *
-   * IMPORTANT:
-   * - While the API is loading, keep the current menu visible.
-   * - Once the API has loaded, an explicit feature record controls
-   *   visibility.
-   * - Missing records remain visible so an incomplete database
-   *   configuration cannot accidentally break the dashboard.
-   */
+  // Do not filter until the feature state has loaded.
   if (!featuresLoaded) {
     return true;
   }
 
   const feature = schoolFeatures.find(
-    (item) =>
-      String(item?.feature_key || "").trim().toLowerCase() ===
-      featureKey.trim().toLowerCase()
+    (item) => item?.feature_key === featureKey
   );
 
-  return feature?.enabled ?? true;
+  // If a feature has no record, keep the existing menu item visible.
+  // This prevents an incomplete feature configuration from hiding
+  // existing School Admin functionality.
+  return feature ? feature.enabled === true : true;
 };
-
-const filteredSchoolAdminMenu = schoolAdminMenu.filter((item) => {
-  if (!item.feature) {
-    return true;
-  }
-
-  return featureEnabled(item.feature);
-});
 
 let menu = superAdminMenu;
 
 if (role === "SCHOOL_ADMIN") {
-  menu = filteredSchoolAdminMenu;
+  menu = schoolAdminMenu.filter(
+    (item) =>
+      !("feature" in item) ||
+      !item.feature ||
+      featureEnabled(item.feature)
+  );
 }
 
 if (role === "TEACHER") {

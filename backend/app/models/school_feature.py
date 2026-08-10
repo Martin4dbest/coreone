@@ -1,11 +1,12 @@
-from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base_model import BaseModel
 from app.db.database import Base
 
 
-class SchoolFeature(Base, BaseModel):
+class SchoolFeature(Base):
     __tablename__ = "school_features"
 
     __table_args__ = (
@@ -14,6 +15,11 @@ class SchoolFeature(Base, BaseModel):
             "feature_key",
             name="uq_school_feature",
         ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        index=True,
     )
 
     school_id: Mapped[int] = mapped_column(
@@ -32,6 +38,17 @@ class SchoolFeature(Base, BaseModel):
         Boolean,
         default=True,
         nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
     )
 
     school = relationship("School")

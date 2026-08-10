@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+
+
 import Link from "next/link";
 import {
   Building2,
@@ -49,29 +50,19 @@ export default function SchoolDetailsPage({
 }: {
   params: Promise<{ schoolId: string }>;
 }) {
-  const { schoolId } = useParams() as { schoolId: string };
+  const { schoolId } = use(params);
 
   const [school, setSchool] = useState<School | null>(null);
 const [features, setFeatures] = useState<any[]>([]);
+const [schoolFeatures, setSchoolFeatures] = useState<
+  SchoolFeature[]
+>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
 
   useEffect(() => {
-    async function loadFeatures() {
-      try {
-        const response = await api.get(`/school-features/${schoolId}`);
-        setFeatures(response.data || []);
-      } catch (error) {
-        console.error("Failed to load school features:", error);
-        setFeatures([]);
-      }
-    }
-
-    loadFeatures();
-
-
     async function loadSchool() {
       try {
         const [schoolResponse, userResponse] = await Promise.all([
@@ -94,10 +85,6 @@ const [features, setFeatures] = useState<any[]>([]);
 
   if (loading) {
     
-
-
-
-
 
 
 return (
@@ -148,17 +135,7 @@ return (
   const isTeacher =
     role === "TEACHER";
 
-  const featureEnabled = (featureKey: string) => {
-  return features.some(
-    (feature) =>
-      feature.feature_key === featureKey &&
-      feature.enabled === true
-  );
-};
-
-
-
-const schoolModules = [
+  const schoolModules = [
 
     ...(isSuperAdmin ? [{
       title: "School Admins",
@@ -169,25 +146,21 @@ const schoolModules = [
 
     ...((isSuperAdmin || isSchoolAdmin) ? [{
       title: "Students",
-      feature: "students",
       description: "Manage enrolled learners",
       icon: GraduationCap,
       href: `/dashboard/schools/${schoolId}/students`,
     },{
       title: "Teachers",
-      feature: "teachers",
       description: "Manage teaching staff",
       icon: Users,
       href: `/dashboard/schools/${schoolId}/teachers`,
     },{
       title: "Staff",
-      feature: "staff",
       description: "Manage school personnel",
       icon: UserRound,
       href: `/dashboard/schools/${schoolId}/staff`,
     },{
       title: "Academics",
-      feature: "academics",
       description: "Levels, classes, subjects and results",
       icon: BookOpen,
       href: `/dashboard/schools/${schoolId}/academics`,
@@ -198,7 +171,6 @@ const schoolModules = [
       description: "Students in your assigned classes",
       icon: GraduationCap,
       href: `/dashboard/schools/${schoolId}/students`,
-      feature: "academics",
     },{
       title: "My Classes",
       description: "Classes assigned to you",
@@ -208,7 +180,6 @@ const schoolModules = [
 
     {
       title: "Attendance",
-      feature: "attendance",
       description: "Monitor attendance",
       icon: ClipboardCheck,
       href: `/dashboard/schools/${schoolId}/attendance`,
@@ -216,7 +187,6 @@ const schoolModules = [
 
     {
       title: "Results",
-      feature: "results",
       description: "View and manage results",
       icon: BookOpen,
       href: `/dashboard/schools/${schoolId}/results`,
@@ -224,7 +194,6 @@ const schoolModules = [
 
     {
       title: "Events",
-      feature: "events",
       description: "School events and activities",
       icon: CalendarDays,
       href: `/dashboard/schools/${schoolId}/events`,
@@ -233,7 +202,6 @@ const schoolModules = [
 
     {
       title: "Learning Centre",
-      feature: "learning",
       description: "Digital learning resources",
       icon: LibraryBig,
       href: `/dashboard/schools/${schoolId}/learning`,
@@ -241,7 +209,6 @@ const schoolModules = [
 
     {
       title: "CBT",
-      feature: "cbt",
       description: "Computer Based Tests",
       icon: FileQuestion,
       href: `/dashboard/schools/${schoolId}/cbt`,
@@ -249,7 +216,6 @@ const schoolModules = [
 
     {
       title: "Ebooks",
-      feature: "ebooks",
       description: "Digital library",
       icon: BookOpen,
       href: `/dashboard/schools/${schoolId}/ebooks`,
@@ -257,36 +223,33 @@ const schoolModules = [
 
     {
       title: "Internal Browser",
-      feature: "browser",
       description: "Approved educational websites",
       icon: Globe,
       href: `/dashboard/schools/${schoolId}/browser`,
     },
-    {
-  title: "YouTube Learning",
-  feature: "youtube_learning",
-  description: "Educational video resources",
-  icon: MonitorPlay,
-  href: `/dashboard/schools/${schoolId}/youtube-learning`,
-},
 
+    ...(schoolFeatures.find(
+      (feature) => feature.feature_key === "youtube_learning"
+    )?.enabled === true
+      ? [{
+          title: "YouTube Learning",
+          description: "Educational video resources",
+          icon: MonitorPlay,
+          href: `/dashboard/schools/${schoolId}/youtube-learning`,
+        }]
+      : []),
 
   ];
-const visibleSchoolModules = schoolModules.filter(
-    (module) => {
-      // Modules without a feature key are controlled only by role.
-      if (!module.feature) {
-        return true;
-      }
 
-      // Every feature-controlled workspace card follows
-      // the school's feature switch.
-      return featureEnabled(module.feature);
-    }
-  );
+  const featureEnabled = (featureKey: string) => {
+    return features.some(
+      (feature) =>
+        feature.feature_key === featureKey &&
+        feature.enabled === true
+    );
+  };
 
-
-async function toggleSchool() {
+  async function toggleSchool() {
     if (!school) return;
 
     try {
@@ -389,7 +352,12 @@ async function toggleSchool() {
         </div>
 
         <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          {visibleSchoolModules.map((module) => {
+          {schoolModules
+              .filter((module) => {
+                const featureKey = workspaceFeatureKey(module.title);
+                return !featureKey || featureEnabled(featureKey);
+              })
+              .map((module) => {
             const Icon = module.icon;
 
             return (

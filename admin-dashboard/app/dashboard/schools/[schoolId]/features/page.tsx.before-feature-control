@@ -1,0 +1,393 @@
+"use client";
+
+import { use, useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Loader2,
+  Settings2,
+  XCircle,
+} from "lucide-react";
+
+import api from "@/lib/api";
+
+type SchoolFeature = {
+  id: number;
+  school_id: number;
+  feature_key: string;
+  enabled: boolean;
+};
+
+type FeatureDefinition = {
+  key: string;
+  name: string;
+  description: string;
+};
+
+const FEATURE_DEFINITIONS: FeatureDefinition[] = [
+  {
+    key: "attendance",
+    name: "Attendance",
+    description:
+      "Allow the school to manage student attendance and attendance records.",
+  },
+  {
+    key: "ebooks",
+    name: "Ebooks",
+    description:
+      "Allow students and staff to access the school's digital ebook library.",
+  },
+  {
+    key: "browser",
+    name: "Internal Browser",
+    description:
+      "Allow access to approved educational websites through the controlled browser.",
+  },
+  {
+    key: "youtube_learning",
+    name: "YouTube Learning",
+    description:
+      "Allow the school to provide controlled educational YouTube learning resources.",
+  },
+  {
+    key: "cbt",
+    name: "CBT",
+    description:
+      "Allow the school to create and administer Computer Based Tests.",
+  },
+];
+
+const FEATURE_ICONS: Record<string, string> = {
+  attendance: "📋",
+  ebooks: "📚",
+  browser: "🌐",
+  youtube_learning: "▶️",
+  cbt: "📝",
+};
+
+export default function SchoolFeaturesPage({
+  params,
+}: {
+  params: Promise<{ schoolId: string }>;
+}) {
+  const { schoolId } = use(params);
+
+  const [features, setFeatures] = useState<SchoolFeature[]>([]);
+  const [schoolName, setSchoolName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [updatingKey, setUpdatingKey] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadFeatures() {
+      try {
+        setLoading(true);
+        setError("");
+
+        const [featuresResponse, schoolResponse] =
+          await Promise.all([
+            api.get<SchoolFeature[]>(
+              `/school-features/${schoolId}`
+            ),
+            api.get(`/schools/${schoolId}`),
+          ]);
+
+        if (!mounted) return;
+
+        setFeatures(featuresResponse.data);
+        setSchoolName(schoolResponse.data?.name || "");
+      } catch (error) {
+        console.error(
+          "Failed to load school features:",
+          error
+        );
+
+        if (mounted) {
+          setError(
+            "Unable to load the school's feature settings."
+          );
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadFeatures();
+
+    return () => {
+      mounted = false;
+    };
+  }, [schoolId]);
+
+  function getFeatureState(featureKey: string) {
+    return features.find(
+      (feature) => feature.feature_key === featureKey
+    );
+  }
+
+  async function toggleFeature(
+    featureKey: string,
+    currentEnabled: boolean
+  ) {
+    try {
+      setUpdatingKey(featureKey);
+      setError("");
+      setSuccess("");
+
+      const response = await api.patch<SchoolFeature>(
+        `/school-features/${schoolId}/${featureKey}`,
+        {
+          enabled: !currentEnabled,
+        }
+      );
+
+      setFeatures((current) =>
+        current.map((feature) =>
+          feature.feature_key === featureKey
+            ? response.data
+            : feature
+        )
+      );
+
+      const definition = FEATURE_DEFINITIONS.find(
+        (item) => item.key === featureKey
+      );
+
+      setSuccess(
+        `${definition?.name || featureKey} ${
+          response.data.enabled
+            ? "enabled"
+            : "disabled"
+        } successfully.`
+      );
+    } catch (error) {
+      console.error(
+        "Failed to update school feature:",
+        error
+      );
+
+      setError(
+        "Unable to update this feature. Please try again."
+      );
+    } finally {
+      setUpdatingKey(null);
+    }
+  }
+
+  const enabledCount = features.filter(
+    (feature) => feature.enabled
+  ).length;
+
+  return (
+    <div className="space-y-6">
+      <Link
+        href={`/dashboard/schools/${schoolId}`}
+        className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-rose-500"
+      >
+        <ArrowLeft size={17} />
+        Back to School Workspace
+      </Link>
+
+      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
+        <div className="bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 p-8 text-white">
+          <div className="flex items-start gap-5">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/10">
+              <Settings2 size={27} />
+            </div>
+
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-200">
+                School Configuration
+              </p>
+
+              <h1 className="mt-2 text-3xl font-bold">
+                Feature Controls
+              </h1>
+
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+                {schoolName
+                  ? `Control which features are available for ${schoolName}.`
+                  : "Control which features are available for this school."}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 p-6 sm:grid-cols-2">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+            <p className="text-2xl font-bold text-slate-900">
+              {FEATURE_DEFINITIONS.length}
+            </p>
+            <p className="mt-1 text-xs font-medium text-slate-500">
+              Available features
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+            <p className="text-2xl font-bold text-emerald-600">
+              {enabledCount}
+            </p>
+            <p className="mt-1 text-xs font-medium text-slate-500">
+              Currently enabled
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-700">
+          {success}
+        </div>
+      )}
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-slate-900">
+            School Features
+          </h2>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Enable or disable individual features for this
+            school.
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="flex min-h-[250px] items-center justify-center">
+            <div className="text-center">
+              <Loader2
+                size={30}
+                className="mx-auto animate-spin text-rose-500"
+              />
+
+              <p className="mt-3 text-sm text-slate-500">
+                Loading feature settings...
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {FEATURE_DEFINITIONS.map((definition) => {
+              const feature = getFeatureState(
+                definition.key
+              );
+
+              const enabled = feature?.enabled ?? false;
+              const updating =
+                updatingKey === definition.key;
+
+              return (
+                <div
+                  key={definition.key}
+                  className={`flex flex-col gap-5 rounded-2xl border p-5 transition sm:flex-row sm:items-center sm:justify-between ${
+                    enabled
+                      ? "border-emerald-100 bg-emerald-50/40"
+                      : "border-slate-200 bg-slate-50/50"
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-xl shadow-sm">
+                      {FEATURE_ICONS[definition.key]}
+                    </div>
+
+                    <div>
+                      <h3 className="font-bold text-slate-900">
+                        {definition.name}
+                      </h3>
+
+                      <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                        {definition.description}
+                      </p>
+
+                      <div className="mt-3 flex items-center gap-2">
+                        {enabled ? (
+                          <>
+                            <CheckCircle2
+                              size={15}
+                              className="text-emerald-500"
+                            />
+                            <span className="text-xs font-bold text-emerald-600">
+                              Enabled
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle
+                              size={15}
+                              className="text-slate-400"
+                            />
+                            <span className="text-xs font-bold text-slate-500">
+                              Disabled
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={updating || !feature}
+                    onClick={() =>
+                      toggleFeature(
+                        definition.key,
+                        enabled
+                      )
+                    }
+                    className={`relative h-8 w-14 shrink-0 rounded-full transition ${
+                      enabled
+                        ? "bg-emerald-500"
+                        : "bg-slate-300"
+                    } ${
+                      updating || !feature
+                        ? "cursor-not-allowed opacity-60"
+                        : "cursor-pointer"
+                    }`}
+                    aria-label={`${
+                      enabled ? "Disable" : "Enable"
+                    } ${definition.name}`}
+                  >
+                    <span
+                      className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition ${
+                        enabled
+                          ? "left-7"
+                          : "left-1"
+                      }`}
+                    />
+
+                    {updating && (
+                      <Loader2
+                        size={13}
+                        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-spin text-slate-500"
+                      />
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!loading && features.length === 0 && (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-700">
+            No feature records were found for this school.
+            The school may have been created before feature
+            defaults were added.
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}

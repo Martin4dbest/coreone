@@ -31,8 +31,6 @@ export default function Sidebar() {
   const [schoolId, setSchoolId] = useState("");
   const [schoolName, setSchoolName] = useState("");
 const [schoolLogo, setSchoolLogo] = useState("");
-const [schoolFeatures, setSchoolFeatures] = useState<any[]>([]);
-const [featuresLoaded, setFeaturesLoaded] = useState(false);
 
   const getCurrentUser = useWorkspaceStore(
     (state) => state.getCurrentUser
@@ -76,35 +74,7 @@ const [featuresLoaded, setFeaturesLoaded] = useState(false);
 
         setSchoolId(schoolIdString);
 
-        
-
-    // Load the school's feature-control state.
-    try {
-      const featuresResponse = await api.get(
-        `/school-features/${schoolIdString}`
-      );
-
-      if (mounted) {
-        setSchoolFeatures(
-          Array.isArray(featuresResponse.data)
-            ? featuresResponse.data
-            : []
-        );
-        setFeaturesLoaded(true);
-      }
-    } catch (featureError) {
-      console.error(
-        "Unable to load school features for sidebar:",
-        featureError
-      );
-
-      if (mounted) {
-        // Fail open during a temporary API failure.
-        setFeaturesLoaded(true);
-      }
-    }
-
-const school = await getSchool(
+        const school = await getSchool(
           schoolIdString
         );
 
@@ -210,53 +180,45 @@ const schoolBase =
       href: "/teacher/dashboard/students",
       icon: GraduationCap,
       color: "text-purple-400",
-feature: "students",
     },
     {
       name: "Teachers",
       href: "/teacher/dashboard",
       icon: Users,
       color: "text-orange-400",
-feature: "teachers",
     },
     {
       name: "Staff",
       href: `${schoolBase}/staff`,
       icon: UserRound,
       color: "text-cyan-400",
-feature: "staff",
     },
     {
       name: "Classes",
       href: `${schoolBase}/classes`,
       icon: Building2,
       color: "text-indigo-400",
-feature: "classes",
     },
     {
       name: "Academics",
       href: `${schoolBase}/academics`,
       icon: BookOpen,
       color: "text-rose-400",
-feature: "academics",
     },
     {
 name: "Results",
 href: `/dashboard/schools/${schoolId}/results`,
 icon: FileText,
 color: "text-yellow-400",
-feature: "results",
 },
 {
       name: "Attendance",
-feature: "attendance",
       href: "/teacher/dashboard/attendance",
       icon: ClipboardCheck,
       color: "text-green-400",
     },
     {
       name: "Events",
-feature: "events",
       href: `${schoolBase}/events`,
       icon: CalendarDays,
       color: "text-pink-400",
@@ -299,43 +261,10 @@ const teacherMenu = [
 ];
 
   
-
-const featureEnabled = (featureKey: string) => {
-  /*
-   * Feature control is authoritative for School Admin.
-   *
-   * IMPORTANT:
-   * - While the API is loading, keep the current menu visible.
-   * - Once the API has loaded, an explicit feature record controls
-   *   visibility.
-   * - Missing records remain visible so an incomplete database
-   *   configuration cannot accidentally break the dashboard.
-   */
-  if (!featuresLoaded) {
-    return true;
-  }
-
-  const feature = schoolFeatures.find(
-    (item) =>
-      String(item?.feature_key || "").trim().toLowerCase() ===
-      featureKey.trim().toLowerCase()
-  );
-
-  return feature?.enabled ?? true;
-};
-
-const filteredSchoolAdminMenu = schoolAdminMenu.filter((item) => {
-  if (!item.feature) {
-    return true;
-  }
-
-  return featureEnabled(item.feature);
-});
-
 let menu = superAdminMenu;
 
 if (role === "SCHOOL_ADMIN") {
-  menu = filteredSchoolAdminMenu;
+  menu = schoolAdminMenu;
 }
 
 if (role === "TEACHER") {

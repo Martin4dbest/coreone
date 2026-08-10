@@ -53,6 +53,7 @@ export default function SchoolDetailsPage({
 
   const [school, setSchool] = useState<School | null>(null);
 const [features, setFeatures] = useState<any[]>([]);
+const [schoolFeatures, setSchoolFeatures] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -149,12 +150,12 @@ return (
     role === "TEACHER";
 
   const featureEnabled = (featureKey: string) => {
-  return features.some(
-    (feature) =>
-      feature.feature_key === featureKey &&
-      feature.enabled === true
-  );
-};
+    return schoolFeatures.some(
+      (feature) =>
+        feature.feature_key === featureKey &&
+        feature.enabled === true
+    );
+  };
 
 
 
@@ -173,18 +174,21 @@ const schoolModules = [
       description: "Manage enrolled learners",
       icon: GraduationCap,
       href: `/dashboard/schools/${schoolId}/students`,
+      feature: "students",
     },{
       title: "Teachers",
       feature: "teachers",
       description: "Manage teaching staff",
       icon: Users,
       href: `/dashboard/schools/${schoolId}/teachers`,
+      feature: "teachers",
     },{
       title: "Staff",
       feature: "staff",
       description: "Manage school personnel",
       icon: UserRound,
       href: `/dashboard/schools/${schoolId}/staff`,
+      feature: "staff",
     },{
       title: "Academics",
       feature: "academics",
@@ -212,6 +216,7 @@ const schoolModules = [
       description: "Monitor attendance",
       icon: ClipboardCheck,
       href: `/dashboard/schools/${schoolId}/attendance`,
+      feature: "attendance",
     },
 
     {
@@ -220,6 +225,7 @@ const schoolModules = [
       description: "View and manage results",
       icon: BookOpen,
       href: `/dashboard/schools/${schoolId}/results`,
+      feature: "results",
     },
 
     {
@@ -228,6 +234,7 @@ const schoolModules = [
       description: "School events and activities",
       icon: CalendarDays,
       href: `/dashboard/schools/${schoolId}/events`,
+      feature: "events",
     },
 
 
@@ -237,6 +244,7 @@ const schoolModules = [
       description: "Digital learning resources",
       icon: LibraryBig,
       href: `/dashboard/schools/${schoolId}/learning`,
+      feature: "learning",
     },
 
     {
@@ -245,6 +253,7 @@ const schoolModules = [
       description: "Computer Based Tests",
       icon: FileQuestion,
       href: `/dashboard/schools/${schoolId}/cbt`,
+      feature: "cbt",
     },
 
     {
@@ -253,6 +262,7 @@ const schoolModules = [
       description: "Digital library",
       icon: BookOpen,
       href: `/dashboard/schools/${schoolId}/ebooks`,
+      feature: "ebooks",
     },
 
     {
@@ -261,31 +271,20 @@ const schoolModules = [
       description: "Approved educational websites",
       icon: Globe,
       href: `/dashboard/schools/${schoolId}/browser`,
+      feature: "browser",
     },
-    {
-  title: "YouTube Learning",
-  feature: "youtube_learning",
-  description: "Educational video resources",
-  icon: MonitorPlay,
-  href: `/dashboard/schools/${schoolId}/youtube-learning`,
-},
+    ...(featureEnabled("youtube_learning")
+      ? [{
+          title: "YouTube Learning",
+      feature: "youtube_learning",
+          description: "Educational video resources",
+          icon: MonitorPlay,
+          href: `/dashboard/schools/${schoolId}/youtube-learning`,
+        }]
+      : []),
 
 
   ];
-const visibleSchoolModules = schoolModules.filter(
-    (module) => {
-      // Modules without a feature key are controlled only by role.
-      if (!module.feature) {
-        return true;
-      }
-
-      // Every feature-controlled workspace card follows
-      // the school's feature switch.
-      return featureEnabled(module.feature);
-    }
-  );
-
-
 async function toggleSchool() {
     if (!school) return;
 

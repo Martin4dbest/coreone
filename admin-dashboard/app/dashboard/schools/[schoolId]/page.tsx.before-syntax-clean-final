@@ -1,6 +1,6 @@
+import { useEffect, useState } from "react";
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -53,6 +53,7 @@ export default function SchoolDetailsPage({
 
   const [school, setSchool] = useState<School | null>(null);
 const [features, setFeatures] = useState<any[]>([]);
+const [schoolFeatures, setSchoolFeatures] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -148,15 +149,23 @@ return (
   const isTeacher =
     role === "TEACHER";
 
+  
   const featureEnabled = (featureKey: string) => {
-  return features.some(
+    return features.some(
+      (feature) =>
+        feature.feature_key === featureKey &&
+        feature.enabled === true
+    );
+  };
+
+
+const featureEnabled = (featureKey: string) => {
+  return schoolFeatures.some(
     (feature) =>
       feature.feature_key === featureKey &&
       feature.enabled === true
   );
 };
-
-
 
 const schoolModules = [
 
@@ -169,25 +178,24 @@ const schoolModules = [
 
     ...((isSuperAdmin || isSchoolAdmin) ? [{
       title: "Students",
-      feature: "students",
       description: "Manage enrolled learners",
       icon: GraduationCap,
       href: `/dashboard/schools/${schoolId}/students`,
+      feature: "students",
     },{
       title: "Teachers",
-      feature: "teachers",
       description: "Manage teaching staff",
       icon: Users,
       href: `/dashboard/schools/${schoolId}/teachers`,
+      feature: "teachers",
     },{
       title: "Staff",
-      feature: "staff",
       description: "Manage school personnel",
       icon: UserRound,
       href: `/dashboard/schools/${schoolId}/staff`,
+      feature: "staff",
     },{
       title: "Academics",
-      feature: "academics",
       description: "Levels, classes, subjects and results",
       icon: BookOpen,
       href: `/dashboard/schools/${schoolId}/academics`,
@@ -208,84 +216,71 @@ const schoolModules = [
 
     {
       title: "Attendance",
-      feature: "attendance",
       description: "Monitor attendance",
       icon: ClipboardCheck,
       href: `/dashboard/schools/${schoolId}/attendance`,
+      feature: "attendance",
     },
 
     {
       title: "Results",
-      feature: "results",
       description: "View and manage results",
       icon: BookOpen,
       href: `/dashboard/schools/${schoolId}/results`,
+      feature: "results",
     },
 
     {
       title: "Events",
-      feature: "events",
       description: "School events and activities",
       icon: CalendarDays,
       href: `/dashboard/schools/${schoolId}/events`,
+      feature: "events",
     },
 
 
     {
       title: "Learning Centre",
-      feature: "learning",
       description: "Digital learning resources",
       icon: LibraryBig,
       href: `/dashboard/schools/${schoolId}/learning`,
+      feature: "learning",
     },
 
     {
       title: "CBT",
-      feature: "cbt",
       description: "Computer Based Tests",
       icon: FileQuestion,
       href: `/dashboard/schools/${schoolId}/cbt`,
+      feature: "cbt",
     },
 
     {
       title: "Ebooks",
-      feature: "ebooks",
       description: "Digital library",
       icon: BookOpen,
       href: `/dashboard/schools/${schoolId}/ebooks`,
+      feature: "ebooks",
     },
 
     {
       title: "Internal Browser",
-      feature: "browser",
       description: "Approved educational websites",
       icon: Globe,
       href: `/dashboard/schools/${schoolId}/browser`,
+      feature: "browser",
     },
-    {
-  title: "YouTube Learning",
-  feature: "youtube_learning",
-  description: "Educational video resources",
-  icon: MonitorPlay,
-  href: `/dashboard/schools/${schoolId}/youtube-learning`,
-},
+    ...(featureEnabled("youtube_learning")
+      ? [{
+          title: "YouTube Learning",
+          description: "Educational video resources",
+          icon: MonitorPlay,
+          href: `/dashboard/schools/${schoolId}/youtube-learning`,
+        }]
+      : []),
 
 
   ];
-const visibleSchoolModules = schoolModules.filter(
-    (module) => {
-      // Modules without a feature key are controlled only by role.
-      if (!module.feature) {
-        return true;
-      }
-
-      // Every feature-controlled workspace card follows
-      // the school's feature switch.
-      return featureEnabled(module.feature);
-    }
-  );
-
-
 async function toggleSchool() {
     if (!school) return;
 

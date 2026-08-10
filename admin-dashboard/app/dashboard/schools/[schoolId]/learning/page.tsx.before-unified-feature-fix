@@ -12,7 +12,7 @@ export default function LearningHubPage(){
 
   const schoolId = params.schoolId as string;
 
-const [schoolFeatures, setSchoolFeatures] = useState<any[]>([]);
+const [features, setFeatures] = useState<any[]>([]);
 
 useEffect(() => {
   let mounted = true;
@@ -21,7 +21,7 @@ useEffect(() => {
     try {
       const response = await api.get(`/school-features/${schoolId}`);
       if (mounted) {
-        setSchoolFeatures(response.data || []);
+        setFeatures(response.data || []);
       }
     } catch (error) {
       console.error("Failed to load school features:", error);
@@ -36,7 +36,7 @@ useEffect(() => {
 }, [schoolId]);
 
 const featureEnabled = (featureKey: string) =>
-  schoolFeatures.some(
+  features.some(
     (feature) =>
       feature.feature_key === featureKey &&
       feature.enabled === true
@@ -48,36 +48,31 @@ const featureEnabled = (featureKey: string) =>
       title:"Attendance",
       description:"Monitor student attendance and reports",
       link:`/dashboard/schools/${schoolId}/attendance`,
-      icon:"📅",
-      feature: "attendance",
+      icon:"📅"
     },
     {
       title:"CBT",
       description:"Create exams, questions and analyse results",
       link:`/dashboard/schools/${schoolId}/cbt`,
-      icon:"📝",
-      feature: "cbt",
+      icon:"📝"
     },
     {
       title:"Ebooks",
       description:"Manage digital learning materials",
       link:`/dashboard/schools/${schoolId}/ebooks`,
-      icon:"📚",
-      feature: "ebooks",
+      icon:"📚"
     },
     {
       title:"YouTube Learning",
       description:"Manage educational videos",
       link:`/dashboard/schools/${schoolId}/youtube-learning`,
-      icon:"▶️",
-      feature: "youtube_learning",
+      icon:"▶️"
     },
     {
       title:"Browser Resources",
       description:"Manage approved learning links",
       link:`/dashboard/schools/${schoolId}/browser`,
-      icon:"🌐",
-      feature: "browser",
+      icon:"🌐"
     }
   ];
 
@@ -99,7 +94,7 @@ const featureEnabled = (featureKey: string) =>
 
       <div className="grid gap-5 md:grid-cols-3">
 
-        {modules.filter((item) => featureEnabled(item.feature)).map((item)=>(
+        {modules.filter((item) => !item.feature || featureEnabled(item.feature)).map((item)=>(
 
           <Link
             key={item.title}
