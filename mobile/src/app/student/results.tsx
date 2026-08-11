@@ -8,9 +8,10 @@ import {
 } from "react-native";
 
 import { getStudentResults } from "@/services/student";
+import { Redirect } from "expo-router";
 
 export default function StudentResults() {
-  const [loading, setLoading] = useState(true);
+const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
 

@@ -8,11 +8,9 @@ export default function TeacherAttendancePage() {
 
   return (
     <AttendancePage
-      params={
-        Promise.resolve({
-          schoolId: String(params.tenant),
-        })
-      }
+      params={Promise.resolve({
+        schoolId: String(params.tenant),
+      })}
     />
   );
 }

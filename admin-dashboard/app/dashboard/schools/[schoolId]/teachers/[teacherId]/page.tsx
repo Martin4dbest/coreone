@@ -99,7 +99,7 @@ export default function Page({ params }: TeacherPageProps) {
   const numericTeacherId = Number(teacherId);
 
   const { tenant } = useTenant();
-const loginHref = tenant ? `//login` : "/login";
+  const loginHref = tenant ? `//login` : "/login";
 
   // State
   const [summaryData, setSummaryData] = useState<TeacherSummary | null>(null);
@@ -205,10 +205,9 @@ const loginHref = tenant ? `//login` : "/login";
         teacher_id: numericTeacherId
       });
       closeAndResetModals();
-      await loadTeacherWorkspace(false);
+      window.location.reload();
     } catch (err: unknown) {
       setModalError(parseApiError(err));
-    } finally {
       setIsModalSubmitting(false);
     }
   };
@@ -227,10 +226,9 @@ const loginHref = tenant ? `//login` : "/login";
     try {
       await api.delete(`/classes/${matchingClass.id}/class-teacher`);
       closeAndResetModals();
-      await loadTeacherWorkspace(false);
+      window.location.reload();
     } catch (err: unknown) {
       setModalError(parseApiError(err));
-    } finally {
       setIsModalSubmitting(false);
     }
   };
@@ -252,10 +250,9 @@ const loginHref = tenant ? `//login` : "/login";
         academic_session_id: Number(sessionId)
       });
       closeAndResetModals();
-      await loadTeacherWorkspace(false);
+      window.location.reload();
     } catch (err: unknown) {
       setModalError(parseApiError(err));
-    } finally {
       setIsModalSubmitting(false);
     }
   };
@@ -268,10 +265,9 @@ const loginHref = tenant ? `//login` : "/login";
     try {
       await api.delete(`/teacher-assignments/${targetSubjectAssignmentId}`);
       closeAndResetModals();
-      await loadTeacherWorkspace(false);
+      window.location.reload();
     } catch (err: unknown) {
       setModalError(parseApiError(err));
-    } finally {
       setIsModalSubmitting(false);
     }
   };

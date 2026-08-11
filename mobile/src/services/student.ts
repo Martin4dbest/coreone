@@ -19,12 +19,12 @@ export async function getStudentOverview(){
 }
 
 
-export async function getStudentAttendance(){
-    const response = await api.get(
-        "/students/attendance"
-    );
+export async function getStudentAttendance() {
+  const response = await api.get(
+    "/mobile/student/attendance"
+  );
 
-    return response.data;
+  return response.data;
 }
 
 

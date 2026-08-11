@@ -12,6 +12,11 @@ class AttendanceCreateRequest(BaseModel):
     remarks: str | None = None
 
 
+class AttendanceUpdateRequest(BaseModel):
+    status: str
+    remarks: str | None = None
+
+
 class AttendanceResponse(BaseModel):
     id: int
     school_id: int

@@ -9,6 +9,7 @@ from app.models.student import Student
 from app.modules.auth.dependencies.current_user import get_current_user
 from app.modules.results.service import ResultService
 from app.modules.students.mobile_service import MobileStudentService
+from app.modules.attendance.service import AttendanceService
 
 router = APIRouter(
     prefix="/mobile/student",
@@ -22,6 +23,16 @@ async def dashboard(
     current_user: User = Depends(get_current_user),
 ):
     return await MobileStudentService(db).get_dashboard(current_user)
+
+
+@router.get("/attendance")
+async def student_attendance(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await AttendanceService(db).get_student_attendance(
+        current_user
+    )
 
 
 @router.get("/results")

@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { getCBTResult } from "@/services/cbt";
+import { Redirect } from "expo-router";
 
 interface Question {
   question_id: number;
@@ -37,7 +38,7 @@ interface ResultData {
 }
 
 export default function CBTResult() {
-  const { attemptId } = useLocalSearchParams();
+const { attemptId } = useLocalSearchParams();
   const [data, setData] = useState<ResultData | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);

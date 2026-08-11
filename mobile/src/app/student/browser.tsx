@@ -11,6 +11,7 @@ import {
 import { WebView } from "react-native-webview";
 import { useFocusEffect, useRouter } from "expo-router";
 import api from "@/services/api";
+import { Redirect } from "expo-router";
 
 type BrowserResource = {
   id: number;
@@ -115,7 +116,7 @@ const RESOURCE_THEMES = [
 ];
 
 export default function StudentBrowserPage() {
-  const router = useRouter();
+const router = useRouter();
 
   const [resources, setResources] = useState<BrowserResource[]>([]);
   const [loading, setLoading] = useState(true);

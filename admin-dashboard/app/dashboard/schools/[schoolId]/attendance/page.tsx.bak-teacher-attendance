@@ -291,7 +291,7 @@ export default function AttendancePage({
           );
         } else {
           await api.post("/attendance", {
-            school_id: classroom.school_id,
+            school_id: numericSchoolId,
             student_id: student.id,
             classroom_id: Number(classroomId),
             attendance_date: attendanceDate,

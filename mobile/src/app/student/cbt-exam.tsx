@@ -11,7 +11,7 @@ import {
   StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import api from "@/services/api";
 
 import {
@@ -20,7 +20,7 @@ import {
 } from "@/services/cbt";
 
 export default function CBTExam() {
-  const router = useRouter();
+const router = useRouter();
   const params = useLocalSearchParams();
 
   const examId = Number(params.examId);

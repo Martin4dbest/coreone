@@ -1,29 +1,16 @@
-import {
-  Stack
-} from "expo-router";
+import { Stack } from "expo-router";
 
-import {
-  AuthProvider
-} from "@/context/AuthContext";
+import { AuthProvider } from "@/context/AuthContext";
 
-
-export default function RootLayout(){
-
+export default function RootLayout() {
   return (
-
     <AuthProvider>
-
       <Stack
-
         screenOptions={{
-          headerShown:false,
-          animation:"fade",
+          headerShown: false,
+          animation: "fade",
         }}
-
       />
-
     </AuthProvider>
-
   );
-
 }

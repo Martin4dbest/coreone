@@ -158,6 +158,18 @@ class MobileStudentService:
             ],
         }
 
+    async def get_attendance(
+        self,
+        current_user: User,
+    ):
+        from app.modules.attendance.service import AttendanceService
+
+        return await AttendanceService(
+            self.db
+        ).get_student_attendance(
+            current_user
+        )
+
     async def get_results(
         self,
         current_user: User,

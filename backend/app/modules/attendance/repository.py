@@ -8,62 +8,64 @@ from app.models.attendance import Attendance
 
 class AttendanceRepository:
 
-    def __init__(
-        self,
-        db: AsyncSession
-    ):
+    def __init__(self, db: AsyncSession):
         self.db = db
-
 
     async def get_all(
         self,
         school_id: int | None = None,
+        classroom_id: int | None = None,
+        attendance_date: date | None = None,
     ):
-
         query = select(Attendance)
-
 
         if school_id is not None:
             query = query.where(
                 Attendance.school_id == school_id
             )
 
+        if classroom_id is not None:
+            query = query.where(
+                Attendance.classroom_id == classroom_id
+            )
+
+        if attendance_date is not None:
+            query = query.where(
+                Attendance.attendance_date == attendance_date
+            )
+
+        query = query.order_by(
+            Attendance.attendance_date.desc(),
+            Attendance.id.desc(),
+        )
 
         result = await self.db.execute(query)
 
         return result.scalars().all()
-
-
 
     async def get_by_id(
         self,
         attendance_id: int,
         school_id: int | None = None,
     ):
-
         query = select(Attendance).where(
             Attendance.id == attendance_id
         )
-
 
         if school_id is not None:
             query = query.where(
                 Attendance.school_id == school_id
             )
 
-
         result = await self.db.execute(query)
 
         return result.scalar_one_or_none()
-
-
 
     async def get_student_attendance_by_date(
         self,
         student_id: int,
         attendance_date: date,
     ):
-
         result = await self.db.execute(
             select(Attendance).where(
                 Attendance.student_id == student_id,
@@ -73,13 +75,28 @@ class AttendanceRepository:
 
         return result.scalar_one_or_none()
 
+    async def get_student_records(
+        self,
+        student_id: int,
+        school_id: int,
+    ):
+        result = await self.db.execute(
+            select(Attendance)
+            .where(
+                Attendance.student_id == student_id,
+                Attendance.school_id == school_id,
+            )
+            .order_by(
+                Attendance.attendance_date.desc()
+            )
+        )
 
+        return result.scalars().all()
 
     async def create(
         self,
         attendance: Attendance,
     ):
-
         self.db.add(attendance)
 
         await self.db.commit()

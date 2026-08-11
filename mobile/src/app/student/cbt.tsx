@@ -13,9 +13,10 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { getStudentCBTExams, startCBTAttempt } from "@/services/cbt";
+import { Redirect } from "expo-router";
 
 export default function StudentCBT() {
-  const router = useRouter();
+const router = useRouter();
 
   const [exams, setExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

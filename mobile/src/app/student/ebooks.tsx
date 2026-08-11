@@ -15,6 +15,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import api from "../../services/api";
 import { getToken } from "../../storage/auth";
+import { Redirect } from "expo-router";
 
 type Ebook = {
   id: number;
@@ -33,7 +34,7 @@ type Ebook = {
 };
 
 export default function StudentEbooks() {
-  const [ebooks, setEbooks] = useState<Ebook[]>([]);
+const [ebooks, setEbooks] = useState<Ebook[]>([]);
   const [loading, setLoading] = useState(true);
 const [viewingId, setViewingId] = useState<number | null>(null);
 const [downloadingId, setDownloadingId] = useState<number | null>(null);

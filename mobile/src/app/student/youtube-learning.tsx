@@ -12,6 +12,7 @@ import {
 import { WebView } from "react-native-webview";
 import { useFocusEffect, useRouter } from "expo-router";
 import api from "@/services/api";
+import { Redirect } from "expo-router";
 
 type YoutubeVideo = {
   id: number;
@@ -62,7 +63,7 @@ function getYoutubeEmbedUrl(url: string) {
 }
 
 export default function YoutubeLearningPage() {
-  const router = useRouter();
+const router = useRouter();
 
   const [videos, setVideos] = useState<YoutubeVideo[]>([]);
   const [loading, setLoading] = useState(true);

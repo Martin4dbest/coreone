@@ -2,18 +2,17 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
-from app.core.permissions import require_roles
-from app.core.school_access import check_school_access
+from app.modules.auth.dependencies.current_user import get_current_user
 from app.models.user import User
 
 from app.modules.school_features.schemas import (
     FeatureToggleRequest,
     SchoolFeatureResponse,
 )
+from app.modules.school_features.service import SchoolFeatureService
+from app.core.permissions import require_roles
+from app.core.school_access import check_school_access
 
-from app.modules.school_features.service import (
-    SchoolFeatureService,
-)
 
 router = APIRouter(
     prefix="/school-features",
@@ -28,12 +27,10 @@ router = APIRouter(
 async def list_school_features(
     school_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(
-        require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
-    ),
+    current_user: User = Depends(get_current_user),
 ):
-    # SCHOOL_ADMIN may READ only their own school's feature state.
-    # SUPER_ADMIN may read any school's feature state.
+    # Any authenticated user can READ feature state,
+    # but only for their own school.
     check_school_access(current_user, school_id)
 
     return await SchoolFeatureService(db).list_features(
@@ -54,6 +51,8 @@ async def toggle_school_feature(
         require_roles("SUPER_ADMIN")
     ),
 ):
+    check_school_access(current_user, school_id)
+
     return await SchoolFeatureService(db).toggle(
         school_id=school_id,
         feature_key=feature_key,

@@ -214,7 +214,7 @@ feature: "students",
     },
     {
       name: "Teachers",
-      href: "/teacher/dashboard",
+href: `${schoolBase}/teachers`,
       icon: Users,
       color: "text-orange-400",
 feature: "teachers",
