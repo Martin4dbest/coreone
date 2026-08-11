@@ -14,7 +14,7 @@ import {
   Eye,
   BookOpen,
   Filter,
-  FileText,} from "lucide-react";
+} from "lucide-react";
 
 type Result = {
   id: number;
@@ -678,81 +678,17 @@ export default function ResultsPage({
     setSelectedStudentForScores(student);
     setStudentScoresModalOpen(true);
     setStudentScoresLoading(true);
-    setStudentFetchedResults([]);
 
     try {
-      /*
-       * View Scores must work for teachers even when the result is not
-       * present in the teacher result collection currently loaded on
-       * the Results page.
-       *
-       * Use the existing student report endpoint, which already powers
-       * the working Report Card.
-       */
-      const response = await api.get(
-        `/results/student/${student.id}/report`
+      // Results are already loaded by this page.
+      // Filter the tenant-scoped result collection locally
+      // instead of calling the non-existent
+      // /results/student/{student_id} endpoint.
+      const filtered = results.filter(
+        (r) => r.student_id === student.id
       );
 
-      const report = response?.data ?? {};
-      const reportSubjects = Array.isArray(report?.subjects)
-        ? report.subjects
-        : [];
-
-      const normalizedResults: Result[] = reportSubjects.map(
-        (subject: any, index: number) => ({
-          id: Number(subject?.id ?? index + 1),
-          student_id: student.id,
-          student_name:
-            report?.student?.name ??
-            `${student.first_name} ${student.last_name}`,
-          admission_number:
-            report?.student?.admission_number ??
-            student.admission_number,
-          class_name:
-            report?.student?.class_name ??
-            "",
-          subject_name:
-            subject?.name ??
-            subject?.subject_name ??
-            "Unknown",
-          term_name:
-            subject?.term_name ??
-            report?.term_name ??
-            "",
-          session_name:
-            subject?.session_name ??
-            report?.session_name ??
-            "",
-          ca_score: Number(subject?.ca ?? subject?.ca_score ?? 0),
-          exam_score: Number(
-            subject?.exam ?? subject?.exam_score ?? 0
-          ),
-          total_score: Number(
-            subject?.total ??
-            subject?.total_score ??
-            0
-          ),
-          grade: subject?.grade ?? null,
-        })
-      );
-
-      setStudentFetchedResults(normalizedResults);
-    } catch (error) {
-      console.error(
-        "VIEW STUDENT SCORES ERROR:",
-        error
-      );
-
-      /*
-       * Keep a fallback to the results already loaded on the page.
-       * This means the button still works if the report endpoint
-       * temporarily fails.
-       */
-      const fallback = results.filter(
-        (r) => Number(r.student_id) === Number(student.id)
-      );
-
-      setStudentFetchedResults(fallback);
+      setStudentFetchedResults(filtered);
     } finally {
       setStudentScoresLoading(false);
     }
@@ -1570,32 +1506,22 @@ export default function ResultsPage({
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    {isTeacher && (
-
-                      <button
-
-                        onClick={() => handleOpenStudentScores(s)}
-
-                        className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-800 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors border border-red-200/60"
-
-                      >
-
-                        <Eye size={14} />
-
-                        View Scores
-
-                      </button>
-
-                    )}
+                    <button
+                      onClick={() => handleOpenStudentScores(s)}
+                      className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-800 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors border border-red-200/60"
+                    >
+                      <Eye size={14} />
+                      View Scores
+                    </button>
 
                     {!isTeacher && (
-                      <Link
-                      href={`/dashboard/schools/${schoolId}/students/${s.id}/report-card`}
-                      className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      <FileText size={14} />
-                      Report Card
-                    </Link>
+                      <button
+                        onClick={() => handleOpenReportCard(s)}
+                        className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        <FileText size={14} />
+                        Report Card
+                      </button>
                     )}
                   </div>
                 </div>

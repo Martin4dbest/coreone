@@ -149,6 +149,10 @@ class ResultRepository:
                     == Result.subject_id
                 )
                 & (
+                    TeacherSubject.academic_session_id
+                    == Result.academic_session_id
+                )
+                & (
                     TeacherSubject.school_id
                     == Result.school_id
                 )

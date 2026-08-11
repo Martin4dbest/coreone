@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState, useRef } from "react";
 import Image from "next/image";
-import api, { getAbsoluteUploadUrl } from "@/lib/api";
+import api from "@/lib/api";
 
 type Subject = {
   name: string;
@@ -51,7 +51,7 @@ export default function ReportCardPage({
     studentId: string;
   }>;
 }) {
-  const { schoolId, studentId } = use(params);
+  const { studentId } = use(params);
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
@@ -73,7 +73,11 @@ export default function ReportCardPage({
 
         const res = await api.get(
           `/results/student/${studentId}/report`,
-
+          {
+            params: {
+              school_id: Number(params.schoolId),
+            },
+          }
         );
 
         console.log("[REPORT CARD] API response:", res.data);
@@ -104,7 +108,7 @@ export default function ReportCardPage({
     }
 
     load();
-  }, [studentId, schoolId]);
+  }, [studentId, params.schoolId]);
 
   const handlePrint = () => {
     if (!printAreaRef.current || !report) return;
@@ -309,7 +313,7 @@ export default function ReportCardPage({
               {report.student.passport ? (
                 <div className="border-[4px] border-white shadow-md p-0.5 bg-white">
                   <Image
-                    src={getAbsoluteUploadUrl(report.student.passport)}
+                    src={`http://localhost:8000${report.student.passport}`}
                     alt={report.student.name}
                     width={105}
                     height={105}

@@ -272,33 +272,25 @@ export default function AttendancePage({
         throw new Error("Selected class was not found.");
       }
 
-      const results = await Promise.all(
-        students.map(async (student) => {
-          const status =
-            statusesByStudent[student.id] || "present";
+      for (const student of students) {
+        const status =
+          statusesByStudent[student.id] || "present";
 
-          const remarks =
-            remarksByStudent[student.id] || "";
+        const remarks =
+          remarksByStudent[student.id] || "";
 
-          const existing = recordMap.get(student.id);
+        const existing = recordMap.get(student.id);
 
-          if (existing) {
-            await api.patch(
-              `/attendance/${existing.id}`,
-              {
-                status,
-                remarks: remarks || null,
-              }
-            );
-
-            return {
-              ...existing,
+        if (existing) {
+          await api.patch(
+            `/attendance/${existing.id}`,
+            {
               status,
               remarks: remarks || null,
-            };
-          }
-
-          const response = await api.post("/attendance", {
+            }
+          );
+        } else {
+          await api.post("/attendance", {
             school_id: classroom.school_id,
             student_id: student.id,
             classroom_id: Number(classroomId),
@@ -306,17 +298,26 @@ export default function AttendancePage({
             status,
             remarks: remarks || null,
           });
-
-          return response.data;
-        })
-      );
-
-      setRecords(results);
+        }
+      }
 
       setMessage(
         `Attendance saved successfully for ${students.length} student${
           students.length === 1 ? "" : "s"
         }.`
+      );
+
+      const refreshed = await api.get("/attendance", {
+        params: {
+          classroom_id: Number(classroomId),
+          attendance_date: attendanceDate,
+        },
+      });
+
+      setRecords(
+        Array.isArray(refreshed.data)
+          ? refreshed.data
+          : []
       );
     } catch (err: any) {
       setError(

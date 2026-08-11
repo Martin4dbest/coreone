@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState, useRef } from "react";
 import Image from "next/image";
-import api, { getAbsoluteUploadUrl } from "@/lib/api";
+import api from "@/lib/api";
 
 type Subject = {
   name: string;
@@ -51,60 +51,27 @@ export default function ReportCardPage({
     studentId: string;
   }>;
 }) {
-  const { schoolId, studentId } = use(params);
+  const { studentId } = use(params);
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   // Create a ref to target exactly what we want to clone and print
   const printAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function load() {
-      setLoading(true);
-      setErrorMessage(null);
-
       try {
-        console.log(
-          "[REPORT CARD] Loading:",
-          `/results/student/${studentId}/report`
-        );
-
-        const res = await api.get(
-          `/results/student/${studentId}/report`,
-
-        );
-
-        console.log("[REPORT CARD] API response:", res.data);
-
-        if (!res.data) {
-          throw new Error("The server returned an empty report.");
-        }
-
+        const res = await api.get(`/results/student/${studentId}/report`);
         setReport(res.data);
-      } catch (error: any) {
-        console.error("[REPORT CARD] Loading failed:", error);
-
-        const status = error?.response?.status;
-        const detail =
-          error?.response?.data?.detail ||
-          error?.response?.data?.message ||
-          error?.message ||
-          "Unable to load the academic report.";
-
-        setErrorMessage(
-          status
-            ? `Report card request failed (${status}): ${detail}`
-            : detail
-        );
+      } catch (error) {
+        console.error("Report loading failed", error);
       } finally {
         setLoading(false);
       }
     }
-
     load();
-  }, [studentId, schoolId]);
+  }, [studentId]);
 
   const handlePrint = () => {
     if (!printAreaRef.current || !report) return;
@@ -309,7 +276,7 @@ export default function ReportCardPage({
               {report.student.passport ? (
                 <div className="border-[4px] border-white shadow-md p-0.5 bg-white">
                   <Image
-                    src={getAbsoluteUploadUrl(report.student.passport)}
+                    src={`http://localhost:8000${report.student.passport}`}
                     alt={report.student.name}
                     width={105}
                     height={105}
