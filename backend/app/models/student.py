@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base_model import BaseModel
 from app.db.database import Base
 from app.db.mixins import ActiveMixin, SchoolMixin
+from app.models.student_partner_school import StudentPartnerSchool
 
 
 class Student(Base, BaseModel, SchoolMixin, ActiveMixin):
@@ -77,3 +78,11 @@ class Student(Base, BaseModel, SchoolMixin, ActiveMixin):
     classroom = relationship(
         "Classroom",
     )
+
+# Partner School is an additional association.
+# It does NOT replace student.school_id.
+Student.partner_school_links = relationship(
+    "StudentPartnerSchool",
+    back_populates="student",
+    cascade="all, delete-orphan",
+)

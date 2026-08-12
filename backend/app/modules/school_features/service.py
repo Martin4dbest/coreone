@@ -22,6 +22,7 @@ DEFAULT_FEATURES = [
     "events",
     "settings",
     "branding",
+    "partner_schools",
 ]
 
 

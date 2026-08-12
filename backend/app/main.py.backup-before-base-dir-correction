@@ -15,7 +15,6 @@ from app.modules.admins.router import router as admins_router
 from app.modules.super_admins.router import router as super_admins_router
 from app.modules.schools.router import router as schools_router
 from app.modules.school_features.router import router as school_features_router
-from app.modules.partner_schools.router import router as partner_schools_router
 from app.modules.roles.router import router as roles_router
 from app.modules.parents.router import router as parents_router
 from app.modules.teachers.router import router as teachers_router
@@ -76,22 +75,13 @@ UPLOAD_DIR = Path.cwd() / "uploads"
 # Ebook files are NOT publicly mounted here.
 # Ebook files must be accessed through the authenticated
 # /api/v1/ebooks/{ebook_id}/file endpoint.
-_PUBLIC_UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
-_BRANDING_UPLOAD_DIR = _PUBLIC_UPLOAD_DIR / "branding"
-_STUDENT_UPLOAD_DIR = _PUBLIC_UPLOAD_DIR / "students"
+_PUBLIC_UPLOAD_DIR = BASE_DIR / "uploads"
 
-if _BRANDING_UPLOAD_DIR.exists():
+if _PUBLIC_UPLOAD_DIR.exists():
     app.mount(
         "/uploads/branding",
-        StaticFiles(directory=str(_BRANDING_UPLOAD_DIR)),
+        StaticFiles(directory=str(_PUBLIC_UPLOAD_DIR)),
         name="branding_uploads",
-    )
-
-if _STUDENT_UPLOAD_DIR.exists():
-    app.mount(
-        "/uploads/students",
-        StaticFiles(directory=str(_STUDENT_UPLOAD_DIR)),
-        name="student_uploads",
     )
 
 # Ebook cover images are public.
@@ -397,8 +387,3 @@ app.include_router(
     prefix="/api/v1",
 )
 
-
-app.include_router(
-    partner_schools_router,
-    prefix=settings.API_V1_STR,
-)

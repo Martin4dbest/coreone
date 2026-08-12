@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.classroom import Classroom
 from app.models.student import Student
+from app.models.student_partner_school import StudentPartnerSchool
 from app.models.teacher_subject import TeacherSubject
 
 
@@ -24,6 +25,8 @@ class StudentRepository:
                 selectinload(Student.user),
                 selectinload(Student.classroom),
                 selectinload(Student.school),
+                selectinload(Student.partner_school_links)
+                .selectinload(StudentPartnerSchool.partner_school),
             )
         )
 
@@ -66,7 +69,7 @@ class StudentRepository:
     async def get_by_id(
         self,
         student_id: int,
-        school_id: int,
+        school_id: int | None,
         teacher_id: int | None = None,
     ):
         query = (
@@ -75,6 +78,8 @@ class StudentRepository:
                 selectinload(Student.user),
                 selectinload(Student.classroom),
                 selectinload(Student.school),
+                selectinload(Student.partner_school_links)
+                .selectinload(StudentPartnerSchool.partner_school),
             )
             .where(
                 Student.id == student_id
@@ -133,5 +138,7 @@ class StudentRepository:
         student: Student,
     ):
         await self.db.commit()
+
         await self.db.refresh(student)
+
         return student

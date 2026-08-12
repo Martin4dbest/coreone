@@ -20,10 +20,16 @@ import {
 
 import api from "@/lib/api";
 
+type PartnerSchoolSummary = {
+  id: number;
+  name: string;
+};
+
 type Student = {
   id: number;
   user_id: number;
   school_id: number;
+  partner_schools?: PartnerSchoolSummary[];
   classroom_id?: number | null;
   class_id?: number | null;
   admission_number: string;
@@ -664,6 +670,10 @@ export default function StudentsPage({
                     Class
                   </th>
 
+                    <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Partner School
+                    </th>
+
                   <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
                     Gender
                   </th>
@@ -810,6 +820,23 @@ export default function StudentsPage({
                         student.class_id ?? student.classroom_id
                       )}
                     </td>
+
+                      <td
+                        className="
+                          px-6
+                          py-4
+                          text-sm
+                          font-semibold
+                          text-slate-600
+                        "
+                      >
+                        {student.partner_schools?.length
+                          ? student.partner_schools
+                              .map((school) => school.name)
+                              .join(", ")
+                          : "—"}
+                      </td>
+
 
                     <td
                       className="

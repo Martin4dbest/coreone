@@ -177,12 +177,11 @@ export default function SchoolWorkspaceLayout({
       feature: "students",
     },
     {
-      name: "Partner Schools",
-      href: `${basePath}/partner-schools`,
-      icon: Users,
-      feature: "partner_schools",
-    },
-    {
+      {
+        name: "Partner Schools",
+        href: `${basePath}/partner-schools`,
+        feature: "partner_schools",
+      },
       name: "Teachers",
       href: `${basePath}/teachers`,
       icon: Users,

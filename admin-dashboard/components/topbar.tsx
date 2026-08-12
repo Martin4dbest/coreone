@@ -26,8 +26,87 @@ type CurrentUser = {
 };
 
 export default function Topbar() {
-  const router = useRouter();
   const pathname = usePathname();
+  const [partnerSchoolsEnabled, setPartnerSchoolsEnabled] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const match = pathname.match(/\/dashboard\/schools\/(\d+)/);
+    if (!match) {
+      setPartnerSchoolsEnabled(false);
+      return () =>
+ {
+        mounted = false;
+      };
+    }
+
+    const schoolId = match[1];
+
+    const loadPartnerFeature = async () => {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("access_token") ||
+              localStorage.getItem("token")
+            : null;
+
+        const response = await fetch(
+          `/api/v1/school-features/${schoolId}`,
+          {
+            headers: token
+              ? {
+                  Authorization: `Bearer ${token}`,
+                }
+              : {},
+          }
+        );
+
+        if (!response.ok) {
+          if (mounted) setPartnerSchoolsEnabled(false);
+          return;
+        }
+
+        const data = await response.json();
+
+        const features = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.features)
+            ? data.features
+            : [];
+
+        const partner = features.find(
+          (feature: { feature_key?: string }) =>
+            feature.feature_key === "partner_schools"
+        );
+
+        if (mounted) {
+          setPartnerSchoolsEnabled(partner?.enabled === true);
+        }
+      } catch {
+        if (mounted) {
+          setPartnerSchoolsEnabled(false);
+        }
+      }
+    };
+
+    loadPartnerFeature();
+
+    return () => {
+      mounted = false;
+    };
+  }, [pathname]);
+
+  const partnerSchoolsMatch = pathname.match(
+    /\/dashboard\/schools\/(\d+)/
+  );
+
+  const partnerSchoolsHref = partnerSchoolsMatch
+    ? `/dashboard/schools/${partnerSchoolsMatch[1]}/partner-schools`
+    : null;
+
+  const router = useRouter();
+
 
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -289,6 +368,14 @@ const initials = displayName
           )}
         </div>
       </div>
-    </header>
+                {partnerSchoolsEnabled && partnerSchoolsHref ? (
+              <a
+                href={partnerSchoolsHref}
+                className="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              >
+                Partner Schools
+              </a>
+            ) : null}
+</header>
   );
 }

@@ -152,8 +152,9 @@ class StudentService:
             teacher_id=teacher_id,
         )
 
-        # Add explicit school/class names for frontend consumers
-        # such as the ebook student-assignment modal.
+        # Add explicit frontend-friendly fields.
+        # Partner schools are additional associations and do not replace
+        # the student's primary school_id.
         for student in students:
             student.school_name = (
                 student.school.name
@@ -166,6 +167,16 @@ class StudentService:
                 if student.classroom
                 else None
             )
+
+            student.partner_schools = [
+                {
+                    "id": link.partner_school.id,
+                    "name": link.partner_school.name,
+                }
+                for link in (student.partner_school_links or [])
+                if link.partner_school
+                and link.partner_school.is_active
+            ]
 
         return students
 
@@ -247,6 +258,27 @@ class StudentService:
                 detail="Student not found.",
             )
 
+        student.school_name = (
+            student.school.name
+            if student.school
+            else None
+        )
+
+        student.class_name = (
+            student.classroom.name
+            if student.classroom
+            else None
+        )
+
+        student.partner_schools = [
+            {
+                "id": link.partner_school.id,
+                "name": link.partner_school.name,
+            }
+            for link in (student.partner_school_links or [])
+            if link.partner_school
+            and link.partner_school.is_active
+        ]
 
         return student
 

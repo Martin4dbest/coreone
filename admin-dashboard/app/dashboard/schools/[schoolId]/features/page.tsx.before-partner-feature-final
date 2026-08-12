@@ -105,11 +105,6 @@ const FEATURES: FeatureDefinition[] = [
     description: "School configuration and settings.",
   },
   {
-    key: "partner_schools",
-    name: "Partner Schools",
-    description: "Manage partner-school relationships and student partner school associations.",
-  },
-  {
     key: "branding",
     name: "Branding",
     description: "School logo, colours and branding configuration.",

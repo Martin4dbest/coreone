@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class StudentCreateRequest(BaseModel):
@@ -29,12 +29,25 @@ class StudentImportResponse(BaseModel):
     errors: list[str] = []
 
 
+class PartnerSchoolSummary(BaseModel):
+    id: int
+    name: str
+
+
 class StudentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
 
     user_id: int
 
+    school_id: int
+
+    school_name: str | None = None
+
     classroom_id: int | None = None
+
+    class_name: str | None = None
 
     admission_number: str
 
@@ -49,5 +62,4 @@ class StudentResponse(BaseModel):
 
     passport: str | None = None
 
-    class Config:
-        from_attributes = True
+    partner_schools: list[PartnerSchoolSummary] = []
