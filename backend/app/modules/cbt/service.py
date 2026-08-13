@@ -94,12 +94,14 @@ import random
 
 from fastapi import HTTPException
 from fastapi import status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.cbt_answer import CBTAnswer
 from app.models.cbt_attempt import CBTAttempt
 from app.models.cbt_exam import CBTExam
 from app.models.cbt_question import CBTQuestion
+from app.models.subject import Subject
 from app.modules.cbt.repository import CBTRepository
 
 
@@ -122,9 +124,34 @@ class CBTService:
         current_user,
     ):
 
+        # -------------------------------------------------
+        # TENANCY: non-SUPER_ADMIN users can only create
+        # CBT exams inside their own school.
+        # -------------------------------------------------
         if current_user.role.name != "SUPER_ADMIN":
-
             exam.school_id = current_user.school_id
+
+        # -------------------------------------------------
+        # TENANCY: the selected subject MUST belong to the
+        # same school as the CBT exam.
+        #
+        # This prevents School A from attaching a Subject
+        # belonging to School B to its CBT exam.
+        # -------------------------------------------------
+        subject_result = await self.db.execute(
+            select(Subject).where(
+                Subject.id == exam.subject_id,
+                Subject.school_id == exam.school_id,
+            )
+        )
+
+        subject = subject_result.scalar_one_or_none()
+
+        if subject is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="The selected subject does not belong to this school.",
+            )
 
         exam.created_by = current_user.id
 
@@ -267,10 +294,19 @@ class CBTService:
         self,
         attempt_id: int,
     ):
+        """
+        Finalize and mark a CBT attempt.
 
-        attempt = await self.repository.get_attempt(
-            attempt_id
-        )
+        Rules:
+        - An attempt can only be submitted once.
+        - Score is calculated from every question in the exam.
+        - Unanswered questions receive zero marks.
+        - Negative marking is applied only to wrong answered questions.
+        - The score can never fall below zero.
+        - The final result is committed before returning.
+        """
+
+        attempt = await self.repository.get_attempt(attempt_id)
 
         if attempt is None:
             raise HTTPException(
@@ -278,90 +314,108 @@ class CBTService:
                 detail="Attempt not found",
             )
 
-        answers = await self.repository.get_answers(
-            attempt_id
-        )
-
-        score = 0
-
-        for answer in answers:
-
-            question = await self.repository.db.get(
-                CBTQuestion,
-                answer.question_id,
+        # Never allow an already completed attempt to be submitted again.
+        if attempt.completed:
+            raise HTTPException(
+                status_code=400,
+                detail="Exam already submitted",
             )
-
-            if question is None:
-                continue
-
-            if (
-                answer.selected_answer
-                ==
-                question.correct_answer
-            ):
-                answer.is_correct = True
-                answer.marks_awarded = question.marks
-                score += question.marks
-
-            else:
-                answer.is_correct = False
-
 
         exam = await self.repository.get_exam(
             attempt.exam_id
         )
 
-        total_marks = 0
-
-        for answer in answers:
-            question = await self.repository.db.get(
-                CBTQuestion,
-                answer.question_id,
+        if exam is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Exam not found",
             )
-            if question is not None:
-                total_marks += question.marks
 
-        if exam:
+        answers = await self.repository.get_answers(
+            attempt_id
+        )
 
-            # Apply negative marking from the EXAM settings
-            if exam.negative_marking:
+        # Index submitted answers by question ID.
+        answer_map = {
+            answer.question_id: answer
+            for answer in answers
+        }
 
-                score = 0
+        # Always calculate the denominator from ALL exam questions.
+        questions = await self.repository.get_questions(
+            attempt.exam_id
+        )
 
-                for answer in answers:
+        total_marks = sum(
+            int(question.marks or 0)
+            for question in questions
+        )
 
-                    question = await self.repository.db.get(
-                        CBTQuestion,
-                        answer.question_id,
-                    )
+        score = 0
 
-                    if question is None:
-                        continue
+        for question in questions:
+            answer = answer_map.get(question.id)
 
-                    if answer.selected_answer == question.correct_answer:
-                        score += question.marks
-                    else:
-                        score -= exam.negative_mark
+            # No answer submitted = zero marks.
+            if answer is None:
+                continue
 
-            # Never allow negative scores
-            score = max(score, 0)
+            selected = (
+                str(answer.selected_answer).strip().upper()
+                if answer.selected_answer is not None
+                else ""
+            )
 
-            attempt.score = score
-            attempt.total_marks = total_marks
+            correct = (
+                str(question.correct_answer).strip().upper()
+                if question.correct_answer is not None
+                else ""
+            )
 
-            if exam.total_marks > 0:
-                attempt.percentage = (
-                    score / exam.total_marks
-                ) * 100
+            if selected and selected == correct:
+                answer.is_correct = True
+                answer.marks_awarded = int(question.marks or 0)
+                score += int(question.marks or 0)
+
             else:
-                attempt.percentage = 0
+                answer.is_correct = False
 
-            attempt.passed = (
-                attempt.percentage >= exam.pass_mark
-            )
+                if exam.negative_marking:
+                    answer.marks_awarded = -int(
+                        exam.negative_mark or 0
+                    )
+                    score -= int(
+                        exam.negative_mark or 0
+                    )
+                else:
+                    answer.marks_awarded = 0
+
+        # Never allow a negative final score.
+        score = max(score, 0)
+
+        attempt.score = score
+        attempt.total_marks = total_marks
+
+        # Use the actual exam total when configured; otherwise
+        # use the total calculated from the exam questions.
+        denominator = (
+            int(exam.total_marks or 0)
+            if int(exam.total_marks or 0) > 0
+            else total_marks
+        )
+
+        if denominator > 0:
+            attempt.percentage = (
+                score / denominator
+            ) * 100
         else:
-            attempt.score = score
-            attempt.total_marks = total_marks
+            attempt.percentage = 0
+
+        attempt.passed = (
+            attempt.percentage >= float(
+                exam.pass_mark or 0
+            )
+        )
 
         attempt.completed = True
         attempt.submitted_at = datetime.utcnow()
@@ -371,6 +425,7 @@ class CBTService:
         )
 
         return attempt
+
 
     # ==================================================
     # RESUME EXAM

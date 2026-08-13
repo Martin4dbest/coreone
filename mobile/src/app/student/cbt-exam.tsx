@@ -1,6 +1,8 @@
+import { Image } from "react-native";
+import { WebView } from "react-native-webview";
 import React, { useEffect, useState } from "react";
 import {
-  View,
+View,
   Text,
   StyleSheet,
   ActivityIndicator,
@@ -9,15 +11,46 @@ import {
   Alert,
   Modal,
   StatusBar,
+  Dimensions,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import api from "@/services/api";
+import { Audio } from "expo-av";
+
+const { width: screenWidth } = Dimensions.get("window");
+const isDesktopWeb = Platform.OS === "web" && screenWidth >= 900;
+const desktopMaxWidth = Math.min(
+  Math.max(screenWidth - 48, 320),
+  1180
+);
+
 
 import {
   saveCBTAnswer,
   submitCBTAttempt,
 } from "@/services/cbt";
+
+
+function getCbtMediaUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+
+  const value = String(url).trim();
+  if (!value) return null;
+
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+
+  const apiBase =
+    process.env.EXPO_PUBLIC_API_URL ||
+    "http://localhost:8000/api/v1";
+
+  const origin = apiBase.replace(/\/api\/v1\/?$/, "");
+
+  return `${origin}${value.startsWith("/") ? value : `/${value}`}`;
+}
 
 export default function CBTExam() {
 const router = useRouter();
@@ -25,10 +58,12 @@ const router = useRouter();
 
   const examId = Number(params.examId);
   const attemptId = Number(params.attemptId);
+  const durationMinutes = Number(params.durationMinutes);
 
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [autoSubmitting, setAutoSubmitting] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [showGridModal, setShowGridModal] = useState(false);
@@ -39,21 +74,27 @@ const router = useRouter();
   }, []);
 
   useEffect(() => {
-    if (timeLeft <= 0) return;
+    if (timeLeft <= 0 || submitting || autoSubmitting) return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          handleSubmit();
+
+          setTimeout(() => {
+            handleTimeExpired();
+          }, 0);
+
           return 0;
         }
+
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft]);
+  }, [timeLeft, submitting, autoSubmitting]);
+
 
   async function fetchQuestions() {
     try {
@@ -61,12 +102,24 @@ const router = useRouter();
       const data = response.data || [];
       setQuestions(data);
 
+      const apiDuration = Number(
+        data?.[0]?.exam?.duration_minutes ??
+        data?.[0]?.duration_minutes ??
+        0
+      );
+
       const duration =
-        Number(
-          data?.[0]?.exam?.duration_minutes ??
-          data?.[0]?.duration_minutes ??
-          60
-        );
+        Number.isFinite(durationMinutes) && durationMinutes > 0
+          ? durationMinutes
+          : apiDuration > 0
+            ? apiDuration
+            : 60;
+
+      console.log(
+        "CBT TIMER DURATION:",
+        duration,
+        "minutes"
+      );
 
       setTimeLeft(duration * 60);
     } catch (error) {
@@ -110,7 +163,47 @@ const router = useRouter();
     }
   }
 
+  async function finalizeSubmission() {
+    if (submitting) return;
+
+    try {
+      setSubmitting(true);
+
+      await submitCBTAttempt(attemptId);
+
+      Alert.alert(
+        "Examination Submitted",
+        "Your examination has been submitted successfully.",
+        [
+          {
+            text: "View Result",
+            onPress: () => {
+              router.replace({
+                pathname: "/student/cbt-result",
+                params: {
+                  attemptId: String(attemptId),
+                },
+              });
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+    } catch (e) {
+      console.log("SUBMIT CBT ERROR:", e);
+
+      setSubmitting(false);
+
+      Alert.alert(
+        "Submission Error",
+        "Unable to submit the examination. Please try again."
+      );
+    }
+  }
+
   function handleSubmit() {
+    if (submitting || autoSubmitting) return;
+
     const totalAnswered = Object.keys(answers).length;
     const remaining = questions.length - totalAnswered;
 
@@ -120,35 +213,49 @@ const router = useRouter();
         ? `You still have ${remaining} unanswered question(s). Are you sure you want to finalize your submission?`
         : "Are you sure you want to finish and submit your answers?",
       [
-        { text: "Continue Test", style: "cancel" },
+        {
+          text: "Continue Test",
+          style: "cancel",
+        },
         {
           text: "Submit Exam",
           style: "destructive",
-          onPress: async () => {
-            try {
-              setSubmitting(true);
-
-              await submitCBTAttempt(attemptId);
-
-              setSubmitting(false);
-
-              Alert.alert(
-                "Success",
-                "Exam submitted successfully."
-              );
-
-              router.replace("/student/cbt");
-            } catch (e) {
-              setSubmitting(false);
-              Alert.alert(
-                "Error",
-                "Unable to submit exam."
-              );
-            }
-          },
+          onPress: finalizeSubmission,
         },
       ]
     );
+  }
+
+  async function handleTimeExpired() {
+    if (submitting || autoSubmitting) return;
+
+    setAutoSubmitting(true);
+    setSubmitting(true);
+
+    try {
+      await submitCBTAttempt(attemptId);
+
+      Alert.alert(
+        "Time Expired",
+        "Your examination time has ended and your answers have been submitted.",
+        [
+          {
+            text: "OK",
+            onPress: () => router.replace("/student/cbt"),
+          },
+        ]
+      );
+    } catch (e) {
+      console.log("AUTO SUBMIT ERROR:", e);
+
+      setSubmitting(false);
+      setAutoSubmitting(false);
+
+      Alert.alert(
+        "Submission Error",
+        "Your examination time has ended, but we could not submit your answers. Please try again."
+      );
+    }
   }
 
   if (loading) {
@@ -250,9 +357,105 @@ const router = useRouter();
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.card}>
-          <Text style={styles.questionPrompt}>
-            {currentQuestion.question || currentQuestion.title}
-          </Text>
+          <View style={styles.questionContent}>
+              <Text style={styles.questionPrompt}>
+                {currentQuestion.question || currentQuestion.title}
+              </Text>
+
+              {/* QUESTION IMAGE */}
+              {getCbtMediaUrl(
+                currentQuestion.image_url ??
+                currentQuestion.imageUrl ??
+                currentQuestion.image
+              ) ? (
+                <Image
+                  source={{
+                    uri: getCbtMediaUrl(
+                      currentQuestion.image_url ??
+                      currentQuestion.imageUrl ??
+                      currentQuestion.image
+                    )!,
+                  }}
+                  style={styles.questionMediaImage}
+                  resizeMode="contain"
+                />
+              ) : null}
+
+              {/* QUESTION AUDIO */}
+              {getCbtMediaUrl(
+                currentQuestion.audio_url ??
+                currentQuestion.audioUrl ??
+                currentQuestion.audio
+              ) ? (
+                <View style={styles.questionMediaAudio}>
+                  <WebView
+                    source={{
+                      html: `
+                        <!doctype html>
+                        <html>
+                          <body style="margin:0;padding:12px;background:#111827;">
+                            <audio
+                              controls
+                              preload="metadata"
+                              style="width:100%;"
+                              src="${getCbtMediaUrl(
+                                currentQuestion.audio_url ??
+                                currentQuestion.audioUrl ??
+                                currentQuestion.audio
+                              )}"
+                            ></audio>
+                          </body>
+                        </html>
+                      `,
+                    }}
+                    style={{ flex: 1, backgroundColor: "#111827" }}
+                    javaScriptEnabled
+                    domStorageEnabled
+                    allowsInlineMediaPlayback
+                    mediaPlaybackRequiresUserAction
+                    originWhitelist={["*"]}
+                  />
+                </View>
+              ) : null}
+
+              {/* QUESTION VIDEO */}
+              {getCbtMediaUrl(
+                currentQuestion.video_url ??
+                currentQuestion.videoUrl ??
+                currentQuestion.video
+              ) ? (
+                <View style={styles.questionMediaVideo}>
+                  <WebView
+                    source={{
+                      html: `
+                        <!doctype html>
+                        <html>
+                          <body style="margin:0;padding:0;background:#000;">
+                            <video
+                              controls
+                              playsinline
+                              preload="metadata"
+                              style="width:100%;height:100%;background:#000;"
+                              src="${getCbtMediaUrl(
+                                currentQuestion.video_url ??
+                                currentQuestion.videoUrl ??
+                                currentQuestion.video
+                              )}"
+                            ></video>
+                          </body>
+                        </html>
+                      `,
+                    }}
+                    style={{ flex: 1, backgroundColor: "#000" }}
+                    javaScriptEnabled
+                    domStorageEnabled
+                    allowsInlineMediaPlayback
+                    mediaPlaybackRequiresUserAction
+                    originWhitelist={["*"]}
+                  />
+                </View>
+              ) : null}
+            </View>
 
           {/* OPTIONS */}
           <View style={styles.optionsWrapper}>
@@ -308,7 +511,15 @@ const router = useRouter();
         </TouchableOpacity>
 
         {currentIndex === questions.length - 1 ? (
-          <TouchableOpacity style={[styles.navButton, styles.submitButton]} onPress={handleSubmit}>
+          <TouchableOpacity
+            disabled={submitting || autoSubmitting}
+            style={[
+              styles.navButton,
+              styles.submitButton,
+              (submitting || autoSubmitting) && styles.disabledButton,
+            ]}
+            onPress={handleSubmit}
+          >
             <Text style={styles.submitButtonText}>Submit Exam</Text>
           </TouchableOpacity>
         ) : (
@@ -513,6 +724,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
+    width: isDesktopWeb ? desktopMaxWidth : "100%",
+    alignSelf: isDesktopWeb ? "center" : "stretch",
   },
   card: {
     backgroundColor: "#FFFFFF",
@@ -526,6 +739,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  questionContent: {
+    width: "100%",
+  },
+
   questionPrompt: {
     fontSize: 17,
     fontWeight: "700",
@@ -678,4 +895,33 @@ const styles = StyleSheet.create({
   gridItemTextActive: {
     color: "#1E1B4B",
   },
+  questionMediaImage: {
+    width: "100%",
+    height: 220,
+    marginTop: 14,
+    marginBottom: 14,
+    borderRadius: 12,
+    backgroundColor: "#111827",
+  },
+
+  questionMediaAudio: {
+    width: "100%",
+    height: 58,
+    marginTop: 14,
+    marginBottom: 14,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#111827",
+  },
+
+  questionMediaVideo: {
+    width: "100%",
+    height: 240,
+    marginTop: 14,
+    marginBottom: 14,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#000",
+  },
+
 });

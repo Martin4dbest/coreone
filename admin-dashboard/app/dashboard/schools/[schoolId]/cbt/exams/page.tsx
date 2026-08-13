@@ -104,12 +104,6 @@ interface CreateExamFormData {
 }
 
 // Fallback metadata options matching exact specifications
-const DEFAULT_SUBJECTS: Subject[] = [
-  { id: "1", name: "Basic Science" },
-  { id: "2", name: "Biology" },
-  { id: "3", name: "Physics" },
-];
-
 const DEFAULT_CLASSES: SchoolClass[] = [
   { id: "1", name: "JSS1" },
   { id: "2", name: "SS1" },
@@ -150,7 +144,7 @@ export default function CBTExamsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [exams, setExams] = useState<RawExamData[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>(DEFAULT_SUBJECTS);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>(DEFAULT_CLASSES);
   const [sessions, setSessions] = useState<AcademicSession[]>(DEFAULT_SESSIONS);
   const [terms, setTerms] = useState<Term[]>(DEFAULT_TERMS);
@@ -162,6 +156,7 @@ export default function CBTExamsPage() {
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [duplicateSuccessMessage, setDuplicateSuccessMessage] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [formData, setFormData] = useState<CreateExamFormData>(initialFormState);
@@ -198,16 +193,33 @@ export default function CBTExamsPage() {
         const raw = subjectsRes.value.data;
         const list = Array.isArray(raw)
           ? raw
-          : raw?.data?.data || raw?.data || raw?.subjects || raw?.results || [];
+          : raw?.data?.data ||
+            raw?.data ||
+            raw?.subjects ||
+            raw?.results ||
+            [];
 
-        if (list.length > 0) {
-          setSubjects(
-            list.map((item: Record<string, any>) => ({
-              id: String(item.id || item._id),
-              name: item.name || item.title || item.subject_name || item.label || "Unnamed Subject",
-            }))
-          );
-        }
+        const schoolSubjects = list
+          .filter((item: Record<string, any>) => {
+            if (item.school_id == null) {
+              return true;
+            }
+
+            return String(item.school_id) === String(schoolId);
+          })
+          .map((item: Record<string, any>) => ({
+            id: String(item.id || item._id),
+            name:
+              item.name ||
+              item.title ||
+              item.subject_name ||
+              item.label ||
+              "Unnamed Subject",
+          }));
+
+        setSubjects(schoolSubjects);
+      } else {
+        setSubjects([]);
       }
 
       if (classesRes.status === "fulfilled") {
@@ -419,9 +431,6 @@ export default function CBTExamsPage() {
         negative_mark: 0,
       };
 
-      console.log("CBT PAYLOAD:", payload);
-
-      console.log("CBT PAYLOAD:", payload);
       await api.post(`/cbt/exams`, payload);
       setSuccessMessage("CBT Exam created successfully!");
       setFormData(initialFormState);
@@ -444,6 +453,7 @@ export default function CBTExamsPage() {
     setSuccessMessage(null);
   };
 
+  // --- IMMEDIATE PUBLISH (OPTIMISTIC UPDATE) ---
   const handlePublish = async (examId: string) => {
     const confirmPublish = window.confirm(
       "Do you want to publish this exam? Students will be able to see it on their portal."
@@ -452,16 +462,35 @@ export default function CBTExamsPage() {
     if (!confirmPublish) return;
 
     setActionLoading(`publish-${examId}`);
+
+    // 1. Instantly update UI from Draft -> Published
+    setExams((prevExams) =>
+      prevExams.map((exam) =>
+        String(exam.id) === examId
+          ? { ...exam, is_active: true, status: "Published" }
+          : exam
+      )
+    );
+
     try {
+      // 2. Make API Request
       await api.post(`/cbt/exams/${examId}/publish`, {});
-      setExams((prev) =>
-        prev.map((exam) =>
-          String(exam.id) === examId ? { ...exam, is_active: true } : exam
+      // Quiet background refresh to ensure sync with server
+      fetchExams(true);
+    } catch (err: unknown) {
+      // 3. Rollback UI on Failure
+      setExams((prevExams) =>
+        prevExams.map((exam) =>
+          String(exam.id) === examId
+            ? {
+              ...exam,
+              is_active: false,
+              is_published: false,
+              status: "Draft",
+            }
+            : exam
         )
       );
-      alert("Exam published successfully!");
-      await fetchExams(true);
-    } catch (err: unknown) {
       const errorObj = err as Record<string, any>;
       alert(errorObj?.response?.data?.message || "Failed to publish exam.");
     } finally {
@@ -469,18 +498,45 @@ export default function CBTExamsPage() {
     }
   };
 
+  // --- IMMEDIATE UNPUBLISH (OPTIMISTIC UPDATE) ---
   const handleUnpublish = async (examId: string) => {
     setActionLoading(`unpublish-${examId}`);
+
+    // 1. Instantly update UI from Published -> Draft
+    setExams((prevExams) =>
+      prevExams.map((exam) =>
+        String(exam.id) === examId
+          ? {
+              ...exam,
+              is_active: false,
+              is_published: false,
+              status: "Draft",
+            }
+          : exam
+      )
+    );
+
     try {
+      // 2. Make API Request
       await api.post(`/cbt/exams/${examId}/unpublish`, {});
-      setExams((prev) =>
-        prev.map((exam) =>
-          String(exam.id) === examId ? { ...exam, is_active: false } : exam
+
+      // 3. Keep the successful server state in the UI.
+      setExams((prevExams) =>
+        prevExams.map((exam) =>
+          String(exam.id) === examId
+            ? { ...exam, is_active: false, is_published: false, status: "Draft" }
+            : exam
         )
       );
-      alert("Exam unpublished successfully!");
-      await fetchExams(true);
     } catch (err: unknown) {
+      // 3. Rollback UI on Failure
+      setExams((prevExams) =>
+        prevExams.map((exam) =>
+          String(exam.id) === examId
+            ? { ...exam, is_active: true, status: "Published" }
+            : exam
+        )
+      );
       const errorObj = err as Record<string, any>;
       alert(errorObj?.response?.data?.message || "Failed to unpublish exam.");
     } finally {
@@ -488,15 +544,45 @@ export default function CBTExamsPage() {
     }
   };
 
+  // --- IMMEDIATE DUPLICATE WITH SUCCESS MESSAGE ---
   const handleDuplicate = async (examId: string) => {
     setActionLoading(`duplicate-${examId}`);
+    setDuplicateSuccessMessage(null);
+
+    const originalExam = exams.find((e) => String(e.id) === examId);
+    
     try {
       const response = await api.post(`/cbt/exams/${examId}/duplicate`, {});
       const newExam = response.data?.data || response.data;
-      if (newExam && typeof newExam === "object" && newExam.id) {
-        setExams((prev) => [newExam, ...prev]);
-      }
-      alert("Exam duplicated successfully!");
+      
+      // Fallback object structure if API response varies
+      const examToAdd = (newExam && typeof newExam === "object" && newExam.id)
+        ? newExam
+        : {
+            ...originalExam,
+            id: String(Date.now()),
+            title: originalExam?.title ? `${originalExam.title} (Copy)` : "Duplicated Exam",
+            status: "Draft",
+            is_active: false,
+            created_at: new Date().toISOString(),
+          };
+
+      // 1. Prepend duplicated exam immediately to the top of the UI list
+      setExams((prev) => [examToAdd, ...prev]);
+
+      // 2. Show clear pop-up / success banner
+      const titleName = examToAdd.title || originalExam?.title || "Exam";
+      setDuplicateSuccessMessage(`"${titleName}" duplicated successfully!`);
+
+      // 3. Scroll view to top so user instantly sees success banner & new item
+      window.scrollTo({ top: 0, behavior: "smooth" });
+
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => {
+        setDuplicateSuccessMessage(null);
+      }, 5000);
+
+      // 4. Quiet background refetch for complete synchronization
       await fetchExams(true);
     } catch (err: unknown) {
       const errorObj = err as Record<string, any>;
@@ -506,20 +592,27 @@ export default function CBTExamsPage() {
     }
   };
 
+  // --- IMMEDIATE DELETE ---
   const handleDelete = async (examId: string) => {
     if (!confirm("Are you sure you want to delete this exam? This action cannot be undone.")) {
       return;
     }
 
     setActionLoading(`delete-${examId}`);
+
+    // Store original array for potential rollback
+    const previousExams = [...exams];
+
+    // Instantly remove from UI
+    setExams((prev) => prev.filter((exam) => String(exam.id) !== examId));
+
     try {
       await api.delete(`/cbt/exams/${examId}`);
-      setExams((prev) => prev.filter((exam) => String(exam.id) !== examId));
-      alert("Exam deleted successfully!");
     } catch (err: unknown) {
+      // Rollback UI state if deletion fails on server
+      setExams(previousExams);
       const errorObj = err as Record<string, any>;
       alert(errorObj?.response?.data?.message || "Failed to delete exam.");
-      await fetchExams(true);
     } finally {
       setActionLoading(null);
     }
@@ -656,6 +749,14 @@ export default function CBTExamsPage() {
     return found ? found.name : rawId || "-";
   };
 
+  // Resolve Status accurately from object keys
+  const getExamStatus = (exam: RawExamData): "Published" | "Closed" | "Draft" => {
+    if (exam.status === "Published" || exam.status === "Closed" || exam.status === "Draft") {
+      return exam.status;
+    }
+    return exam.is_active ? "Published" : "Draft";
+  };
+
   const filteredExams = useMemo(() => {
     if (!searchQuery.trim()) return exams;
     const query = searchQuery.toLowerCase();
@@ -663,7 +764,7 @@ export default function CBTExamsPage() {
       const title = String(exam.title || "").toLowerCase();
       const subject = String(getSubjectName(exam)).toLowerCase();
       const className = String(getClassName(exam)).toLowerCase();
-      const status = exam.is_active ? "published" : "draft";
+      const status = getExamStatus(exam).toLowerCase();
 
       return (
         title.includes(query) ||
@@ -708,6 +809,23 @@ export default function CBTExamsPage() {
   return (
     <div className="min-h-screen bg-slate-50/60 text-slate-800 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
+        
+        {/* Duplication Success Banner Notification */}
+        {duplicateSuccessMessage && (
+          <div className="p-4 rounded-xl bg-emerald-500 text-white shadow-lg flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-2.5 font-medium text-sm">
+              <CheckCircle2 size={20} className="shrink-0" />
+              <span>{duplicateSuccessMessage}</span>
+            </div>
+            <button
+              onClick={() => setDuplicateSuccessMessage(null)}
+              className="p-1 hover:bg-emerald-600 rounded-lg transition"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        )}
+
         {/* Header Banner */}
         <div className="flex flex-col gap-4 pb-6 border-b border-slate-200/80">
           <div>
@@ -1114,6 +1232,8 @@ export default function CBTExamsPage() {
                     const isEditing = actionLoading === `edit-${examId}`;
                     const isResults = actionLoading === `results-${examId}`;
 
+                    const currentStatus = getExamStatus(exam);
+
                     return (
                       <tr key={examId} className="hover:bg-slate-50/60 transition-colors">
                         <td className="py-3.5 px-4 font-semibold text-slate-900">
@@ -1131,7 +1251,7 @@ export default function CBTExamsPage() {
                           {questionsDisplay}
                         </td>
                         <td className="py-3.5 px-4 text-slate-600">{totalMarksDisplay}</td>
-                        <td className="py-3.5 px-4">{renderStatusBadge(exam.is_active ? "Published" : "Draft")}</td>
+                        <td className="py-3.5 px-4">{renderStatusBadge(currentStatus)}</td>
                         <td className="py-3.5 px-4 text-slate-400 text-xs">
                           {createdDateRaw ? new Date(createdDateRaw).toLocaleDateString() : "-"}
                         </td>
@@ -1182,8 +1302,8 @@ export default function CBTExamsPage() {
                               {isEditing ? <Loader2 size={15} className="animate-spin text-slate-700" /> : <Edit size={15} />}
                             </button>
 
-                            {/* Publish / Unpublish */}
-                            {exam.is_active ? (
+                            {/* Publish / Unpublish Toggle */}
+                            {currentStatus === "Published" ? (
                               <button
                                 title="Unpublish Exam"
                                 disabled={Boolean(actionLoading)}
@@ -1210,7 +1330,7 @@ export default function CBTExamsPage() {
                               onClick={() => handleDuplicate(examId)}
                               className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition disabled:opacity-40"
                             >
-                              {isDuplicating ? <Loader2 size={15} className="animate-spin" /> : <Copy size={15} />}
+                              {isDuplicating ? <Loader2 size={15} className="animate-spin text-indigo-600" /> : <Copy size={15} />}
                             </button>
 
                             {/* Results */}

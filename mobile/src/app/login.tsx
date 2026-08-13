@@ -13,11 +13,19 @@ import {
   ScrollView,
   SafeAreaView,
   StatusBar,
+  Dimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/context/AuthContext";
+
+const { width } = Dimensions.get("window");
+const isDesktopWeb = Platform.OS === "web" && width >= 900;
+const desktopLoginWidth = Math.min(
+  Math.max(width - 48, 320),
+  460
+);
 
 export default function Login() {
   const { login } = useAuth();
@@ -100,7 +108,11 @@ export default function Login() {
                   style={styles.logo}
                 />
               </View>
-              <Text style={styles.brand}>PreSense</Text>
+              {/* Customized PreSense text styling */}
+              <Text style={styles.brand}>
+                <Text style={styles.brandPre}>Pre</Text>
+                <Text style={styles.brandSense}>Sense</Text>
+              </Text>
               <Text style={styles.title}>Portal Sign In</Text>
               <Text style={styles.subtitle}>Enter your institutional credentials</Text>
             </View>
@@ -212,7 +224,10 @@ export default function Login() {
               <Text style={styles.bottomBackText}>Return to Overview</Text>
             </Pressable>
 
-            <Text style={styles.footer}>Powered by PreSense Technologies</Text>
+            {/* Footer with PreSense text color customization */}
+            <Text style={styles.footer}>
+              Powered by <Text style={styles.brandPre}>Pre</Text><Text style={styles.brandSense}>Sense</Text> Technologies
+            </Text>
 
           </ScrollView>
         </KeyboardAvoidingView>
@@ -229,8 +244,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   navHeader: {
-    width: "100%",
-    paddingHorizontal: 20,
+    width: isDesktopWeb ? desktopLoginWidth : "100%",
+    alignSelf: "center",
+    paddingHorizontal: isDesktopWeb ? 0 : 20,
     paddingTop: 16,
     paddingBottom: 4,
   },
@@ -260,15 +276,17 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 22,
-    paddingBottom: 24,
+    paddingHorizontal: isDesktopWeb ? 0 : 22,
+    paddingBottom: isDesktopWeb ? 32 : 24,
+    width: isDesktopWeb ? desktopLoginWidth : "100%",
+    alignSelf: "center",
   },
 
   /* Header Section */
   header: {
     alignItems: "center",
     width: "100%",
-    marginBottom: 20,
+    marginBottom: isDesktopWeb ? 22 : 20,
   },
   logoBadge: {
     width: 64,
@@ -294,8 +312,13 @@ const styles = StyleSheet.create({
   brand: {
     fontSize: 24,
     fontWeight: "800",
-    color: "#0F172A",
     letterSpacing: -0.5,
+  },
+  brandPre: {
+    color: "#000000",
+  },
+  brandSense: {
+    color: "#B91C1C",
   },
   title: {
     fontSize: 18,
@@ -312,10 +335,10 @@ const styles = StyleSheet.create({
 
   /* Input Card */
   card: {
-    width: "100%",
+    width: isDesktopWeb ? desktopLoginWidth : "100%",
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
-    padding: 18,
+    padding: isDesktopWeb ? 22 : 18,
     borderWidth: 1,
     borderColor: "#E2E8F0",
     shadowColor: "#000",
@@ -362,6 +385,7 @@ const styles = StyleSheet.create({
   /* Primary Button */
   button: {
     height: 48,
+    width: "100%",
     borderRadius: 24,
     backgroundColor: "#B91C1C",
     flexDirection: "row",
@@ -387,6 +411,7 @@ const styles = StyleSheet.create({
 
   /* Bottom Back Navigation Link */
   bottomBackLink: {
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -410,6 +435,7 @@ const styles = StyleSheet.create({
 
   /* Footer */
   footer: {
+    alignSelf: "center",
     color: "#64748B",
     fontSize: 11,
     fontWeight: "500",

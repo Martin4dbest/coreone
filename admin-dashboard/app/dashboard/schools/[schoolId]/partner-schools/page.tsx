@@ -479,9 +479,9 @@ export default function PartnerSchoolsPage({
                     );
 
                   return (
-                    <label
+                    <div
                       key={student.id}
-                      className={`flex cursor-pointer items-center gap-4 px-6 py-4 transition ${
+                      className={`flex items-center gap-4 px-6 py-4 transition ${
                         associated
                           ? "bg-green-50/50"
                           : selected
@@ -496,15 +496,35 @@ export default function PartnerSchoolsPage({
                         }
                         disabled={associated}
                         onChange={() =>
-                          toggleStudent(
-                            student.id
-                          )
+                          toggleStudent(student.id)
                         }
                         className="h-5 w-5 accent-rose-500"
                       />
 
-                      <div className="flex-1">
-                        <p className="font-bold text-slate-900">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!associated || !selectedPartner) {
+                            return;
+                          }
+
+                          window.location.href =
+                            `/dashboard/schools/${selectedSchoolId}/partner-schools/${selectedPartner.id}/students/${student.id}`;
+                        }}
+                        className={`flex-1 text-left ${
+                          associated
+                            ? "cursor-pointer"
+                            : "cursor-default"
+                        }`}
+                        disabled={!associated}
+                      >
+                        <p
+                          className={`font-bold ${
+                            associated
+                              ? "text-rose-600 hover:underline"
+                              : "text-slate-900"
+                          }`}
+                        >
                           {student.first_name}{" "}
                           {student.middle_name
                             ? `${student.middle_name} `
@@ -515,14 +535,14 @@ export default function PartnerSchoolsPage({
                         <p className="text-xs text-slate-500">
                           {student.admission_number}
                         </p>
-                      </div>
+                      </button>
 
                       {associated && (
                         <span className="rounded-full bg-green-100 px-3 py-1 text-[10px] font-bold text-green-600">
                           ASSOCIATED
                         </span>
                       )}
-                    </label>
+                    </div>
                   );
                 })}
 

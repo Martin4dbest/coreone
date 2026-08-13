@@ -1,0 +1,693 @@
+import React, { useEffect, useState } from "react";
+import {
+View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  Modal,
+  StatusBar,
+  Dimensions,
+  Platform,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import api from "@/services/api";
+
+const { width: screenWidth } = Dimensions.get("window");
+const isDesktopWeb = Platform.OS === "web" && screenWidth >= 900;
+const desktopMaxWidth = Math.min(
+  Math.max(screenWidth - 48, 320),
+  1180
+);
+
+
+import {
+  saveCBTAnswer,
+  submitCBTAttempt,
+} from "@/services/cbt";
+
+export default function CBTExam() {
+const router = useRouter();
+  const params = useLocalSearchParams();
+
+  const examId = Number(params.examId);
+  const attemptId = Number(params.attemptId);
+
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [showGridModal, setShowGridModal] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  useEffect(() => {
+    fetchQuestions();
+  }, []);
+
+  useEffect(() => {
+    if (timeLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleSubmit();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeLeft]);
+
+  async function fetchQuestions() {
+    try {
+      const response: any = await api.get(`/cbt/exams/${examId}/questions`);
+      const data = response.data || [];
+      setQuestions(data);
+
+      const duration =
+        Number(
+          data?.[0]?.exam?.duration_minutes ??
+          data?.[0]?.duration_minutes ??
+          60
+        );
+
+      setTimeLeft(duration * 60);
+    } catch (error) {
+      console.log("LOAD QUESTIONS ERROR:", error);
+      Alert.alert("Error", "Unable to load questions. Please check your connection.");
+    } finally {
+      setSubmitting(false);
+      setLoading(false);
+    }
+  }
+
+  async function chooseAnswer(
+    questionId: number,
+    answerKey: string,
+  ) {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: answerKey,
+    }));
+
+    try {
+      await saveCBTAnswer(
+        attemptId,
+        questionId,
+        answerKey,
+      );
+    } catch (e) {
+      console.log(e);
+    }
+  }
+
+  function nextQuestion() {
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+    }
+  }
+
+  function previousQuestion() {
+    if (currentIndex > 0) {
+      setCurrentIndex((prev) => prev - 1);
+    }
+  }
+
+  function handleSubmit() {
+    const totalAnswered = Object.keys(answers).length;
+    const remaining = questions.length - totalAnswered;
+
+    Alert.alert(
+      "Submit Assessment",
+      remaining > 0
+        ? `You still have ${remaining} unanswered question(s). Are you sure you want to finalize your submission?`
+        : "Are you sure you want to finish and submit your answers?",
+      [
+        { text: "Continue Test", style: "cancel" },
+        {
+          text: "Submit Exam",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setSubmitting(true);
+
+              await submitCBTAttempt(attemptId);
+
+              setSubmitting(false);
+
+              Alert.alert(
+                "Success",
+                "Exam submitted successfully."
+              );
+
+              router.replace("/student/cbt");
+            } catch (e) {
+              setSubmitting(false);
+              Alert.alert(
+                "Error",
+                "Unable to submit exam."
+              );
+            }
+          },
+        },
+      ]
+    );
+  }
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.center}>
+        <StatusBar barStyle="dark-content" />
+        <ActivityIndicator size="large" color="#4F46E5" />
+        <Text style={styles.loadingText}>Initializing exam module...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!questions.length) {
+    return (
+      <SafeAreaView style={styles.center}>
+        <StatusBar barStyle="dark-content" />
+        <Text style={styles.errorTitle}>No Questions Found</Text>
+        <Text style={styles.errorSubtitle}>
+          This examination has not been configured yet. Please contact your administrator.
+        </Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchQuestions}>
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  const currentQuestion = questions[currentIndex];
+  const answeredCount = Object.keys(answers).length;
+  const progressPercent = ((currentIndex + 1) / questions.length) * 100;
+
+  const optionItems = [
+    { key: "A", value: currentQuestion.option_a },
+    { key: "B", value: currentQuestion.option_b },
+    { key: "C", value: currentQuestion.option_c },
+    { key: "D", value: currentQuestion.option_d },
+  ].filter((opt) => opt.value !== undefined && opt.value !== null);
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#1E293B" />
+
+      {/* SUBMITTING OVERLAY MODAL */}
+      <Modal visible={submitting} transparent animationType="fade">
+        <View style={styles.submittingOverlay}>
+          <View style={styles.submittingCard}>
+            <ActivityIndicator size="large" color="#2563EB" />
+            <Text style={styles.submittingTitle}>Submitting Examination...</Text>
+            <Text style={styles.submittingSubtitle}>
+              Please wait while your answers are being marked.
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
+      {/* TOP APPBAR */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>CBT Assessment</Text>
+          <Text style={styles.headerSub}>Attempt #{attemptId || "1"}</Text>
+        </View>
+
+        {/* TIMER & PALETTE BUTTON */}
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={styles.gridButton}
+            onPress={() => setShowGridModal(true)}
+          >
+            <Text style={styles.gridButtonText}>
+              📊 {answeredCount}/{questions.length}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.timerBadge}>
+            <Text style={styles.timerText}>
+              ⏱ {Math.floor(timeLeft / 60)}:
+              {String(timeLeft % 60).padStart(2, "0")}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* PROGRESS TRACKER */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressHeader}>
+          <Text style={styles.progressLabel}>
+            Question {currentIndex + 1} of {questions.length}
+          </Text>
+          <Text style={styles.progressPercent}>{Math.round(progressPercent)}%</Text>
+        </View>
+        <View style={styles.progressBarBackground}>
+          <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+        </View>
+      </View>
+
+      {/* QUESTION CONTENT */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.card}>
+          <Text style={styles.questionPrompt}>
+            {currentQuestion.question || currentQuestion.title}
+          </Text>
+
+          {/* OPTIONS */}
+          <View style={styles.optionsWrapper}>
+            {optionItems.map((item) => {
+              const isSelected = answers[currentQuestion.id] === item.key;
+
+              return (
+                <TouchableOpacity
+                  key={item.key}
+                  activeOpacity={0.7}
+                  style={[styles.optionCard, isSelected && styles.selectedOptionCard]}
+                  onPress={() => chooseAnswer(currentQuestion.id, item.key)}
+                >
+                  <View
+                    style={[
+                      styles.badge,
+                      isSelected && styles.selectedBadge,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.badgeText,
+                        isSelected && styles.selectedBadgeText,
+                      ]}
+                    >
+                      {item.key}
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.optionText,
+                      isSelected && styles.selectedOptionText,
+                    ]}
+                  >
+                    {item.value}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* BOTTOM CONTROL NAVIGATION */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          disabled={currentIndex === 0}
+          style={[styles.navButton, styles.prevButton, currentIndex === 0 && styles.disabledButton]}
+          onPress={previousQuestion}
+        >
+          <Text style={styles.prevButtonText}>Previous</Text>
+        </TouchableOpacity>
+
+        {currentIndex === questions.length - 1 ? (
+          <TouchableOpacity style={[styles.navButton, styles.submitButton]} onPress={handleSubmit}>
+            <Text style={styles.submitButtonText}>Submit Exam</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={[styles.navButton, styles.nextButton]} onPress={nextQuestion}>
+            <Text style={styles.nextButtonText}>Next</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* QUESTION PALETTE MODAL */}
+      <Modal visible={showGridModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Question Overview</Text>
+              <TouchableOpacity onPress={() => setShowGridModal(false)}>
+                <Text style={styles.closeModalText}>Close ✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.gridContainer}>
+              {questions.map((q, idx) => {
+                const isAnswered = answers[q.id] !== undefined;
+                const isCurrent = currentIndex === idx;
+
+                return (
+                  <TouchableOpacity
+                    key={q.id || idx}
+                    style={[
+                      styles.gridItem,
+                      isAnswered && styles.gridItemAnswered,
+                      isCurrent && styles.gridItemCurrent,
+                    ]}
+                    onPress={() => {
+                      setCurrentIndex(idx);
+                      setShowGridModal(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.gridItemText,
+                        (isAnswered || isCurrent) && styles.gridItemTextActive,
+                      ]}
+                    >
+                      {idx + 1}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+    backgroundColor: "#F8FAFC",
+  },
+  loadingText: {
+    marginTop: 14,
+    color: "#64748B",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#EF4444",
+  },
+  errorSubtitle: {
+    marginTop: 8,
+    color: "#64748B",
+    textAlign: "center",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: "#4F46E5",
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+  },
+  retryText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  submittingOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  submittingCard: {
+    backgroundColor: "#fff",
+    width: 300,
+    borderRadius: 18,
+    padding: 25,
+    alignItems: "center",
+  },
+  submittingTitle: {
+    marginTop: 20,
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  submittingSubtitle: {
+    marginTop: 12,
+    textAlign: "center",
+    color: "#6B7280",
+    fontSize: 13,
+  },
+  header: {
+    backgroundColor: "#1E293B",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  headerTitle: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  headerSub: {
+    color: "#94A3B8",
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: "500",
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  gridButton: {
+    backgroundColor: "#334155",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  gridButtonText: {
+    color: "#F8FAFC",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  timerBadge: {
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  timerText: {
+    color: "#DC2626",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  progressContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  progressLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#475569",
+  },
+  progressPercent: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#4F46E5",
+  },
+  progressBarBackground: {
+    height: 6,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: "#4F46E5",
+    borderRadius: 4,
+  },
+  scrollContent: {
+    padding: 20,
+    width: isDesktopWeb ? desktopMaxWidth : "100%",
+    alignSelf: isDesktopWeb ? "center" : "stretch",
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  questionPrompt: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#0F172A",
+    lineHeight: 26,
+    marginBottom: 20,
+  },
+  optionsWrapper: {
+    gap: 12,
+  },
+  optionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#E2E8F0",
+  },
+  selectedOptionCard: {
+    backgroundColor: "#EEF2FF",
+    borderColor: "#4F46E5",
+  },
+  badge: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#E2E8F0",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  selectedBadge: {
+    backgroundColor: "#4F46E5",
+  },
+  badgeText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#475569",
+  },
+  selectedBadgeText: {
+    color: "#FFFFFF",
+  },
+  optionText: {
+    fontSize: 15,
+    color: "#334155",
+    flex: 1,
+    lineHeight: 22,
+    fontWeight: "500",
+  },
+  selectedOptionText: {
+    color: "#1E1B4B",
+    fontWeight: "700",
+  },
+  footer: {
+    flexDirection: "row",
+    padding: 16,
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+    gap: 12,
+  },
+  navButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  prevButton: {
+    backgroundColor: "#F1F5F9",
+  },
+  prevButtonText: {
+    color: "#475569",
+    fontWeight: "700",
+  },
+  nextButton: {
+    backgroundColor: "#4F46E5",
+  },
+  nextButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  submitButton: {
+    backgroundColor: "#10B981",
+  },
+  submitButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  disabledButton: {
+    opacity: 0.4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: "70%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  closeModalText: {
+    color: "#64748B",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  gridContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    paddingBottom: 24,
+  },
+  gridItem: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#F1F5F9",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+  },
+  gridItemAnswered: {
+    backgroundColor: "#E0E7FF",
+    borderColor: "#818CF8",
+  },
+  gridItemCurrent: {
+    backgroundColor: "#4F46E5",
+    borderColor: "#4F46E5",
+  },
+  gridItemText: {
+    fontWeight: "700",
+    color: "#475569",
+  },
+  gridItemTextActive: {
+    color: "#1E1B4B",
+  },
+});

@@ -4,7 +4,7 @@ import { getToken } from "@/storage/auth";
 
 
 const API_BASE_URL =
-  "http://10.235.113.196:8000/api/v1";
+  "http://10.11.244.196:8000/api/v1";
 
 
 const api = axios.create({

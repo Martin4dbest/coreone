@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
 
 interface Exam {
@@ -62,9 +62,57 @@ const initialFormState: QuestionFormData = {
 };
 
 /**
- * Normalizes any backend answer representation into "A", "B", "C", or "D".
- * Cross-references text value against option choices if necessary.
+ * Resolves relative file paths (e.g., /uploads/cbt/images/...)
+ * to full backend server URLs.
  */
+const getMediaUrl = (url?: string): string => {
+  if (!url) return "";
+
+  const value = String(url).trim();
+
+  if (
+    value.startsWith("http://") ||
+    value.startsWith("https://") ||
+    value.startsWith("blob:") ||
+    value.startsWith("data:")
+  ) {
+    return value;
+  }
+
+  /*
+   * CBT media is served by FastAPI, not by Next.js.
+   *
+   * NEXT_PUBLIC_API_URL:
+   *   http://127.0.0.1:8000/api/v1
+   *
+   * Therefore the media origin must be:
+   *   http://127.0.0.1:8000
+   *
+   * and:
+   *   /uploads/cbt/images/file.png
+   *
+   * becomes:
+   *   http://127.0.0.1:8000/uploads/cbt/images/file.png
+   */
+  const configuredApiUrl =
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://127.0.0.1:8000/api/v1";
+
+  let origin = "http://127.0.0.1:8000";
+
+  try {
+    origin = new URL(configuredApiUrl).origin;
+  } catch {
+    origin = "http://127.0.0.1:8000";
+  }
+
+  const cleanPath = value.startsWith("/")
+    ? value
+    : `/${value}`;
+
+  return `${origin}${cleanPath}`;
+};
+
 const normalizeCorrectAnswer = (
   raw: any,
   options?: { optionA?: string; optionB?: string; optionC?: string; optionD?: string }
@@ -74,25 +122,20 @@ const normalizeCorrectAnswer = (
   const str = String(raw).trim();
   const upper = str.toUpperCase();
 
-  // 1. Direct letter match: "A", "B", "C", "D"
   if (["A", "B", "C", "D"].includes(upper)) {
     return upper as "A" | "B" | "C" | "D";
   }
 
-  // 2. Format like "OPTION_A", "OPTION A", "OPTIONA"
   if (/\bOPTION[_\s]?A\b/i.test(str) || upper === "OPTIONA") return "A";
   if (/\bOPTION[_\s]?B\b/i.test(str) || upper === "OPTIONB") return "B";
   if (/\bOPTION[_\s]?C\b/i.test(str) || upper === "OPTIONC") return "C";
   if (/\bOPTION[_\s]?D\b/i.test(str) || upper === "OPTIOND") return "D";
 
-  // 3. Numeric Index Checks (Supports 0-based [0,1,2,3] and 1-based [1,2,3,4])
   if (str === "0") return "A";
   if (str === "1") return "B";
   if (str === "2") return "C";
   if (str === "3") return "D";
-  if (str === "4") return "D";
 
-  // 4. Match against option text values directly (e.g. raw = "y", optionA = "y")
   if (options) {
     const cleanStr = str.toLowerCase();
     if (options.optionA && options.optionA.toString().trim().toLowerCase() === cleanStr) return "A";
@@ -104,8 +147,102 @@ const normalizeCorrectAnswer = (
   return "";
 };
 
+const AudioVideoDisplay = ({
+  audioUrl,
+  videoUrl,
+}: {
+  audioUrl?: string;
+  videoUrl?: string;
+}) => {
+  if (!audioUrl && !videoUrl) return null;
+
+  const getYouTubeEmbedUrl = (url: string) => {
+    if (!url) return null;
+
+    try {
+      const parsed = new URL(url.trim());
+      const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
+
+      let videoId = "";
+
+      if (hostname === "youtu.be") {
+        videoId = parsed.pathname.split("/").filter(Boolean)[0] || "";
+      } else if (
+        hostname === "youtube.com" ||
+        hostname === "m.youtube.com" ||
+        hostname === "music.youtube.com"
+      ) {
+        if (parsed.pathname === "/watch") {
+          videoId = parsed.searchParams.get("v") || "";
+        } else if (parsed.pathname.startsWith("/shorts/")) {
+          videoId = parsed.pathname.split("/")[2] || "";
+        } else if (parsed.pathname.startsWith("/embed/")) {
+          videoId = parsed.pathname.split("/")[2] || "";
+        } else if (parsed.pathname.startsWith("/v/")) {
+          videoId = parsed.pathname.split("/")[2] || "";
+        }
+      }
+
+      if (!videoId) {
+        const fallback = url.match(
+          /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/))([A-Za-z0-9_-]{11})/
+        );
+
+        videoId = fallback?.[1] || "";
+      }
+
+      if (!videoId) return null;
+
+      return `https://www.youtube-nocookie.com/embed/${videoId}?rel=0`;
+    } catch {
+      return null;
+    }
+  };
+
+  const formattedAudio = getMediaUrl(audioUrl);
+  const formattedVideo = getMediaUrl(videoUrl);
+  const ytEmbedUrl = videoUrl ? getYouTubeEmbedUrl(videoUrl) : null;
+
+  return (
+    <div className="mt-3 space-y-3">
+      {audioUrl && (
+        <div className="w-full max-w-md">
+          <p className="text-xs text-gray-500 mb-1 font-medium">🎧 Attached Audio:</p>
+          <audio controls className="w-full h-9 rounded-md">
+            <source src={formattedAudio} />
+            Your browser does not support audio.
+          </audio>
+        </div>
+      )}
+
+      {videoUrl && (
+        <div className="w-full max-w-md">
+          <p className="text-xs text-gray-500 mb-1 font-medium">🎬 Attached Video:</p>
+          {ytEmbedUrl ? (
+            <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+              <iframe
+                src={ytEmbedUrl}
+                title="Question Video"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="w-full h-full border-0"
+              />
+            </div>
+          ) : (
+            <video controls className="w-full max-h-52 rounded-lg bg-black">
+              <source src={formattedVideo} />
+              Your browser does not support video.
+            </video>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function CBTQuestionsPage() {
   const params = useParams();
+  const router = useRouter();
   const schoolId = params?.schoolId as string | undefined;
 
   const [exams, setExams] = useState<Exam[]>([]);
@@ -167,9 +304,6 @@ export default function CBTQuestionsPage() {
         ? response.data
         : response.data?.data || [];
 
-      // Debug log to inspect response keys
-      console.log("Fetched Questions Raw Data:", data);
-
       setQuestions(
         data.map((q: any) => {
           const optA = q.option_a ?? q.optionA ?? q.option1 ?? "";
@@ -205,9 +339,9 @@ export default function CBTQuestionsPage() {
             marks: Number(q.marks ?? 1),
             explanation: q.explanation ?? "",
             difficulty: q.difficulty ?? "Medium",
-            imageUrl: q.image_url ?? q.imageUrl ?? "",
-            audioUrl: q.audio_url ?? q.audioUrl ?? "",
-            videoUrl: q.video_url ?? q.videoUrl ?? "",
+            imageUrl: q.image_url ?? q.imageUrl ?? q.image ?? "",
+            audioUrl: q.audio_url ?? q.audioUrl ?? q.audio ?? "",
+            videoUrl: q.video_url ?? q.videoUrl ?? q.video ?? "",
             createdAt: q.created_at ?? q.createdAt ?? "",
           };
         })
@@ -254,16 +388,24 @@ export default function CBTQuestionsPage() {
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    fieldName: "imageUrl" | "audioUrl"
+    fieldName: "imageUrl" | "audioUrl" | "videoUrl"
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Local object URL for instant previewing
+    const tempUrl = URL.createObjectURL(file);
+    setFormData((prev) => ({ ...prev, [fieldName]: tempUrl }));
 
     const form = new FormData();
     form.append("file", file);
 
     const endpoint =
-      fieldName === "imageUrl" ? "/cbt/upload/image" : "/cbt/upload/audio";
+      fieldName === "imageUrl"
+        ? "/cbt/upload/image"
+        : fieldName === "audioUrl"
+          ? "/cbt/upload/audio"
+          : "/cbt/upload/video";
 
     try {
       const res = await api.post(endpoint, form, {
@@ -272,13 +414,41 @@ export default function CBTQuestionsPage() {
         },
       });
 
+      const uploadedPath =
+        res.data?.url ||
+        res.data?.imageUrl ||
+        res.data?.image_url ||
+        res.data?.audioUrl ||
+        res.data?.audio_url ||
+        res.data?.videoUrl ||
+        res.data?.video_url;
+
+      if (uploadedPath) {
+        setFormData((prev) => ({
+          ...prev,
+          [fieldName]: uploadedPath,
+        }));
+
+        URL.revokeObjectURL(tempUrl);
+      } else {
+        throw new Error("Upload succeeded but the server returned no file URL.");
+      }
+    } catch (err: any) {
+      console.error("CBT media upload error:", err);
+
+      URL.revokeObjectURL(tempUrl);
+
       setFormData((prev) => ({
         ...prev,
-        [fieldName]: res.data.url,
+        [fieldName]: "",
       }));
-    } catch (err) {
-      console.error(err);
-      alert("File upload failed.");
+
+      setFormError(
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Media upload failed. Please try again."
+      );
     }
   };
 
@@ -428,11 +598,8 @@ export default function CBTQuestionsPage() {
   const handleDelete = async (questionId: string) => {
     if (!confirm("Are you sure you want to delete this question?")) return;
 
-    // Save current list in case we need to restore it
     const previousQuestions = questions;
-
-    // Optimistically remove the question immediately
-    setQuestions(prev => prev.filter(q => q.id !== questionId));
+    setQuestions((prev) => prev.filter((q) => q.id !== questionId));
 
     try {
       try {
@@ -443,18 +610,15 @@ export default function CBTQuestionsPage() {
 
       setSuccessMessage("Question deleted successfully.");
 
-      // Refresh silently to keep everything in sync
       if (selectedExamId) {
         fetchQuestions(selectedExamId).catch(() => {});
       }
     } catch (err: any) {
-      // Restore if delete fails
       setQuestions(previousQuestions);
-
       alert(
         err?.response?.data?.detail ||
-        err?.response?.data?.message ||
-        "Failed to delete question."
+          err?.response?.data?.message ||
+          "Failed to delete question."
       );
     }
   };
@@ -470,15 +634,12 @@ export default function CBTQuestionsPage() {
     }
   };
 
-  const openPreview = (item: QuestionFormData | Question) => {
-    const optA = (item as any).optionA ?? (item as any).option_a ?? "";
-    const optB = (item as any).optionB ?? (item as any).option_b ?? "";
-    const optC = (item as any).optionC ?? (item as any).option_c ?? "";
-    const optD = (item as any).optionD ?? (item as any).option_d ?? "";
-    const rawAns =
-      item.correctAnswer ||
-      (item as any).correct_answer ||
-      (item as any).answer;
+  const openPreview = (item: QuestionFormData | Question | any) => {
+    const optA = item.optionA ?? item.option_a ?? "";
+    const optB = item.optionB ?? item.option_b ?? "";
+    const optC = item.optionC ?? item.option_c ?? "";
+    const optD = item.optionD ?? item.option_d ?? "";
+    const rawAns = item.correctAnswer || item.correct_answer || item.answer;
 
     const normAns = normalizeCorrectAnswer(rawAns, {
       optionA: optA,
@@ -487,14 +648,21 @@ export default function CBTQuestionsPage() {
       optionD: optD,
     });
 
+    const parsedImage = item.imageUrl || item.image_url || item.image || "";
+    const parsedAudio = item.audioUrl || item.audio_url || item.audio || "";
+    const parsedVideo = item.videoUrl || item.video_url || item.video || "";
+
     setPreviewQuestion({
       ...item,
-      questionText: (item as any).questionText ?? (item as any).question ?? "",
+      questionText: item.questionText ?? item.question ?? item.question_text ?? "",
       optionA: optA,
       optionB: optB,
       optionC: optC,
       optionD: optD,
       correctAnswer: normAns,
+      imageUrl: parsedImage,
+      audioUrl: parsedAudio,
+      videoUrl: parsedVideo,
     });
     setShowPreviewModal(true);
   };
@@ -549,6 +717,27 @@ export default function CBTQuestionsPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-gray-200 dark:border-gray-800 pb-5">
           <div>
+            {/* Redirect / Go Back Button */}
+            <button
+              onClick={() => router.back()}
+              className="inline-flex items-center gap-2 mb-3 text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors group"
+            >
+              <svg
+                className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                />
+              </svg>
+              <span>Back to Previous Page</span>
+            </button>
+
             <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
               CBT Question Bank
             </h1>
@@ -583,7 +772,7 @@ export default function CBTQuestionsPage() {
           </div>
         </div>
 
-        {/* Question Form Card */}
+        {/* Form Card */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-700 pb-3">
             {editingQuestionId ? "Edit Question" : "Add New Question"}
@@ -743,6 +932,7 @@ export default function CBTQuestionsPage() {
               />
             </div>
 
+            {/* Media Uploads */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-gray-100 dark:border-gray-700 pt-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -754,6 +944,18 @@ export default function CBTQuestionsPage() {
                   onChange={(e) => handleFileUpload(e, "imageUrl")}
                   className="w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-300"
                 />
+                {formData.imageUrl && (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                    <span>✓ Image attached</span>
+                    <button
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, imageUrl: "" }))}
+                      className="text-red-500 underline text-xs"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -766,22 +968,87 @@ export default function CBTQuestionsPage() {
                   onChange={(e) => handleFileUpload(e, "audioUrl")}
                   className="w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-300"
                 />
+                {formData.audioUrl && (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                    <span>✓ Audio attached</span>
+                    <button
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, audioUrl: "" }))}
+                      className="text-red-500 underline text-xs"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Video URL
+                  Video Attachment
                 </label>
+
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => handleFileUpload(e, "videoUrl")}
+                  className="w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 dark:file:bg-gray-700 dark:file:text-gray-300"
+                />
+
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Upload a video file, or paste a YouTube/video URL below.
+                </p>
+
+                {formData.videoUrl && (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                    <span>✓ Video attached</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          videoUrl: "",
+                        }))
+                      }
+                      className="text-red-500 underline text-xs"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+
                 <input
                   type="url"
                   name="videoUrl"
-                  value={formData.videoUrl}
+                  value={
+                    formData.videoUrl.startsWith("blob:")
+                      ? ""
+                      : formData.videoUrl
+                  }
                   onChange={handleInputChange}
-                  placeholder="e.g. https://youtube.com/watch?v=..."
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  placeholder="Or paste YouTube URL: https://youtube.com/watch?v=..."
+                  className="mt-2 w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                 />
               </div>
             </div>
+
+            {/* Form Attachment Preview Box */}
+            {(formData.imageUrl || formData.audioUrl || formData.videoUrl) && (
+              <div className="border border-dashed border-gray-300 dark:border-gray-700 p-4 rounded-lg bg-gray-50 dark:bg-gray-900/50">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                  Form Attachment Preview:
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 items-start">
+                  {formData.imageUrl && (
+                    <img
+                      src={getMediaUrl(formData.imageUrl)}
+                      alt="Uploaded Preview"
+                      className="w-32 h-32 object-contain rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+                    />
+                  )}
+                  <AudioVideoDisplay audioUrl={formData.audioUrl} videoUrl={formData.videoUrl} />
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center justify-end space-x-3 border-t border-gray-100 dark:border-gray-700 pt-4">
               <button
@@ -814,7 +1081,7 @@ export default function CBTQuestionsPage() {
           </form>
         </div>
 
-        {/* Questions List Section */}
+        {/* Questions Table */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -923,7 +1190,17 @@ export default function CBTQuestionsPage() {
                           className="hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors"
                         >
                           <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">
-                            <p className="line-clamp-2">{q.questionText}</p>
+                            <div className="flex items-start gap-3">
+                              <p className="line-clamp-3 flex-1">{q.questionText}</p>
+                              {q.imageUrl && (
+                                <img
+                                  src={getMediaUrl(q.imageUrl)}
+                                  alt="Thumb"
+                                  className="w-14 h-14 object-cover rounded border border-gray-200 dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-900"
+                                />
+                              )}
+                            </div>
+                            <AudioVideoDisplay audioUrl={q.audioUrl} videoUrl={q.videoUrl} />
                           </td>
                           <td className="py-3 px-4 text-xs text-gray-600 dark:text-gray-300">
                             <div className="space-y-0.5">
@@ -1011,65 +1288,120 @@ export default function CBTQuestionsPage() {
         </div>
       </div>
 
+      {/* Preview Modal */}
       {showPreviewModal && previewQuestion && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4">
-            <h3 className="text-lg font-bold border-b border-gray-100 dark:border-gray-700 pb-2">
-              Question Preview
-            </h3>
-            <p className="text-sm font-medium">{(previewQuestion as any).questionText}</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-3xl w-full p-6 space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                Question Preview
+              </h3>
+              <button
+                onClick={() => setShowPreviewModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 font-bold text-xl"
+              >
+                ×
+              </button>
+            </div>
 
-            <div className="space-y-2 text-sm">
+            {/* Side-by-Side Flex Layout: Question & Resolved Image */}
+            <div className="flex flex-col md:flex-row gap-6 items-start border-b border-gray-200 dark:border-gray-700 pb-6">
+              {/* Question Text */}
+              <div className="flex-1 space-y-3">
+                <span className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                  Question Text
+                </span>
+                <p className="text-base font-medium text-gray-900 dark:text-white leading-relaxed whitespace-pre-line">
+                  {(previewQuestion as any).questionText}
+                </p>
+
+                <AudioVideoDisplay
+                  audioUrl={previewQuestion.audioUrl}
+                  videoUrl={previewQuestion.videoUrl}
+                />
+              </div>
+
+              {/* Display Image with Full Resolved URL */}
+              {Boolean(
+                previewQuestion.imageUrl ||
+                  (previewQuestion as any).image_url ||
+                  (previewQuestion as any).image
+              ) && (
+                <div className="w-full md:w-1/2 flex-shrink-0">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 block mb-2">
+                    Attached Image
+                  </span>
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-2 flex items-center justify-center min-h-[160px] max-h-[300px] overflow-hidden">
+                    <img
+                      src={getMediaUrl(
+                        previewQuestion.imageUrl ||
+                          (previewQuestion as any).image_url ||
+                          (previewQuestion as any).image
+                      )}
+                      alt="Question attachment preview"
+                      className="max-h-[280px] w-auto max-w-full object-contain rounded shadow-sm"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Answer Options */}
+            <div className="space-y-2.5 text-sm">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 block mb-1">
+                Answer Options
+              </span>
               <div
-                className={`p-2 rounded border ${
+                className={`p-3 rounded-lg border transition ${
                   previewQuestion.correctAnswer === "A"
-                    ? "bg-green-50 border-green-300 text-green-900 dark:bg-green-900/30 dark:text-green-200"
-                    : "border-gray-200 dark:border-gray-700"
+                    ? "bg-green-50 border-green-400 text-green-900 dark:bg-green-900/30 dark:border-green-600 dark:text-green-200 font-semibold"
+                    : "border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200"
                 }`}
               >
-                A. {(previewQuestion as any).optionA}
+                <span className="font-bold mr-2">A.</span> {(previewQuestion as any).optionA}
               </div>
               <div
-                className={`p-2 rounded border ${
+                className={`p-3 rounded-lg border transition ${
                   previewQuestion.correctAnswer === "B"
-                    ? "bg-green-50 border-green-300 text-green-900 dark:bg-green-900/30 dark:text-green-200"
-                    : "border-gray-200 dark:border-gray-700"
+                    ? "bg-green-50 border-green-400 text-green-900 dark:bg-green-900/30 dark:border-green-600 dark:text-green-200 font-semibold"
+                    : "border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200"
                 }`}
               >
-                B. {(previewQuestion as any).optionB}
+                <span className="font-bold mr-2">B.</span> {(previewQuestion as any).optionB}
               </div>
               <div
-                className={`p-2 rounded border ${
+                className={`p-3 rounded-lg border transition ${
                   previewQuestion.correctAnswer === "C"
-                    ? "bg-green-50 border-green-300 text-green-900 dark:bg-green-900/30 dark:text-green-200"
-                    : "border-gray-200 dark:border-gray-700"
+                    ? "bg-green-50 border-green-400 text-green-900 dark:bg-green-900/30 dark:border-green-600 dark:text-green-200 font-semibold"
+                    : "border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200"
                 }`}
               >
-                C. {(previewQuestion as any).optionC}
+                <span className="font-bold mr-2">C.</span> {(previewQuestion as any).optionC}
               </div>
               <div
-                className={`p-2 rounded border ${
+                className={`p-3 rounded-lg border transition ${
                   previewQuestion.correctAnswer === "D"
-                    ? "bg-green-50 border-green-300 text-green-900 dark:bg-green-900/30 dark:text-green-200"
-                    : "border-gray-200 dark:border-gray-700"
+                    ? "bg-green-50 border-green-400 text-green-900 dark:bg-green-900/30 dark:border-green-600 dark:text-green-200 font-semibold"
+                    : "border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200"
                 }`}
               >
-                D. {(previewQuestion as any).optionD}
+                <span className="font-bold mr-2">D.</span> {(previewQuestion as any).optionD}
               </div>
             </div>
 
             {previewQuestion.explanation && (
-              <div className="text-xs text-gray-500 border-t border-gray-100 dark:border-gray-700 pt-2">
-                <span className="font-semibold">Explanation:</span> {previewQuestion.explanation}
+              <div className="text-xs text-gray-600 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700 pt-3">
+                <span className="font-bold text-gray-800 dark:text-gray-200">Explanation:</span>{" "}
+                {previewQuestion.explanation}
               </div>
             )}
 
-            <div className="flex justify-end pt-2">
+            <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-gray-700">
               <button
                 onClick={() => setShowPreviewModal(false)}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-sm font-medium rounded-lg"
+                className="px-5 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition"
               >
-                Close
+                Close Preview
               </button>
             </div>
           </div>

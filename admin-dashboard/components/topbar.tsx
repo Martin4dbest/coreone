@@ -44,51 +44,33 @@ export default function Topbar() {
     const schoolId = match[1];
 
     const loadPartnerFeature = async () => {
-      try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("access_token") ||
-              localStorage.getItem("token")
-            : null;
+    try {
+      const response = await api.get(
+        `/school-features/${schoolId}`
+      );
 
-        const response = await fetch(
-          `/api/v1/school-features/${schoolId}`,
-          {
-            headers: token
-              ? {
-                  Authorization: `Bearer ${token}`,
-                }
-              : {},
-          }
-        );
+      const data = response.data;
 
-        if (!response.ok) {
-          if (mounted) setPartnerSchoolsEnabled(false);
-          return;
-        }
+      const features = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.features)
+          ? data.features
+          : [];
 
-        const data = await response.json();
+      const partner = features.find(
+        (feature: { feature_key?: string }) =>
+          feature.feature_key === "partner_schools"
+      );
 
-        const features = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.features)
-            ? data.features
-            : [];
-
-        const partner = features.find(
-          (feature: { feature_key?: string }) =>
-            feature.feature_key === "partner_schools"
-        );
-
-        if (mounted) {
-          setPartnerSchoolsEnabled(partner?.enabled === true);
-        }
-      } catch {
-        if (mounted) {
-          setPartnerSchoolsEnabled(false);
-        }
+      if (mounted) {
+        setPartnerSchoolsEnabled(partner?.enabled === true);
       }
-    };
+    } catch {
+      if (mounted) {
+        setPartnerSchoolsEnabled(false);
+      }
+    }
+  };
 
     loadPartnerFeature();
 

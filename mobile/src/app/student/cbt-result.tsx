@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
-  View,
+View,
   Text,
   ActivityIndicator,
   StyleSheet,
@@ -9,6 +9,8 @@ import {
   Image,
   TouchableOpacity,
   Alert,
+  Dimensions,
+  Platform,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,6 +18,14 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { getCBTResult } from "@/services/cbt";
 import { Redirect } from "expo-router";
+
+const { width: screenWidth } = Dimensions.get("window");
+const isDesktopWeb = Platform.OS === "web" && screenWidth >= 900;
+const desktopMaxWidth = Math.min(
+  Math.max(screenWidth - 48, 320),
+  1180
+);
+
 
 interface Question {
   question_id: number;
@@ -333,7 +343,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8fafc",
   },
   container: {
-    padding: 16,
+    width: isDesktopWeb ? desktopMaxWidth : "100%",
+    maxWidth: isDesktopWeb ? 1080 : undefined,
+    alignSelf: "center",
+    paddingHorizontal: isDesktopWeb ? 28 : 16,
+    paddingTop: isDesktopWeb ? 28 : 16,
+    paddingBottom: isDesktopWeb ? 40 : 16,
   },
   center: {
     flex: 1,
@@ -356,8 +371,9 @@ const styles = StyleSheet.create({
 
   // Centered Header & Top PDF Button
   headerWrapper: {
+    width: "100%",
     alignItems: "center",
-    marginVertical: 12,
+    marginVertical: isDesktopWeb ? 18 : 12,
   },
   schoolLogo: {
     width: 64,
@@ -367,7 +383,7 @@ const styles = StyleSheet.create({
   },
   examTitle: {
     color: "#0f172a",
-    fontSize: 22,
+    fontSize: isDesktopWeb ? 28 : 22,
     fontWeight: "800",
     textAlign: "center",
     marginBottom: 12,
@@ -375,6 +391,8 @@ const styles = StyleSheet.create({
 
   // Compact Rounded PDF Pill Button
   smallPdfBtn: {
+    minWidth: isDesktopWeb ? 180 : undefined,
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -390,7 +408,7 @@ const styles = StyleSheet.create({
   },
   smallPdfBtnText: {
     color: "#ffffff",
-    fontSize: 13,
+    fontSize: isDesktopWeb ? 14 : 13,
     fontWeight: "700",
   },
   bottomBtnWrapper: {
@@ -401,16 +419,17 @@ const styles = StyleSheet.create({
 
   // Summary Card Styles
   summaryCard: {
-    flexDirection: "row",
+    width: "100%",
     backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 16,
-    marginVertical: 16,
+    borderRadius: isDesktopWeb ? 18 : 16,
+    padding: isDesktopWeb ? 22 : 16,
+    marginVertical: isDesktopWeb ? 20 : 16,
     borderWidth: 1,
     borderColor: "#e2e8f0",
     alignItems: "center",
     justifyContent: "space-between",
   },
+
   scoreBlock: {
     flex: 1,
     alignItems: "center",
@@ -421,14 +440,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#e2e8f0",
   },
   scoreLabel: {
-    fontSize: 11,
+    fontSize: isDesktopWeb ? 13 : 11,
     color: "#64748b",
     fontWeight: "600",
     textTransform: "uppercase",
     marginBottom: 4,
   },
   scoreValue: {
-    fontSize: 18,
+    fontSize: isDesktopWeb ? 22 : 18,
     fontWeight: "800",
     color: "#0f172a",
   },
@@ -438,7 +457,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   percentValue: {
-    fontSize: 18,
+    fontSize: isDesktopWeb ? 22 : 18,
     fontWeight: "800",
   },
   statusBadge: {
@@ -465,16 +484,19 @@ const styles = StyleSheet.create({
 
   // Question Card Styles
   sectionHeading: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: isDesktopWeb ? 20 : 16,
+    fontWeight: "800",
     color: "#1e293b",
     marginBottom: 12,
   },
   questionCard: {
+    width: "100%",
+    maxWidth: isDesktopWeb ? 980 : undefined,
+    alignSelf: "center",
     backgroundColor: "#ffffff",
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: isDesktopWeb ? 16 : 14,
+    padding: isDesktopWeb ? 20 : 16,
+    marginBottom: isDesktopWeb ? 16 : 12,
     borderWidth: 1,
     borderColor: "#e2e8f0",
   },
@@ -485,14 +507,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   questionNumber: {
-    fontSize: 12,
+    fontSize: isDesktopWeb ? 13 : 12,
     fontWeight: "700",
     color: "#64748b",
     textTransform: "uppercase",
     flex: 1,
   },
   marksBadge: {
-    fontSize: 12,
+    fontSize: isDesktopWeb ? 13 : 12,
     fontWeight: "700",
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -508,11 +530,11 @@ const styles = StyleSheet.create({
     color: "#991b1b",
   },
   questionText: {
-    fontSize: 15,
+    fontSize: isDesktopWeb ? 17 : 15,
     fontWeight: "600",
     color: "#0f172a",
     marginBottom: 14,
-    lineHeight: 22,
+    lineHeight: isDesktopWeb ? 26 : 22,
   },
   answersContainer: {
     gap: 8,
@@ -531,12 +553,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#fef2f2",
   },
   answerLabel: {
-    fontSize: 13,
+    fontSize: isDesktopWeb ? 14 : 13,
     color: "#475569",
     fontWeight: "500",
   },
   answerValue: {
-    fontSize: 13,
+    fontSize: isDesktopWeb ? 14 : 13,
     fontWeight: "700",
   },
   textCorrect: {

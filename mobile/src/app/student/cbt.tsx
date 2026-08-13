@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
-  View,
+View,
   Text,
   TouchableOpacity,
   StyleSheet,
@@ -10,10 +10,20 @@ import {
   Alert,
   RefreshControl,
   SafeAreaView,
+  Dimensions,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { getStudentCBTExams, startCBTAttempt } from "@/services/cbt";
 import { Redirect } from "expo-router";
+
+const { width: screenWidth } = Dimensions.get("window");
+const isDesktopWeb = Platform.OS === "web" && screenWidth >= 900;
+const desktopMaxWidth = Math.min(
+  Math.max(screenWidth - 48, 320),
+  1180
+);
+
 
 export default function StudentCBT() {
 const router = useRouter();
@@ -72,6 +82,11 @@ const router = useRouter();
         params: {
           attemptId: String(attempt.id || attempt?.data?.id),
           examId: String(examId),
+          durationMinutes: String(
+            selectedExam?.duration_minutes ??
+            selectedExam?.durationMinutes ??
+            60
+          ),
         },
       });
     } catch (error) {
@@ -216,9 +231,26 @@ const router = useRouter();
           exams.map((exam) => {
             const isStarting = startingId === exam.id;
             const isCompleted = exam.completed === true;
-            const duration = exam.duration_minutes ?? exam.durationMinutes ?? 0;
-            const questionsCount = exam.total_questions ?? exam.totalQuestions ?? 0;
-            const totalMarks = exam.total_marks ?? exam.totalMarks ?? 0;
+            const duration = Number(
+              exam.duration_minutes ??
+              exam.durationMinutes ??
+              0
+            );
+
+            // The student CBT API returns these exact fields:
+            // total_questions and total_marks.
+            // Keep the mobile display tied to those values.
+            const questionsCount = Number(
+              exam.total_questions ??
+              exam.totalQuestions ??
+              0
+            );
+
+            const totalMarks = Number(
+              exam.total_marks ??
+              exam.totalMarks ??
+              0
+            );
 
             return (
               <View key={exam.id} style={styles.card}>
@@ -305,6 +337,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 18,
     paddingBottom: 30,
+    width: isDesktopWeb ? desktopMaxWidth : "100%",
+    alignSelf: isDesktopWeb ? "center" : "stretch",
   },
   center: {
     flex: 1,

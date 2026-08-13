@@ -1,12 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
+from app.models.student import Student
+from app.models.student_partner_school import StudentPartnerSchool
+from app.models.cbt_attempt import CBTAttempt
+from app.models.cbt_exam import CBTExam
+from app.models.ebook_activity import EbookActivity
+from app.models.ebook import Ebook
+from app.models.browser_activity import BrowserActivity
+from app.models.browser_link import BrowserLink
+from app.models.youtube_activity import YoutubeActivity
+from app.models.youtube_learning import YoutubeLearning
+
 
 from app.core.permissions import require_roles
 from app.db.database import get_db
 from app.models.partner_school import PartnerSchool
 from app.models.student import Student
-from app.models.student_partner_school import StudentPartnerSchool
 from app.models.user import User
 from app.modules.auth.dependencies.current_user import get_current_user
 from app.modules.partner_schools.schemas import (
@@ -426,3 +439,269 @@ async def get_student_partner_schools(
     )
 
     return list(result.scalars().all())
+
+
+# ============================================================
+# PARTNER SCHOOL STUDENT DETAILS + LEARNING ACTIVITY
+# ============================================================
+
+@router.get(
+    "/{school_id}/{partner_school_id}/students/{student_id}/details"
+)
+async def get_partner_student_details(
+    school_id: int,
+    partner_school_id: int,
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # ---------------------------------------------------------
+    # VERIFY PARTNER SCHOOL
+    # ---------------------------------------------------------
+
+    partner_school_result = await db.execute(
+        select(PartnerSchool).where(
+            PartnerSchool.id == partner_school_id,
+            PartnerSchool.school_id == school_id,
+        )
+    )
+
+    partner_school = (
+        partner_school_result.scalar_one_or_none()
+    )
+
+    if partner_school is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Partner school not found",
+        )
+
+    # ---------------------------------------------------------
+    # VERIFY STUDENT IS ASSOCIATED WITH THIS PARTNER SCHOOL
+    # ---------------------------------------------------------
+
+    link_result = await db.execute(
+        select(StudentPartnerSchool).where(
+            StudentPartnerSchool.student_id == student_id,
+            StudentPartnerSchool.partner_school_id == partner_school_id,
+        )
+    )
+
+    link = link_result.scalar_one_or_none()
+
+    if link is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Student is not associated with this partner school",
+        )
+
+    # ---------------------------------------------------------
+    # STUDENT
+    # ---------------------------------------------------------
+
+    student_result = await db.execute(
+        select(Student)
+        .options(
+            selectinload(Student.user),
+            selectinload(Student.classroom),
+            selectinload(Student.school),
+        )
+        .where(
+            Student.id == student_id,
+            Student.school_id == school_id,
+        )
+    )
+
+    student = student_result.scalar_one_or_none()
+
+    if student is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Student not found",
+        )
+
+    # ---------------------------------------------------------
+    # CBT RESULTS
+    # ---------------------------------------------------------
+
+    cbt_result = await db.execute(
+        select(CBTAttempt)
+        .options(
+            selectinload(CBTAttempt.exam).selectinload(
+                CBTExam.subject
+            ),
+        )
+        .where(
+            CBTAttempt.student_id == student_id,
+            CBTAttempt.completed.is_(True),
+        )
+        .order_by(
+            CBTAttempt.submitted_at.desc()
+        )
+    )
+
+    cbt_attempts = cbt_result.scalars().all()
+
+    cbt_scores = []
+
+    for attempt in cbt_attempts:
+        exam = attempt.exam
+
+        cbt_scores.append({
+            "attempt_id": attempt.id,
+            "exam_id": exam.id if exam else None,
+            "exam_title": (
+                exam.title
+                if exam
+                else "Unknown Exam"
+            ),
+            "subject": (
+                exam.subject.name
+                if exam and exam.subject
+                else None
+            ),
+            "score": attempt.score,
+            "total_marks": attempt.total_marks,
+            "percentage": attempt.percentage,
+            "passed": attempt.passed,
+            "submitted_at": attempt.submitted_at,
+        })
+
+    # ---------------------------------------------------------
+    # EBOOK ACTIVITY
+    # ---------------------------------------------------------
+
+    ebook_result = await db.execute(
+        select(
+            EbookActivity,
+            Ebook.title.label("ebook_title"),
+        )
+        .join(
+            Ebook,
+            Ebook.id == EbookActivity.ebook_id,
+        )
+        .where(
+            EbookActivity.user_id == student.user_id,
+            EbookActivity.school_id == school_id,
+        )
+        .order_by(
+            EbookActivity.created_at.desc()
+        )
+    )
+
+    ebook_rows = ebook_result.all()
+
+    ebook_activity = [
+        {
+            "id": activity.id,
+            "ebook_id": activity.ebook_id,
+            "ebook_title": ebook_title,
+            "activity_type": activity.activity_type,
+            "created_at": activity.created_at,
+        }
+        for activity, ebook_title in ebook_rows
+    ]
+
+    # ---------------------------------------------------------
+    # BROWSER ACTIVITY
+    # ---------------------------------------------------------
+
+    browser_result = await db.execute(
+        select(
+            BrowserActivity,
+            BrowserLink.title.label("resource_title"),
+        )
+        .join(
+            BrowserLink,
+            BrowserLink.id == BrowserActivity.browser_link_id,
+        )
+        .where(
+            BrowserActivity.user_id == student.user_id,
+            BrowserActivity.school_id == school_id,
+        )
+        .order_by(
+            BrowserActivity.created_at.desc()
+        )
+    )
+
+    browser_rows = browser_result.all()
+
+    browser_activity = [
+        {
+            "id": activity.id,
+            "browser_link_id": activity.browser_link_id,
+            "resource_title": resource_title,
+            "activity_type": activity.activity_type,
+            "created_at": activity.created_at,
+        }
+        for activity, resource_title in browser_rows
+    ]
+
+    # ---------------------------------------------------------
+    # YOUTUBE ACTIVITY
+    # ---------------------------------------------------------
+
+    youtube_result = await db.execute(
+        select(
+            YoutubeActivity,
+            YoutubeLearning.title.label("video_title"),
+        )
+        .join(
+            YoutubeLearning,
+            YoutubeLearning.id == YoutubeActivity.youtube_learning_id,
+        )
+        .where(
+            YoutubeActivity.user_id == student.user_id,
+            YoutubeActivity.school_id == school_id,
+        )
+        .order_by(
+            YoutubeActivity.created_at.desc()
+        )
+    )
+
+    youtube_rows = youtube_result.all()
+
+    youtube_activity = [
+        {
+            "id": activity.id,
+            "youtube_learning_id": activity.youtube_learning_id,
+            "video_title": video_title,
+            "activity_type": activity.activity_type,
+            "created_at": activity.created_at,
+        }
+        for activity, video_title in youtube_rows
+    ]
+
+    # ---------------------------------------------------------
+    # RESPONSE
+    # ---------------------------------------------------------
+
+    return {
+        "student": {
+            "id": student.id,
+            "user_id": student.user_id,
+            "first_name": student.first_name,
+            "middle_name": student.middle_name,
+            "last_name": student.last_name,
+            "admission_number": student.admission_number,
+            "gender": student.gender,
+            "date_of_birth": student.date_of_birth,
+            "passport": student.passport,
+            "classroom": (
+                student.classroom.name
+                if student.classroom
+                else None
+            ),
+            "school_id": student.school_id,
+            "partner_school_id": partner_school.id,
+            "partner_school_name": partner_school.name,
+        },
+
+        "cbt_scores": cbt_scores,
+
+        "ebook_activity": ebook_activity,
+
+        "browser_activity": browser_activity,
+
+        "youtube_activity": youtube_activity,
+    }

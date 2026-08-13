@@ -4,6 +4,8 @@ from sqlalchemy.orm import selectinload
 
 from app.models.classroom import Classroom
 from app.models.student import Student
+from app.models.partner_school import PartnerSchool
+from app.models.student_partner_school import StudentPartnerSchool
 from app.models.user import User
 from app.models.school_branding import SchoolBranding
 from app.modules.results.service import ResultService
@@ -59,6 +61,36 @@ class MobileStudentService:
             and student.classroom.level
             else None
         )
+
+        # ---------------------------------------------------------
+        # STUDENT PARTNER SCHOOLS
+        # Only return active partner schools belonging to this
+        # student's own school and explicitly assigned to the
+        # current student.
+        # ---------------------------------------------------------
+        partner_result = await self.db.execute(
+            select(PartnerSchool)
+            .join(
+                StudentPartnerSchool,
+                StudentPartnerSchool.partner_school_id
+                == PartnerSchool.id,
+            )
+            .where(
+                StudentPartnerSchool.student_id == student.id,
+                PartnerSchool.school_id == student.school_id,
+                PartnerSchool.is_active.is_(True),
+            )
+            .order_by(PartnerSchool.name.asc())
+        )
+
+        partner_schools = [
+            {
+                "id": partner.id,
+                "name": partner.name,
+                "is_active": partner.is_active,
+            }
+            for partner in partner_result.scalars().all()
+        ]
 
         return {
             "tenant": {
@@ -117,6 +149,7 @@ class MobileStudentService:
                 "admission_number": student.admission_number,
                 "email": current_user.email,
                 "profile_image": student.passport,
+                "partner_schools": partner_schools,
             },
 
             "overview": {

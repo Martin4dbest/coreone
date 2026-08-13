@@ -190,9 +190,29 @@ class CBTRepository:
         self,
         answer: CBTAnswer,
     ):
+        result = await self.db.execute(
+            select(CBTAnswer).where(
+                CBTAnswer.attempt_id == answer.attempt_id,
+                CBTAnswer.question_id == answer.question_id,
+            )
+        )
+
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            existing.selected_answer = answer.selected_answer
+            existing.flagged = answer.flagged
+
+            await self.db.commit()
+            await self.db.refresh(existing)
+
+            return existing
+
         self.db.add(answer)
+
         await self.db.commit()
         await self.db.refresh(answer)
+
         return answer
 
 
@@ -259,11 +279,15 @@ class CBTRepository:
             for c in CBTExam.__table__.columns
             if c.name not in (
                 "id",
+                "uuid",
                 "created_at",
                 "updated_at",
             )
         }
 
+        # IMPORTANT:
+        # Do not copy the original UUID when duplicating an exam.
+        # CBTExam must generate a fresh UUID for the duplicate.
         duplicate = CBTExam(**data)
         self.db.add(duplicate)
         await self.db.commit()

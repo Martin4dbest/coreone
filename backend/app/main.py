@@ -79,7 +79,6 @@ UPLOAD_DIR = Path.cwd() / "uploads"
 _PUBLIC_UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
 _BRANDING_UPLOAD_DIR = _PUBLIC_UPLOAD_DIR / "branding"
 _STUDENT_UPLOAD_DIR = _PUBLIC_UPLOAD_DIR / "students"
-
 if _BRANDING_UPLOAD_DIR.exists():
     app.mount(
         "/uploads/branding",
@@ -401,4 +400,16 @@ app.include_router(
 app.include_router(
     partner_schools_router,
     prefix=settings.API_V1_STR,
+)
+
+
+# CBT uploads static mount.
+# Files are physically stored in backend/uploads/ and exposed as /uploads/...
+CBT_UPLOADS_ROOT = Path(__file__).resolve().parents[1] / "uploads"
+CBT_UPLOADS_ROOT.mkdir(parents=True, exist_ok=True)
+
+app.mount(
+    "/uploads",
+    StaticFiles(directory=str(CBT_UPLOADS_ROOT)),
+    name="uploads",
 )

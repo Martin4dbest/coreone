@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Dimensions,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -26,6 +27,8 @@ import {
 } from "../../types/student";
 
 const { width } = Dimensions.get("window");
+
+const isDesktopWeb = Platform.OS === "web" && width >= 900;
 
 // DYNAMIC API BASE URL RESOLUTION
 const API_BASE_URL = api.defaults?.baseURL || "http://10.196.122.196:8000";
@@ -169,6 +172,7 @@ export default function StudentDashboard() {
           admission_number: data.student.admission_number || null,
           email: data.student.email || user?.email || "",
           profile_image: normalizeImageUrl(data.student.profile_image),
+          partner_schools: data.student.partner_schools || [],
         });
       }
 
@@ -235,6 +239,8 @@ export default function StudentDashboard() {
     .filter(Boolean)
     .join(" • ");
 
+  const partnerSchools = student.partner_schools || [];
+
   const renderSchoolLogo = () => {
     const logoUri = tenantInfo?.logo;
 
@@ -258,6 +264,11 @@ export default function StudentDashboard() {
       </View>
     );
   };
+
+  // Explicit distinct tab colors for active state
+  const HOME_COLOR = school.primaryColor || "#1E293B";
+  const RESULTS_COLOR = "#059669"; // Emerald Green
+  const CBT_COLOR = "#D4AF37";     // Gold
 
   return (
     <View style={styles.container}>
@@ -285,7 +296,7 @@ export default function StudentDashboard() {
             ]}
             onPress={() => router.push("/student/notifications")}
           >
-            <Ionicons name="notifications-outline" size={20} color="#1E293B" />
+            <Ionicons name="notifications-outline" size={24} color="#1E293B" />
             <View style={styles.notificationBadge} />
           </Pressable>
         </View>
@@ -378,6 +389,18 @@ export default function StudentDashboard() {
                     </View>
                   </View>
                 ) : null}
+
+                {partnerSchools.length > 0 && (
+                  <View style={styles.detailItem}>
+                    <Text
+                      style={styles.detailValue}
+                      numberOfLines={2}
+                    >
+                      {partnerSchools.map((partner: any) => partner.name).join(", ")}
+                    </Text>
+                  </View>
+                )}
+
                 {student.email && (
                   <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Email Address</Text>
@@ -405,12 +428,12 @@ export default function StudentDashboard() {
                 onPress={() => router.push("/student/attendance")}
               >
                 <View style={[styles.iconContainer, { backgroundColor: "#E0F2FE" }]}>
-                  <Ionicons name="calendar" size={20} color="#0284C7" />
+                  <Ionicons name="calendar" size={24} color="#0284C7" />
                 </View>
                 <Text style={styles.overviewCardTitle}>Attendance Record</Text>
                 <View style={styles.cardActionButton}>
                   <Text style={[styles.cardActionText, { color: "#0284C7" }]}>Check Attendance</Text>
-                  <Ionicons name="chevron-forward" size={12} color="#0284C7" />
+                  <Ionicons name="chevron-forward" size={14} color="#0284C7" />
                 </View>
               </Pressable>
 
@@ -421,15 +444,18 @@ export default function StudentDashboard() {
                   { borderColor: "#D1FAE5" },
                   pressed && styles.pressedState,
                 ]}
-                onPress={() => router.push("/student/results")}
+                onPress={() => {
+                  setActiveTab("Results");
+                  router.push("/student/results");
+                }}
               >
                 <View style={[styles.iconContainer, { backgroundColor: "#D1FAE5" }]}>
-                  <Ionicons name="trophy" size={20} color="#059669" />
+                  <Ionicons name="trophy" size={24} color="#059669" />
                 </View>
                 <Text style={styles.overviewCardTitle}>Termly Report Card / Result</Text>
                 <View style={styles.cardActionButton}>
                   <Text style={[styles.cardActionText, { color: "#059669" }]}>View Report Card</Text>
-                  <Ionicons name="chevron-forward" size={12} color="#059669" />
+                  <Ionicons name="chevron-forward" size={14} color="#059669" />
                 </View>
               </Pressable>
 
@@ -437,22 +463,25 @@ export default function StudentDashboard() {
               <Pressable
                 style={({ pressed }) => [
                   styles.overviewCard,
-                  { width: "100%", borderColor: "#DDD6FE" },
+                  { width: "100%", borderColor: "#FEF3C7" },
                   pressed && styles.pressedState,
                 ]}
-                onPress={() => router.push("/student/cbt")}
+                onPress={() => {
+                  setActiveTab("CBT");
+                  router.push("/student/cbt");
+                }}
               >
                 <View style={styles.fullWidthCardRow}>
-                  <View style={[styles.iconContainer, { backgroundColor: "#F3E8FF", marginBottom: 0 }]}>
-                    <Ionicons name="hardware-chip" size={20} color="#7C3AED" />
+                  <View style={[styles.iconContainer, { backgroundColor: "#FEF3C7", marginBottom: 0 }]}>
+                    <Ionicons name="hardware-chip" size={24} color="#D4AF37" />
                   </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
+                  <View style={{ flex: 1, marginLeft: 14 }}>
                     <Text style={styles.overviewCardTitle}>CBT (Tests & Exams)</Text>
                     <Text style={styles.overviewLabel}>Take online tests & review past exams</Text>
                   </View>
                   <View style={[styles.cardActionButton, { marginTop: 0 }]}>
-                    <Text style={[styles.cardActionText, { color: "#7C3AED" }]}>Open Portal</Text>
-                    <Ionicons name="chevron-forward" size={12} color="#7C3AED" />
+                    <Text style={[styles.cardActionText, { color: "#D4AF37" }]}>Open Portal</Text>
+                    <Ionicons name="chevron-forward" size={14} color="#D4AF37" />
                   </View>
                 </View>
               </Pressable>
@@ -460,8 +489,10 @@ export default function StudentDashboard() {
 
             {/* LEARNING HUB */}
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Learning Hub</Text>
-              <Text style={styles.sectionSubtext}>Academic resources & portal tools</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionTitle}>Learning Hub</Text>
+                <Text style={styles.sectionSubtext}>Academic resources & portal tools</Text>
+              </View>
             </View>
 
             <View style={styles.learningHubGrid}>
@@ -472,13 +503,13 @@ export default function StudentDashboard() {
               >
                 <LinearGradient colors={["#FFFFFF", "#F8FAFC"]} style={[styles.hubGradient, { borderColor: "#E0E7FF" }]}>
                   <View style={[styles.hubIconBadge, { backgroundColor: "#EEF2FF" }]}>
-                    <Ionicons name="book" size={22} color="#4F46E5" />
+                    <Ionicons name="book" size={26} color="#4F46E5" />
                   </View>
                   <Text style={styles.hubTitle}>E-Books</Text>
                   <Text style={styles.hubDescription}>Digital textbooks & reading materials.</Text>
                   <View style={styles.hubMetaRow}>
                     <Text style={[styles.hubMetaText, { color: "#4F46E5" }]}>Access Library</Text>
-                    <Ionicons name="arrow-forward" size={12} color="#4F46E5" />
+                    <Ionicons name="arrow-forward" size={14} color="#4F46E5" />
                   </View>
                 </LinearGradient>
               </Pressable>
@@ -490,13 +521,13 @@ export default function StudentDashboard() {
               >
                 <LinearGradient colors={["#FFFFFF", "#F8FAFC"]} style={[styles.hubGradient, { borderColor: "#CCFBF1" }]}>
                   <View style={[styles.hubIconBadge, { backgroundColor: "#E6FFFA" }]}>
-                    <Ionicons name="globe" size={22} color="#0D9488" />
+                    <Ionicons name="globe" size={26} color="#0D9488" />
                   </View>
                   <Text style={styles.hubTitle}>Browser</Text>
                   <Text style={styles.hubDescription}>Controlled portal research search.</Text>
                   <View style={styles.hubMetaRow}>
                     <Text style={[styles.hubMetaText, { color: "#0D9488" }]}>Browse Safely</Text>
-                    <Ionicons name="arrow-forward" size={12} color="#0D9488" />
+                    <Ionicons name="arrow-forward" size={14} color="#0D9488" />
                   </View>
                 </LinearGradient>
               </Pressable>
@@ -509,15 +540,15 @@ export default function StudentDashboard() {
                 <LinearGradient colors={["#FFFFFF", "#FFF5F5"]} style={[styles.hubGradient, { borderColor: "#FECDD3", height: "auto" }]}>
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
                     <View style={[styles.hubIconBadge, { backgroundColor: "#FEF2F2" }]}>
-                      <Ionicons name="logo-youtube" size={24} color="#DC2626" />
+                      <Ionicons name="logo-youtube" size={28} color="#DC2626" />
                     </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
+                    <View style={{ flex: 1, marginLeft: 14 }}>
                       <Text style={styles.hubTitle}>Video Learning</Text>
                       <Text style={styles.hubDescription}>Watch approved video lessons & tutorials.</Text>
                     </View>
                     <View style={styles.hubMetaRow}>
                       <Text style={[styles.hubMetaText, { color: "#DC2626" }]}>Watch</Text>
-                      <Ionicons name="arrow-forward" size={12} color="#DC2626" />
+                      <Ionicons name="arrow-forward" size={14} color="#DC2626" />
                     </View>
                   </View>
                 </LinearGradient>
@@ -607,44 +638,31 @@ export default function StudentDashboard() {
         {/* BOTTOM NAVIGATION */}
         <SafeAreaView edges={["bottom"]} style={styles.bottomNavSafeArea}>
           <View style={styles.bottomNavContainer}>
-            <Pressable style={styles.navItem} onPress={() => setActiveTab("Home")}>
+            {/* Home Tab */}
+            <Pressable
+              style={styles.navItem}
+              onPress={() => {
+                setActiveTab("Home");
+                router.push("/student/dashboard");
+              }}
+            >
               <Ionicons
                 name={activeTab === "Home" ? "grid" : "grid-outline"}
-                size={22}
-                color={activeTab === "Home" ? school.primaryColor : "#64748B"}
+                size={24}
+                color={activeTab === "Home" ? HOME_COLOR : "#64748B"}
               />
               <Text
                 style={[
                   styles.navLabel,
-                  activeTab === "Home" && styles.activeNavLabel,
+                  { color: activeTab === "Home" ? HOME_COLOR : "#64748B" },
+                  activeTab === "Home" && styles.activeNavText,
                 ]}
               >
                 Home
               </Text>
             </Pressable>
 
-            <Pressable
-              style={styles.navItem}
-              onPress={() => {
-                setActiveTab("Learning");
-                router.push("/student/learning");
-              }}
-            >
-              <Ionicons
-                name={activeTab === "Learning" ? "book" : "book-outline"}
-                size={22}
-                color={activeTab === "Learning" ? school.primaryColor : "#64748B"}
-              />
-              <Text
-                style={[
-                  styles.navLabel,
-                  activeTab === "Learning" && styles.activeNavLabel,
-                ]}
-              >
-                Learning
-              </Text>
-            </Pressable>
-
+            {/* Results Tab */}
             <Pressable
               style={styles.navItem}
               onPress={() => {
@@ -656,19 +674,21 @@ export default function StudentDashboard() {
                 name={
                   activeTab === "Results" ? "stats-chart" : "stats-chart-outline"
                 }
-                size={22}
-                color={activeTab === "Results" ? school.primaryColor : "#64748B"}
+                size={24}
+                color={activeTab === "Results" ? RESULTS_COLOR : "#64748B"}
               />
               <Text
                 style={[
                   styles.navLabel,
-                  activeTab === "Results" && styles.activeNavLabel,
+                  { color: activeTab === "Results" ? RESULTS_COLOR : "#64748B" },
+                  activeTab === "Results" && styles.activeNavText,
                 ]}
               >
                 Results
               </Text>
             </Pressable>
 
+            {/* CBT Tab */}
             <Pressable
               style={styles.navItem}
               onPress={() => {
@@ -680,38 +700,17 @@ export default function StudentDashboard() {
                 name={
                   activeTab === "CBT" ? "hardware-chip" : "hardware-chip-outline"
                 }
-                size={22}
-                color={activeTab === "CBT" ? school.primaryColor : "#64748B"}
+                size={24}
+                color={activeTab === "CBT" ? CBT_COLOR : "#64748B"}
               />
               <Text
                 style={[
                   styles.navLabel,
-                  activeTab === "CBT" && styles.activeNavLabel,
+                  { color: activeTab === "CBT" ? CBT_COLOR : "#64748B" },
+                  activeTab === "CBT" && styles.activeNavText,
                 ]}
               >
                 CBT
-              </Text>
-            </Pressable>
-
-            <Pressable
-              style={styles.navItem}
-              onPress={() => {
-                setActiveTab("Profile");
-                router.push("/student/profile");
-              }}
-            >
-              <Ionicons
-                name={activeTab === "Profile" ? "person" : "person-outline"}
-                size={22}
-                color={activeTab === "Profile" ? school.primaryColor : "#64748B"}
-              />
-              <Text
-                style={[
-                  styles.navLabel,
-                  activeTab === "Profile" && styles.activeNavLabel,
-                ]}
-              >
-                Profile
               </Text>
             </Pressable>
           </View>
@@ -725,12 +724,12 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8FAFC" },
   safeArea: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loadingText: { marginTop: 12, color: "#64748B", fontSize: 13, fontWeight: "500" },
+  loadingText: { marginTop: 12, color: "#64748B", fontSize: 15, fontWeight: "500" },
   emptyText: {
-    fontSize: 13,
+    fontSize: 15,
     color: "#94A3B8",
     textAlign: "center",
-    marginVertical: 12,
+    marginVertical: 14,
   },
   pressedState: { opacity: 0.85 },
   topHeader: {
@@ -738,7 +737,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 14,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderBottomColor: "#F1F5F9",
@@ -746,32 +745,33 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
     flex: 1,
     marginRight: 10,
   },
-  schoolLogoImage: { width: 38, height: 38, borderRadius: 8 },
+  schoolLogoImage: { width: 44, height: 44, borderRadius: 10 },
   schoolLogoBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
-  schoolBadgeText: { fontWeight: "800", fontSize: 13 },
+  schoolBadgeText: { fontWeight: "800", fontSize: 16 },
   brandTextContainer: { flex: 1 },
-  brandName: { fontSize: 14, fontWeight: "800", letterSpacing: -0.2 },
+  brandName: { fontSize: 16, fontWeight: "800", letterSpacing: -0.2 },
   brandTagline: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: "700",
     color: "#94A3B8",
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    marginTop: 2,
   },
   notificationButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: "#F8FAFC",
     alignItems: "center",
     justifyContent: "center",
@@ -781,31 +781,40 @@ const styles = StyleSheet.create({
   },
   notificationBadge: {
     position: "absolute",
-    top: 9,
-    right: 9,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    top: 10,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: "#D4AF37",
   },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 16 },
-  greetingContainer: { marginBottom: 16 },
+  scrollContent: {
+    paddingHorizontal: isDesktopWeb ? 28 : 20,
+    paddingTop: 18,
+    width: "100%",
+    maxWidth: isDesktopWeb ? 1180 : undefined,
+    alignSelf: isDesktopWeb ? "center" : "stretch",
+  },
+  greetingContainer: {
+    marginBottom: 20,
+    maxWidth: isDesktopWeb ? 900 : undefined,
+  },
   greetingTitle: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: "800",
     color: "#0F172A",
     letterSpacing: -0.4,
   },
   greetingSubtitle: {
-    fontSize: 13,
+    fontSize: 15,
     color: "#64748B",
-    marginTop: 2,
+    marginTop: 4,
     fontWeight: "500",
   },
   profileCard: {
-    borderRadius: 18,
-    padding: 20,
-    marginBottom: 24,
+    borderRadius: 20,
+    padding: isDesktopWeb ? 26 : 22,
+    marginBottom: 26,
     borderWidth: 1,
     borderColor: "rgba(212, 175, 55, 0.3)",
     shadowColor: "#0F172A",
@@ -820,78 +829,82 @@ const styles = StyleSheet.create({
     top: 0,
     left: 20,
     right: 20,
-    height: 2,
+    height: 3,
     backgroundColor: "rgba(212, 175, 55, 0.4)",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
-  profileHeader: { flexDirection: "row", alignItems: "center", gap: 14 },
+  profileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
   profileAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     borderWidth: 2,
     borderColor: "rgba(212, 175, 55, 0.6)",
   },
   defaultAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: "rgba(255, 255, 255, 0.12)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
     borderColor: "rgba(212, 175, 55, 0.6)",
   },
-  avatarText: { color: "#FFFFFF", fontSize: 20, fontWeight: "700" },
+  avatarText: { color: "#FFFFFF", fontSize: 24, fontWeight: "700" },
   profileMainInfo: { flex: 1 },
-  studentName: { color: "#FFFFFF", fontSize: 17, fontWeight: "800", letterSpacing: -0.2 },
+  studentName: { color: "#FFFFFF", fontSize: 20, fontWeight: "800", letterSpacing: -0.2 },
   schoolNameText: {
-    fontSize: 12,
-    marginTop: 3,
+    fontSize: 14,
+    marginTop: 4,
     fontWeight: "700",
     color: "#FDE68A",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  badgeRow: { flexDirection: "row", marginTop: 6 },
+  badgeRow: { flexDirection: "row", marginTop: 8 },
   classBadge: {
     backgroundColor: "rgba(255, 255, 255, 0.14)",
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.25)",
   },
-  classBadgeText: { color: "#F8FAFC", fontSize: 11, fontWeight: "600" },
+  classBadgeText: { color: "#F8FAFC", fontSize: 13, fontWeight: "600" },
   profileDivider: {
     height: 1,
     backgroundColor: "rgba(255, 255, 255, 0.12)",
-    marginVertical: 14,
+    marginVertical: 16,
   },
-  profileDetailsGrid: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
+  profileDetailsGrid: { flexDirection: "row", justifyContent: "space-between", gap: 14 },
   detailItem: { flex: 1 },
   detailLabel: {
-    color: "rgba(255, 255, 255, 0.55)",
-    fontSize: 10,
+    color: "rgba(255, 255, 255, 0.65)",
+    fontSize: 12,
     textTransform: "uppercase",
     fontWeight: "700",
     letterSpacing: 0.6,
   },
-  detailValue: { color: "#FFFFFF", fontSize: 12, fontWeight: "600", marginTop: 2 },
+  detailValue: { color: "#FFFFFF", fontSize: 14, fontWeight: "600", marginTop: 3 },
   schoolCodeBadge: {
     backgroundColor: "rgba(212, 175, 55, 0.25)",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 6,
     alignSelf: "flex-start",
-    marginTop: 3,
+    marginTop: 4,
     borderWidth: 1,
     borderColor: "rgba(212, 175, 55, 0.5)",
   },
   schoolCodeBadgeText: {
     color: "#FDE68A",
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "700",
     letterSpacing: 0.5,
   },
@@ -899,23 +912,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  sectionTitle: { fontSize: 16, fontWeight: "800", color: "#0F172A", letterSpacing: -0.2 },
-  sectionSubtext: { fontSize: 11, color: "#64748B" },
-  viewAllText: { fontSize: 12, fontWeight: "700", color: "#1E293B" },
+  sectionTitle: { fontSize: 18, fontWeight: "800", color: "#0F172A", letterSpacing: -0.2 },
+  sectionSubtext: { fontSize: 13, color: "#64748B", marginTop: 2 },
+  viewAllText: { fontSize: 14, fontWeight: "700", color: "#1E293B" },
   overviewGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    marginBottom: 24,
-    gap: 12,
+    marginBottom: 26,
+    gap: 14,
+    width: "100%",
   },
   overviewCard: {
-    width: (width - 52) / 2,
+    width: isDesktopWeb ? "48.8%" : (width - 54) / 2,
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 18,
+    padding: 18,
     borderWidth: 1,
     shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 2 },
@@ -929,95 +943,100 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  overviewCardTitle: { fontSize: 14, fontWeight: "800", color: "#0F172A" },
+  overviewCardTitle: { fontSize: 16, fontWeight: "800", color: "#0F172A" },
   iconContainer: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
+    marginBottom: 12,
   },
   overviewLabel: {
-    fontSize: 11,
+    fontSize: 13,
     color: "#64748B",
-    marginTop: 2,
+    marginTop: 3,
     fontWeight: "500",
   },
   cardActionButton: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 12,
+    marginTop: 14,
     gap: 4,
   },
-  cardActionText: { fontSize: 11, fontWeight: "800" },
+  cardActionText: { fontSize: 13, fontWeight: "800" },
   learningHubGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    marginBottom: 24,
-    gap: 12,
+    marginBottom: 26,
+    gap: 14,
+    width: "100%",
   },
-  hubCard: { width: (width - 52) / 2, borderRadius: 16, overflow: "hidden" },
+  hubCard: {
+    width: isDesktopWeb ? "48.8%" : (width - 54) / 2,
+    borderRadius: 18,
+    overflow: "hidden",
+  },
   hubGradient: {
-    padding: 16,
-    borderRadius: 16,
+    padding: isDesktopWeb ? 20 : 18,
+    borderRadius: 18,
     borderWidth: 1,
-    height: 150,
+    minHeight: isDesktopWeb ? 175 : 165,
     justifyContent: "space-between",
   },
   hubIconBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 46,
+    height: 46,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
-  hubTitle: { fontSize: 14, fontWeight: "800", color: "#0F172A", marginTop: 4 },
+  hubTitle: { fontSize: 16, fontWeight: "800", color: "#0F172A", marginTop: 6 },
   hubDescription: {
-    fontSize: 11,
+    fontSize: 13,
     color: "#64748B",
-    marginTop: 2,
-    lineHeight: 15,
+    marginTop: 4,
+    lineHeight: 18,
   },
-  hubMetaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
-  hubMetaText: { fontSize: 11, fontWeight: "800" },
+  hubMetaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 },
+  hubMetaText: { fontSize: 13, fontWeight: "800" },
   timetableCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 18,
+    padding: isDesktopWeb ? 22 : 18,
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    marginBottom: 24,
+    marginBottom: 26,
   },
   scheduleRow: { flexDirection: "row", alignItems: "center" },
-  timeColumn: { width: 75 },
-  timeText: { fontSize: 11, fontWeight: "700", color: "#0F172A" },
+  timeColumn: { width: 85 },
+  timeText: { fontSize: 13, fontWeight: "700", color: "#0F172A" },
   liveIndicator: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 5,
     backgroundColor: "rgba(30, 41, 59, 0.1)",
     alignSelf: "flex-start",
-    marginTop: 2,
+    marginTop: 3,
   },
-  liveIndicatorText: { fontSize: 8, fontWeight: "800", color: "#1E293B" },
+  liveIndicatorText: { fontSize: 10, fontWeight: "800", color: "#1E293B" },
   scheduleBar: {
-    width: 3,
-    height: 36,
+    width: 4,
+    height: 42,
     backgroundColor: "#E2E8F0",
     borderRadius: 2,
-    marginHorizontal: 12,
+    marginHorizontal: 14,
   },
   scheduleInfo: { flex: 1 },
-  subjectText: { fontSize: 14, fontWeight: "700", color: "#0F172A" },
-  roomText: { fontSize: 11, color: "#64748B", marginTop: 1 },
-  scheduleDivider: { height: 1, backgroundColor: "#F1F5F9", marginVertical: 12 },
-  announcementsContainer: { gap: 10, marginBottom: 10 },
+  subjectText: { fontSize: 16, fontWeight: "700", color: "#0F172A" },
+  roomText: { fontSize: 13, color: "#64748B", marginTop: 2 },
+  scheduleDivider: { height: 1, backgroundColor: "#F1F5F9", marginVertical: 14 },
+  announcementsContainer: { gap: 12, marginBottom: 12 },
   announcementCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 16,
+    padding: isDesktopWeb ? 18 : 16,
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
@@ -1025,33 +1044,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 8,
   },
   categoryBadge: {
     backgroundColor: "#F1F5F9",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 6,
   },
   categoryBadgeText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
     color: "#475569",
     textTransform: "uppercase",
   },
-  announcementDate: { fontSize: 10, color: "#94A3B8" },
-  announcementTitle: { fontSize: 13, fontWeight: "700", color: "#0F172A" },
+  announcementDate: { fontSize: 12, color: "#94A3B8" },
+  announcementTitle: { fontSize: 15, fontWeight: "700", color: "#0F172A" },
   bottomNavSafeArea: { backgroundColor: "#FFFFFF" },
   bottomNavContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 12,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#F1F5F9",
   },
   navItem: { alignItems: "center", justifyContent: "center" },
-  navLabel: { fontSize: 10, marginTop: 4, color: "#64748B", fontWeight: "500" },
-  activeNavLabel: { fontWeight: "700" },
+  navLabel: { fontSize: 12, marginTop: 5, fontWeight: "500" },
+  activeNavText: { fontWeight: "700" },
 });

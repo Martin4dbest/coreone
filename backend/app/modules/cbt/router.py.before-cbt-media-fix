@@ -1,0 +1,1046 @@
+from sqlalchemy import select
+from sqlalchemy.orm import joinedload
+from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.database import get_db
+from app.models.user import User
+from app.models.classroom import Classroom
+from app.models.subject import Subject
+from app.modules.auth.dependencies.current_user import get_current_user
+
+from app.models.cbt_exam import CBTExam
+from app.models.cbt_question import CBTQuestion
+from app.models.cbt_attempt import CBTAttempt
+from app.models.student import Student
+from sqlalchemy import select
+from app.models.cbt_answer import CBTAnswer
+
+from app.modules.cbt.schemas import (
+    CBTExamCreateRequest,
+    CBTExamResponse,
+    CBTQuestionCreateRequest,
+    CBTQuestionResponse,
+    CBTAttemptCreateRequest,
+    CBTAttemptResponse,
+    CBTAnswerRequest,
+    CBTAnswerResponse,
+)
+
+from app.modules.cbt.service import CBTService
+
+router = APIRouter(
+    prefix="/cbt",
+    tags=["Computer Based Test"],
+)
+
+# =====================================================
+# EXAMS
+# =====================================================
+
+@router.post(
+    "/exams",
+    response_model=CBTExamResponse,
+)
+async def create_exam(
+    payload: CBTExamCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    exam = CBTExam(
+        **payload.model_dump()
+    )
+
+    # New exams are always Draft
+    exam.is_active = False
+
+    return await CBTService(db).create_exam(
+        exam,
+        current_user
+    )
+
+
+@router.get(
+    "/schools/{school_id}/exams",
+    response_model=list[CBTExamResponse],
+)
+async def list_exams(
+    school_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await CBTService(db).list_exams(
+        school_id,
+        current_user
+    )
+
+
+@router.get(
+    "/exams/{exam_id}",
+    response_model=CBTExamResponse,
+)
+async def get_exam(
+    exam_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await CBTService(db).get_exam(
+        exam_id,
+        current_user
+    )
+
+# =====================================================
+# QUESTIONS
+# =====================================================
+
+@router.post(
+    "/questions",
+    response_model=CBTQuestionResponse,
+)
+async def create_question(
+    payload: CBTQuestionCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    data = payload.model_dump()
+
+    data.pop("audio_url", None)
+
+    question = CBTQuestion(**data)
+
+    return await CBTService(db).add_question(
+        question,
+        current_user
+    )
+
+
+
+@router.put(
+    "/questions/{question_id}",
+    response_model=CBTQuestionResponse,
+)
+async def update_question_put(
+    question_id: int,
+    payload: CBTQuestionCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(CBTQuestion).where(CBTQuestion.id == question_id)
+    )
+
+    question = result.scalar_one_or_none()
+
+    if question is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Question not found",
+        )
+
+    data = payload.model_dump(exclude_unset=True)
+
+    data.pop("audio_url", None)
+
+    for key, value in data.items():
+        setattr(question, key, value)
+
+    await db.commit()
+    await db.refresh(question)
+
+    return question
+
+
+@router.post(
+    "/questions/{question_id}/update",
+)
+async def update_question(
+    question_id: int,
+    payload: CBTQuestionCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    result = await db.execute(
+        select(CBTQuestion)
+        .where(CBTQuestion.id == question_id)
+    )
+
+    question = result.scalar_one_or_none()
+
+    if not question:
+        raise HTTPException(
+            status_code=404,
+            detail="Question not found"
+        )
+
+    data = payload.model_dump()
+
+    data.pop("audio_url", None)
+
+    for key, value in data.items():
+        setattr(question, key, value)
+
+    await db.commit()
+    await db.refresh(question)
+
+    return question
+
+
+
+
+
+@router.post(
+    "/questions/{question_id}/duplicate",
+    response_model=CBTQuestionResponse,
+)
+async def duplicate_question(
+    question_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    result = await db.execute(
+        select(CBTQuestion)
+        .where(CBTQuestion.id == question_id)
+    )
+
+    original = result.scalar_one_or_none()
+
+    if not original:
+        raise HTTPException(
+            status_code=404,
+            detail="Question not found"
+        )
+
+    duplicate = CBTQuestion(
+        exam_id=original.exam_id,
+        question=original.question + " (Copy)",
+        image_url=original.image_url,
+        option_a=original.option_a,
+        option_b=original.option_b,
+        option_c=original.option_c,
+        option_d=original.option_d,
+        option_e=original.option_e,
+        correct_answer=original.correct_answer,
+        explanation=original.explanation,
+        marks=original.marks,
+        randomize_options=original.randomize_options,
+    )
+
+    db.add(duplicate)
+    await db.commit()
+    await db.refresh(duplicate)
+
+    return duplicate
+
+
+
+@router.post(
+    "/questions/{question_id}/delete",
+)
+async def delete_question(
+    question_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    result = await db.execute(
+        select(CBTQuestion)
+        .where(CBTQuestion.id == question_id)
+    )
+
+    question = result.scalar_one_or_none()
+
+    if not question:
+        raise HTTPException(
+            status_code=404,
+            detail="Question not found"
+        )
+
+    await db.delete(question)
+    await db.commit()
+
+    return {
+        "message": "Question deleted successfully"
+    }
+
+
+
+@router.get(
+    "/student/exams",
+)
+async def student_available_exams(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    student_result = await db.execute(
+        select(Student).where(
+            Student.user_id == current_user.id
+        )
+    )
+
+    student = student_result.scalar_one_or_none()
+
+    if student is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Student profile not found",
+        )
+
+    exams_result = await db.execute(
+        select(CBTExam)
+        .where(
+            CBTExam.school_id == current_user.school_id,
+            CBTExam.class_id == student.classroom_id,
+            CBTExam.is_active == True,
+        )
+        .order_by(CBTExam.created_at.desc())
+    )
+
+    exams = exams_result.scalars().all()
+
+    response = []
+
+    for exam in exams:
+
+        attempt_result = await db.execute(
+            select(CBTAttempt).where(
+                CBTAttempt.exam_id == exam.id,
+                CBTAttempt.student_id == student.id,
+            )
+        )
+
+        attempt = attempt_result.scalar_one_or_none()
+
+        # The actual number of questions available to the student
+        # must come from the questions attached to this exam.
+        # Do not use exam.total_questions here because that value can
+        # represent the configured/question-bank target rather than
+        # the number of questions actually attached to the exam.
+        question_count_result = await db.execute(
+            select(CBTQuestion.id).where(
+                CBTQuestion.exam_id == exam.id
+            )
+        )
+
+        actual_question_count = len(
+            question_count_result.scalars().all()
+        )
+
+        response.append({
+            "id": exam.id,
+            "title": exam.title,
+            "description": exam.description,
+            "duration_minutes": exam.duration_minutes,
+            "total_marks": exam.total_marks,
+            "total_questions": actual_question_count,
+            "created_at": exam.created_at,
+            "pass_mark": exam.pass_mark,
+            "subject_id": exam.subject_id,
+            "class_id": exam.class_id,
+            "completed": bool(attempt and attempt.completed),
+            "has_attempt": attempt is not None,
+            "attempt_id": attempt.id if attempt else None,
+        })
+
+    return response
+
+
+@router.get(
+    "/exams/{exam_id}/questions",
+    response_model=list[CBTQuestionResponse],
+)
+async def list_questions(
+    exam_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await CBTService(db).get_questions(
+        exam_id,
+        current_user
+    )
+
+# =====================================================
+# ATTEMPTS
+# =====================================================
+
+@router.post(
+    "/attempts",
+    response_model=CBTAttemptResponse,
+)
+async def start_attempt(
+    payload: CBTAttemptCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    print("========== START CBT ATTEMPT ==========")
+    print("CURRENT USER:", current_user)
+    print("USER ID:", current_user.id)
+    print("EXAM ID:", payload.exam_id)
+
+    student_result = await db.execute(
+        select(Student).where(
+            Student.user_id == current_user.id
+        )
+    )
+
+    student = student_result.scalar_one_or_none()
+
+    if student is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Student profile not found"
+        )
+
+    existing_result = await db.execute(
+        select(CBTAttempt).where(
+            CBTAttempt.exam_id == payload.exam_id,
+            CBTAttempt.student_id == student.id,
+        )
+    )
+
+    existing_attempt = existing_result.scalar_one_or_none()
+
+    if existing_attempt:
+
+        if existing_attempt.completed:
+            raise HTTPException(
+                status_code=400,
+                detail="Exam already submitted",
+            )
+
+        return existing_attempt
+
+    attempt = CBTAttempt(
+        exam_id=payload.exam_id,
+        student_id=student.id,
+    )
+
+    return await CBTService(db).start_attempt(
+        attempt
+    )
+
+# =====================================================
+# ANSWERS
+# =====================================================
+
+@router.post(
+    "/attempts/{attempt_id}/answers",
+    response_model=CBTAnswerResponse,
+)
+async def submit_answer(
+    attempt_id: int,
+    payload: CBTAnswerRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    answer = CBTAnswer(
+        attempt_id=attempt_id,
+        **payload.model_dump()
+    )
+
+    return await CBTService(db).save_answer(
+        answer
+    )
+
+
+
+@router.get(
+    "/attempts/{attempt_id}/result",
+)
+async def get_attempt_result(
+    attempt_id: int,
+
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    attempt = (
+        await db.execute(
+            select(CBTAttempt)
+            .options(
+                joinedload(CBTAttempt.exam),
+                joinedload(CBTAttempt.student),
+            )
+            .where(CBTAttempt.id == attempt_id)
+        )
+    ).scalar_one_or_none()
+
+    if attempt is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Attempt not found",
+        )
+
+    answers = (
+        await db.execute(
+            select(CBTAnswer)
+            .options(
+                joinedload(CBTAnswer.question),
+            )
+            .where(
+                CBTAnswer.attempt_id == attempt_id
+            )
+        )
+    ).scalars().all()
+
+    return {
+        "attempt_id": attempt.id,
+        "exam_title": attempt.exam.title if attempt.exam else "",
+        "score": attempt.score,
+        "total_marks": attempt.total_marks,
+        "percentage": attempt.percentage,
+        "passed": attempt.passed,
+        "submitted_at": attempt.submitted_at,
+        "questions": [
+            {
+                "question_id": a.question.id,
+                "question": a.question.question,
+                "selected_answer": a.selected_answer,
+                "correct_answer": a.question.correct_answer,
+                "marks_awarded": a.marks_awarded,
+                "marks": a.question.marks,
+            }
+            for a in answers
+        ],
+    }
+
+
+@router.post(
+    "/attempts/{attempt_id}/submit",
+    response_model=CBTAttemptResponse,
+)
+async def submit_attempt(
+    attempt_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Resolve the logged-in student's profile.
+    student_result = await db.execute(
+        select(Student).where(
+            Student.user_id == current_user.id
+        )
+    )
+
+    student = student_result.scalar_one_or_none()
+
+    if student is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Student profile not found",
+        )
+
+    # Only the student who owns the attempt can submit it.
+    attempt_result = await db.execute(
+        select(CBTAttempt).where(
+            CBTAttempt.id == attempt_id,
+            CBTAttempt.student_id == student.id,
+        )
+    )
+
+    attempt = attempt_result.scalar_one_or_none()
+
+    if attempt is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Attempt not found",
+        )
+
+    if attempt.completed:
+        raise HTTPException(
+            status_code=400,
+            detail="Exam already submitted",
+        )
+
+    return await CBTService(db).auto_mark(
+        attempt_id
+    )
+
+
+
+
+@router.get(
+    "/exams/{exam_id}/results",
+)
+async def exam_results(
+    exam_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    exam = await db.get(CBTExam, exam_id)
+
+    if exam is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Exam not found",
+        )
+
+    attempts = (
+        await db.execute(
+            select(CBTAttempt)
+            .where(
+                CBTAttempt.exam_id == exam_id,
+                CBTAttempt.completed == True,
+            )
+        )
+    ).scalars().all()
+
+    response = []
+
+    for attempt in attempts:
+
+        student = (
+            await db.execute(
+                select(Student)
+                .options(
+                    joinedload(Student.user),
+                    joinedload(Student.classroom),
+                )
+                .where(
+                    Student.id == attempt.student_id
+                )
+            )
+        ).scalar_one()
+
+        print(
+            "DEBUG:",
+            student.id,
+            student.classroom_id,
+            student.classroom.name if student.classroom else None,
+        )
+
+        response.append(
+            {
+                "attempt_id": attempt.id,
+                "student_id": student.id,
+                "student_name": f"{student.user.first_name} {student.user.last_name}".strip(),
+
+                "student_class": (
+                    student.classroom.name
+                    if getattr(student, "classroom", None)
+                    else None
+                ),
+
+                "school_name": (
+                    student.school.name
+                    if getattr(student, "school", None)
+                    else None
+                ),
+
+                "school_logo": (
+                    student.school.branding.logo_url
+                    if getattr(student, "school", None)
+                    and getattr(student.school, "branding", None)
+                    else None
+                ),
+
+                "primary_color": (
+                    student.school.branding.primary_color
+                    if getattr(student, "school", None)
+                    and getattr(student.school, "branding", None)
+                    and student.school.branding.primary_color
+                    else "#2563EB"
+                ),
+                "admission_number": student.admission_number,
+                "class_name": (
+                    (
+                        await db.execute(
+                            select(Classroom.name).where(
+                                Classroom.id == student.classroom_id
+                            )
+                        )
+                    ).scalar() or "-"
+                ),
+                "score": attempt.score,
+                "percentage": attempt.percentage,
+                "passed": attempt.passed,
+                "submitted_at": attempt.submitted_at,
+            }
+        )
+
+    response.sort(
+        key=lambda x: x["percentage"],
+        reverse=True,
+    )
+
+    return response
+
+
+
+
+
+
+
+@router.delete(
+    "/schools/{school_id}/results/clear",
+)
+async def clear_cbt_results(
+    school_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Super Admin can clear any school.
+    if current_user.role_id != 1:
+        if current_user.school_id != school_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You are not authorized to clear these results."
+            )
+
+    deleted = await CBTService(db).clear_results(
+        school_id
+    )
+
+    return {
+        "success": True,
+        "deleted": deleted,
+        "message": "CBT results cleared successfully."
+    }
+
+@router.get(
+    "/schools/{school_id}/results",
+)
+async def school_cbt_results(
+    school_id:int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    attempts = (
+        await db.execute(
+            select(CBTAttempt)
+            .options(
+                joinedload(CBTAttempt.exam),
+                joinedload(CBTAttempt.student).joinedload(Student.classroom),
+            )
+            .join(
+                CBTExam,
+                CBTAttempt.exam_id == CBTExam.id,
+            )
+            .where(
+                CBTExam.school_id == school_id
+            )
+            .order_by(
+                CBTAttempt.submitted_at.desc()
+            )
+        )
+    ).scalars().all()
+
+    rows = []
+
+    for attempt in attempts:
+
+        student = attempt.student
+        exam = attempt.exam
+
+        student_name = ""
+
+        if student:
+            student_name = (
+                f"{student.first_name} {student.last_name}"
+                if hasattr(student, "first_name")
+                else str(student.id)
+            )
+
+        rows.append({
+            "attempt_id": attempt.id,
+            "student_id": attempt.student_id,
+            "student_name": student_name,
+            "class_name": (
+                student.classroom.name
+                if student and student.classroom
+                else "-"
+            ),
+            "exam_id": exam.id if exam else None,
+            "exam_title": exam.title if exam else "",
+            "score": attempt.score,
+            "total_marks": exam.total_marks if exam else 0,
+            "percentage": attempt.percentage,
+            "passed": attempt.passed,
+            "completed": attempt.completed,
+            "started_at": attempt.started_at,
+            "submitted_at": attempt.submitted_at,
+        })
+
+    return rows
+
+
+@router.put(
+    "/exams/{exam_id}",
+    response_model=CBTExamResponse,
+)
+async def update_exam(
+    exam_id: int,
+    payload: CBTExamCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await CBTService(db).update_exam(
+        exam_id,
+        payload,
+        current_user,
+    )
+
+
+@router.delete(
+    "/exams/{exam_id}",
+)
+async def delete_exam(
+    exam_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await CBTService(db).delete_exam(
+        exam_id,
+        current_user,
+    )
+
+
+@router.post(
+    "/exams/{exam_id}/duplicate",
+    response_model=CBTExamResponse,
+)
+async def duplicate_exam(
+    exam_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await CBTService(db).duplicate_exam(
+        exam_id,
+        current_user,
+    )
+
+
+
+@router.post(
+    "/exams/{exam_id}/publish",
+    response_model=CBTExamResponse,
+)
+async def publish_exam(
+    exam_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    exam = await CBTService(db).publish_exam(
+        exam_id,
+        current_user,
+    )
+
+    exam.status = "Published" if exam.is_active else "Draft"
+
+    return exam
+
+
+@router.post(
+    "/exams/{exam_id}/unpublish",
+    response_model=CBTExamResponse,
+)
+async def unpublish_exam(
+    exam_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await CBTService(db).unpublish_exam(
+        exam_id,
+        current_user,
+    )
+
+
+from fastapi import UploadFile, File
+from pathlib import Path
+from uuid import uuid4
+import shutil
+
+UPLOAD_ROOT = Path("app/uploads/cbt")
+
+
+@router.post("/upload/image")
+async def upload_cbt_image(
+    file: UploadFile = File(...),
+):
+    ext = Path(file.filename).suffix.lower()
+    filename = f"{uuid4().hex}{ext}"
+
+    folder = UPLOAD_ROOT / "images"
+    folder.mkdir(parents=True, exist_ok=True)
+
+    filepath = folder / filename
+
+    with filepath.open("wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return {
+        "url": f"/uploads/cbt/images/{filename}"
+    }
+
+
+@router.post("/upload/audio")
+async def upload_cbt_audio(
+    file: UploadFile = File(...),
+):
+    ext = Path(file.filename).suffix.lower()
+    filename = f"{uuid4().hex}{ext}"
+
+    folder = UPLOAD_ROOT / "audio"
+    folder.mkdir(parents=True, exist_ok=True)
+
+    filepath = folder / filename
+
+    with filepath.open("wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return {
+        "url": f"/uploads/cbt/audio/{filename}"
+    }
+
+
+@router.post("/upload/video")
+async def upload_cbt_video(
+    file: UploadFile = File(...),
+):
+    ext = Path(file.filename).suffix.lower()
+    filename = f"{uuid4().hex}{ext}"
+
+    folder = UPLOAD_ROOT / "videos"
+    folder.mkdir(parents=True, exist_ok=True)
+
+    filepath = folder / filename
+
+    with filepath.open("wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return {
+        "url": f"/uploads/cbt/videos/{filename}"
+    }
+
+
+
+@router.get(
+    "/results/analysis/{exam_id}",
+)
+async def question_analysis(
+    exam_id:int,
+    db:AsyncSession=Depends(get_db),
+):
+
+    questions=(
+        await db.execute(
+            select(CBTQuestion)
+            .where(
+                CBTQuestion.exam_id==exam_id
+            )
+        )
+    ).scalars().all()
+
+    data=[]
+
+    for q in questions:
+
+        answers=(
+            await db.execute(
+                select(CBTAnswer)
+                .where(
+                    CBTAnswer.question_id==q.id
+                )
+            )
+        ).scalars().all()
+
+        total=len(answers)
+
+        wrong=len(
+            [a for a in answers if not a.is_correct]
+        )
+
+        data.append(
+            {
+                "question_id":q.id,
+                "question":q.question_text,
+                "total_attempts":total,
+                "wrong_answers":wrong,
+                "accuracy":0 if total==0 else round(((total-wrong)/total)*100,2)
+            }
+        )
+
+    return sorted(
+        data,
+        key=lambda x:x["accuracy"]
+    )
+
+
+
+@router.get(
+    "/results/dashboard",
+)
+async def cbt_dashboard(
+    school_id:int,
+    db:AsyncSession=Depends(get_db),
+):
+
+    attempts=(
+        await db.execute(
+            select(CBTAttempt)
+            .join(
+                CBTExam,
+                CBTAttempt.exam_id==CBTExam.id,
+            )
+            .where(
+                CBTExam.school_id==school_id,
+                CBTAttempt.completed==True,
+            )
+        )
+    ).scalars().all()
+
+    total=len(attempts)
+
+    passed=len(
+        [a for a in attempts if a.passed]
+    )
+
+    failed=total-passed
+
+    scores=[a.score for a in attempts]
+
+    average=round(sum(scores)/len(scores),2) if scores else 0
+
+    highest=max(scores) if scores else 0
+
+    lowest=min(scores) if scores else 0
+
+    return{
+        "total_attempts":total,
+        "passed":passed,
+        "failed":failed,
+        "average_score":average,
+        "highest_score":highest,
+        "lowest_score":lowest,
+    }
+
+
+
+from fastapi import Body
+
+@router.post(
+    "/schools/{school_id}/results/save",
+)
+async def save_results(
+    school_id: int,
+    payload: dict = Body(default={}),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Compatibility endpoint.
+
+    CBT results are automatically saved when a student submits an exam.
+    This endpoint exists only so older frontends don't fail with 404.
+    """
+
+    return {
+        "success": True,
+        "message": "Results are already saved automatically.",
+        "school_id": school_id,
+        "exam_id": payload.get("exam_id"),
+    }
+

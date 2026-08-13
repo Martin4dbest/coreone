@@ -8,11 +8,16 @@ import {
   StyleSheet,
   SafeAreaView,
   StatusBar,
-  ScrollView,
+  Dimensions,
+  Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+
+const { width } = Dimensions.get("window");
+const isDesktopWeb = Platform.OS === "web" && width >= 900;
+const desktopContentWidth = Math.min(Math.max(width - 48, 320), 960);
 
 export default function Landing() {
   const features = [
@@ -44,12 +49,9 @@ export default function Landing() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
+        <View style={styles.mainWrapper}>
           {/* Brand Header */}
           <View style={styles.header}>
             <View style={styles.logoRow}>
@@ -60,8 +62,9 @@ export default function Landing() {
                 />
               </View>
               <View style={styles.brandTitleGroup}>
-                <Text style={styles.brand}>PreSense</Text>
-               
+                <Text style={styles.brand}>
+                  Pre<Text style={styles.brandAccent}>Sense</Text>
+                </Text>
               </View>
             </View>
           </View>
@@ -73,7 +76,7 @@ export default function Landing() {
                 uri: "https://images.unsplash.com/photo-1531482615713-2afd69097998?q=80&w=1000",
               }}
               style={styles.heroImage}
-              imageStyle={{ borderRadius: 20 }}
+              imageStyle={styles.heroImageStyle}
             >
               <Image
                 source={{
@@ -84,10 +87,17 @@ export default function Landing() {
               />
 
               <LinearGradient
-                colors={["transparent", "rgba(15, 23, 42, 0.65)", "rgba(15, 23, 42, 0.95)"]}
+                colors={["transparent", "rgba(15, 23, 42, 0.6)", "rgba(15, 23, 42, 0.94)"]}
                 style={styles.heroGradient}
               >
-                
+                <View style={styles.heroPill}>
+                  <Ionicons name="sparkles" size={12} color="#FCA5A5" />
+                  <Text style={styles.heroPillText}>Next-Gen Education ERP</Text>
+                </View>
+                <Text style={styles.heroTitle}>Empowering Modern Learning</Text>
+                <Text style={styles.heroSubtitle}>
+                  Seamlessly track analytics, results, and attendance in one unified portal.
+                </Text>
               </LinearGradient>
             </ImageBackground>
           </View>
@@ -105,21 +115,25 @@ export default function Landing() {
                 <ImageBackground
                   source={{ uri: item.image }}
                   style={styles.featureBgImage}
-                  imageStyle={{ borderTopLeftRadius: 16, borderTopRightRadius: 16 }}
+                  imageStyle={{ borderTopLeftRadius: 12, borderTopRightRadius: 12 }}
                 >
                   <LinearGradient
-                    colors={["rgba(0,0,0,0.02)", "rgba(0,0,0,0.45)"]}
+                    colors={["rgba(0,0,0,0.02)", "rgba(15,23,42,0.65)"]}
                     style={styles.featureImageGradient}
                   >
                     <View style={styles.iconBadge}>
-                      <Ionicons name={item.icon as any} size={16} color="#B91C1C" />
+                      <Ionicons name={item.icon as any} size={14} color="#B91C1C" />
                     </View>
                   </LinearGradient>
                 </ImageBackground>
 
                 <View style={styles.featureContent}>
-                  <Text style={styles.featureTitle}>{item.title}</Text>
-                  <Text style={styles.featureDesc}>{item.desc}</Text>
+                  <Text style={styles.featureTitle} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <Text style={styles.featureDesc} numberOfLines={2}>
+                    {item.desc}
+                  </Text>
                 </View>
               </View>
             ))}
@@ -141,8 +155,7 @@ export default function Landing() {
 
           {/* Footer */}
           <Text style={styles.footer}>Powered by PreSense Technologies</Text>
-
-        </ScrollView>
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -156,27 +169,30 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16, // Adjusted slightly for breathing room
-    paddingBottom: 24,
+  mainWrapper: {
+    flex: 1,
+    paddingHorizontal: isDesktopWeb ? 0 : 16,
+    paddingTop: Platform.OS === "ios" ? 4 : 10,
+    paddingBottom: 10,
+    justifyContent: "space-between",
     alignItems: "center",
+    width: isDesktopWeb ? desktopContentWidth : "100%",
+    alignSelf: "center",
   },
 
   /* Header */
   header: {
     width: "100%",
-    paddingTop: 14, // Added top margin to lower header on screen
-    marginBottom: 16,
+    marginBottom: 8,
   },
   logoRow: {
     flexDirection: "row",
     alignItems: "center",
   },
   logoContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
@@ -185,12 +201,12 @@ const styles = StyleSheet.create({
     shadowColor: "#64748B",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
-    shadowRadius: 6,
+    shadowRadius: 4,
     elevation: 2,
   },
   logo: {
-    width: 28,
-    height: 28,
+    width: 24,
+    height: 24,
     resizeMode: "contain",
   },
   brandTitleGroup: {
@@ -202,93 +218,101 @@ const styles = StyleSheet.create({
     color: "#0F172A",
     letterSpacing: -0.5,
   },
-  brandSubtitle: {
-    fontSize: 11,
+  brandAccent: {
     color: "#B91C1C",
-    fontWeight: "600",
   },
 
   /* Hero Image Banner */
   heroCard: {
     width: "100%",
-    height: 240, // Reduced height slightly to pull everything into perfect mobile view
-    borderRadius: 20,
+    flex: 1.1,
+    minHeight: 140,
+    maxHeight: isDesktopWeb ? 260 : 180,
+    borderRadius: 16,
     overflow: "hidden",
     shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
-    marginBottom: 20,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+    marginBottom: 10,
     position: "relative",
+    backgroundColor: "#E2E8F0",
   },
   heroImage: {
     width: "100%",
     height: "100%",
     justifyContent: "flex-end",
   },
+  heroImageStyle: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 16,
+    resizeMode: "cover",
+  },
   worldMapOverlay: {
     position: "absolute",
-    top: 12,
-    right: 12,
-    width: 140,
-    height: 80,
-    opacity: 0.25,
+    top: 8,
+    right: 8,
+    width: 110,
+    height: 60,
+    opacity: 0.2,
     tintColor: "#FFFFFF",
   },
   heroGradient: {
     width: "100%",
-    padding: 16,
-    paddingTop: 48,
+    padding: 12,
+    paddingTop: 20,
     justifyContent: "flex-end",
   },
   heroPill: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    backgroundColor: "rgba(15, 23, 42, 0.8)",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    gap: 6,
-    marginBottom: 8,
+    backgroundColor: "rgba(15, 23, 42, 0.75)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 4,
+    marginBottom: 6,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
+    borderColor: "rgba(255, 255, 255, 0.15)",
   },
   heroPillText: {
     color: "#FFFFFF",
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "700",
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   heroTitle: {
     color: "#FFFFFF",
-    fontSize: 19,
+    fontSize: isDesktopWeb ? 22 : 16,
     fontWeight: "800",
-    lineHeight: 24,
+    lineHeight: isDesktopWeb ? 26 : 20,
   },
   heroSubtitle: {
-    color: "#E2E8F0",
-    fontSize: 11,
-    marginTop: 4,
-    lineHeight: 15,
+    color: "#CBD5E1",
+    fontSize: isDesktopWeb ? 13 : 11,
+    marginTop: 2,
+    lineHeight: isDesktopWeb ? 17 : 14,
     fontWeight: "400",
   },
 
   /* Section Header */
   sectionHeader: {
     width: "100%",
-    marginBottom: 12,
+    alignSelf: "center",
+    marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: isDesktopWeb ? 18 : 15,
     fontWeight: "800",
     color: "#0F172A",
   },
   sectionSub: {
-    fontSize: 11,
+    fontSize: isDesktopWeb ? 12 : 10,
     color: "#64748B",
-    marginTop: 2,
+    marginTop: 1,
   },
 
   /* Feature Grid */
@@ -297,82 +321,83 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    gap: 12,
-    marginBottom: 20,
+    rowGap: 8,
+    marginBottom: 10,
+    alignSelf: "center",
   },
   featureCard: {
-    width: "48%",
+    width: "48.5%",
+    borderRadius: 12,
+    overflow: "hidden",
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    overflow: "hidden",
-    shadowColor: "#000",
+    shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  featureBgImage: {
-    height: 85,
-    width: "100%",
-  },
-  featureImageGradient: {
-    flex: 1,
-    padding: 8,
-    justifyContent: "flex-end",
-  },
-  iconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 2,
   },
+  featureBgImage: {
+    width: "100%",
+    height: isDesktopWeb ? 70 : 55,
+  },
+  featureImageGradient: {
+    flex: 1,
+    padding: 6,
+    justifyContent: "flex-end",
+  },
+  iconBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 1,
+  },
   featureContent: {
-    padding: 10,
+    padding: 8,
   },
   featureTitle: {
-    fontSize: 12,
+    fontSize: isDesktopWeb ? 13 : 11,
     fontWeight: "700",
     color: "#0F172A",
   },
   featureDesc: {
-    fontSize: 10,
+    fontSize: isDesktopWeb ? 11 : 9.5,
     color: "#64748B",
-    marginTop: 3,
-    lineHeight: 14,
+    marginTop: 1,
+    lineHeight: 12,
   },
 
   /* Single Primary Action Button */
   actionContainer: {
     width: "100%",
-    marginTop: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: 4,
   },
   primaryButton: {
-    width: "100%",
-    height: 48,
     backgroundColor: "#B91C1C",
-    borderRadius: 24,
+    borderRadius: 12,
+    minHeight: 44,
+    width: isDesktopWeb ? 280 : "100%",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     shadowColor: "#B91C1C",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
     elevation: 3,
   },
   primaryButtonText: {
     color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: isDesktopWeb ? 15 : 13,
     fontWeight: "700",
   },
   buttonPressed: {
@@ -382,9 +407,12 @@ const styles = StyleSheet.create({
 
   /* Footer */
   footer: {
-    fontSize: 11,
+    width: "100%",
+    textAlign: "center",
+    fontSize: 10,
     color: "#94A3B8",
+    marginTop: 2,
+    alignSelf: "center",
     fontWeight: "500",
-    marginTop: 20,
   },
 });

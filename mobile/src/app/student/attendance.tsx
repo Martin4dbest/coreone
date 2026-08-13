@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import {
+useCallback, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -8,9 +9,19 @@ import {
   Text,
   View,
   Pressable,
+  Dimensions,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
+
+const { width: screenWidth } = Dimensions.get("window");
+const isDesktopWeb = Platform.OS === "web" && screenWidth >= 900;
+const desktopMaxWidth = Math.min(
+  Math.max(screenWidth - 48, 320),
+  1180
+);
+
 
 import { getStudentAttendance } from "@/services/student";
 

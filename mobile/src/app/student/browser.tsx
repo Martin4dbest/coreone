@@ -1,17 +1,27 @@
 import React, { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
+ActivityIndicator,
   FlatList,
   Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
   View,
+  Dimensions,
+  Platform,
 } from "react-native";
 import { WebView } from "react-native-webview";
 import { useFocusEffect, useRouter } from "expo-router";
 import api from "@/services/api";
 import { Redirect } from "expo-router";
+
+const { width: screenWidth } = Dimensions.get("window");
+const isDesktopWeb = Platform.OS === "web" && screenWidth >= 900;
+const desktopMaxWidth = Math.min(
+  Math.max(screenWidth - 48, 320),
+  1180
+);
+
 
 type BrowserResource = {
   id: number;
@@ -441,9 +451,11 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 18,
+    width: isDesktopWeb ? desktopMaxWidth : "100%",
+    alignSelf: "center",
+    paddingHorizontal: isDesktopWeb ? 8 : 20,
+    paddingTop: isDesktopWeb ? 24 : 18,
+    paddingBottom: isDesktopWeb ? 20 : 18,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderBottomColor: "#E8ECF3",
@@ -496,15 +508,15 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: {
-    fontSize: 24,
+    fontSize: isDesktopWeb ? 28 : 24,
     fontWeight: "800",
     color: "#C99A2E",
     letterSpacing: -0.4,
   },
 
   headerSubtitle: {
-    marginTop: 4,
-    fontSize: 13,
+    marginTop: 5,
+    fontSize: isDesktopWeb ? 14 : 13,
     color: "#64748B",
   },
 
@@ -536,17 +548,22 @@ const styles = StyleSheet.create({
   },
 
   list: {
-    padding: 16,
-    paddingTop: 18,
+    width: isDesktopWeb ? desktopMaxWidth : "100%",
+    alignSelf: "center",
+    paddingHorizontal: isDesktopWeb ? 8 : 16,
+    paddingTop: isDesktopWeb ? 24 : 18,
     paddingBottom: 35,
   },
 
   resourceCard: {
+    width: isDesktopWeb ? 900 : "100%",
+    maxWidth: isDesktopWeb ? "100%" : undefined,
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 20,
-    padding: 15,
-    marginBottom: 13,
+    borderRadius: isDesktopWeb ? 16 : 20,
+    padding: isDesktopWeb ? 18 : 15,
+    marginBottom: isDesktopWeb ? 16 : 13,
     borderWidth: 1,
     shadowColor: "#0F172A",
     shadowOffset: {
@@ -584,8 +601,8 @@ const styles = StyleSheet.create({
   },
 
   resourceTitle: {
-    fontSize: 17,
-    lineHeight: 22,
+    fontSize: isDesktopWeb ? 18 : 17,
+    lineHeight: isDesktopWeb ? 25 : 22,
     fontWeight: "800",
   },
 
@@ -606,8 +623,8 @@ const styles = StyleSheet.create({
 
   description: {
     marginTop: 7,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: isDesktopWeb ? 14 : 13,
+    lineHeight: isDesktopWeb ? 20 : 18,
   },
 
   openResourceRow: {
@@ -696,7 +713,9 @@ const styles = StyleSheet.create({
   },
 
   webHeader: {
-    height: 70,
+    width: isDesktopWeb ? desktopMaxWidth : "100%",
+    height: isDesktopWeb ? 76 : 70,
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
@@ -732,7 +751,7 @@ const styles = StyleSheet.create({
   },
 
   webTitle: {
-    fontSize: 16,
+    fontSize: isDesktopWeb ? 18 : 16,
     fontWeight: "800",
     color: "#0F172A",
   },
@@ -771,6 +790,9 @@ const styles = StyleSheet.create({
 
   webViewContainer: {
     flex: 1,
+    width: isDesktopWeb ? desktopMaxWidth : "100%",
+    maxWidth: isDesktopWeb ? 1280 : undefined,
+    alignSelf: "center",
     position: "relative",
     backgroundColor: "#FFFFFF",
   },

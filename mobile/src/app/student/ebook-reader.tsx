@@ -1,16 +1,26 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
+ActivityIndicator,
   Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
   View,
+  Dimensions,
+  Platform,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { WebView } from "react-native-webview";
 import * as FileSystem from "expo-file-system/legacy";
 import { Asset } from "expo-asset";
+
+const { width: screenWidth } = Dimensions.get("window");
+const isDesktopWeb = Platform.OS === "web" && screenWidth >= 900;
+const desktopMaxWidth = Math.min(
+  Math.max(screenWidth - 48, 320),
+  1180
+);
+
 
 import api from "../../services/api";
 
@@ -298,19 +308,23 @@ export default function EbookReader() {
 
     #viewer {
       width: 100%;
-      padding: 12px 0 30px 0;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 18px 0 36px 0;
     }
 
     .page-wrapper {
       width: 100%;
       display: flex;
       justify-content: center;
-      margin-bottom: 14px;
+      margin-bottom: 18px;
+      padding: 0 18px;
+      box-sizing: border-box;
     }
 
     canvas.page {
       display: block;
-      max-width: calc(100% - 20px);
+      max-width: min(100%, 980px);
       height: auto;
       background: #ffffff;
       box-shadow: 0 1px 5px rgba(0, 0, 0, 0.12);
@@ -569,14 +583,14 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 16,
+    fontSize: isDesktopWeb ? 19 : 16,
     fontWeight: "600",
     color: "#111827",
   },
 
   status: {
     marginTop: 2,
-    fontSize: 12,
+    fontSize: isDesktopWeb ? 13 : 12,
     color: "#6B7280",
   },
 

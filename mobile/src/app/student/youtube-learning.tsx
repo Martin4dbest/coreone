@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
+ActivityIndicator,
   FlatList,
   Image,
   Pressable,
@@ -8,11 +8,21 @@ import {
   StyleSheet,
   Text,
   View,
+  Dimensions,
+  Platform,
 } from "react-native";
 import { WebView } from "react-native-webview";
 import { useFocusEffect, useRouter } from "expo-router";
 import api from "@/services/api";
 import { Redirect } from "expo-router";
+
+const { width: screenWidth } = Dimensions.get("window");
+const isDesktopWeb = Platform.OS === "web" && screenWidth >= 900;
+const desktopMaxWidth = Math.min(
+  Math.max(screenWidth - 48, 320),
+  1180
+);
+
 
 type YoutubeVideo = {
   id: number;
@@ -323,9 +333,11 @@ const styles = StyleSheet.create({
 
   /* HEADER - Pushed down for comfortable top spacing */
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 28, // Pushed down from top
-    paddingBottom: 20,
+    width: isDesktopWeb ? desktopMaxWidth : "100%",
+    alignSelf: "center",
+    paddingHorizontal: isDesktopWeb ? 8 : 20,
+    paddingTop: isDesktopWeb ? 24 : 28,
+    paddingBottom: isDesktopWeb ? 18 : 20,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderBottomColor: "#E2E8F0",
@@ -395,7 +407,7 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: {
-    fontSize: 20,
+    fontSize: isDesktopWeb ? 26 : 20,
     fontWeight: "900",
     color: "#0F172A",
     letterSpacing: -0.3,
@@ -403,7 +415,7 @@ const styles = StyleSheet.create({
 
   headerSubtitle: {
     marginTop: 2,
-    fontSize: 12,
+    fontSize: isDesktopWeb ? 14 : 12,
     color: "#64748B",
     fontWeight: "500",
   },
@@ -437,14 +449,20 @@ const styles = StyleSheet.create({
 
   /* LIST & CARDS */
   list: {
-    padding: 18,
+    width: isDesktopWeb ? desktopMaxWidth : "100%",
+    alignSelf: "center",
+    paddingHorizontal: isDesktopWeb ? 8 : 18,
+    paddingTop: isDesktopWeb ? 22 : 18,
     paddingBottom: 40,
   },
 
   videoCard: {
+    width: isDesktopWeb ? "100%" : "100%",
+    maxWidth: isDesktopWeb ? 900 : undefined,
+    alignSelf: "center",
     backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    marginBottom: 20,
+    borderRadius: isDesktopWeb ? 18 : 22,
+    marginBottom: isDesktopWeb ? 22 : 20,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "#E2E8F0",
@@ -457,7 +475,7 @@ const styles = StyleSheet.create({
 
   thumbnailContainer: {
     width: "100%",
-    height: 190,
+    height: isDesktopWeb ? 340 : 190,
     backgroundColor: "#000000",
     position: "relative",
   },
@@ -539,16 +557,16 @@ const styles = StyleSheet.create({
   },
 
   cardTitle: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: isDesktopWeb ? 19 : 16,
+    lineHeight: isDesktopWeb ? 26 : 22,
     fontWeight: "800",
     color: "#0F172A",
   },
 
   description: {
     marginTop: 6,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: isDesktopWeb ? 14 : 13,
+    lineHeight: isDesktopWeb ? 21 : 18,
     color: "#64748B",
   },
 
@@ -566,7 +584,7 @@ const styles = StyleSheet.create({
 
   watchArrow: {
     marginLeft: 6,
-    fontSize: 15,
+    fontSize: isDesktopWeb ? 18 : 15,
     fontWeight: "800",
     color: "#DC2626",
   },
@@ -708,6 +726,9 @@ const styles = StyleSheet.create({
 
   webViewContainer: {
     flex: 1,
+    width: isDesktopWeb ? desktopMaxWidth : "100%",
+    maxWidth: isDesktopWeb ? 1200 : undefined,
+    alignSelf: "center",
     position: "relative",
     backgroundColor: "#000000",
   },

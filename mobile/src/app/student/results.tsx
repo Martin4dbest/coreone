@@ -1,11 +1,21 @@
 import React, { useEffect, useState } from "react";
 import {
-  View,
+View,
   Text,
   ActivityIndicator,
   ScrollView,
   StyleSheet,
+  Dimensions,
+  Platform,
 } from "react-native";
+
+const { width: screenWidth } = Dimensions.get("window");
+const isDesktopWeb = Platform.OS === "web" && screenWidth >= 900;
+const desktopMaxWidth = Math.min(
+  Math.max(screenWidth - 48, 320),
+  1180
+);
+
 
 import { getStudentResults } from "@/services/student";
 import { Redirect } from "expo-router";
@@ -57,27 +67,27 @@ const [loading, setLoading] = useState(true);
         {result.student.name}
       </Text>
 
-      <Text>
+      <Text style={styles.summaryText}>
         Class: {result.student.class}
       </Text>
 
-      <Text>
+      <Text style={styles.summaryText}>
         Session: {result.session}
       </Text>
 
-      <Text>
+      <Text style={styles.summaryText}>
         Term: {result.term}
       </Text>
 
-      <Text>
+      <Text style={styles.summaryText}>
         Position: {result.position}
       </Text>
 
-      <Text>
+      <Text style={styles.summaryText}>
         Average: {result.average}
       </Text>
 
-      <Text>
+      <Text style={styles.summaryText}>
         Attendance: {result.attendance}%
       </Text>
 
@@ -88,7 +98,7 @@ const [loading, setLoading] = useState(true);
           key={index}
           style={styles.card}
         >
-          <Text>{subject.name}</Text>
+          <Text style={styles.subjectTitle}>{subject.name}</Text>
 
           <Text>
             CA: {subject.ca}
@@ -118,8 +128,13 @@ const [loading, setLoading] = useState(true);
 const styles = StyleSheet.create({
   container:{
     flex:1,
-    padding:20,
+    paddingHorizontal: isDesktopWeb ? 32 : 20,
+    paddingTop: isDesktopWeb ? 28 : 20,
+    paddingBottom: isDesktopWeb ? 40 : 20,
     backgroundColor:"#fff",
+    width: isDesktopWeb ? desktopMaxWidth : "100%",
+    maxWidth: isDesktopWeb ? 1100 : undefined,
+    alignSelf: "center",
   },
   center:{
     flex:1,
@@ -127,15 +142,32 @@ const styles = StyleSheet.create({
     alignItems:"center",
   },
   title:{
-    fontSize:24,
-    fontWeight:"700",
-    marginBottom:20,
+    fontSize: isDesktopWeb ? 30 : 24,
+    fontWeight:"800",
+    marginBottom: isDesktopWeb ? 24 : 20,
+    color:"#0F172A",
+  },
+  summaryText:{
+    fontSize: isDesktopWeb ? 15 : 14,
+    lineHeight: isDesktopWeb ? 22 : 20,
+    color:"#475569",
+    marginBottom: 4,
+  },
+  subjectTitle:{
+    fontSize: isDesktopWeb ? 18 : 15,
+    fontWeight:"800",
+    color:"#0F172A",
+    marginBottom: 8,
   },
   card:{
-    marginBottom:15,
-    padding:15,
-    borderRadius:10,
+    width: "100%",
+    maxWidth: isDesktopWeb ? 900 : undefined,
+    alignSelf: "center",
+    marginBottom: isDesktopWeb ? 16 : 15,
+    padding: isDesktopWeb ? 18 : 15,
+    borderRadius: isDesktopWeb ? 14 : 10,
     borderWidth:1,
-    borderColor:"#ddd",
+    borderColor:"#E2E8F0",
+    backgroundColor:"#FFFFFF",
   },
 });

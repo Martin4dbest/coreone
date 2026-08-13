@@ -30,6 +30,11 @@ class CBTQuestion(Base, BaseModel):
         String(500),
     )
 
+    video_url: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+    )
+
     option_a: Mapped[str] = mapped_column(
         Text,
     )
