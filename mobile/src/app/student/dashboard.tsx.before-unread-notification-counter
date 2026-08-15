@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback } from "react";
-import { AppState,
+import {
   View,
   Text,
   StyleSheet,
@@ -108,76 +108,28 @@ export default function StudentDashboard() {
   const [unreadNotificationCount, setUnreadNotificationCount] =
     useState(0);
 
-  /*
-   * Load the real unread count from the backend.
-   *
-   * The backend already returns is_read for every notification.
-   * We therefore count ONLY notifications where is_read === false.
-   */
   const loadUnreadNotificationCount = useCallback(async () => {
     try {
-      const response = await api.get("/notifications");
-      const notifications = response?.data;
+      const { data } = await api.get("/notifications");
 
-      if (!Array.isArray(notifications)) {
+      if (Array.isArray(data)) {
+        const unreadCount = data.filter(
+          (notification: any) => notification?.is_read === false
+        ).length;
+
+        setUnreadNotificationCount(unreadCount);
+      } else {
         setUnreadNotificationCount(0);
-        return;
       }
-
-      const unreadCount = notifications.reduce(
-        (count: number, notification: any) => {
-          return count + (notification?.is_read === false ? 1 : 0);
-        },
-        0
-      );
-
-      console.log(
-        "UNREAD NOTIFICATION COUNT:",
-        unreadCount
-      );
-
-      setUnreadNotificationCount(unreadCount);
     } catch (error) {
       console.error(
         "Error loading notification unread count:",
         error
       );
-
-      /*
-       * Do not leave an old badge visible when the request fails.
-       */
       setUnreadNotificationCount(0);
     }
   }, []);
 
-  /*
-   * Load immediately when the dashboard mounts.
-   *
-   * Also refresh periodically so a notification created by the
-   * School Admin appears on the dashboard without requiring a
-   * manual reload.
-   */
-  useEffect(() => {
-    loadUnreadNotificationCount();
-
-    const interval = setInterval(() => {
-      loadUnreadNotificationCount();
-    }, 5000);
-
-    const subscription = AppState.addEventListener(
-      "change",
-      (nextState) => {
-        if (nextState === "active") {
-          loadUnreadNotificationCount();
-        }
-      }
-    );
-
-    return () => {
-      clearInterval(interval);
-      subscription.remove();
-    };
-  }, [loadUnreadNotificationCount]);
 
   const [activeTab, setActiveTab] = useState("Home");
   const [logoError, setLogoError] = useState(false);
@@ -369,30 +321,17 @@ export default function StudentDashboard() {
           <Pressable
             style={({ pressed }) => [
               styles.notificationButton,
-              unreadNotificationCount > 0 &&
-                styles.notificationButtonUnread,
               pressed && styles.pressedState,
             ]}
-            onPress={() => {
-              router.push("/student/notifications");
-            }}
+            onPress={() => router.push("/student/notifications")}
           >
-            <Ionicons
-              name="notifications-outline"
-              size={25}
-              color={
-                unreadNotificationCount > 0
-                  ? "#16A34A"
-                  : "#1E293B"
-              }
-            />
-
+            <Ionicons name="notifications-outline" size={24} color="#1E293B" />
             {unreadNotificationCount > 0 && (
               <View style={styles.notificationBadge}>
                 <Text style={styles.notificationBadgeText}>
                   {unreadNotificationCount > 99
                     ? "99+"
-                    : String(unreadNotificationCount)}
+                    : unreadNotificationCount}
                 </Text>
               </View>
             )}
@@ -877,11 +816,6 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     position: "relative",
   },
-
-  notificationButtonUnread: {
-    borderColor: "#22C55E",
-    backgroundColor: "#F0FDF4",
-  },
   notificationBadgeText: {
     color: "#FFFFFF",
     fontSize: 10,
@@ -892,19 +826,12 @@ const styles = StyleSheet.create({
 
   notificationBadge: {
     position: "absolute",
-    top: -6,
-    right: -6,
-    minWidth: 22,
-    height: 22,
-    paddingHorizontal: 5,
-    borderRadius: 11,
-    backgroundColor: "#16A34A",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-    zIndex: 20,
-    elevation: 6,
+    top: 10,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#D4AF37",
   },
   scrollContent: {
     paddingHorizontal: isDesktopWeb ? 28 : 20,
