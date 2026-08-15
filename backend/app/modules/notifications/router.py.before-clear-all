@@ -45,18 +45,6 @@ async def get_notifications(
     )
 
 
-@router.delete(
-    "/clear-all",
-)
-async def clear_all_notifications(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await NotificationService(db).clear_all_notifications(
-        current_user
-    )
-
-
 @router.patch(
     "/{notification_id}/read",
     response_model=NotificationResponse,

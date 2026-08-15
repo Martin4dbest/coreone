@@ -42,43 +42,6 @@ class NotificationRepository:
         result = await self.db.execute(query)
         return result.scalars().all()
 
-    async def clear_all(
-        self,
-        school_id: int,
-        recipient_type: str | None = None,
-        student_id: int | None = None,
-    ):
-        query = select(Notification).where(
-            Notification.school_id == school_id,
-            Notification.is_active.is_(True),
-        )
-
-        if recipient_type == "STUDENT" and student_id is not None:
-            query = query.where(
-                (Notification.recipient_type.is_(None))
-                | (
-                    Notification.recipient_type
-                    == f"STUDENT:{student_id}"
-                )
-            )
-
-        elif recipient_type:
-            query = query.where(
-                (Notification.recipient_type == recipient_type)
-                | (Notification.recipient_type.is_(None))
-            )
-
-        result = await self.db.execute(query)
-        notifications = result.scalars().all()
-
-        for notification in notifications:
-            notification.is_active = False
-
-        await self.db.commit()
-
-        return len(notifications)
-
-
     async def get_by_id(
         self,
         notification_id: int,

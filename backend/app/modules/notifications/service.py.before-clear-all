@@ -79,50 +79,6 @@ class NotificationService:
             recipient_type=recipient_type,
         )
 
-    async def clear_all_notifications(
-        self,
-        current_user,
-    ):
-        role = current_user.role.name
-
-        # Admins clear the school's entire active notification history.
-        # This makes the cleared state consistent across admin and student
-        # notification views without changing notification permissions or
-        # recipient targeting.
-        if role in ("SUPER_ADMIN", "SCHOOL_ADMIN"):
-            cleared = await self.repository.clear_all(
-                school_id=current_user.school_id,
-            )
-            return {"cleared": cleared}
-
-        # Other users clear only notifications applicable to themselves.
-        if role == "STUDENT":
-            student = await self._get_current_student(current_user)
-
-            if not student:
-                return {"cleared": 0}
-
-            cleared = await self.repository.clear_all(
-                school_id=current_user.school_id,
-                recipient_type="STUDENT",
-                student_id=student.id,
-            )
-        else:
-            recipient_type = None
-
-            if role == "TEACHER":
-                recipient_type = "TEACHER"
-            elif role == "PARENT":
-                recipient_type = "PARENT"
-
-            cleared = await self.repository.clear_all(
-                school_id=current_user.school_id,
-                recipient_type=recipient_type,
-            )
-
-        return {"cleared": cleared}
-
-
     async def get_notification(
         self,
         notification_id: int,
