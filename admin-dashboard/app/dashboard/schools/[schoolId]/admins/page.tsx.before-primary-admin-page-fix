@@ -39,9 +39,6 @@ export default function SchoolAdminsPage({
   params: Promise<{ schoolId: string }>;
 }) {
   const { schoolId } = use(params);
-
-  const [schoolName, setSchoolName] = useState("");
-
   const router = useRouter();
 
   const [admins, setAdmins] = useState<User[]>([]);
@@ -103,22 +100,10 @@ export default function SchoolAdminsPage({
   useEffect(() => {
     async function authorizeAndLoad() {
       try {
-        const schoolResponse = await api.get(`/schools/${schoolId}`);
-        setSchoolName(schoolResponse.data?.name || "");
-
-
         const userResponse = await api.get("/auth/me");
 
         const currentRole =
           userResponse.data?.role?.name;
-
-        setCurrentUserRole(currentRole || "");
-
-        setCurrentUserIsPrimary(
-          Boolean(
-            userResponse.data?.is_primary_school_admin
-          )
-        );
 
         if (
           currentRole !== "SUPER_ADMIN" &&
@@ -444,12 +429,6 @@ export default function SchoolAdminsPage({
                     <div className="min-w-0">
                       <p className="break-words font-semibold text-slate-900">
                         {admin.email}
-                      </p>
-
-                      <p className="mt-1 text-xs font-medium text-indigo-600">
-                        {admin.is_primary_school_admin
-                          ? `Super Admin for ${schoolName || "this school"}`
-                          : `Admin for ${schoolName || "this school"}`}
                       </p>
 
                       <p className="mt-1 text-xs text-slate-500">

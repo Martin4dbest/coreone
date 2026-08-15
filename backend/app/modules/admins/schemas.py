@@ -16,6 +16,7 @@ class SchoolAdminResponse(BaseModel):
     email: EmailStr
     is_active: bool
     is_verified: bool
+    is_primary_school_admin: bool = False
 
     class Config:
         from_attributes = True

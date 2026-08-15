@@ -9,6 +9,29 @@ class UserRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def get_first_school_admin(
+        self,
+        school_id: int,
+    ):
+        from app.models.role import Role
+
+        result = await self.db.execute(
+            select(User)
+            .join(
+                Role,
+                User.role_id == Role.id,
+            )
+            .where(
+                User.school_id == school_id,
+                Role.name == "SCHOOL_ADMIN",
+            )
+            .order_by(User.id.asc())
+            .limit(1)
+        )
+
+        return result.scalar_one_or_none()
+
+
     async def get_by_email(
         self,
         email: str,

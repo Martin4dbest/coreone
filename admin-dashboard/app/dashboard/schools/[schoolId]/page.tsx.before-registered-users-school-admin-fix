@@ -30,7 +30,6 @@ type CurrentUser = {
   role: {
     name: string;
   };
-  is_primary_school_admin?: boolean;
 };
 
 type School = {
@@ -147,12 +146,6 @@ return (
   const isSchoolAdmin =
     role === "SCHOOL_ADMIN";
 
-  const isPrimarySchoolAdmin =
-    isSchoolAdmin &&
-    Boolean(
-      (currentUser as any)?.is_primary_school_admin
-    );
-
   const isTeacher =
     role === "TEACHER";
 
@@ -167,14 +160,14 @@ return (
 
 
 const schoolModules = [
-    ...((isSuperAdmin || isSchoolAdmin) ? [{
+    ...(isSuperAdmin ? [{
       title: "Registered Users",
       description: "View registered teachers and school administrators",
       icon: UserCog,
       href: `/dashboard/schools/${schoolId}/registered-users`,
     }] : []),
 
-    ...((isSuperAdmin || isPrimarySchoolAdmin) ? [{
+    ...(isSuperAdmin ? [{
       title: "School Admins",
       description: "Manage administrators assigned to this school",
       icon: Settings,

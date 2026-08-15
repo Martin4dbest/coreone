@@ -44,10 +44,7 @@ async def get_school_admins(
     school_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(
-        require_roles(
-            "SUPER_ADMIN",
-            "SCHOOL_ADMIN",
-        )
+        require_roles("SUPER_ADMIN")
     ),
 ):
     return await SchoolAdminService(
