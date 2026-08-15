@@ -14,7 +14,8 @@ import {
   Eye,
   BookOpen,
   Filter,
-  FileText,} from "lucide-react";
+  FileText,
+} from "lucide-react";
 
 type Result = {
   id: number;
@@ -56,6 +57,15 @@ type ErrorModalState = {
   message: string;
 } | null;
 
+// Helper type for student grouping
+type GroupedStudent = {
+  student_id: number;
+  student_name: string;
+  admission_number: string;
+  class_name: string;
+  results: Result[];
+};
+
 export default function ResultsPage({
   params,
 }: {
@@ -73,9 +83,6 @@ export default function ResultsPage({
   const [subjects, setSubjects] = useState<Option[]>([]);
   const [terms, setTerms] = useState<Option[]>([]);
   const [sessions, setSessions] = useState<Option[]>([]);
-
-  // Raw teacher allocations
-  const [teacherAllocations, setTeacherAllocations] = useState<any[]>([]);
 
   // Main Search Filter State
   const [searchQuery, setSearchQuery] = useState("");
@@ -119,7 +126,14 @@ export default function ResultsPage({
   const [savedResultsDrawerOpen, setSavedResultsDrawerOpen] = useState(false);
   const [drawerSearchQuery, setDrawerSearchQuery] = useState("");
   const [drawerClassFilter, setDrawerClassFilter] = useState("");
-  const [selectedStudentForScores, setSelectedStudentForScores] = useState<Student | null>(null);
+  const [selectedStudentForScores, setSelectedStudentForScores] = useState<{
+    id: number;
+    first_name: string;
+    middle_name?: string | null;
+    last_name: string;
+    admission_number: string;
+    class_name?: string;
+  } | null>(null);
   const [studentScoresModalOpen, setStudentScoresModalOpen] = useState(false);
   const [studentScoresLoading, setStudentScoresLoading] = useState(false);
   const [studentFetchedResults, setStudentFetchedResults] = useState<Result[]>([]);
@@ -174,96 +188,57 @@ export default function ResultsPage({
       const teacherFlag = role === "TEACHER";
       setUserRole(role);
 
-  let numericSchoolId = Number(me.data?.school_id);
+      let numericSchoolId = Number(me.data?.school_id);
 
-  // If /auth/me does not provide school_id, resolve the route value.
-  // The dashboard route uses a numeric school ID, while the tenant
-  // teacher route uses a school slug such as "pr12397".
-  if (!Number.isInteger(numericSchoolId) || numericSchoolId <= 0) {
-    const routeSchoolId = String(schoolId || "").trim();
+      if (!Number.isInteger(numericSchoolId) || numericSchoolId <= 0) {
+        const routeSchoolId = String(schoolId || "").trim();
+        const routeNumericId = Number(routeSchoolId);
 
-    // Numeric route: /dashboard/schools/21/results
-    const routeNumericId = Number(routeSchoolId);
+        if (Number.isInteger(routeNumericId) && routeNumericId > 0) {
+          numericSchoolId = routeNumericId;
+        } else if (routeSchoolId) {
+          try {
+            const schoolRes = await api.get(
+              `/schools/by-slug/${encodeURIComponent(routeSchoolId)}`
+            );
 
-    if (Number.isInteger(routeNumericId) && routeNumericId > 0) {
-      numericSchoolId = routeNumericId;
-    } else if (routeSchoolId) {
-      // Tenant route: /pr12397/teacher/results
-      try {
-        const schoolRes = await api.get(
-          `/schools/by-slug/${encodeURIComponent(routeSchoolId)}`
-        );
+            const resolvedFromSlug = Number(
+              schoolRes.data?.id ??
+              schoolRes.data?.school_id ??
+              schoolRes.data?.data?.id ??
+              schoolRes.data?.data?.school_id
+            );
 
-        const resolvedFromSlug = Number(
-          schoolRes.data?.id ??
-          schoolRes.data?.school_id ??
-          schoolRes.data?.data?.id ??
-          schoolRes.data?.data?.school_id
-        );
-
-        if (
-          Number.isInteger(resolvedFromSlug) &&
-          resolvedFromSlug > 0
-        ) {
-          numericSchoolId = resolvedFromSlug;
+            if (Number.isInteger(resolvedFromSlug) && resolvedFromSlug > 0) {
+              numericSchoolId = resolvedFromSlug;
+            }
+          } catch (schoolResolveError) {
+            console.error("RESULTS SCHOOL SLUG RESOLUTION FAILED:", schoolResolveError);
+          }
         }
-      } catch (schoolResolveError) {
-        console.error(
-          "RESULTS SCHOOL SLUG RESOLUTION FAILED:",
-          schoolResolveError
-        );
       }
-    }
-  }
 
-  if (!Number.isInteger(numericSchoolId) || numericSchoolId <= 0) {
-    throw new Error(
-      "Unable to determine the active school's numeric ID."
-    );
-  }
+      if (!Number.isInteger(numericSchoolId) || numericSchoolId <= 0) {
+        throw new Error("Unable to determine the active school's numeric ID.");
+      }
 
-  setResolvedSchoolId(numericSchoolId);
-
-  const commonParams = { school_id: numericSchoolId };
-
+      setResolvedSchoolId(numericSchoolId);
+      const commonParams = { school_id: numericSchoolId };
 
       const extractArray = (res: any) => {
         if (Array.isArray(res?.data)) return res.data;
-
-        if (Array.isArray(res?.data?.data)) {
-          return res.data.data;
-        }
-
-        if (Array.isArray(res?.data?.results)) {
-          return res.data.results;
-        }
-
-        if (Array.isArray(res?.data?.items)) {
-          return res.data.items;
-        }
-
-        if (Array.isArray(res?.data?.allocations)) {
-          return res.data.allocations;
-        }
-
-        if (Array.isArray(res?.data?.teacher_allocations)) {
-          return res.data.teacher_allocations;
-        }
-
-        if (Array.isArray(res?.data?.assignments)) {
-          return res.data.assignments;
-        }
-
+        if (Array.isArray(res?.data?.data)) return res.data.data;
+        if (Array.isArray(res?.data?.results)) return res.data.results;
+        if (Array.isArray(res?.data?.items)) return res.data.items;
+        if (Array.isArray(res?.data?.allocations)) return res.data.allocations;
+        if (Array.isArray(res?.data?.teacher_allocations)) return res.data.teacher_allocations;
+        if (Array.isArray(res?.data?.assignments)) return res.data.assignments;
         return [];
       };
 
       const safeGet = (url: string, params?: any) =>
         api.get(url, { params }).catch((error) => {
-          console.error(
-            `[RESULTS API FAILED] ${url}`,
-            error?.response?.status,
-            error?.response?.data || error?.message || error,
-          );
+          console.error(`[RESULTS API FAILED] ${url}`, error?.response?.status, error?.response?.data || error?.message || error);
           return { data: [] };
         });
 
@@ -275,10 +250,7 @@ export default function ResultsPage({
         termsRes,
         sessionsRes,
       ] = await Promise.all([
-        safeGet(
-          "/results",
-          commonParams,
-        ),
+        safeGet("/results", commonParams),
         safeGet("/students", commonParams),
         safeGet("/classes", commonParams),
         safeGet("/subjects", commonParams),
@@ -296,13 +268,8 @@ export default function ResultsPage({
       setClasses(fetchedClasses);
 
       if (teacherFlag) {
-        /*
-         * Teacher subject dropdown source of truth:
-         * dedicated backend endpoint for the logged-in teacher.
-         */
         try {
           const mySubjectsRes = await api.get("/teachers/me/subjects");
-
           const teacherSubjects = Array.isArray(mySubjectsRes.data)
             ? mySubjectsRes.data
             : Array.isArray(mySubjectsRes.data?.data)
@@ -312,31 +279,18 @@ export default function ResultsPage({
           const normalizedTeacherSubjects = teacherSubjects
             .map((subject: any) => ({
               id: Number(subject.id ?? subject.subject_id),
-              name:
-                subject.name ??
-                subject.subject_name ??
-                `Subject ${subject.id ?? subject.subject_id}`,
+              name: subject.name ?? subject.subject_name ?? `Subject ${subject.id ?? subject.subject_id}`,
             }))
-            .filter(
-              (subject: Option) =>
-                Number.isFinite(subject.id) && subject.id > 0
-            );
+            .filter((subject: Option) => Number.isFinite(subject.id) && subject.id > 0);
 
           setSubjects(normalizedTeacherSubjects);
-
-          console.log(
-            "[teacher-results] MY SUBJECTS:",
-            normalizedTeacherSubjects
-          );
         } catch (subjectError) {
-          console.error(
-            "[teacher-results] Failed to load teacher subjects:",
-            subjectError
-          );
-
+          console.error("[teacher-results] Failed to load teacher subjects:", subjectError);
           setSubjects([]);
         }
-      }      setResults(fetchedResults);
+      }
+
+      setResults(fetchedResults);
       setTerms(extractArray(termsRes));
       setSessions(extractArray(sessionsRes));
     } catch (error) {
@@ -390,17 +344,7 @@ export default function ResultsPage({
     fetchStudentsByClass();
   }, [classId, open, schoolId, allStudents]);
 
-  /*
-   * Teachers see only subjects assigned to them.
-   *
-   * We intentionally do NOT filter the subject list by class here.
-   *
-   * The selected class and selected subject are validated together
-   * by the backend before a result can be created or updated.
-   */
-  const getAvailableSubjects = (_selectedClassId: string) => {
-    return subjects;
-  };
+  const getAvailableSubjects = (_selectedClassId: string) => subjects;
 
   async function handleQuickAddStudent() {
     if (
@@ -414,7 +358,7 @@ export default function ResultsPage({
     ) {
       setErrorModal({
         title: "Validation Error",
-        message: "Please fill in all required fields (First Name, Last Name, Class, Gender, Date of Birth, Email, and Password).",
+        message: "Please fill in all required fields.",
       });
       return;
     }
@@ -436,7 +380,6 @@ export default function ResultsPage({
       });
 
       const createdStudent = res.data?.data || res.data;
-
       await loadData();
 
       setNewStudentFirstName("");
@@ -512,20 +455,6 @@ export default function ResultsPage({
       });
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function deleteResult(id: number) {
-    if (!confirm("Delete this result?")) return;
-
-    try {
-      await api.delete(`/results/${id}`);
-      await loadData();
-    } catch (error: any) {
-      setErrorModal({
-        title: "Delete Failed",
-        message: "Failed to delete result",
-      });
     }
   }
 
@@ -632,14 +561,14 @@ export default function ResultsPage({
     }
 
     if (!resolvedSchoolId) {
-    setErrorModal({
-      title: "Error Saving Results",
-      message: "Unable to determine the active school's numeric ID.",
-    });
-    return;
-  }
+      setErrorModal({
+        title: "Error Saving Results",
+        message: "Unable to determine the active school's numeric ID.",
+      });
+      return;
+    }
 
-  setBulkSaving(true);
+    setBulkSaving(true);
 
     try {
       await api.post("/results/bulk-entry", {
@@ -657,7 +586,6 @@ export default function ResultsPage({
       });
 
       await loadData();
-
       setBulkScores({});
       setBulkStudents([]);
       setBulkClassId("");
@@ -678,104 +606,71 @@ export default function ResultsPage({
     }
   }
 
-  async function handleOpenStudentScores(student: Student) {
+  async function handleOpenStudentScores(student: {
+    id: number;
+    first_name: string;
+    middle_name?: string | null;
+    last_name: string;
+    admission_number: string;
+    class_name?: string;
+  }) {
     setSelectedStudentForScores(student);
     setStudentScoresModalOpen(true);
     setStudentScoresLoading(true);
     setStudentFetchedResults([]);
 
     try {
-      /*
-       * View Scores must work for teachers even when the result is not
-       * present in the teacher result collection currently loaded on
-       * the Results page.
-       *
-       * Use the existing student report endpoint, which already powers
-       * the working Report Card.
-       */
-      const response = await api.get(
-        `/results/student/${student.id}/report`
-      );
-
+      const response = await api.get(`/results/student/${student.id}/report`);
       const report = response?.data ?? {};
-      const reportSubjects = Array.isArray(report?.subjects)
-        ? report.subjects
-        : [];
+      const reportSubjects = Array.isArray(report?.subjects) ? report.subjects : [];
 
-      const normalizedResults: Result[] = reportSubjects.map(
-        (subject: any, index: number) => ({
-          id: Number(subject?.id ?? index + 1),
-          student_id: student.id,
-          student_name:
-            report?.student?.name ??
-            `${student.first_name} ${student.last_name}`,
-          admission_number:
-            report?.student?.admission_number ??
-            student.admission_number,
-          class_name:
-            report?.student?.class_name ??
-            "",
-          subject_name:
-            subject?.name ??
-            subject?.subject_name ??
-            "Unknown",
-          term_name:
-            subject?.term_name ??
-            report?.term_name ??
-            "",
-          session_name:
-            subject?.session_name ??
-            report?.session_name ??
-            "",
-          ca_score: Number(subject?.ca ?? subject?.ca_score ?? 0),
-          exam_score: Number(
-            subject?.exam ?? subject?.exam_score ?? 0
-          ),
-          total_score: Number(
-            subject?.total ??
-            subject?.total_score ??
-            0
-          ),
-          grade: subject?.grade ?? null,
-        })
-      );
+      const normalizedResults: Result[] = reportSubjects.map((subject: any, index: number) => ({
+        id: Number(subject?.id ?? index + 1),
+        student_id: student.id,
+        student_name: report?.student?.name ?? `${student.first_name} ${student.last_name}`,
+        admission_number: report?.student?.admission_number ?? student.admission_number,
+        class_name: report?.student?.class_name ?? student.class_name ?? "",
+        subject_name: subject?.name ?? subject?.subject_name ?? "Unknown",
+        term_name: subject?.term_name ?? report?.term_name ?? "",
+        session_name: subject?.session_name ?? report?.session_name ?? "",
+        ca_score: Number(subject?.ca ?? subject?.ca_score ?? 0),
+        exam_score: Number(subject?.exam ?? subject?.exam_score ?? 0),
+        total_score: Number(subject?.total ?? subject?.total_score ?? 0),
+        grade: subject?.grade ?? null,
+      }));
 
       setStudentFetchedResults(normalizedResults);
     } catch (error) {
-      console.error(
-        "VIEW STUDENT SCORES ERROR:",
-        error
-      );
-
-      /*
-       * Keep a fallback to the results already loaded on the page.
-       * This means the button still works if the report endpoint
-       * temporarily fails.
-       */
-      const fallback = results.filter(
-        (r) => Number(r.student_id) === Number(student.id)
-      );
-
+      console.error("VIEW STUDENT SCORES ERROR:", error);
+      const fallback = results.filter((r) => Number(r.student_id) === Number(student.id));
       setStudentFetchedResults(fallback);
     } finally {
       setStudentScoresLoading(false);
     }
   }
 
-  const filteredResults = results.filter((r) => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return true;
+  // --- Grouping results by unique student ---
+  const groupedStudentsMap = results.reduce<Record<number, GroupedStudent>>((acc, r) => {
+    if (!acc[r.student_id]) {
+      acc[r.student_id] = {
+        student_id: r.student_id,
+        student_name: r.student_name,
+        admission_number: r.admission_number,
+        class_name: r.class_name,
+        results: [],
+      };
+    }
+    acc[r.student_id].results.push(r);
+    return acc;
+  }, {});
 
-    const studentName = r.student_name ? r.student_name.toLowerCase() : "";
-    const admissionNumber = r.admission_number ? r.admission_number.toLowerCase() : "";
-    const className = r.class_name ? r.class_name.toLowerCase() : "";
-    const subjectName = r.subject_name ? r.subject_name.toLowerCase() : "";
-
+  const groupedStudents = Object.values(groupedStudentsMap).filter((item) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
     return (
-      studentName.includes(query) ||
-      admissionNumber.includes(query) ||
-      className.includes(query) ||
-      subjectName.includes(query)
+      (item.student_name && item.student_name.toLowerCase().includes(q)) ||
+      (item.admission_number && item.admission_number.toLowerCase().includes(q)) ||
+      (item.class_name && item.class_name.toLowerCase().includes(q))
     );
   });
 
@@ -809,18 +704,16 @@ export default function ResultsPage({
 
   return (
     <div className="p-6 bg-slate-50/50 min-h-screen">
-      {/* Error / Pop-Up Dialog */}
+      {/* Error Modal */}
       {errorModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-red-100 animate-in fade-in zoom-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-red-100">
             <div className="flex items-start gap-4 mb-4">
               <div className="p-3 bg-red-100 rounded-full text-red-600 shrink-0">
                 <AlertTriangle size={24} />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-slate-900">
-                  {errorModal.title}
-                </h3>
+                <h3 className="text-lg font-bold text-slate-900">{errorModal.title}</h3>
                 <div className="mt-2 text-sm text-slate-600 whitespace-pre-line leading-relaxed">
                   {errorModal.message}
                 </div>
@@ -841,7 +734,7 @@ export default function ResultsPage({
       {/* Quick Add Student Modal */}
       {addStudentOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-red-100 animate-in fade-in zoom-in duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-red-100">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2 text-red-700 font-bold text-lg">
                 <UserPlus size={22} />
@@ -856,128 +749,75 @@ export default function ResultsPage({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  First Name *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. John"
-                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
-                  value={newStudentFirstName}
-                  onChange={(e) => setNewStudentFirstName(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Middle Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Paul"
-                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
-                  value={newStudentMiddleName}
-                  onChange={(e) => setNewStudentMiddleName(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Last Name *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Doe"
-                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
-                  value={newStudentLastName}
-                  onChange={(e) => setNewStudentLastName(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Admission No.
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. ADM-2026-001"
-                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
-                  value={newStudentAdmNo}
-                  onChange={(e) => setNewStudentAdmNo(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Gender *
-                </label>
-                <select
-                  className="w-full border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
-                  value={newStudentGender}
-                  onChange={(e) => setNewStudentGender(e.target.value)}
-                >
-                  <option value="">Select Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Date of Birth *
-                </label>
-                <input
-                  type="date"
-                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
-                  value={newStudentDob}
-                  onChange={(e) => setNewStudentDob(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  placeholder="student@school.com"
-                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
-                  value={newStudentEmail}
-                  onChange={(e) => setNewStudentEmail(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Password *
-                </label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
-                  value={newStudentPassword}
-                  onChange={(e) => setNewStudentPassword(e.target.value)}
-                />
-              </div>
-
-              <div className="col-span-1 sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Class *
-                </label>
-                <select
-                  className="w-full border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
-                  value={newStudentClassId}
-                  onChange={(e) => setNewStudentClassId(e.target.value)}
-                >
-                  <option value="">Select Class</option>
-                  {classes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <input
+                type="text"
+                placeholder="First Name *"
+                className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
+                value={newStudentFirstName}
+                onChange={(e) => setNewStudentFirstName(e.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Middle Name"
+                className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
+                value={newStudentMiddleName}
+                onChange={(e) => setNewStudentMiddleName(e.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Last Name *"
+                className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
+                value={newStudentLastName}
+                onChange={(e) => setNewStudentLastName(e.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Admission No."
+                className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
+                value={newStudentAdmNo}
+                onChange={(e) => setNewStudentAdmNo(e.target.value)}
+              />
+              <select
+                className="w-full border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
+                value={newStudentGender}
+                onChange={(e) => setNewStudentGender(e.target.value)}
+              >
+                <option value="">Select Gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+              <input
+                type="date"
+                className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
+                value={newStudentDob}
+                onChange={(e) => setNewStudentDob(e.target.value)}
+              />
+              <input
+                type="email"
+                placeholder="Email *"
+                className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
+                value={newStudentEmail}
+                onChange={(e) => setNewStudentEmail(e.target.value)}
+              />
+              <input
+                type="password"
+                placeholder="Password *"
+                className="w-full border p-2 rounded-lg text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600"
+                value={newStudentPassword}
+                onChange={(e) => setNewStudentPassword(e.target.value)}
+              />
+              <select
+                className="w-full border p-2 rounded-lg bg-white text-sm border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600 sm:col-span-2"
+                value={newStudentClassId}
+                onChange={(e) => setNewStudentClassId(e.target.value)}
+              >
+                <option value="">Select Class</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="flex justify-end gap-2">
@@ -1055,13 +895,10 @@ export default function ResultsPage({
       {/* Single Result Modal */}
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-red-100 animate-in fade-in zoom-in duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-red-100">
             <div className="flex justify-between items-center mb-4">
               <h2 className="font-bold text-lg text-red-950">Add Single Result</h2>
-              <button
-                onClick={() => setOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
+              <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
@@ -1079,9 +916,7 @@ export default function ResultsPage({
               >
                 <option value="">Select Class</option>
                 {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
 
@@ -1103,28 +938,11 @@ export default function ResultsPage({
                   </option>
                   {modalStudents.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.first_name}{" "}
-                      {s.middle_name ? `${s.middle_name} ` : ""}
-                      {s.last_name}
+                      {s.first_name} {s.middle_name ? `${s.middle_name} ` : ""}{s.last_name}
                       {s.admission_number ? ` (${s.admission_number})` : ""}
                     </option>
                   ))}
                 </select>
-
-                {!canEnterResults && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (classId) setNewStudentClassId(classId);
-                      setAddStudentOpen(true);
-                    }}
-                    className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs font-semibold shrink-0 flex items-center gap-1"
-                    title="Quick Add New Student"
-                  >
-                    <UserPlus size={16} />
-                    New
-                  </button>
-                )}
               </div>
 
               <select
@@ -1134,9 +952,7 @@ export default function ResultsPage({
               >
                 <option value="">Select Subject</option>
                 {getAvailableSubjects(classId).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
 
@@ -1147,9 +963,7 @@ export default function ResultsPage({
               >
                 <option value="">Select Term</option>
                 {terms.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
+                  <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </select>
 
@@ -1160,9 +974,7 @@ export default function ResultsPage({
               >
                 <option value="">Select Session</option>
                 {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
 
@@ -1212,11 +1024,7 @@ export default function ResultsPage({
       {isTeacher ? (
         <div className="space-y-6">
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="font-bold text-lg text-red-950">
-                Bulk Result Entry
-              </h2>
-            </div>
+            <h2 className="font-bold text-lg text-red-950 mb-4">Bulk Result Entry</h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
               <select
@@ -1230,9 +1038,7 @@ export default function ResultsPage({
               >
                 <option value="">Select Class</option>
                 {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
 
@@ -1252,9 +1058,7 @@ export default function ResultsPage({
               >
                 <option value="">Select Subject</option>
                 {getAvailableSubjects(bulkClassId).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
 
@@ -1265,9 +1069,7 @@ export default function ResultsPage({
               >
                 <option value="">Select Term</option>
                 {terms.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
+                  <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </select>
 
@@ -1278,9 +1080,7 @@ export default function ResultsPage({
               >
                 <option value="">Select Session</option>
                 {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
             </div>
@@ -1288,10 +1088,7 @@ export default function ResultsPage({
             {bulkStudents.length > 0 && (
               <>
                 <div className="mb-4 relative max-w-sm">
-                  <Search
-                    size={16}
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
-                  />
+                  <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search loaded students..."
@@ -1300,10 +1097,7 @@ export default function ResultsPage({
                     className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600 text-sm"
                   />
                   {bulkSearchQuery && (
-                    <button
-                      onClick={() => setBulkSearchQuery("")}
-                      className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    >
+                    <button onClick={() => setBulkSearchQuery("")} className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-slate-400">
                       <X size={14} />
                     </button>
                   )}
@@ -1320,18 +1114,11 @@ export default function ResultsPage({
                     </thead>
                     <tbody className="text-sm">
                       {filteredBulkStudents.map((student) => (
-                        <tr
-                          key={student.id}
-                          className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
-                        >
+                        <tr key={student.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                           <td className="p-3 font-medium text-slate-800">
-                            {student.first_name}{" "}
-                            {student.middle_name ? `${student.middle_name} ` : ""}
-                            {student.last_name}
+                            {student.first_name} {student.middle_name ? `${student.middle_name} ` : ""}{student.last_name}
                             {student.admission_number && (
-                              <span className="text-xs text-slate-400 ml-1">
-                                ({student.admission_number})
-                              </span>
+                              <span className="text-xs text-slate-400 ml-1">({student.admission_number})</span>
                             )}
                           </td>
                           <td className="p-3">
@@ -1342,9 +1129,7 @@ export default function ResultsPage({
                               className="border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600 p-1.5 rounded w-28 text-sm"
                               placeholder="0 - 40"
                               value={bulkScores[student.id]?.ca || ""}
-                              onChange={(e) =>
-                                updateBulkScore(student.id, "ca", e.target.value)
-                              }
+                              onChange={(e) => updateBulkScore(student.id, "ca", e.target.value)}
                             />
                           </td>
                           <td className="p-3">
@@ -1355,20 +1140,11 @@ export default function ResultsPage({
                               className="border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-600 p-1.5 rounded w-28 text-sm"
                               placeholder="0 - 60"
                               value={bulkScores[student.id]?.exam || ""}
-                              onChange={(e) =>
-                                updateBulkScore(student.id, "exam", e.target.value)
-                              }
+                              onChange={(e) => updateBulkScore(student.id, "exam", e.target.value)}
                             />
                           </td>
                         </tr>
                       ))}
-                      {filteredBulkStudents.length === 0 && (
-                        <tr>
-                          <td colSpan={3} className="p-4 text-center text-slate-500 text-sm">
-                            No loaded students match "{bulkSearchQuery}"
-                          </td>
-                        </tr>
-                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1396,16 +1172,13 @@ export default function ResultsPage({
           </div>
         </div>
       ) : (
-        /* ADMIN WORKFLOW */
+        /* ADMIN/GENERAL WORKFLOW - GROUPED BY STUDENT */
         <>
           <div className="mb-6 relative max-w-md">
-            <Search
-              size={18}
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
-            />
+            <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by student name, admission no, class, or subject..."
+              placeholder="Search by student name, admission no, or class..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-600 text-sm shadow-xs"
@@ -1424,66 +1197,60 @@ export default function ResultsPage({
             <table className="w-full text-left border-collapse text-sm">
               <thead className="bg-red-50/50 border-b border-slate-200 text-red-950">
                 <tr>
-                  <th className="p-3 font-semibold">Student</th>
+                  <th className="p-3 font-semibold">Student Name</th>
                   <th className="p-3 font-semibold">Admission No</th>
                   <th className="p-3 font-semibold">Class</th>
-                  <th className="p-3 font-semibold">Subject</th>
-                  <th className="p-3 font-semibold">Term</th>
-                  <th className="p-3 font-semibold">Session</th>
-                  <th className="p-3 font-semibold">Total</th>
-                  <th className="p-3 font-semibold">Grade</th>
-                  <th className="p-3 font-semibold">Action</th>
+                  <th className="p-3 font-semibold">Subjects Entered</th>
+                  <th className="p-3 font-semibold">Actions</th>
                 </tr>
               </thead>
 
               <tbody>
-                {filteredResults.map((r) => (
-                  <tr key={r.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                    <td className="p-3 font-medium text-slate-900">{r.student_name}</td>
-                    <td className="p-3 text-slate-600">{r.admission_number || "N/A"}</td>
-                    <td className="p-3 text-slate-600">{r.class_name || "N/A"}</td>
-                    <td className="p-3 text-slate-600">{r.subject_name}</td>
-                    <td className="p-3 text-slate-600">{r.term_name}</td>
-                    <td className="p-3 text-slate-600">{r.session_name}</td>
-                    <td className="p-3 font-semibold text-slate-900">{r.total_score}</td>
-                    <td className="p-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
-                          r.grade === "F9" || r.grade === "F"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-emerald-100 text-emerald-800"
-                        }`}
-                      >
-                        {r.grade ?? "-"}
+                {groupedStudents.map((item) => (
+                  <tr key={item.student_id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                    <td className="p-3 font-medium text-slate-900">{item.student_name}</td>
+                    <td className="p-3 text-slate-600">{item.admission_number || "N/A"}</td>
+                    <td className="p-3 text-slate-600">{item.class_name || "N/A"}</td>
+                    <td className="p-3 text-slate-600">
+                      <span className="bg-slate-100 text-slate-800 text-xs px-2.5 py-1 rounded-full font-medium">
+                        {item.results.length} Subject(s)
                       </span>
                     </td>
                     <td className="p-3">
                       <div className="flex items-center gap-2">
+                        <button
+                          onClick={() =>
+                            handleOpenStudentScores({
+                              id: item.student_id,
+                              first_name: item.student_name,
+                              last_name: "",
+                              admission_number: item.admission_number,
+                              class_name: item.class_name,
+                            })
+                          }
+                          className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                        >
+                          <Eye size={14} />
+                          View
+                        </button>
+
                         <Link
-                          href={`/dashboard/schools/${schoolId}/students/${r.student_id}/report-card`}
-                          className="bg-red-800 hover:bg-red-900 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                          href={`/dashboard/schools/${schoolId}/students/${item.student_id}/report-card`}
+                          className="bg-slate-900 hover:bg-black text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                         >
                           Report Card
                         </Link>
-
-                        <button
-                          onClick={() => deleteResult(r.id)}
-                          className="flex items-center gap-1 bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                        >
-                          <Trash2 size={14} />
-                          Delete
-                        </button>
                       </div>
                     </td>
                   </tr>
                 ))}
 
-                {filteredResults.length === 0 && (
+                {groupedStudents.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="p-6 text-center text-slate-500">
+                    <td colSpan={5} className="p-6 text-center text-slate-500">
                       {searchQuery
-                        ? `No results match "${searchQuery}"`
-                        : "No results found"}
+                        ? `No students match "${searchQuery}"`
+                        : "No student records found"}
                     </td>
                   </tr>
                 )}
@@ -1495,7 +1262,7 @@ export default function ResultsPage({
 
       {/* TEACHER REVIEW DRAWER */}
       {savedResultsDrawerOpen && (
-        <div className="fixed inset-0 z-40 flex justify-end bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-40 flex justify-end bg-black/40 backdrop-blur-xs">
           <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col p-6 border-l border-slate-200">
             <div className="flex justify-between items-center pb-4 border-b border-slate-200">
               <div className="flex items-center gap-2 text-red-900 font-bold text-lg">
@@ -1510,51 +1277,27 @@ export default function ResultsPage({
               </button>
             </div>
 
-            <p className="text-xs text-slate-500 mt-2 mb-4">
-              Filter by class or search students to inspect recorded score records.
-            </p>
+            <div className="space-y-3 my-4">
+              <select
+                value={drawerClassFilter}
+                onChange={(e) => setDrawerClassFilter(e.target.value)}
+                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+              >
+                <option value="">All Classes</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
 
-            <div className="space-y-3 mb-4">
-              {/* Select Class Filter */}
               <div className="relative">
-                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none">
-                  <Filter size={15} />
-                </div>
-                <select
-                  value={drawerClassFilter}
-                  onChange={(e) => setDrawerClassFilter(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
-                >
-                  <option value="">All Classes</option>
-                  {classes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Search Bar */}
-              <div className="relative">
-                <Search
-                  size={16}
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
-                />
+                <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Search assigned students..."
                   value={drawerSearchQuery}
                   onChange={(e) => setDrawerSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+                  className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
                 />
-                {drawerSearchQuery && (
-                  <button
-                    onClick={() => setDrawerSearchQuery("")}
-                    className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
               </div>
             </div>
 
@@ -1562,54 +1305,26 @@ export default function ResultsPage({
               {filteredDrawerStudents.map((s) => (
                 <div
                   key={s.id}
-                  className="flex justify-between items-center p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:border-slate-300 hover:bg-white transition-all"
+                  className="flex justify-between items-center p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white transition-all"
                 >
                   <div>
                     <h4 className="font-semibold text-sm text-slate-800">
                       {s.first_name} {s.middle_name ? `${s.middle_name} ` : ""}{s.last_name}
                     </h4>
                     <p className="text-xs text-slate-500">
-                      Class: <span className="font-medium text-slate-700">{getClassName(s)}</span> • Adm: {s.admission_number || "N/A"}
+                      Class: {getClassName(s)} • Adm: {s.admission_number || "N/A"}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    {isTeacher && (
-
-                      <button
-
-                        onClick={() => handleOpenStudentScores(s)}
-
-                        className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-800 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors border border-red-200/60"
-
-                      >
-
-                        <Eye size={14} />
-
-                        View Scores
-
-                      </button>
-
-                    )}
-
-                    {!isTeacher && (
-                      <Link
-                      href={`/dashboard/schools/${schoolId}/students/${s.id}/report-card`}
-                      className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      <FileText size={14} />
-                      Report Card
-                    </Link>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => handleOpenStudentScores(s)}
+                    className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-800 text-xs font-semibold px-3 py-1.5 rounded-lg border border-red-200/60"
+                  >
+                    <Eye size={14} />
+                    View
+                  </button>
                 </div>
               ))}
-
-              {filteredDrawerStudents.length === 0 && (
-                <div className="text-center py-10 text-slate-400 text-sm">
-                  No assigned students match your criteria.
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -1618,25 +1333,17 @@ export default function ResultsPage({
       {/* VIEW SCORES MODAL */}
       {studentScoresModalOpen && selectedStudentForScores && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-150 max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] flex flex-col">
             <div className="flex justify-between items-start pb-3 border-b border-slate-200">
               <div>
                 <h3 className="text-xl font-bold text-slate-900">
-                  {selectedStudentForScores.first_name}{" "}
-                  {selectedStudentForScores.middle_name
-                    ? `${selectedStudentForScores.middle_name} `
-                    : ""}
-                  {selectedStudentForScores.last_name}
+                  {selectedStudentForScores.first_name} {selectedStudentForScores.last_name}
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  Admission Number:{" "}
-                  <span className="font-semibold text-slate-700">
-                    {selectedStudentForScores.admission_number || "N/A"}
-                  </span>{" "}
-                  | Class:{" "}
-                  <span className="font-semibold text-slate-700">
-                    {getClassName(selectedStudentForScores)}
-                  </span>
+                  Admission: <span className="font-semibold text-slate-700">{selectedStudentForScores.admission_number || "N/A"}</span>
+                  {selectedStudentForScores.class_name && (
+                    <> | Class: <span className="font-semibold text-slate-700">{selectedStudentForScores.class_name}</span></>
+                  )}
                 </p>
               </div>
 
@@ -1664,9 +1371,7 @@ export default function ResultsPage({
                     className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2 shadow-2xs"
                   >
                     <div className="flex justify-between items-center">
-                      <h4 className="font-bold text-slate-800 text-sm">
-                        {res.subject_name}
-                      </h4>
+                      <h4 className="font-bold text-slate-800 text-sm">{res.subject_name}</h4>
                       <span
                         className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
                           res.grade === "F9" || res.grade === "F"
@@ -1682,24 +1387,18 @@ export default function ResultsPage({
                       <div>
                         <span className="text-slate-500 block">CA Score</span>
                         <span className="font-semibold text-slate-800 text-sm">
-                          {res.ca_score !== undefined && res.ca_score !== null
-                            ? res.ca_score
-                            : "-"}
+                          {res.ca_score !== undefined && res.ca_score !== null ? res.ca_score : "-"}
                         </span>
                       </div>
                       <div>
                         <span className="text-slate-500 block">Exam Score</span>
                         <span className="font-semibold text-slate-800 text-sm">
-                          {res.exam_score !== undefined && res.exam_score !== null
-                            ? res.exam_score
-                            : "-"}
+                          {res.exam_score !== undefined && res.exam_score !== null ? res.exam_score : "-"}
                         </span>
                       </div>
                       <div>
                         <span className="text-slate-500 block">Total</span>
-                        <span className="font-bold text-slate-900 text-sm">
-                          {res.total_score}
-                        </span>
+                        <span className="font-bold text-slate-900 text-sm">{res.total_score}</span>
                       </div>
                     </div>
                   </div>
