@@ -56,35 +56,6 @@ async def get_audit_logs(
     return await AuditLogService(db).get_logs()
 
 
-@router.delete(
-    "",
-)
-async def delete_login_audit_logs(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    # Only SUPER_ADMIN can clear login activity.
-    if (
-        current_user.role is None
-        or current_user.role.name != "SUPER_ADMIN"
-    ):
-        from fastapi import HTTPException, status
-
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Super Admin access required.",
-        )
-
-    deleted_count = await AuditLogService(
-        db
-    ).delete_login_logs()
-
-    return {
-        "message": "Login activity logs cleared successfully.",
-        "deleted_count": deleted_count,
-    }
-
-
 @router.get(
     "/{log_id}",
     response_model=AuditLogResponse,

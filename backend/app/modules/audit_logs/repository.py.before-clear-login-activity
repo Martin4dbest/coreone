@@ -1,4 +1,4 @@
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit_log import AuditLog
@@ -46,16 +46,3 @@ class AuditLogRepository:
         await self.db.refresh(log)
 
         return log
-
-    async def delete_login_logs(self):
-        result = await self.db.execute(
-            delete(AuditLog).where(
-                AuditLog.action == "login"
-            )
-        )
-
-        deleted_count = result.rowcount or 0
-
-        await self.db.commit()
-
-        return deleted_count

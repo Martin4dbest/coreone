@@ -159,6 +159,7 @@ const schoolBase =
       name: "Dashboard",
       href: "/dashboard",
       icon: LayoutDashboard,
+  LogIn,
       color: "text-blue-400",
     },
     {
@@ -166,12 +167,6 @@ const schoolBase =
       href: "/dashboard/schools",
       icon: School,
       color: "text-emerald-400",
-    },
-    {
-      name: "Login Activity",
-      href: "/dashboard/login-activity",
-      icon: LogIn,
-      color: "text-blue-400",
     },
     {
       name: "Administrators",
@@ -210,6 +205,7 @@ const schoolBase =
       name: "School Dashboard",
       href: schoolBase,
       icon: LayoutDashboard,
+  LogIn,
       color: "text-blue-400",
     },
     {
@@ -283,6 +279,7 @@ const teacherMenu = [
     name: "Dashboard",
     href: "/teacher/dashboard",
     icon: LayoutDashboard,
+  LogIn,
     color: "text-blue-400",
   },
   {

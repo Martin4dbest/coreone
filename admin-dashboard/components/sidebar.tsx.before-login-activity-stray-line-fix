@@ -283,6 +283,7 @@ const teacherMenu = [
     name: "Dashboard",
     href: "/teacher/dashboard",
     icon: LayoutDashboard,
+  LogIn,
     color: "text-blue-400",
   },
   {

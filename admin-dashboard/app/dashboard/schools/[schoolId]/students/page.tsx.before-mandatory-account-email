@@ -1234,7 +1234,7 @@ export default function StudentsPage({
                     event.target.value
                   )
                 }
-                placeholder="Account Email (Mandatory) *"
+                placeholder="Account Email (Optional)"
                 className="
                   rounded-xl
                   border
@@ -1245,9 +1245,7 @@ export default function StudentsPage({
                   transition
                   focus:border-rose-400
                 "
-              required
-                            aria-required="true"
-                            />
+              />
 
               <input
                 type="password"

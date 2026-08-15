@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
-  LogIn,
   School,
   Users,
   ShieldCheck,
@@ -166,12 +165,6 @@ const schoolBase =
       href: "/dashboard/schools",
       icon: School,
       color: "text-emerald-400",
-    },
-    {
-      name: "Login Activity",
-      href: "/dashboard/login-activity",
-      icon: LogIn,
-      color: "text-blue-400",
     },
     {
       name: "Administrators",

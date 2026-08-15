@@ -51,6 +51,3 @@ class AuditLogService:
             )
 
         return log
-
-    async def delete_login_logs(self):
-        return await self.repository.delete_login_logs()
