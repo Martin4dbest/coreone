@@ -104,33 +104,6 @@ export default function StudentDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  const [unreadNotificationCount, setUnreadNotificationCount] =
-    useState(0);
-
-  const loadUnreadNotificationCount = useCallback(async () => {
-    try {
-      const { data } = await api.get("/notifications");
-
-      if (Array.isArray(data)) {
-        const unreadCount = data.filter(
-          (notification: any) => notification?.is_read === false
-        ).length;
-
-        setUnreadNotificationCount(unreadCount);
-      } else {
-        setUnreadNotificationCount(0);
-      }
-    } catch (error) {
-      console.error(
-        "Error loading notification unread count:",
-        error
-      );
-      setUnreadNotificationCount(0);
-    }
-  }, []);
-
-
   const [activeTab, setActiveTab] = useState("Home");
   const [logoError, setLogoError] = useState(false);
 
@@ -214,8 +187,6 @@ export default function StudentDashboard() {
   };
 
   useEffect(() => {
-      loadUnreadNotificationCount();
-
     fetchDashboardData();
   }, []);
 
@@ -326,15 +297,7 @@ export default function StudentDashboard() {
             onPress={() => router.push("/student/notifications")}
           >
             <Ionicons name="notifications-outline" size={24} color="#1E293B" />
-            {unreadNotificationCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {unreadNotificationCount > 99
-                    ? "99+"
-                    : unreadNotificationCount}
-                </Text>
-              </View>
-            )}
+            <View style={styles.notificationBadge} />
           </Pressable>
         </View>
 
@@ -816,14 +779,6 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     position: "relative",
   },
-  notificationBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "800",
-    lineHeight: 13,
-    textAlign: "center",
-  },
-
   notificationBadge: {
     position: "absolute",
     top: 10,

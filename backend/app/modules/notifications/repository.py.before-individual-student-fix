@@ -9,12 +9,7 @@ class NotificationRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_all(
-        self,
-        school_id: int,
-        recipient_type: str | None = None,
-        student_id: int | None = None,
-    ):
+    async def get_all(self, school_id: int, recipient_type: str | None = None):
         query = (
             select(Notification)
             .where(
@@ -24,16 +19,7 @@ class NotificationRepository:
             .order_by(Notification.sent_at.desc())
         )
 
-        if recipient_type == "STUDENT" and student_id is not None:
-            query = query.where(
-                (Notification.recipient_type.is_(None))
-                | (
-                    Notification.recipient_type
-                    == f"STUDENT:{student_id}"
-                )
-            )
-
-        elif recipient_type:
+        if recipient_type:
             query = query.where(
                 (Notification.recipient_type == recipient_type)
                 | (Notification.recipient_type.is_(None))
@@ -42,11 +28,7 @@ class NotificationRepository:
         result = await self.db.execute(query)
         return result.scalars().all()
 
-    async def get_by_id(
-        self,
-        notification_id: int,
-        school_id: int,
-    ):
+    async def get_by_id(self, notification_id: int, school_id: int):
         result = await self.db.execute(
             select(Notification).where(
                 Notification.id == notification_id,

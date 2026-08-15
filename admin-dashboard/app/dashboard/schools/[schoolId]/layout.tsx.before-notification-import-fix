@@ -22,7 +22,7 @@ import {
   MonitorPlay,
   Globe,
   FileQuestion,
-  Bell,
+import { Bell } from "lucide-react";
 } from "lucide-react";
 
 import api from "@/lib/api";

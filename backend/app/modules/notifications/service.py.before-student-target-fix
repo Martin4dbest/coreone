@@ -1,0 +1,90 @@
+from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.notification import Notification
+from app.modules.notifications.repository import NotificationRepository
+from app.modules.notifications.schemas import NotificationCreateRequest
+
+
+class NotificationService:
+
+    def __init__(self, db: AsyncSession):
+        self.repository = NotificationRepository(db)
+
+    async def create_notification(
+        self,
+        payload: NotificationCreateRequest,
+        current_user,
+    ):
+        role = current_user.role.name
+
+        if role == "SUPER_ADMIN":
+            school_id = payload.school_id
+        else:
+            if current_user.school_id != payload.school_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You do not have access to this school.",
+                )
+            school_id = current_user.school_id
+
+        notification = Notification(
+            school_id=school_id,
+            title=payload.title,
+            message=payload.message,
+            recipient_type=payload.recipient_type,
+            is_active=True,
+        )
+
+        return await self.repository.create(notification)
+
+    async def get_notifications(self, current_user):
+        recipient_type = None
+
+        if current_user.role.name == "STUDENT":
+            recipient_type = "STUDENT"
+        elif current_user.role.name == "TEACHER":
+            recipient_type = "TEACHER"
+        elif current_user.role.name == "PARENT":
+            recipient_type = "PARENT"
+
+        return await self.repository.get_all(
+            school_id=current_user.school_id,
+            recipient_type=recipient_type,
+        )
+
+    async def get_notification(
+        self,
+        notification_id: int,
+        current_user,
+    ):
+        notification = await self.repository.get_by_id(
+            notification_id,
+            current_user.school_id,
+        )
+
+        if not notification:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Notification not found",
+            )
+
+        return notification
+
+    async def mark_notification_as_read(
+        self,
+        notification_id: int,
+        current_user,
+    ):
+        notification = await self.repository.mark_as_read(
+            notification_id,
+            current_user.school_id,
+        )
+
+        if not notification:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Notification not found",
+            )
+
+        return notification

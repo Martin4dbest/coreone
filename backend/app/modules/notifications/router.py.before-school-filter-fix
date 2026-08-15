@@ -27,8 +27,7 @@ async def create_notification(
     current_user: User = Depends(get_current_user),
 ):
     return await NotificationService(db).create_notification(
-        payload,
-        current_user,
+        payload
     )
 
 
@@ -40,24 +39,7 @@ async def get_notifications(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await NotificationService(db).get_notifications(
-        current_user
-    )
-
-
-@router.patch(
-    "/{notification_id}/read",
-    response_model=NotificationResponse,
-)
-async def mark_notification_as_read(
-    notification_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await NotificationService(db).mark_notification_as_read(
-        notification_id,
-        current_user,
-    )
+    return await NotificationService(db).get_notifications()
 
 
 @router.get(
@@ -70,6 +52,5 @@ async def get_notification(
     current_user: User = Depends(get_current_user),
 ):
     return await NotificationService(db).get_notification(
-        notification_id,
-        current_user,
+        notification_id
     )

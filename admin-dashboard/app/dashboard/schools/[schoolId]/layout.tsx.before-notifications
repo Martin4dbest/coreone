@@ -22,7 +22,6 @@ import {
   MonitorPlay,
   Globe,
   FileQuestion,
-  Bell,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -224,11 +223,6 @@ export default function SchoolWorkspaceLayout({
       href: `${basePath}/events`,
       icon: CalendarDays,
       feature: "events",
-    },
-    {
-      name: "Notifications",
-      href: `${basePath}/notifications`,
-      icon: Bell,
     },
     {
       name: "Settings",
