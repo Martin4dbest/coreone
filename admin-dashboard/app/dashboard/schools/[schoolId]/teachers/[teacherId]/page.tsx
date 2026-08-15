@@ -99,7 +99,12 @@ export default function Page({ params }: TeacherPageProps) {
   const numericTeacherId = Number(teacherId);
 
   const { tenant } = useTenant();
-  const loginHref = tenant ? `//login` : "/login";
+
+  // Tenant-aware navigation.
+  // Never send a tenant user to the SUPER_ADMIN login/dashboard.
+  const teachersHref = tenant?.slug
+    ? `/${tenant.slug}/dashboard/schools/${schoolId}/teachers`
+    : `/dashboard/schools/${schoolId}/teachers`;
 
   // State
   const [summaryData, setSummaryData] = useState<TeacherSummary | null>(null);
@@ -114,6 +119,7 @@ export default function Page({ params }: TeacherPageProps) {
   const [activeModal, setActiveModal] = useState<"assignClass" | "assignSubject" | "confirmDeleteClass" | "confirmDeleteSubject" | null>(null);
   const [isModalSubmitting, setIsModalSubmitting] = useState<boolean>(false);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Action Tracking Context Targets
   const [targetClassroomName, setTargetClassroomName] = useState<string | null>(null);
@@ -145,7 +151,12 @@ export default function Page({ params }: TeacherPageProps) {
 
   // Data Loading
   const loadTeacherWorkspace = useCallback(async (showLoading = true) => {
-    if (!numericSchoolId || !numericTeacherId || Number.isNaN(numericSchoolId) || Number.isNaN(numericTeacherId)) {
+    if (
+      !numericSchoolId ||
+      !numericTeacherId ||
+      Number.isNaN(numericSchoolId) ||
+      Number.isNaN(numericTeacherId)
+    ) {
       setIsLoadingMain(false);
       return;
     }
@@ -153,25 +164,143 @@ export default function Page({ params }: TeacherPageProps) {
     try {
       if (showLoading) setIsLoadingMain(true);
       setMainError("");
-      
-      const [summaryRes, classesRes, subjectsRes, sessionsRes] = await Promise.all([
-        api.get<TeacherSummary>(`/teachers/${numericTeacherId}/assignments`, { params: { school_id: numericSchoolId } }),
-        api.get<ClassroomOption[]>("/classes", { params: { school_id: numericSchoolId } }),
-        api.get<SubjectOption[]>("/subjects", { params: { school_id: numericSchoolId } }),
-        api.get<AcademicSessionOption[]>("/academic-sessions", { params: { school_id: numericSchoolId } })
+
+      const [
+        summaryRes,
+        assignmentsRes,
+        classesRes,
+        subjectsRes,
+        sessionsRes,
+      ] = await Promise.all([
+        api.get<TeacherSummary>(
+          `/teachers/${numericTeacherId}/assignments`,
+          {
+            params: {
+              school_id: numericSchoolId,
+            },
+          }
+        ),
+
+        api.get<{
+          id: number;
+          school_id: number;
+          teacher_id: number;
+          classroom_id: number;
+          subject_id: number;
+          academic_session_id: number;
+          assigned_by: number;
+          assigned_at: string;
+          is_active: boolean;
+        }[]>(
+          `/teacher-assignments/teacher/${numericTeacherId}`,
+          {
+            params: {
+              school_id: numericSchoolId,
+            },
+          }
+        ),
+
+        api.get<ClassroomOption[]>(
+          "/classes",
+          {
+            params: {
+              school_id: numericSchoolId,
+            },
+          }
+        ),
+
+        api.get<SubjectOption[]>(
+          "/subjects",
+          {
+            params: {
+              school_id: numericSchoolId,
+            },
+          }
+        ),
+
+        api.get<AcademicSessionOption[]>(
+          "/academic-sessions",
+          {
+            params: {
+              school_id: numericSchoolId,
+            },
+          }
+        ),
       ]);
 
-      setSummaryData(summaryRes.data);
-      setClasses(classesRes.data);
-      setSubjects(subjectsRes.data);
-      setSessions(sessionsRes.data);
+      const classesData = classesRes.data;
+      const subjectsData = subjectsRes.data;
+      const sessionsData = sessionsRes.data;
 
-      // Preselect Active Academic Session Option defaults
-      const activeSession = sessionsRes.data.find(s => s.is_active);
+      // ------------------------------------------------------------
+      // Build the subject assignment display from the actual
+      // teacher-assignment records returned by the backend.
+      // ------------------------------------------------------------
+      const assignmentRecords = Array.isArray(assignmentsRes.data)
+        ? assignmentsRes.data
+        : [];
+
+      const displayedSubjects = assignmentRecords
+        .filter((assignment) => assignment.is_active === true)
+        .map((assignment) => {
+          const classroom = classesData.find(
+            (item) => Number(item.id) === Number(assignment.classroom_id)
+          );
+
+          const subject = subjectsData.find(
+            (item) => Number(item.id) === Number(assignment.subject_id)
+          );
+
+          return {
+            id: Number(assignment.id),
+            classroom:
+              classroom?.name ||
+              `Class #${assignment.classroom_id}`,
+            subject:
+              subject?.name ||
+              `Subject #${assignment.subject_id}`,
+          };
+        });
+
+      console.log(
+        "[teacher-workspace] Assignment API records:",
+        assignmentRecords
+      );
+
+      console.log(
+        "[teacher-workspace] Resolved displayed subjects:",
+        displayedSubjects
+      );
+
+      setSummaryData({
+        ...summaryRes.data,
+        subjects: displayedSubjects,
+      });
+
+      setClasses(classesData);
+      setSubjects(subjectsData);
+      setSessions(sessionsData);
+
+      const activeSession = sessionsData.find(
+        (session) => session.is_active
+      );
+
       if (activeSession) {
-        setSubjectForm(prev => ({ ...prev, sessionId: String(activeSession.id) }));
+        setSubjectForm((prev) => ({
+          ...prev,
+          sessionId: String(activeSession.id),
+        }));
       }
+
+      console.log(
+        "[teacher-workspace] Loaded subject assignments:",
+        displayedSubjects
+      );
     } catch (err: unknown) {
+      console.error(
+        "[teacher-workspace] Failed loading teacher workspace:",
+        err
+      );
       setMainError(parseApiError(err));
     } finally {
       setIsLoadingMain(false);
@@ -204,10 +333,31 @@ export default function Page({ params }: TeacherPageProps) {
       await api.post(`/classes/${selectedClassId}/class-teacher`, {
         teacher_id: numericTeacherId
       });
+
+      const assignedClass = classes.find((c) => String(c.id) === String(selectedClassId));
+      if (assignedClass) {
+        setSummaryData((prev) => {
+          if (!prev) return prev;
+          const classExists = prev.class_teacher_of.includes(assignedClass.name);
+          return {
+            ...prev,
+            class_teacher_of: classExists ? prev.class_teacher_of : [...prev.class_teacher_of, assignedClass.name]
+          };
+        });
+      }
+
       closeAndResetModals();
-      window.location.reload();
+      setSuccessMessage("Class assigned successfully.");
+
+      // The class has already been inserted into local state above.
+      // Do not immediately reload the workspace because the backend
+      // response can briefly return stale assignment data and overwrite
+      // the newly displayed class.
+
+      setTimeout(() => setSuccessMessage(null), 1200);
     } catch (err: unknown) {
       setModalError(parseApiError(err));
+    } finally {
       setIsModalSubmitting(false);
     }
   };
@@ -225,10 +375,32 @@ export default function Page({ params }: TeacherPageProps) {
     setModalError(null);
     try {
       await api.delete(`/classes/${matchingClass.id}/class-teacher`);
+
+      setSummaryData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          class_teacher_of: prev.class_teacher_of.filter((c) => c !== targetClassroomName)
+        };
+      });
+
       closeAndResetModals();
-      window.location.reload();
+      setSuccessMessage("Class assignment removed successfully.");
+
+      // The class assignment has already been removed from local state above.
+      // Do NOT reload the entire teacher workspace here.
+      //
+      // A full workspace reload can return stale/incomplete assignment data
+      // and overwrite the current subjects array, making an unrelated subject
+      // assignment disappear from the page.
+      //
+      // Only class_teacher_of should change when removing a class teacher
+      // assignment. Subject assignments must remain untouched.
+
+      setTimeout(() => setSuccessMessage(null), 1200);
     } catch (err: unknown) {
       setModalError(parseApiError(err));
+    } finally {
       setIsModalSubmitting(false);
     }
   };
@@ -241,33 +413,96 @@ export default function Page({ params }: TeacherPageProps) {
 
     setIsModalSubmitting(true);
     setModalError(null);
+
+    const targetClass = classes.find((c) => String(c.id) === String(classId));
+    const targetSubject = subjects.find((s) => String(s.id) === String(subjectId));
+
     try {
-      await api.post("/teacher-assignments", {
+      const response = await api.post("/teacher-assignments", {
         school_id: numericSchoolId,
         teacher_id: numericTeacherId,
         classroom_id: Number(classId),
+        class_id: Number(classId), // Dual support in case API expects class_id
         subject_id: Number(subjectId),
         academic_session_id: Number(sessionId)
       });
+
+      // Optimistically insert subject directly into local state
+      const createdId = response?.data?.id || Date.now();
+      if (targetClass && targetSubject) {
+        setSummaryData((prev) => {
+          if (!prev) return prev;
+          const duplicate = prev.subjects.some(
+            (s) => s.id === createdId || (s.classroom === targetClass.name && s.subject === targetSubject.name)
+          );
+          if (duplicate) return prev;
+          return {
+            ...prev,
+            subjects: [
+              ...prev.subjects,
+              {
+                id: createdId,
+                classroom: targetClass.name,
+                subject: targetSubject.name
+              }
+            ]
+          };
+        });
+      }
+
       closeAndResetModals();
-      window.location.reload();
+      setSuccessMessage("Subject assigned successfully.");
+
+      // The subject has already been inserted into local state above.
+      // Do not immediately reload the workspace here because the backend
+      // response can briefly return stale assignment data and overwrite
+      // the newly displayed subject.
+      //
+      // The next normal workspace load will reconcile the data with the API.
+
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 1200);
     } catch (err: unknown) {
       setModalError(parseApiError(err));
+    } finally {
       setIsModalSubmitting(false);
     }
   };
 
+  // Handle subject assignment deletion with instant UI update
   const handleRemoveSubjectAssignment = async () => {
-    if (!targetSubjectAssignmentId || isModalSubmitting) return;
+    if (!targetSubjectAssignmentId || isModalSubmitting) {
+      setModalError("Invalid subject assignment ID selected.");
+      return;
+    }
 
     setIsModalSubmitting(true);
     setModalError(null);
     try {
       await api.delete(`/teacher-assignments/${targetSubjectAssignmentId}`);
+
+      // Optimistically remove subject from state immediately
+      setSummaryData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          subjects: prev.subjects.filter((s) => s.id !== targetSubjectAssignmentId)
+        };
+      });
+
       closeAndResetModals();
-      window.location.reload();
+      setSuccessMessage("Subject assignment removed successfully.");
+      
+      // Fast background data update
+      await loadTeacherWorkspace(false);
+
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 1200);
     } catch (err: unknown) {
       setModalError(parseApiError(err));
+    } finally {
       setIsModalSubmitting(false);
     }
   };
@@ -295,7 +530,7 @@ export default function Page({ params }: TeacherPageProps) {
     return (
       <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-4">
         <Link
-          href={loginHref}
+          href={teachersHref}
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
         >
           <ArrowLeft size={16} />
@@ -323,7 +558,7 @@ export default function Page({ params }: TeacherPageProps) {
     return (
       <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-4">
         <Link
-          href={loginHref}
+          href={teachersHref}
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
         >
           <ArrowLeft size={16} />
@@ -346,7 +581,7 @@ export default function Page({ params }: TeacherPageProps) {
       {/* Top Left Navigation Header */}
       <div>
         <Link
-          href={loginHref}
+          href={teachersHref}
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors group"
         >
           <ArrowLeft className="h-4 w-4 transform transition-transform group-hover:-translate-x-0.5" />
@@ -489,7 +724,13 @@ export default function Page({ params }: TeacherPageProps) {
             </div>
             <button
               type="button"
-              onClick={() => setActiveModal("assignSubject")}
+              onClick={() => {
+                const activeSession = sessions.find((s) => s.is_active);
+                if (activeSession && !subjectForm.sessionId) {
+                  setSubjectForm((prev) => ({ ...prev, sessionId: String(activeSession.id) }));
+                }
+                setActiveModal("assignSubject");
+              }}
               className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -515,7 +756,7 @@ export default function Page({ params }: TeacherPageProps) {
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {summaryData.subjects.map((item, index) => (
-                      <tr key={`${item.classroom}-${item.subject}-${index}`} className="hover:bg-slate-50/50 transition-colors">
+                      <tr key={item.id ? `sub-${item.id}` : `${item.classroom}-${item.subject}-${index}`} className="hover:bg-slate-50/50 transition-colors">
                         <td className="whitespace-nowrap px-4 py-3.5 font-semibold text-slate-900">
                           {item.subject}
                         </td>
@@ -799,6 +1040,42 @@ export default function Page({ params }: TeacherPageProps) {
                   "Remove Assignment"
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Global Action Success Popup */}
+      {successMessage && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-emerald-100 bg-white p-6 shadow-2xl">
+            <div className="flex flex-col items-center text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50">
+                <svg
+                  className="h-7 w-7 text-emerald-600"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              </div>
+
+              <h3 className="mt-4 text-lg font-bold text-slate-900">
+                Success
+              </h3>
+
+              <p className="mt-2 text-sm text-slate-500">
+                {successMessage}
+              </p>
+
+              <div className="mt-5 flex items-center gap-2 text-xs font-semibold text-slate-400">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Updating workspace...
+              </div>
             </div>
           </div>
         </div>

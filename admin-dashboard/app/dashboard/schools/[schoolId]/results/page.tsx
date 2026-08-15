@@ -229,13 +229,43 @@ export default function ResultsPage({
 
       const extractArray = (res: any) => {
         if (Array.isArray(res?.data)) return res.data;
-        if (Array.isArray(res?.data?.data)) return res.data.data;
-        if (Array.isArray(res?.data?.results)) return res.data.results;
+
+        if (Array.isArray(res?.data?.data)) {
+          return res.data.data;
+        }
+
+        if (Array.isArray(res?.data?.results)) {
+          return res.data.results;
+        }
+
+        if (Array.isArray(res?.data?.items)) {
+          return res.data.items;
+        }
+
+        if (Array.isArray(res?.data?.allocations)) {
+          return res.data.allocations;
+        }
+
+        if (Array.isArray(res?.data?.teacher_allocations)) {
+          return res.data.teacher_allocations;
+        }
+
+        if (Array.isArray(res?.data?.assignments)) {
+          return res.data.assignments;
+        }
+
         return [];
       };
 
       const safeGet = (url: string, params?: any) =>
-        api.get(url, { params }).catch(() => ({ data: [] }));
+        api.get(url, { params }).catch((error) => {
+          console.error(
+            `[RESULTS API FAILED] ${url}`,
+            error?.response?.status,
+            error?.response?.data || error?.message || error,
+          );
+          return { data: [] };
+        });
 
       const [
         resultsRes,
@@ -245,9 +275,10 @@ export default function ResultsPage({
         termsRes,
         sessionsRes,
       ] = await Promise.all([
-        teacherFlag
-          ? api.get("/results/teacher").catch(() => safeGet("/results", commonParams))
-          : safeGet("/results", commonParams),
+        safeGet(
+          "/results",
+          commonParams,
+        ),
         safeGet("/students", commonParams),
         safeGet("/classes", commonParams),
         safeGet("/subjects", commonParams),
@@ -261,71 +292,51 @@ export default function ResultsPage({
       const fetchedResults: Result[] = extractArray(resultsRes);
 
       setAllStudents(fetchedStudents);
+      setStudents(fetchedStudents);
+      setClasses(fetchedClasses);
 
       if (teacherFlag) {
-        let allocs: any[] = [];
+        /*
+         * Teacher subject dropdown source of truth:
+         * dedicated backend endpoint for the logged-in teacher.
+         */
         try {
-          const allocRes = await api.get("/teachers/me/allocations", { params: commonParams });
-          allocs = extractArray(allocRes);
-        } catch (e) {
-          if (Array.isArray(me.data?.allocations)) {
-            allocs = me.data.allocations;
-          }
+          const mySubjectsRes = await api.get("/teachers/me/subjects");
+
+          const teacherSubjects = Array.isArray(mySubjectsRes.data)
+            ? mySubjectsRes.data
+            : Array.isArray(mySubjectsRes.data?.data)
+            ? mySubjectsRes.data.data
+            : [];
+
+          const normalizedTeacherSubjects = teacherSubjects
+            .map((subject: any) => ({
+              id: Number(subject.id ?? subject.subject_id),
+              name:
+                subject.name ??
+                subject.subject_name ??
+                `Subject ${subject.id ?? subject.subject_id}`,
+            }))
+            .filter(
+              (subject: Option) =>
+                Number.isFinite(subject.id) && subject.id > 0
+            );
+
+          setSubjects(normalizedTeacherSubjects);
+
+          console.log(
+            "[teacher-results] MY SUBJECTS:",
+            normalizedTeacherSubjects
+          );
+        } catch (subjectError) {
+          console.error(
+            "[teacher-results] Failed to load teacher subjects:",
+            subjectError
+          );
+
+          setSubjects([]);
         }
-        setTeacherAllocations(allocs);
-
-        if (allocs.length > 0) {
-          const assignedClassIds = new Set(
-            allocs.map((a: any) => String(a.class_id || a.class?.id)).filter(Boolean)
-          );
-          const assignedSubjectIds = new Set(
-            allocs.map((a: any) => String(a.subject_id || a.subject?.id)).filter(Boolean)
-          );
-
-          const assignedClasses = fetchedClasses.filter((c) => assignedClassIds.has(String(c.id)));
-          const assignedSubjects = fetchedSubjects.filter((s) => assignedSubjectIds.has(String(s.id)));
-
-          setClasses(assignedClasses.length > 0 ? assignedClasses : fetchedClasses);
-          setSubjects(assignedSubjects.length > 0 ? assignedSubjects : fetchedSubjects);
-
-          const filteredStudents = fetchedStudents.filter((student) => {
-            const rawId = student.class_id ?? student.classroom_id;
-            return rawId && assignedClassIds.has(String(rawId));
-          });
-          setStudents(filteredStudents.length > 0 ? filteredStudents : fetchedStudents);
-        } else {
-          const teacherId = me.data.id || me.data.teacher_id || me.data.user_id;
-
-          const matchesTeacher = (item: any) => {
-            if (item.assigned === true) return true;
-            if (item.teacher_id === teacherId || item.staff_id === teacherId) return true;
-            if (item.teacher?.id === teacherId) return true;
-            if (Array.isArray(item.teacher_ids) && item.teacher_ids.includes(teacherId)) return true;
-            return false;
-          };
-
-          const filteredClasses = fetchedClasses.filter(matchesTeacher);
-          const filteredSubjects = fetchedSubjects.filter(matchesTeacher);
-
-          setClasses(filteredClasses.length > 0 ? filteredClasses : fetchedClasses);
-          setSubjects(filteredSubjects.length > 0 ? filteredSubjects : fetchedSubjects);
-
-          const assignedClassIds = new Set(
-            (filteredClasses.length > 0 ? filteredClasses : fetchedClasses).map((c) => String(c.id))
-          );
-          const filteredStudents = fetchedStudents.filter((student) => {
-            const rawId = student.class_id ?? student.classroom_id;
-            return rawId && assignedClassIds.has(String(rawId));
-          });
-          setStudents(filteredStudents.length > 0 ? filteredStudents : fetchedStudents);
-        }
-      } else {
-        setClasses(fetchedClasses);
-        setSubjects(fetchedSubjects);
-        setStudents(fetchedStudents);
-      }
-
-      setResults(fetchedResults);
+      }      setResults(fetchedResults);
       setTerms(extractArray(termsRes));
       setSessions(extractArray(sessionsRes));
     } catch (error) {
@@ -379,22 +390,15 @@ export default function ResultsPage({
     fetchStudentsByClass();
   }, [classId, open, schoolId, allStudents]);
 
-  const getAvailableSubjects = (selectedClassId: string) => {
-    if (!selectedClassId) return subjects;
-
-    if (isTeacher && teacherAllocations.length > 0) {
-      const assignedSubjectIds = new Set(
-        teacherAllocations
-          .filter((a) => String(a.class_id || a.class?.id) === String(selectedClassId))
-          .map((a) => String(a.subject_id || a.subject?.id))
-          .filter(Boolean)
-      );
-
-      if (assignedSubjectIds.size > 0) {
-        return subjects.filter((s) => assignedSubjectIds.has(String(s.id)));
-      }
-    }
-
+  /*
+   * Teachers see only subjects assigned to them.
+   *
+   * We intentionally do NOT filter the subject list by class here.
+   *
+   * The selected class and selected subject are validated together
+   * by the backend before a result can be created or updated.
+   */
+  const getAvailableSubjects = (_selectedClassId: string) => {
     return subjects;
   };
 
@@ -1002,7 +1006,7 @@ export default function ResultsPage({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-bold text-red-950">Academic Results</h1>
-          {canEnterResults && (
+          {isTeacher && (
             <p className="text-sm text-slate-500">
               Teacher Results Management Portal
             </p>
@@ -1205,7 +1209,7 @@ export default function ResultsPage({
       )}
 
       {/* TEACHER WORKFLOW */}
-      {canEnterResults ? (
+      {isTeacher ? (
         <div className="space-y-6">
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
             <div className="flex justify-between items-center mb-4">

@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
+
 import { FormEvent, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import {
+import { LockKeyhole,
   Bell,
   Search,
   ChevronDown,
@@ -338,10 +340,19 @@ const initials = displayName
                 </p>
               </div>
 
+              <Link
+                href="/change-password"
+                onClick={() => setMenuOpen(false)}
+                className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                <LockKeyhole size={17} />
+                Change Password
+              </Link>
+
               <button
                 type="button"
                 onClick={handleLogout}
-                className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-red-600 transition hover:bg-red-50"
               >
                 <LogOut size={17} />
                 Sign out

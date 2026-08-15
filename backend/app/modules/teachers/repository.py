@@ -153,7 +153,8 @@ class TeacherRepository:
                 )
             )
             .where(
-                TeacherSubject.teacher_id == teacher_id
+                TeacherSubject.teacher_id == teacher_id,
+                TeacherSubject.is_active == True,
             )
         )
 

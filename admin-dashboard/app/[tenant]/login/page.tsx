@@ -20,7 +20,8 @@ type CurrentUser = {
   id: number;
   email: string;
   school_id: number | null;
-  role: {
+    must_change_password?: boolean;
+role: {
     name: string;
   };
 };
@@ -129,6 +130,18 @@ export default function TenantLoginPage() {
 
     return;
   }
+      // Teachers and school admins marked for a required
+      // password change must not enter the dashboard.
+      if (
+        user.must_change_password === true &&
+        (user.role?.name === "TEACHER" ||
+          user.role?.name === "SCHOOL_ADMIN")
+      ) {
+        router.replace("/change-password");
+        return;
+      }
+
+
 
       if (user.role?.name === "TEACHER") {
         router.replace(`/${tenant.slug}/teacher/dashboard`);

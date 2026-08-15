@@ -6,6 +6,7 @@ from app.models.classroom import Classroom
 from app.models.result import Result
 from app.models.student import Student
 from app.models.subject import Subject
+from app.models.term import Term
 from app.models.teacher import Teacher
 from app.models.teacher_subject import TeacherSubject
 

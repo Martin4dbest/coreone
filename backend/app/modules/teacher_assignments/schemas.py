@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class TeacherSubjectCreate(BaseModel):
@@ -12,6 +12,8 @@ class TeacherSubjectCreate(BaseModel):
 
 
 class TeacherSubjectResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     school_id: int
 
@@ -23,10 +25,10 @@ class TeacherSubjectResponse(BaseModel):
     assigned_by: int
     assigned_at: datetime
 
+    # IMPORTANT:
+    # The frontend uses this to determine whether an assignment
+    # should be displayed.
     is_active: bool
-
-    class Config:
-        from_attributes = True
 
 
 class TeacherSubjectUpdate(BaseModel):

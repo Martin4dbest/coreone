@@ -19,6 +19,7 @@ type CurrentUser = {
   id: number;
   email: string;
   school_id: number | null;
+  must_change_password?: boolean;
   role: {
     name: string;
   };
@@ -68,6 +69,17 @@ export default function LoginPage() {
         await api.get<CurrentUser>("/auth/me");
 
       const user = userResponse.data;
+
+      // Teachers and school admins who must change their password
+      // must complete the password change before entering the dashboard.
+      if (
+        user.must_change_password === true &&
+        (user.role?.name === "TEACHER" ||
+          user.role?.name === "SCHOOL_ADMIN")
+      ) {
+        router.replace("/change-password");
+        return;
+      }
 
       if (
         user.role?.name === "SCHOOL_ADMIN" &&

@@ -103,17 +103,24 @@ export default function TeachersPage({ params }: TeacherPageProps) {
 
     try {
       await api.delete(`/teachers/${teacherId}`, {
-          params: {
-            school_id: Number(schoolId),
-          },
-        });
+        params: {
+          school_id: Number(schoolId),
+        },
+      });
+
+      // Remove the deleted teacher immediately from local state.
+      // This prevents the deleted record from remaining visible
+      // while waiting for another API request.
+      setTeachers((prev) =>
+        prev.filter((teacher) => teacher.id !== teacherId)
+      );
 
       alert("Teacher deleted successfully.");
-
-      fetchTeachers();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Delete teacher failed:", err);
-      alert("Failed to delete teacher.");
+
+      const message = parseApiError(err);
+      alert(message);
     }
   };
 

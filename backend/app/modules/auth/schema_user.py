@@ -19,3 +19,4 @@ class CurrentUserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+    must_change_password: bool = False

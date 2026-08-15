@@ -1,3 +1,6 @@
+from app.models.teacher_subject import TeacherSubject
+from app.models.teacher import Teacher
+from sqlalchemy import select
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +32,88 @@ router = APIRouter(
     prefix="/teachers",
     tags=["Teachers"],
 )
+
+# =========================================================
+# LOGGED-IN TEACHER ASSIGNED SUBJECTS
+# =========================================================
+
+@router.get("/me/subjects")
+async def get_my_teacher_subjects(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return only subjects actively assigned to the logged-in
+    teacher in the current school.
+    """
+
+    # Find the teacher belonging to the authenticated user.
+    teacher_result = await db.execute(
+        select(Teacher).where(
+            Teacher.user_id == current_user.id,
+            Teacher.school_id == current_user.school_id,
+        )
+    )
+
+    teacher = teacher_result.scalar_one_or_none()
+
+    # Fallback for installations where User carries teacher_id.
+    if teacher is None:
+        teacher_id = getattr(current_user, "teacher_id", None)
+
+        if teacher_id:
+            teacher_result = await db.execute(
+                select(Teacher).where(
+                    Teacher.id == teacher_id,
+                    Teacher.school_id == current_user.school_id,
+                )
+            )
+
+            teacher = teacher_result.scalar_one_or_none()
+
+    if teacher is None:
+        return []
+
+    # Get assigned subjects directly from teacher_subjects.
+    # Import Subject locally so this endpoint is independent of
+    # the rest of the teachers router imports.
+    from app.models.subject import Subject
+
+    result = await db.execute(
+        select(
+            Subject.id,
+            Subject.name,
+        )
+        .join(
+            TeacherSubject,
+            TeacherSubject.subject_id == Subject.id,
+        )
+        .where(
+            TeacherSubject.teacher_id == teacher.id,
+            TeacherSubject.school_id == current_user.school_id,
+            TeacherSubject.is_active == True,
+        )
+        .order_by(Subject.name)
+    )
+
+    rows = result.all()
+
+    seen = set()
+    output = []
+
+    for subject_id, subject_name in rows:
+        if subject_id in seen:
+            continue
+
+        seen.add(subject_id)
+
+        output.append({
+            "id": subject_id,
+            "name": subject_name,
+        })
+
+    return output
+
 
 
 @router.get(

@@ -11,6 +11,8 @@ from app.models.classroom import Classroom
 from app.models.term import Term
 from app.models.academic_session import AcademicSession
 from app.models.result import Result
+from app.models.teacher import Teacher
+from app.models.teacher_subject import TeacherSubject
 from app.models.grading_system import GradingSystem
 from app.models.school import School
 from app.models.school_branding import SchoolBranding
@@ -27,6 +29,89 @@ from app.modules.results.schemas import (
 
 
 class ResultService:
+
+    async def _check_teacher_result_access(
+        self,
+        current_user,
+        school_id: int,
+        class_id: int,
+        subject_id: int,
+        academic_session_id: int,
+    ):
+        """
+        Teachers may only create/update results for an active
+        TeacherSubject allocation matching:
+
+        - teacher
+        - school
+        - classroom
+        - subject
+        - academic session
+
+        SUPER_ADMIN and SCHOOL_ADMIN are not restricted by
+        teacher allocation rules.
+        """
+
+        role = getattr(
+            getattr(current_user, "role", None),
+            "name",
+            "",
+        )
+
+        if role != "TEACHER":
+            return
+
+        teacher = await self.db.get(
+            Teacher,
+            getattr(current_user, "teacher_id", None),
+        )
+
+        # Some User models do not expose teacher_id directly.
+        # Fall back to the Teacher.user_id relationship.
+        if teacher is None:
+            teacher_result = await self.db.execute(
+                select(Teacher).where(
+                    Teacher.user_id == current_user.id,
+                    Teacher.school_id == school_id,
+                )
+            )
+            teacher = teacher_result.scalar_one_or_none()
+
+        if not teacher:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Teacher profile not found for the active school.",
+            )
+
+        if teacher.school_id != school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Teacher does not belong to the active school.",
+            )
+
+        allocation_result = await self.db.execute(
+            select(TeacherSubject).where(
+                TeacherSubject.teacher_id == teacher.id,
+                TeacherSubject.school_id == school_id,
+                TeacherSubject.classroom_id == class_id,
+                TeacherSubject.subject_id == subject_id,
+                TeacherSubject.academic_session_id == academic_session_id,
+                TeacherSubject.is_active == True,
+            )
+        )
+
+        allocation = allocation_result.scalar_one_or_none()
+
+        if not allocation:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "You are not assigned to this class, subject, "
+                    "and academic session."
+                ),
+            )
+
+
 
     def __init__(self, db: AsyncSession):
         self.repository = ResultRepository(db)
@@ -94,6 +179,14 @@ class ResultService:
             school_id,
         )
 
+        await self._check_teacher_result_access(
+            current_user=current_user,
+            school_id=school_id,
+            class_id=payload.class_id,
+            subject_id=payload.subject_id,
+            academic_session_id=payload.academic_session_id,
+        )
+
         total = payload.ca_score + payload.exam_score
 
         grading = await self.get_grade_for_score(
@@ -156,6 +249,14 @@ class ResultService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Result school does not match the active tenant.",
             )
+
+        await self._check_teacher_result_access(
+            current_user=current_user,
+            school_id=school_id,
+            class_id=payload.class_id,
+            subject_id=payload.subject_id,
+            academic_session_id=payload.academic_session_id,
+        )
 
         total = payload.ca_score + payload.exam_score
 
@@ -977,6 +1078,14 @@ class ResultService:
         check_school_access(
             current_user,
             school_id,
+        )
+
+        await self._check_teacher_result_access(
+            current_user=current_user,
+            school_id=school_id,
+            class_id=payload.class_id,
+            subject_id=payload.subject_id,
+            academic_session_id=payload.academic_session_id,
         )
 
         created = []

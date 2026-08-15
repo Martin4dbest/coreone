@@ -173,6 +173,8 @@ class TeacherService:
 
             "subjects": [
                 {
+                    "id": assignment.id,
+
                     "classroom": (
                         assignment.classroom.name
                         if assignment.classroom

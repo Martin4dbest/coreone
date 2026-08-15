@@ -32,6 +32,7 @@ class TeacherResponse(BaseModel):
 
 
 class TeacherSubjectSummary(BaseModel):
+    id: int
     classroom: str
     subject: str
 
