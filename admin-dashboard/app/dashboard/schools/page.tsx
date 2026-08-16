@@ -159,7 +159,7 @@ export default function SchoolsPage() {
           </h1>
 
           <p className="mt-2 text-sm text-slate-500">
-            Manage every institution registered on PreSense.
+            Manage every registered institution.
           </p>
         </div>
 
