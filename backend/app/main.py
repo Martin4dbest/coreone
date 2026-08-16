@@ -151,6 +151,16 @@ app.include_router(
 )
 
 app.include_router(
+    partner_schools_router,
+    prefix=settings.API_V1_STR,
+)
+
+app.include_router(
+    mobile_student_router,
+    prefix=settings.API_V1_STR,
+)
+
+app.include_router(
     roles_router,
     prefix=settings.API_V1_STR,
 )
@@ -373,36 +383,6 @@ async def health():
     }
 
 
-print("=" * 80)
-print("FASTAPI ROUTES AFTER REGISTRATION")
-print("=" * 80)
-
-from fastapi.routing import APIRoute
-
-count = 0
-for route in app.router.routes:
-    if isinstance(route, APIRoute):
-        count += 1
-        print(route.path)
-
-print("TOTAL:", count)
-# ============================
-# Mobile Student API
-# ============================
-from app.modules.students.mobile_router import router as mobile_student_router
-
-app.include_router(
-    mobile_student_router,
-    prefix="/api/v1",
-)
-
-
-app.include_router(
-    partner_schools_router,
-    prefix=settings.API_V1_STR,
-)
-
-
 # CBT uploads static mount.
 # Files are physically stored in backend/uploads/ and exposed as /uploads/...
 CBT_UPLOADS_ROOT = Path(__file__).resolve().parents[1] / "uploads"
@@ -413,3 +393,62 @@ app.mount(
     StaticFiles(directory=str(CBT_UPLOADS_ROOT)),
     name="uploads",
 )
+
+# ============================================================
+# ROUTE DIAGNOSTIC
+# FastAPI 0.137+ stores included routers as _IncludedRouter
+# objects. Use iter_route_contexts() rather than checking only
+# app.router.routes for APIRoute instances.
+# ============================================================
+
+try:
+    from fastapi.routing import iter_route_contexts
+
+    _route_contexts = list(iter_route_contexts(app.router.routes))
+
+    print("=" * 80)
+    print("FASTAPI FINAL ROUTE REGISTRATION")
+    print("=" * 80)
+    print("FastAPI:", __import__("fastapi").__version__)
+    print("Total route contexts:", len(_route_contexts))
+
+    _api_route_count = 0
+
+    for _ctx in _route_contexts:
+        _path = getattr(_ctx, "path", None)
+        _method = getattr(_ctx, "methods", None)
+
+        if _path:
+            _api_route_count += 1
+
+    print("API route contexts:", _api_route_count)
+
+    print()
+    print("AUTH ROUTES:")
+    for _ctx in _route_contexts:
+        _path = getattr(_ctx, "path", "") or ""
+        if "/auth" in _path:
+            print(_path)
+
+    print()
+    print("SUPER ADMIN ROUTES:")
+    for _ctx in _route_contexts:
+        _path = getattr(_ctx, "path", "") or ""
+        if "super-admin" in _path or "super_admin" in _path:
+            print(_path)
+
+    print()
+    print("CBT ROUTES:")
+    for _ctx in _route_contexts:
+        _path = getattr(_ctx, "path", "") or ""
+        if "/cbt" in _path:
+            print(_path)
+
+    print("=" * 80)
+
+except Exception as _route_diag_error:
+    print("=" * 80)
+    print("ROUTE DIAGNOSTIC ERROR")
+    print(repr(_route_diag_error))
+    print("=" * 80)
+
