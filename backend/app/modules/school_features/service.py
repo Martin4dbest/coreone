@@ -20,6 +20,7 @@ DEFAULT_FEATURES = [
     "cbt",
     "results",
     "events",
+    "notifications",
     "settings",
     "branding",
     "partner_schools",

@@ -3,6 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification
+from app.models.school_feature import SchoolFeature
 from app.models.student import Student
 from app.modules.notifications.repository import NotificationRepository
 from app.modules.notifications.schemas import NotificationCreateRequest
@@ -13,6 +14,37 @@ class NotificationService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.repository = NotificationRepository(db)
+
+    async def _ensure_enabled(
+        self,
+        school_id: int | None,
+    ):
+        """
+        Notifications is a tenant-level paid feature.
+
+        A school can only use Notifications when its
+        notifications feature is enabled.
+        """
+        if not school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Notifications feature is not available for this school.",
+            )
+
+        result = await self.db.execute(
+            select(SchoolFeature).where(
+                SchoolFeature.school_id == school_id,
+                SchoolFeature.feature_key == "notifications",
+            )
+        )
+
+        feature = result.scalar_one_or_none()
+
+        if not feature or not feature.enabled:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Notifications feature is disabled for this school.",
+            )
 
     async def _get_current_student(self, current_user):
         result = await self.db.execute(
@@ -42,6 +74,9 @@ class NotificationService:
 
             school_id = current_user.school_id
 
+        # PAID FEATURE ENFORCEMENT
+        await self._ensure_enabled(school_id)
+
         notification = Notification(
             school_id=school_id,
             title=payload.title.strip(),
@@ -53,6 +88,11 @@ class NotificationService:
         return await self.repository.create(notification)
 
     async def get_notifications(self, current_user):
+        # PAID FEATURE ENFORCEMENT
+        await self._ensure_enabled(
+            current_user.school_id
+        )
+
         role = current_user.role.name
 
         if role == "STUDENT":
@@ -83,12 +123,14 @@ class NotificationService:
         self,
         current_user,
     ):
+        # PAID FEATURE ENFORCEMENT
+        await self._ensure_enabled(
+            current_user.school_id
+        )
+
         role = current_user.role.name
 
         # Admins clear the school's entire active notification history.
-        # This makes the cleared state consistent across admin and student
-        # notification views without changing notification permissions or
-        # recipient targeting.
         if role in ("SUPER_ADMIN", "SCHOOL_ADMIN"):
             cleared = await self.repository.clear_all(
                 school_id=current_user.school_id,
@@ -122,12 +164,16 @@ class NotificationService:
 
         return {"cleared": cleared}
 
-
     async def get_notification(
         self,
         notification_id: int,
         current_user,
     ):
+        # PAID FEATURE ENFORCEMENT
+        await self._ensure_enabled(
+            current_user.school_id
+        )
+
         notification = await self.repository.get_by_id(
             notification_id,
             current_user.school_id,
@@ -150,7 +196,8 @@ class NotificationService:
 
             if (
                 notification.recipient_type is not None
-                and notification.recipient_type != f"STUDENT:{student.id}"
+                and notification.recipient_type
+                != f"STUDENT:{student.id}"
             ):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -164,6 +211,11 @@ class NotificationService:
         notification_id: int,
         current_user,
     ):
+        # PAID FEATURE ENFORCEMENT
+        await self._ensure_enabled(
+            current_user.school_id
+        )
+
         notification = await self.repository.get_by_id(
             notification_id,
             current_user.school_id,
@@ -186,7 +238,8 @@ class NotificationService:
 
             if (
                 notification.recipient_type is not None
-                and notification.recipient_type != f"STUDENT:{student.id}"
+                and notification.recipient_type
+                != f"STUDENT:{student.id}"
             ):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,

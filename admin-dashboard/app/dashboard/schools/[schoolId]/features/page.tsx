@@ -100,6 +100,11 @@ const FEATURES: FeatureDefinition[] = [
     description: "School events and activities.",
   },
   {
+    key: "notifications",
+    name: "Notifications",
+    description: "Manage school-wide and individual student notifications.",
+  },
+  {
     key: "settings",
     name: "Settings",
     description: "School configuration and settings.",
