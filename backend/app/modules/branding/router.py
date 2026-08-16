@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
@@ -67,7 +67,6 @@ async def update_branding(
 
 @router.post("/upload-image")
 async def upload_branding_image(
-    request: Request,
     school_id: int = Form(...),
     asset_type: str = Form(...),
     file: UploadFile = File(...),
@@ -98,10 +97,6 @@ async def upload_branding_image(
         asset_type=asset_type,
     )
 
-    absolute_image_url = str(
-        request.base_url
-    ).rstrip("/") + image_url
-
     return {
-        "url": absolute_image_url,
+        "url": image_url,
     }
