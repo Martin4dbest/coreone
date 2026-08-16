@@ -849,30 +849,30 @@ async def unpublish_exam(
 
 
 from fastapi import UploadFile, File
-from pathlib import Path
-from uuid import uuid4
-import shutil
 
-UPLOAD_ROOT = Path(__file__).resolve().parents[3] / "uploads" / "cbt"
+from app.services.storage import upload_file
 
 
 @router.post("/upload/image")
 async def upload_cbt_image(
     file: UploadFile = File(...),
 ):
-    ext = Path(file.filename).suffix.lower()
-    filename = f"{uuid4().hex}{ext}"
+    result = await upload_file(
+        file,
+        folder="presense/cbt/images",
+        resource_type="image",
+    )
 
-    folder = UPLOAD_ROOT / "images"
-    folder.mkdir(parents=True, exist_ok=True)
+    secure_url = result.get("secure_url")
 
-    filepath = folder / filename
-
-    with filepath.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    if not secure_url:
+        raise HTTPException(
+            status_code=500,
+            detail="Cloudinary did not return a secure image URL.",
+        )
 
     return {
-        "url": f"/uploads/cbt/images/{filename}"
+        "url": secure_url,
     }
 
 
@@ -880,19 +880,22 @@ async def upload_cbt_image(
 async def upload_cbt_audio(
     file: UploadFile = File(...),
 ):
-    ext = Path(file.filename).suffix.lower()
-    filename = f"{uuid4().hex}{ext}"
+    result = await upload_file(
+        file,
+        folder="presense/cbt/audio",
+        resource_type="video",
+    )
 
-    folder = UPLOAD_ROOT / "audio"
-    folder.mkdir(parents=True, exist_ok=True)
+    secure_url = result.get("secure_url")
 
-    filepath = folder / filename
-
-    with filepath.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    if not secure_url:
+        raise HTTPException(
+            status_code=500,
+            detail="Cloudinary did not return a secure audio URL.",
+        )
 
     return {
-        "url": f"/uploads/cbt/audio/{filename}"
+        "url": secure_url,
     }
 
 
@@ -900,19 +903,22 @@ async def upload_cbt_audio(
 async def upload_cbt_video(
     file: UploadFile = File(...),
 ):
-    ext = Path(file.filename).suffix.lower()
-    filename = f"{uuid4().hex}{ext}"
+    result = await upload_file(
+        file,
+        folder="presense/cbt/videos",
+        resource_type="video",
+    )
 
-    folder = UPLOAD_ROOT / "videos"
-    folder.mkdir(parents=True, exist_ok=True)
+    secure_url = result.get("secure_url")
 
-    filepath = folder / filename
-
-    with filepath.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    if not secure_url:
+        raise HTTPException(
+            status_code=500,
+            detail="Cloudinary did not return a secure video URL.",
+        )
 
     return {
-        "url": f"/uploads/cbt/videos/{filename}"
+        "url": secure_url,
     }
 
 

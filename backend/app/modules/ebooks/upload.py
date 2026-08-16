@@ -1,13 +1,9 @@
-from pathlib import Path
-from uuid import uuid4
+from __future__ import annotations
 
 from fastapi import HTTPException, UploadFile, status
 
+from app.services.storage import upload_file
 
-BASE_DIR = Path(__file__).resolve().parents[3]
-UPLOAD_DIR = BASE_DIR / "protected_ebooks"
-PUBLIC_UPLOAD_DIR = BASE_DIR / "uploads" / "ebooks"
-COVER_UPLOAD_DIR = BASE_DIR / "uploads" / "ebooks"
 
 MAX_EBOOK_SIZE = 50 * 1024 * 1024
 MAX_COVER_SIZE = 5 * 1024 * 1024
@@ -49,29 +45,28 @@ async def save_ebook_file(
             detail="Ebook must not exceed 50 MB.",
         )
 
-    extension = ALLOWED_EBOOK_TYPES[content_type]
+    # Reset the UploadFile stream so Cloudinary receives
+    # the complete file.
+    await file.seek(0)
 
-    school_dir = UPLOAD_DIR / str(school_id) / "files"
-    school_dir.mkdir(
-        parents=True,
-        exist_ok=True,
+    result = await upload_file(
+        file,
+        folder=f"presense/schools/{school_id}/ebooks",
+        resource_type="raw",
+        delivery_type="authenticated",
     )
 
-    filename = (
-        f"ebook-{uuid4().hex}{extension}"
-    )
+    secure_url = result.get("secure_url")
 
-    file_path = school_dir / filename
-    file_path.write_bytes(content)
-
-    url = (
-        f"/uploads/ebooks/"
-        f"{school_id}/files/{filename}"
-    )
+    if not secure_url:
+        raise HTTPException(
+            status_code=500,
+            detail="Cloudinary did not return a secure ebook URL.",
+        )
 
     return (
-        url,
-        file.filename or filename,
+        secure_url,
+        file.filename or "ebook",
         len(content),
         content_type,
     )
@@ -101,22 +96,20 @@ async def save_ebook_cover(
             detail="Cover image must not exceed 5 MB.",
         )
 
-    extension = ALLOWED_COVER_TYPES[content_type]
+    await file.seek(0)
 
-    school_dir = COVER_UPLOAD_DIR / str(school_id) / "covers"
-    school_dir.mkdir(
-        parents=True,
-        exist_ok=True,
+    result = await upload_file(
+        file,
+        folder=f"presense/schools/{school_id}/ebooks/covers",
+        resource_type="image",
     )
 
-    filename = (
-        f"cover-{uuid4().hex}{extension}"
-    )
+    secure_url = result.get("secure_url")
 
-    file_path = school_dir / filename
-    file_path.write_bytes(content)
+    if not secure_url:
+        raise HTTPException(
+            status_code=500,
+            detail="Cloudinary did not return a secure cover URL.",
+        )
 
-    return (
-        f"/uploads/ebooks/"
-        f"{school_id}/covers/{filename}"
-    )
+    return secure_url

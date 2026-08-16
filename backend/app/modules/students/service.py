@@ -647,29 +647,23 @@ class StudentService:
                 detail="Student not found",
             )
 
-        folder = str(
-            Path(__file__).resolve().parents[3]
-            / "uploads"
-            / "students"
-            / str(student.school_id)
+        from app.services.storage import upload_file
+
+        result = await upload_file(
+            file,
+            folder=f"presense/schools/{student.school_id}/students/passports",
+            resource_type="image",
         )
-        os.makedirs(folder, exist_ok=True)
 
-        ext = os.path.splitext(file.filename)[1]
+        secure_url = result.get("secure_url")
 
-        filename = f"{uuid.uuid4().hex}{ext}"
+        if not secure_url:
+            raise HTTPException(
+                status_code=500,
+                detail="Cloudinary did not return a secure passport URL.",
+            )
 
-        path = os.path.join(folder, filename)
-
-        with open(path, "wb") as f:
-            f.write(await file.read())
-
-        relative_path = os.path.relpath(
-            path,
-            "uploads",
-        ).replace("\\", "/")
-
-        student.passport = "/uploads/" + relative_path
+        student.passport = secure_url
 
         return await self.repository.update(student)
 

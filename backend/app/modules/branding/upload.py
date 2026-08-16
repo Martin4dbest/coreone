@@ -1,49 +1,30 @@
-from pathlib import Path
-from uuid import uuid4
+from __future__ import annotations
 
-from fastapi import HTTPException, UploadFile, status
+from fastapi import UploadFile
 
-
-BASE_DIR = Path(__file__).resolve().parents[3]
-UPLOAD_DIR = BASE_DIR / "uploads" / "branding"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
-ALLOWED_CONTENT_TYPES = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-}
-
-MAX_FILE_SIZE = 5 * 1024 * 1024
+from app.services.storage import upload_file
 
 
 async def save_branding_image(
     file: UploadFile,
     school_id: int,
-    asset_type: str,
 ) -> str:
-    if file.content_type not in ALLOWED_CONTENT_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only JPG, PNG and WebP images are allowed.",
-        )
+    """
+    Upload school branding assets to Cloudinary.
 
-    content = await file.read()
+    Branding assets are stored per school so every tenant remains
+    logically isolated in Cloudinary.
+    """
 
-    if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Image must not exceed 5 MB.",
-        )
+    result = await upload_file(
+        file,
+        folder=f"presense/schools/{school_id}/branding",
+        resource_type="image",
+    )
 
-    extension = ALLOWED_CONTENT_TYPES[file.content_type]
+    secure_url = result.get("secure_url")
 
-    school_dir = UPLOAD_DIR / str(school_id)
-    school_dir.mkdir(parents=True, exist_ok=True)
+    if not secure_url:
+        raise RuntimeError("Cloudinary did not return a secure URL.")
 
-    filename = f"{asset_type}-{uuid4().hex}{extension}"
-    file_path = school_dir / filename
-
-    file_path.write_bytes(content)
-
-    return f"/uploads/branding/{school_id}/{filename}"
+    return secure_url

@@ -357,13 +357,17 @@ async def protected_ebook_file(
     """
     Protected ebook file endpoint.
 
+    Ebook PDFs are stored in Cloudinary as authenticated raw assets.
+
     Access rules:
-    - Staff/admin users in the same school may access the file.
+    - Staff/admin users in the same school may access the ebook.
     - Students may access it only when:
         1. the ebook is published school-wide, OR
         2. the ebook is individually assigned to that student.
 
-    The PDF remains inside protected_ebooks.
+    The Cloudinary authenticated URL is never returned directly to
+    the client. The backend fetches the protected asset and streams it
+    to the authorized user.
     """
 
     service = EbookService(db)
@@ -387,6 +391,12 @@ async def protected_ebook_file(
         student = await service._get_student_for_user(
             current_user
         )
+
+        if not student:
+            raise HTTPException(
+                status_code=403,
+                detail="Student account not found.",
+            )
 
         access = await service.get_ebook_student_access(
             ebook_id,
@@ -406,228 +416,220 @@ async def protected_ebook_file(
             detail="Ebook file not available.",
         )
 
-    filename = Path(
-        ebook.file_url.split("?")[0]
-    ).name
+    cloudinary_url = ebook.file_url.strip()
 
-    protected_root = (
-        Path.cwd()
-        / "protected_ebooks"
-        / str(current_user.school_id)
-        / "files"
-    ).resolve()
+    if not cloudinary_url.startswith("https://"):
+        raise HTTPException(
+            status_code=500,
+            detail="Ebook storage URL is invalid.",
+        )
 
-    file_path = (
-        protected_root / filename
-    ).resolve()
+    parsed_url = urlparse(cloudinary_url)
+
+    if not parsed_url.netloc:
+        raise HTTPException(
+            status_code=500,
+            detail="Ebook storage URL is invalid.",
+        )
+
+    filename = (
+        ebook.file_name
+        or Path(parsed_url.path).name
+        or f"ebook-{ebook_id}.pdf"
+    )
 
     try:
-        file_path.relative_to(protected_root)
-    except ValueError:
-        raise HTTPException(
-            status_code=403,
-            detail="Invalid ebook path.",
+        # Cloudinary authenticated raw assets cannot be fetched with
+        # a normal GET against their secure_url. Generate a signed
+        # private download URL using the Cloudinary SDK instead.
+        import cloudinary
+        import cloudinary.utils
+
+        cloudinary.config(
+            cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+            api_key=os.getenv("CLOUDINARY_API_KEY"),
+            api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+            secure=True,
         )
 
-    if not file_path.is_file():
-        raise HTTPException(
-            status_code=404,
-            detail="Ebook file not found.",
+        cloudinary_path = unquote(
+            parsed_url.path
         )
 
-    return FileResponse(
-        path=str(file_path),
-        media_type=ebook.file_type or "application/pdf",
-        filename=ebook.file_name or filename,
+        # Cloudinary authenticated raw delivery URLs have this form:
+        #
+        # /raw/authenticated/<signature>/v<version>/<public_id>
+        #
+        # Example:
+        #
+        # /raw/authenticated/s--Ofq8049U--/v1786853521/
+        # presense/schools/999999/ebooks/example.pdf
+        #
+        # The signature and version are delivery URL components.
+        # They are NOT part of the Cloudinary public_id.
+        marker = "/raw/authenticated/"
+
+        if marker not in cloudinary_path:
+            raise HTTPException(
+                status_code=500,
+                detail="Ebook Cloudinary URL format is invalid.",
+            )
+
+        remainder = cloudinary_path.split(
+            marker,
+            1,
+        )[1]
+
+        parts = remainder.split(
+            "/",
+            2,
+        )
+
+        if len(parts) < 3:
+            raise HTTPException(
+                status_code=500,
+                detail="Ebook Cloudinary URL format is invalid.",
+            )
+
+        signature_segment = parts[0]
+        version_segment = parts[1]
+        public_id = parts[2]
+
+        if not (
+            signature_segment.startswith("s--")
+            and signature_segment.endswith("--")
+        ):
+            raise HTTPException(
+                status_code=500,
+                detail="Ebook Cloudinary URL signature is invalid.",
+            )
+
+        if not version_segment.startswith("v"):
+            raise HTTPException(
+                status_code=500,
+                detail="Ebook Cloudinary URL version is invalid.",
+            )
+
+        if not public_id:
+            raise HTTPException(
+                status_code=500,
+                detail="Ebook Cloudinary public ID is missing.",
+            )
+
+        # IMPORTANT:
+        # Cloudinary raw authenticated assets created by save_ebook_file()
+        # have the original file extension included in the stored public_id.
+        #
+        # Example:
+        #   presense/schools/999999/ebooks/abc123.pdf
+        #
+        # The successful Cloudinary test confirmed that this complete
+        # public_id, including ".pdf", must be supplied to
+        # private_download_url(). Do not strip the extension and do not
+        # append it separately.
+
+        download_url = cloudinary.utils.private_download_url(
+            public_id,
+            "",
+            resource_type="raw",
+            type="authenticated",
+            attachment=False,
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Unable to generate the secure ebook download URL: "
+                f"{exc}"
+            ),
+        ) from exc
+
+    try:
+        client = httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=httpx.Timeout(
+                connect=15.0,
+                read=120.0,
+                write=30.0,
+                pool=15.0,
+            ),
+        )
+
+        response = await client.send(
+            client.build_request(
+                "GET",
+                download_url,
+            ),
+            stream=True,
+        )
+
+    except Exception as exc:
+        try:
+            await client.aclose()
+        except Exception:
+            pass
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Unable to retrieve ebook from Cloudinary: "
+                f"{exc}"
+            ),
+        ) from exc
+
+    if response.status_code != 200:
+        status_code = response.status_code
+
+        try:
+            await response.aclose()
+        finally:
+            await client.aclose()
+
+        if status_code in (401, 403, 404):
+            raise HTTPException(
+                status_code=404,
+                detail="Ebook file is unavailable.",
+            )
+
+        raise HTTPException(
+            status_code=502,
+            detail="Cloudinary could not provide the ebook file.",
+        )
+
+    media_type = (
+        ebook.file_type
+        or response.headers.get(
+            "content-type",
+            "application/pdf",
+        )
+    )
+
+    async def stream_ebook():
+        try:
+            async for chunk in response.aiter_bytes(
+                chunk_size=1024 * 1024
+            ):
+                if chunk:
+                    yield chunk
+        finally:
+            await response.aclose()
+            await client.aclose()
+
+    return StreamingResponse(
+        stream_ebook(),
+        media_type=media_type,
         headers={
             "Cache-Control": "private, no-store",
             "X-Content-Type-Options": "nosniff",
-            "Content-Disposition": "inline",
+            "Content-Disposition": (
+                f'inline; filename="{filename}"'
+            ),
         },
     )
-
-
-@router.post(
-    "/{ebook_id}/download",
-    response_model=EbookResponse,
-)
-async def download_ebook(
-    ebook_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await EbookService(db).download_ebook(
-        ebook_id,
-        current_user,
-    )
-
-
-@router.get(
-    "/{ebook_id}/activity",
-)
-async def ebook_activity(
-    ebook_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Return students/users who viewed or downloaded an ebook.
-    Results are restricted to the current school.
-    """
-
-    ebook = await EbookService(db).get_ebook(
-        ebook_id,
-        current_user.school_id,
-    )
-
-    if not ebook:
-        raise HTTPException(
-            status_code=404,
-            detail="Ebook not found",
-        )
-
-    result = await db.execute(
-        select(
-            EbookActivity,
-            User,
-            Student,
-        )
-        .join(
-            User,
-            User.id == EbookActivity.user_id,
-        )
-        .outerjoin(
-            Student,
-            Student.user_id == User.id,
-        )
-        .options(
-            selectinload(Student.classroom),
-        )
-        .where(
-            EbookActivity.ebook_id == ebook_id,
-            EbookActivity.school_id == current_user.school_id,
-        )
-        .order_by(
-            EbookActivity.created_at.desc()
-        )
-    )
-
-    rows = result.all()
-
-    return [
-        {
-            "id": activity.id,
-            "user_id": user.id,
-            "student_name": (
-                (
-                    " ".join(
-                        part
-                        for part in [
-                            getattr(student, "first_name", None),
-                            getattr(student, "middle_name", None),
-                            getattr(student, "last_name", None),
-                        ]
-                        if part
-                    )
-                    if student
-                    else None
-                )
-                or getattr(user, "full_name", None)
-                or getattr(user, "name", None)
-                or getattr(user, "email", None)
-                or f"User #{user.id}"
-            ),
-            "class_name": (
-                student.classroom.name
-                if student and student.classroom
-                else None
-            ),
-            "email": getattr(user, "email", None),
-            "activity_type": activity.activity_type,
-            "created_at": activity.created_at,
-        }
-        for activity, user, student in rows
-    ]
-
-
-@router.post(
-    "/{ebook_id}/view",
-    response_model=EbookResponse,
-)
-async def view_ebook(
-    ebook_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await EbookService(db).view_ebook(
-        ebook_id,
-        current_user,
-    )
-
-# ============================================================
-# PROTECTED EBOOK COVER
-# ============================================================
-
-from pathlib import Path
-from fastapi.responses import FileResponse
-
-@router.get("/covers/{school_id}/{filename}")
-async def protected_ebook_cover(
-    school_id: int,
-    filename: str,
-    current_user: User = Depends(get_current_user),
-):
-    if current_user.school_id != school_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Access denied.",
-        )
-
-    cover_path = (
-        Path.cwd()
-        / "protected_ebooks"
-        / str(school_id)
-        / "covers"
-        / filename
-    ).resolve()
-
-    cover_root = (
-        Path.cwd()
-        / "protected_ebooks"
-        / str(school_id)
-        / "covers"
-    ).resolve()
-
-    try:
-        cover_path.relative_to(cover_root)
-    except ValueError:
-        raise HTTPException(
-            status_code=403,
-            detail="Invalid cover path.",
-        )
-
-    if not cover_path.is_file():
-        raise HTTPException(
-            status_code=404,
-            detail="Cover image not found.",
-        )
-
-    return FileResponse(
-        path=str(cover_path),
-        headers={
-            "Cache-Control": "private, no-store",
-            "X-Content-Type-Options": "nosniff",
-        },
-    )
-
-
-# ============================================================
-# PROTECTED EBOOK CONTENT
-# ============================================================
-
-from pathlib import Path
-from fastapi.responses import FileResponse
-from app.modules.ebooks.upload import BASE_DIR
 
 
 @router.get("/{ebook_id}/content")
@@ -637,98 +639,17 @@ async def protected_ebook_content(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Protected ebook content endpoint.
+    Backward-compatible protected ebook content endpoint.
 
-    Access rules:
-    - Staff/admin users in the same school may access the ebook.
-    - Students may access it only when:
-        1. the ebook is published school-wide, OR
-        2. the ebook is individually assigned to that student.
-
-    The PDF remains inside protected_ebooks.
+    The mobile ebook reader historically used /content, while other
+    clients use /file. Both endpoints must therefore enforce exactly
+    the same access rules and storage behavior.
     """
 
-    service = EbookService(db)
-
-    ebook = await service.get_ebook(
-        ebook_id,
-        current_user.school_id,
+    return await protected_ebook_file(
+        ebook_id=ebook_id,
+        db=db,
+        current_user=current_user,
     )
 
-    if not ebook:
-        raise HTTPException(
-            status_code=404,
-            detail="Ebook not found.",
-        )
-
-    role_name = (
-        getattr(current_user.role, "name", "") or ""
-    ).upper()
-
-    if role_name == "STUDENT":
-        student = await service._get_student_for_user(
-            current_user
-        )
-
-        access = await service.get_ebook_student_access(
-            ebook_id,
-            student.id,
-            current_user.school_id,
-        )
-
-        if not ebook.is_published and access is None:
-            raise HTTPException(
-                status_code=403,
-                detail="You do not have access to this ebook.",
-            )
-
-    if not ebook.file_url:
-        raise HTTPException(
-            status_code=404,
-            detail="Ebook file unavailable.",
-        )
-
-    filename = Path(
-        ebook.file_url.split("?")[0]
-    ).name
-
-    protected_file = (
-        Path.cwd()
-        / "protected_ebooks"
-        / str(current_user.school_id)
-        / "files"
-        / filename
-    ).resolve()
-
-    protected_root = (
-        Path.cwd()
-        / "protected_ebooks"
-        / str(current_user.school_id)
-        / "files"
-    ).resolve()
-
-    try:
-        protected_file.relative_to(protected_root)
-    except ValueError:
-        raise HTTPException(
-            status_code=403,
-            detail="Invalid ebook path.",
-        )
-
-    if not protected_file.is_file():
-        raise HTTPException(
-            status_code=404,
-            detail="Ebook file is unavailable.",
-        )
-
-    return FileResponse(
-        path=str(protected_file),
-        media_type=ebook.file_type or "application/pdf",
-        filename=ebook.file_name or filename,
-        headers={
-            "Cache-Control": "private, no-store",
-            "X-Content-Type-Options": "nosniff",
-            "Content-Disposition": "inline",
-        },
-    )
 
