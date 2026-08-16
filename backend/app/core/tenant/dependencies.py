@@ -30,6 +30,39 @@ async def get_current_tenant(
     return tenant
 
 
+
+# Used during login.
+#
+# The CoreOne master portal intentionally has NO tenant.
+# Therefore an unresolved tenant is allowed at this stage.
+#
+# Once the user is authenticated, the login router enforces:
+#   - unresolved tenant -> SUPER_ADMIN only
+#   - resolved tenant   -> normal tenant authentication
+#
+async def get_login_tenant(
+    request: Request,
+) -> TenantContext:
+
+    tenant = getattr(request.state, "tenant", None)
+
+    if tenant is None:
+        return TenantContext()
+
+    if tenant.resolved and not tenant.tenant_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tenant is inactive.",
+        )
+
+    if tenant.resolved:
+        return tenant
+
+    # Master CoreOne portal:
+    # no tenant is expected here.
+    return TenantContext()
+
+
 # Used after login
 # Applies SCHOOL_ADMIN isolation
 

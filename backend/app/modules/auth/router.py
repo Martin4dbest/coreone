@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.tenant.dependencies import get_current_tenant
 from app.core.tenant.context import TenantContext
+from app.core.tenant.dependencies import get_login_tenant
 from app.db.database import get_db
 from app.models.user import User
 from app.modules.auth.dependencies.current_user import get_current_user
@@ -38,7 +39,7 @@ async def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
-    tenant: TenantContext = Depends(get_current_tenant),
+    tenant: TenantContext = Depends(get_login_tenant),
 ):
     service = AuthService(db)
 
@@ -52,8 +53,32 @@ async def login(
         email=form_data.username,
     )
 
-    # Allow all authenticated users for this tenant.
-    # Frontend will redirect users according to their role.
+    # --------------------------------------------------------
+    # MASTER COREONE PORTAL
+    #
+    # coreone.onrender.com intentionally has no tenant.
+    # Only SUPER_ADMIN accounts may authenticate through it.
+    #
+    # School users must authenticate through their school's
+    # tenant URL.
+    # --------------------------------------------------------
+    if not tenant.resolved:
+        role_name = (
+            current_user.role.name
+            if current_user is not None and current_user.role
+            else None
+        )
+
+        if role_name != "SUPER_ADMIN":
+            from fastapi import HTTPException
+
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "This is the CoreOne Super Admin portal. "
+                    "Please use your school's login URL."
+                ),
+            )
 
     return result
 
