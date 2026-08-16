@@ -75,14 +75,34 @@ class SchoolFeatureService:
             feature_key,
         )
 
+        # Existing schools may have been created before a new
+        # feature was added to DEFAULT_FEATURES. In that case,
+        # create the missing feature row automatically instead
+        # of returning 404.
+        #
+        # Unknown feature keys are still rejected so callers
+        # cannot create arbitrary feature records.
         if not feature:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=(
-                    f"Feature '{feature_key}' "
-                    "is not configured for this school."
-                ),
+            if feature_key not in DEFAULT_FEATURES:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=(
+                        f"Feature '{feature_key}' "
+                        "is not a valid CoreOne feature."
+                    ),
+                )
+
+            feature = await self.repository.create(
+                SchoolFeature(
+                    school_id=school_id,
+                    feature_key=feature_key,
+                    enabled=enabled,
+                )
             )
+
+            await self.repository.commit()
+
+            return feature
 
         feature.enabled = enabled
 
