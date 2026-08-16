@@ -62,7 +62,15 @@ export default function DashboardPage() {
             ? user.role
             : user.role?.name || "";
 
-        if (role === "SCHOOL_ADMIN" && user.school_id) {
+        // ======================================================
+        // COREONE MASTER DASHBOARD
+        // Only SCHOOL_ADMIN is redirected into a tenant workspace.
+        // SUPER_ADMIN remains on the master dashboard.
+        // ======================================================
+        if (
+          role === "SCHOOL_ADMIN" &&
+          user.school_id
+        ) {
           router.replace(
             `/dashboard/schools/${user.school_id}`
           );

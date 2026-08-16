@@ -81,6 +81,16 @@ export default function LoginPage() {
         return;
       }
 
+      // ========================================================
+      // COREONE MASTER PORTAL
+      // SUPER_ADMIN MUST ALWAYS ENTER THE MASTER DASHBOARD.
+      // SUPER_ADMIN is NOT tenant-bound for frontend routing.
+      // ========================================================
+      if (user.role?.name === "SUPER_ADMIN") {
+        router.replace("/dashboard");
+        return;
+      }
+
       if (
         user.role?.name === "SCHOOL_ADMIN" &&
         user.school_id
@@ -93,12 +103,11 @@ export default function LoginPage() {
       }
 
       if (user.role?.name === "TEACHER") {
-    router.replace("/teacher/dashboard");
+        router.replace("/teacher/dashboard");
+        return;
+      }
 
-    return;
-  }
-
-  router.replace("/dashboard");
+      router.replace("/dashboard");
 
     } catch (err: any) {
   
