@@ -738,7 +738,7 @@ export default function StudentsPage({
                               src={
                                 student.passport.startsWith("http")
                                   ? student.passport
-                                  : `http://127.0.0.1:8000${student.passport}`
+                                  : `https://coreone.onrender.com${student.passport}`
                               }
                               alt={`${student.first_name} ${student.last_name}`}
                               fill

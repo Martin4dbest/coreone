@@ -77,8 +77,8 @@ export default function StudentProfile({
       return path;
     }
 
-    // Extract root backend host origin (e.g., http://127.0.0.1:8000)
-    const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+    // Extract root backend host origin (e.g., https://coreone.onrender.com)
+    const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "https://coreone.onrender.com";
 
     // Remove trailing slash and strip /api/v1 (or any /api/v*) prefix for static file routes
     const serverBaseUrl = rawApiUrl

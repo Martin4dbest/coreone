@@ -83,27 +83,27 @@ const getMediaUrl = (url?: string): string => {
    * CBT media is served by FastAPI, not by Next.js.
    *
    * NEXT_PUBLIC_API_URL:
-   *   http://127.0.0.1:8000/api/v1
+   *   https://coreone.onrender.com/api/v1
    *
    * Therefore the media origin must be:
-   *   http://127.0.0.1:8000
+   *   https://coreone.onrender.com
    *
    * and:
    *   /uploads/cbt/images/file.png
    *
    * becomes:
-   *   http://127.0.0.1:8000/uploads/cbt/images/file.png
+   *   https://coreone.onrender.com/uploads/cbt/images/file.png
    */
   const configuredApiUrl =
     process.env.NEXT_PUBLIC_API_URL ||
-    "http://127.0.0.1:8000/api/v1";
+    "https://coreone.onrender.com/api/v1";
 
-  let origin = "http://127.0.0.1:8000";
+  let origin = "https://coreone.onrender.com";
 
   try {
     origin = new URL(configuredApiUrl).origin;
   } catch {
-    origin = "http://127.0.0.1:8000";
+    origin = "https://coreone.onrender.com";
   }
 
   const cleanPath = value.startsWith("/")

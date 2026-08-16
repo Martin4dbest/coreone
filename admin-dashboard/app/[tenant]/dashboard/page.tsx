@@ -8,7 +8,7 @@ interface Props {
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:8000/api/v1";
+  "https://coreone.onrender.com/api/v1";
 
 export default async function TenantDashboard({
   params,

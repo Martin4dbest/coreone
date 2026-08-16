@@ -16,7 +16,7 @@ export default async function TenantLayout({
 
   const apiUrl =
     process.env.NEXT_PUBLIC_API_URL ||
-    "http://localhost:8000/api/v1";
+    "https://coreone.onrender.com/api/v1";
 
   let tenantData: Tenant | null = null;
 
