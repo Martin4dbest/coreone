@@ -113,6 +113,9 @@ app.add_middleware(
 
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=[
+        "https://coreone-one.vercel.app",
+    ],
     allow_origin_regex=r"https://([a-zA-Z0-9-]+\.)*presense\.com$|http://(localhost|127\.0\.0\.1):[0-9]+$",
     allow_credentials=True,
     allow_methods=["*"],
