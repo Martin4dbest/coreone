@@ -97,3 +97,6 @@ logs/
 *.temp
 *.bak
 *.backup
+
+.vercel
+.env*
