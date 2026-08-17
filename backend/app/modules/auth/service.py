@@ -226,41 +226,70 @@ class AuthService:
         email: str,
         password: str,
     ):
-        print("=" * 70)
-        print("MOBILE LOGIN HIT")
-        print("EMAIL:", email)
-        print("SCHOOL:", school_code)
-        print("=" * 70)
+        # Normalize credentials before authentication.
+        normalized_school_code = school_code.strip().upper()
+        normalized_email = email.strip().lower()
 
+        print("=" * 70)
+        print("COREONE MOBILE LOGIN")
+        print("EMAIL:", normalized_email)
+        print("SCHOOL CODE:", normalized_school_code)
+        print("=" * 70)
 
         school_repository = SchoolRepository(
             self.repository.db
         )
 
         school = await school_repository.get_by_code(
-            school_code
+            normalized_school_code
         )
 
         if school is None:
+            print("AUTH RESULT: SCHOOL NOT FOUND")
             raise InvalidCredentialsException()
 
+        print(
+            "SCHOOL FOUND:",
+            school.id,
+            "|",
+            school.name,
+            "| CODE:",
+            school.school_code,
+        )
 
         user = await self.repository.get_user_by_email(
-            email=email,
+            email=normalized_email,
             school_id=school.id,
         )
 
-
         if user is None:
+            print(
+                "AUTH RESULT: USER NOT FOUND FOR SCHOOL",
+                school.id,
+            )
             raise InvalidCredentialsException()
 
+        print(
+            "USER FOUND:",
+            user.id,
+            "| EMAIL:",
+            user.email,
+            "| SCHOOL:",
+            user.school_id,
+            "| ROLE:",
+            user.role.name if user.role else "NO_ROLE",
+        )
 
-        if not verify_password(
+        password_valid = verify_password(
             password,
             user.hashed_password,
-        ):
-            raise InvalidCredentialsException()
+        )
 
+        print("PASSWORD VALID:", password_valid)
+
+        if not password_valid:
+            print("AUTH RESULT: PASSWORD VERIFICATION FAILED")
+            raise InvalidCredentialsException()
 
         access_token = create_access_token(
             {
@@ -270,17 +299,16 @@ class AuthService:
             }
         )
 
-        # Record only after mobile authentication has
-        # completely succeeded.
         await self._record_login_audit(
             user,
             school.name,
         )
 
+        print("AUTH RESULT: SUCCESS")
+
         return {
             "access_token": access_token,
             "token_type": "bearer",
-
             "user": {
                 "id": user.id,
                 "email": user.email,
@@ -288,7 +316,6 @@ class AuthService:
                 "school_id": user.school_id,
                 "must_change_password": user.must_change_password,
             },
-
             "tenant": {
                 "id": school.id,
                 "name": school.name,

@@ -30,11 +30,17 @@ class SchoolRepository:
         self,
         school_code: str,
     ) -> School | None:
+        # Authentication/tenant codes are normalized so that
+        # accidental whitespace or casing differences do not
+        # cause a valid school to fail authentication.
+        normalized_code = school_code.strip().upper()
+
         result = await self.db.execute(
             select(School).where(
-                School.school_code == school_code
+                School.school_code.ilike(normalized_code)
             )
         )
+
         return result.scalar_one_or_none()
 
     async def get_by_slug(

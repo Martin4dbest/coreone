@@ -16,12 +16,19 @@ class AuthRepository:
         school_id: int | None = None,
     ) -> User | None:
 
+        # Emails are treated case-insensitively during authentication.
+        # This matches normal login expectations and prevents
+        # registration/login casing differences from causing 401s.
+        normalized_email = email.strip().lower()
+
         stmt = (
             select(User)
             .options(
                 selectinload(User.role)
             )
-            .where(User.email == email)
+            .where(
+                User.email.ilike(normalized_email)
+            )
         )
 
         if school_id is not None:
