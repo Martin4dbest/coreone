@@ -133,6 +133,34 @@ class AuthService:
         password: str,
         tenant: TenantContext,
     ):
+        # --------------------------------------------------------
+        # COREONE WEB LOGIN
+        # --------------------------------------------------------
+        #
+        # This method is the SINGLE authorization authority for
+        # the web login flow.
+        #
+        # RULE 1:
+        #   Master CoreOne portal has no tenant.
+        #   Only SUPER_ADMIN may authenticate there.
+        #
+        # RULE 2:
+        #   Resolved school tenant:
+        #   non-SUPER_ADMIN users MUST belong to that school.
+        #
+        # RULE 3:
+        #   SUPER_ADMIN is allowed to authenticate through a
+        #   resolved school tenant as well.
+        #
+        # RULE 4:
+        #   Authentication and tenant authorization happen BEFORE
+        #   a JWT is created.
+        #
+        # This prevents the router from performing a second user
+        # lookup and eliminates the previous 403 caused by trying
+        # to read a "user" object from TokenResponse.
+        # --------------------------------------------------------
+
         user = await self.repository.get_user_by_email(
             email=email,
         )
@@ -140,29 +168,67 @@ class AuthService:
         if user is None:
             raise InvalidCredentialsException()
 
+        # --------------------------------------------------------
+        # PASSWORD VERIFICATION
+        # --------------------------------------------------------
+
         if not verify_password(
             password,
             user.hashed_password,
         ):
             raise InvalidCredentialsException()
 
+        # --------------------------------------------------------
+        # ROLE
+        # --------------------------------------------------------
+
+        role_name = (
+            user.role.name
+            if user.role is not None
+            else None
+        )
+
+        # --------------------------------------------------------
+        # MASTER COREONE PORTAL
+        # --------------------------------------------------------
         #
-        # Tenant access enforcement
+        # No tenant means this is the master CoreOne portal.
         #
-        if (
-            tenant.resolved
-            and tenant.school_id is not None
-        ):
-            #
-            # Only non-super admins are restricted
-            # to their tenant school.
-            #
-            if (
-                user.role
-                and user.role.name != "SUPER_ADMIN"
-                and user.school_id != tenant.school_id
-            ):
+        # Only SUPER_ADMIN accounts may authenticate here.
+        # --------------------------------------------------------
+
+        if not tenant.resolved:
+            if role_name != "SUPER_ADMIN":
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "This is the CoreOne Super Admin portal. "
+                        "Please use your school's login URL."
+                    ),
+                )
+
+        # --------------------------------------------------------
+        # SCHOOL TENANT
+        # --------------------------------------------------------
+        #
+        # Once a school tenant is resolved, every normal school
+        # user must belong to that exact school.
+        #
+        # SUPER_ADMIN is intentionally exempt because the master
+        # administrator may access school workspaces.
+        # --------------------------------------------------------
+
+        else:
+            if tenant.school_id is None:
                 raise InvalidCredentialsException()
+
+            if role_name != "SUPER_ADMIN":
+                if user.school_id != tenant.school_id:
+                    raise InvalidCredentialsException()
+
+        # --------------------------------------------------------
+        # CREATE TOKEN ONLY AFTER ALL AUTHORIZATION CHECKS PASS
+        # --------------------------------------------------------
 
         access_token = create_access_token(
             {
@@ -172,8 +238,14 @@ class AuthService:
             }
         )
 
-        # Record only after authentication and tenant checks
-        # have completely succeeded.
+        # --------------------------------------------------------
+        # LOGIN AUDIT
+        # --------------------------------------------------------
+        #
+        # Audit failure must never prevent a valid login.
+        # _record_login_audit() already handles its own failures.
+        # --------------------------------------------------------
+
         school_repository = SchoolRepository(
             self.repository.db
         )
@@ -197,7 +269,6 @@ class AuthService:
             "access_token": access_token,
             "token_type": "bearer",
         }
-
 
 
     async def create_password_reset(
