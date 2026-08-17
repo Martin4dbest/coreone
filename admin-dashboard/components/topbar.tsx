@@ -30,6 +30,7 @@ type CurrentUser = {
 export default function Topbar() {
   const pathname = usePathname();
   const [partnerSchoolsEnabled, setPartnerSchoolsEnabled] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -64,12 +65,22 @@ export default function Topbar() {
           feature.feature_key === "partner_schools"
       );
 
+      const notifications = features.find(
+        (feature: { feature_key?: string }) =>
+          String(feature.feature_key || "").trim().toLowerCase() ===
+          "notifications"
+      );
+
       if (mounted) {
         setPartnerSchoolsEnabled(partner?.enabled === true);
+        setNotificationsEnabled(notifications?.enabled !== false);
       }
     } catch {
       if (mounted) {
         setPartnerSchoolsEnabled(false);
+        // Preserve the existing bell behavior if the feature
+        // control request temporarily fails.
+        setNotificationsEnabled(true);
       }
     }
   };
@@ -292,13 +303,15 @@ const initials = displayName
       </form>
 
       <div className="order-1 ml-auto flex items-center gap-2 sm:gap-3 lg:order-none">
-        <button
-          type="button"
-          className="relative flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
-        >
-          <Bell size={20} />
-          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
-        </button>
+        {notificationsEnabled && (
+          <button
+            type="button"
+            className="relative flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
+          >
+            <Bell size={20} />
+            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
+          </button>
+        )}
 
         <div className="relative">
           <button
