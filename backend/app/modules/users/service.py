@@ -226,7 +226,7 @@ class UserService:
             email=email,
             hashed_password=hash_password(password),
             is_active=True,
-            is_verified=False,
+            is_verified=role.name == "SCHOOL_ADMIN",
             is_primary_school_admin=is_primary_school_admin,
         )
 
