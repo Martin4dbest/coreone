@@ -402,7 +402,7 @@ async function toggleSchool() {
           </p>
         </div>
 
-        <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-5 xl:grid-cols-4">
           {visibleSchoolModules.map((module) => {
             const Icon = module.icon;
 
