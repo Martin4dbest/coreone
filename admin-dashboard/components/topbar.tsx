@@ -30,62 +30,75 @@ type CurrentUser = {
 export default function Topbar() {
   const pathname = usePathname();
   const [partnerSchoolsEnabled, setPartnerSchoolsEnabled] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
     const match = pathname.match(/\/dashboard\/schools\/(\d+)/);
+
+    /*
+     * Outside a school workspace there is no current school.
+     * Do NOT force Notifications ON.
+     */
     if (!match) {
       setPartnerSchoolsEnabled(false);
-      return () =>
- {
+      setNotificationsEnabled(false);
+
+      return () => {
         mounted = false;
       };
     }
 
     const schoolId = match[1];
 
-    const loadPartnerFeature = async () => {
-    try {
-      const response = await api.get(
-        `/school-features/${schoolId}`
-      );
+    async function loadSchoolFeatures() {
+      try {
+        const response = await api.get(
+          `/school-features/${schoolId}`
+        );
 
-      const data = response.data;
+        const data = response.data;
 
-      const features = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.features)
-          ? data.features
-          : [];
+        const features = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.features)
+            ? data.features
+            : [];
 
-      const partner = features.find(
-        (feature: { feature_key?: string }) =>
-          feature.feature_key === "partner_schools"
-      );
+        const featureEnabled = (featureKey: string) =>
+          features.some(
+            (feature: {
+              feature_key?: string;
+              enabled?: boolean;
+            }) =>
+              feature.feature_key === featureKey &&
+              feature.enabled === true
+          );
 
-      const notifications = features.find(
-        (feature: { feature_key?: string }) =>
-          String(feature.feature_key || "").trim().toLowerCase() ===
-          "notifications"
-      );
+        if (mounted) {
+          setPartnerSchoolsEnabled(
+            featureEnabled("partner_schools")
+          );
 
-      if (mounted) {
-        setPartnerSchoolsEnabled(partner?.enabled === true);
-        setNotificationsEnabled(notifications?.enabled !== false);
-      }
-    } catch {
-      if (mounted) {
-        setPartnerSchoolsEnabled(false);
-        // Preserve the existing bell behavior if the feature
-        // control request temporarily fails.
-        setNotificationsEnabled(true);
+          setNotificationsEnabled(
+            featureEnabled("notifications")
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Failed to load school features for Topbar:",
+          error
+        );
+
+        if (mounted) {
+          setPartnerSchoolsEnabled(false);
+          setNotificationsEnabled(false);
+        }
       }
     }
-  };
 
-    loadPartnerFeature();
+    loadSchoolFeatures();
 
     return () => {
       mounted = false;

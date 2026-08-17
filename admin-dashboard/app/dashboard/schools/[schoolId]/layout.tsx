@@ -229,6 +229,7 @@ export default function SchoolWorkspaceLayout({
       name: "Notifications",
       href: `${basePath}/notifications`,
       icon: Bell,
+      feature: "notifications",
     },
     {
       name: "Settings",
