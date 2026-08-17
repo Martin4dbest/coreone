@@ -41,8 +41,15 @@ class SchoolRepository:
         self,
         slug: str,
     ) -> School | None:
-        # Tenant slug currently maps to school_code
-        return await self.get_by_code(slug.upper())
+        # Tenant URLs are generated directly from school_code.
+        # Resolve case-insensitively so /abc123 and /ABC123
+        # both resolve to the same school.
+        result = await self.db.execute(
+            select(School).where(
+                School.school_code.ilike(slug)
+            )
+        )
+        return result.scalar_one_or_none()
 
     async def update(self, school: School) -> School:
         await self.db.commit()
