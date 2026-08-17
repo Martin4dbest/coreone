@@ -25,19 +25,20 @@ class TenantMiddleware(BaseHTTPMiddleware):
 
             school = None
 
-            # 1. URL tenant resolution
+            # 1. Tenant header resolution.
+            # Accept the school code regardless of URL casing/format.
             if tenant_header:
+                tenant_value = tenant_header.strip()
 
                 result = await db.execute(
                     select(School).where(
-                        School.school_code == tenant_header.upper()
+                        School.school_code.ilike(tenant_value)
                     )
                 )
 
                 school = result.scalar_one_or_none()
 
-
-            # 2. Domain resolution fallback
+            # 2. Domain resolution fallback.
             if school is None:
                 school = await TenantResolver.resolve(
                     db,

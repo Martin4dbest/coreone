@@ -69,7 +69,7 @@ export default function TenantLoginPage() {
         {
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
-            "X-Tenant": tenant.slug,
+            "X-Tenant": tenant.code,
           },
         }
       );
@@ -87,7 +87,7 @@ export default function TenantLoginPage() {
         "/auth/me",
         {
           headers: {
-            "X-Tenant": tenant.slug,
+            "X-Tenant": tenant.code,
           },
         }
       );
