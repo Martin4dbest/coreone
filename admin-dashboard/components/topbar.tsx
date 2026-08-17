@@ -272,10 +272,10 @@ const initials = displayName
     .toUpperCase();
 
   return (
-    <header className="flex h-20 items-center border-b border-slate-100 bg-white px-6">
+    <header className="flex min-h-20 flex-wrap items-center gap-3 border-b border-slate-100 bg-white px-4 py-3 sm:px-6 lg:h-20 lg:flex-nowrap lg:gap-0 lg:py-0">
       <form
         onSubmit={handleSearch}
-        className="relative w-full max-w-xl"
+        className="order-2 relative w-full max-w-none lg:order-none lg:max-w-xl"
       >
         <Search
           size={18}
@@ -291,7 +291,7 @@ const initials = displayName
         />
       </form>
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="order-1 ml-auto flex items-center gap-2 sm:gap-3 lg:order-none">
         <button
           type="button"
           className="relative flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
@@ -364,7 +364,7 @@ const initials = displayName
                 {partnerSchoolsEnabled && partnerSchoolsHref ? (
               <a
                 href={partnerSchoolsHref}
-                className="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                className="hidden items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 sm:inline-flex"
               >
                 Partner Schools
               </a>

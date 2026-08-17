@@ -19,6 +19,8 @@ import {
   ClipboardCheck,
   Building2,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 
 import Logo from "./logo";
@@ -27,6 +29,8 @@ import { useWorkspaceStore } from "@/stores/workspace-store";
 
 export default function Sidebar() {
   const router = useRouter();
+
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const [role, setRole] = useState("");
   const [schoolId, setSchoolId] = useState("");
@@ -366,8 +370,44 @@ function handleLogout() {
   console.log("FINAL MENU ROLE:", role, menu);
 
   return (
-    <aside className="min-h-screen w-80 p-5">
-      <div className="h-full rounded-3xl bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-900 p-6 shadow-2xl">
+    <>
+      <button
+        type="button"
+        aria-label="Open navigation menu"
+        aria-expanded={mobileOpen}
+        onClick={() => setMobileOpen(true)}
+        className="fixed left-4 top-4 z-[70] flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-lg lg:hidden"
+      >
+        <Menu size={22} />
+      </button>
+
+      {mobileOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation menu"
+          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 z-[80] bg-slate-950/50 lg:hidden"
+        />
+      )}
+
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-[90] w-[min(320px,88vw)] p-3
+          transition-transform duration-200 ease-out
+          lg:static lg:z-auto lg:block lg:min-h-screen lg:w-80 lg:translate-x-0 lg:p-5
+          ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
+        `}
+      >
+        <div className="relative h-full overflow-y-auto rounded-3xl bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-900 p-5 shadow-2xl lg:p-6">
+        <button
+          type="button"
+          aria-label="Close navigation menu"
+          onClick={() => setMobileOpen(false)}
+          className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20 lg:hidden"
+        >
+          <X size={20} />
+        </button>
+
         <div className="relative min-h-40 rounded-2xl bg-white/10 p-4 backdrop-blur">
             <div className="relative h-20 w-20 overflow-hidden rounded-2xl bg-white/10">
               {schoolLogo ? (
@@ -396,6 +436,7 @@ function handleLogout() {
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={() => setMobileOpen(false)}
                 className="group flex items-center gap-4 rounded-2xl px-4 py-3 transition hover:bg-white/10"
               >
                 <Icon
@@ -427,7 +468,8 @@ function handleLogout() {
             </span>
           </button>
         </div>
-      </div>
-    </aside>
+        </div>
+      </aside>
+    </>
   );
 }
