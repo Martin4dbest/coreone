@@ -43,27 +43,42 @@ async def login(
 ):
     service = AuthService(db)
 
-    # --------------------------------------------------------
-    # AUTHORIZATION IS FULLY HANDLED BY AuthService.login()
-    # --------------------------------------------------------
-    #
-    # AuthService.login() has already:
-    #
-    #   1. Found the user.
-    #   2. Verified the password.
-    #   3. Checked the master portal rule.
-    #   4. Checked school tenant ownership.
-    #   5. Created the JWT only after authorization succeeded.
-    #
-    # Do NOT perform another unrestricted user lookup here.
-    # Do NOT attempt to read a "user" field from TokenResponse.
-    # --------------------------------------------------------
-
     result = await service.login(
         form_data.username,
         form_data.password,
         tenant,
     )
+
+    current_user = await service.repository.get_user_by_email(
+        email=form_data.username,
+    )
+
+    # --------------------------------------------------------
+    # MASTER COREONE PORTAL
+    #
+    # coreone.onrender.com intentionally has no tenant.
+    # Only SUPER_ADMIN accounts may authenticate through it.
+    #
+    # School users must authenticate through their school's
+    # tenant URL.
+    # --------------------------------------------------------
+    if not tenant.resolved:
+        role_name = (
+            current_user.role.name
+            if current_user is not None and current_user.role
+            else None
+        )
+
+        if role_name != "SUPER_ADMIN":
+            from fastapi import HTTPException
+
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "This is the CoreOne Super Admin portal. "
+                    "Please use your school's login URL."
+                ),
+            )
 
     return result
 
