@@ -77,18 +77,44 @@ export default function RegisteredUsersPage({
       setError("");
 
       try {
-        const [usersResponse, rolesResponse] = await Promise.all([
+        // Users are the primary source. Roles are only used to help
+        // identify users when the role is not already embedded in /users.
+        const [usersResult, rolesResult] = await Promise.allSettled([
           api.get("/users"),
           api.get("/roles"),
         ]);
 
-        const allUsers = Array.isArray(usersResponse.data)
-          ? usersResponse.data
-          : [];
+        // /users is required for this page.
+        if (usersResult.status === "rejected") {
+          throw usersResult.reason;
+        }
 
-        const allRoles = Array.isArray(rolesResponse.data)
-          ? rolesResponse.data
-          : [];
+        const usersData = usersResult.value?.data;
+
+        const allUsers = Array.isArray(usersData)
+          ? usersData
+          : Array.isArray(usersData?.data)
+            ? usersData.data
+            : [];
+
+        // /roles must never make the entire Registered Users page fail.
+        const rolesData =
+          rolesResult.status === "fulfilled"
+            ? rolesResult.value?.data
+            : [];
+
+        const allRoles = Array.isArray(rolesData)
+          ? rolesData
+          : Array.isArray(rolesData?.data)
+            ? rolesData.data
+            : [];
+
+        if (rolesResult.status === "rejected") {
+          console.warn(
+            "Registered Users: /roles request failed; continuing with /users data.",
+            rolesResult.reason
+          );
+        }
 
         const teacherRoleIds = new Set(
           allRoles
@@ -144,56 +170,100 @@ export default function RegisteredUsersPage({
             school_id: Number(user.school_id || schoolId),
           }));
 
-        const teachersResponse = {
-          data: teachers,
-        };
+          const teacherList: Teacher[] = teachers;
 
-        const teacherList: Teacher[] = Array.isArray(teachersResponse.data)
-          ? teachersResponse.data
-          : teachersResponse.data?.data || [];
-
-        const teachersWithAssignments = await Promise.all(
-          teacherList.map(async (teacher) => {
-            try {
-              const assignmentResponse = await api.get(
-                `/teachers/${teacher.id}/assignments`,
-                {
-                  params: { school_id: Number(schoolId) },
-                }
-              );
-
-              return {
-                ...teacher,
-                assignment: assignmentResponse.data || null,
-              };
-            } catch {
-              return {
-                ...teacher,
-                assignment: null,
-              };
-            }
-          })
-        );
-
-        setTeachers(teachersWithAssignments);
-
-        try {
-          const adminsResponse = await api.get("/admins", {
-            params: { school_id: Number(schoolId) },
-          });
-
-          setAdmins(
-            Array.isArray(adminsResponse.data)
-              ? adminsResponse.data
-              : adminsResponse.data?.data || []
+          setTeachers(
+            teacherList.map((teacher) => ({
+              ...teacher,
+              assignment: null,
+            }))
           );
-        } catch (adminError: any) {
-          if (adminError?.response?.status === 403) {
-            setAdmins([]);
-          } else {
-            throw adminError;
-          }
-        }
+
+          // Build registered admins directly from /users + /roles.
+          // This keeps Super Admin working for the selected school
+          // without depending on the /admins endpoint.
+          const adminRoleIds = new Set(
+            allRoles
+              .filter((role: { id?: number; name?: string }) => {
+                const roleName = String(role.name || "").toUpperCase();
+                return (
+                  roleName === "SCHOOL_ADMIN" ||
+                  roleName === "ADMIN"
+                );
+              })
+              .map((role: { id?: number }) => Number(role.id))
+          );
+
+          const registeredAdmins: Admin[] = allUsers
+            .filter(
+              (user: {
+                id?: number;
+                user_id?: number;
+                school_id?: number;
+                role_id?: number;
+                role?: {
+                  id?: number;
+                  name?: string;
+                  is_primary_school_admin?: boolean;
+                } | string;
+                first_name?: string;
+                last_name?: string;
+                email?: string;
+                name?: string;
+                is_primary_school_admin?: boolean;
+              }) => {
+                if (Number(user.school_id) !== Number(schoolId)) {
+                  return false;
+                }
+
+                const roleId =
+                  typeof user.role === "object" && user.role
+                    ? Number(user.role.id)
+                    : Number(user.role_id);
+
+                const roleName =
+                  typeof user.role === "string"
+                    ? user.role.toUpperCase()
+                    : String(user.role?.name || "").toUpperCase();
+
+                return (
+                  adminRoleIds.has(roleId) ||
+                  roleName === "SCHOOL_ADMIN" ||
+                  roleName === "ADMIN"
+                );
+              }
+            )
+            .map(
+              (user: {
+                id?: number;
+                user_id?: number;
+                first_name?: string;
+                last_name?: string;
+                email?: string;
+                name?: string;
+                is_primary_school_admin?: boolean;
+                role?: {
+                  is_primary_school_admin?: boolean;
+                } | string;
+              }) => ({
+                id: Number(user.id || user.user_id || 0),
+                user_id: Number(user.user_id || user.id || 0),
+                first_name: user.first_name || "",
+                last_name: user.last_name || "",
+                email: user.email || "",
+                name:
+                  user.name ||
+                  [user.first_name, user.last_name]
+                    .filter(Boolean)
+                    .join(" "),
+                is_primary_school_admin:
+                  Boolean(user.is_primary_school_admin) ||
+                  (typeof user.role === "object" &&
+                    Boolean(user.role?.is_primary_school_admin)),
+              })
+            );
+
+          setAdmins(registeredAdmins);
       } catch (loadError) {
         console.error(
           "Failed to load registered teachers/admins:",
