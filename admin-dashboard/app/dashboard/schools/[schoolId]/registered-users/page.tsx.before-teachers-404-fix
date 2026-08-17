@@ -77,76 +77,9 @@ export default function RegisteredUsersPage({
       setError("");
 
       try {
-        const [usersResponse, rolesResponse] = await Promise.all([
-          api.get("/users"),
-          api.get("/roles"),
-        ]);
-
-        const allUsers = Array.isArray(usersResponse.data)
-          ? usersResponse.data
-          : [];
-
-        const allRoles = Array.isArray(rolesResponse.data)
-          ? rolesResponse.data
-          : [];
-
-        const teacherRoleIds = new Set(
-          allRoles
-            .filter(
-              (role: { id?: number; name?: string }) =>
-                String(role.name || "").toUpperCase() === "TEACHER"
-            )
-            .map((role: { id?: number }) => Number(role.id))
-        );
-
-        const teachers = allUsers
-          .filter(
-            (user: {
-              school_id?: number;
-              role_id?: number;
-              role?: { id?: number; name?: string } | string;
-            }) => {
-              if (Number(user.school_id) !== Number(schoolId)) {
-                return false;
-              }
-
-              const roleId =
-                typeof user.role === "object" && user.role
-                  ? Number(user.role.id)
-                  : Number(user.role_id);
-
-              const roleName =
-                typeof user.role === "string"
-                  ? user.role.toUpperCase()
-                  : String(user.role?.name || "").toUpperCase();
-
-              return (
-                teacherRoleIds.has(roleId) ||
-                roleName === "TEACHER"
-              );
-            }
-          )
-          .map((user: {
-            id?: number;
-            user_id?: number;
-            employee_number?: string;
-            first_name?: string;
-            last_name?: string;
-            email?: string;
-            school_id?: number;
-          }) => ({
-            id: Number(user.id || user.user_id || 0),
-            user_id: Number(user.user_id || user.id || 0),
-            employee_number: user.employee_number || "",
-            first_name: user.first_name || "",
-            last_name: user.last_name || "",
-            email: user.email || "",
-            school_id: Number(user.school_id || schoolId),
-          }));
-
-        const teachersResponse = {
-          data: teachers,
-        };
+        const teachersResponse = await api.get("/teachers", {
+          params: { school_id: Number(schoolId) },
+        });
 
         const teacherList: Teacher[] = Array.isArray(teachersResponse.data)
           ? teachersResponse.data
