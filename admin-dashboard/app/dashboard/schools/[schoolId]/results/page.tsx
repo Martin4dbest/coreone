@@ -195,7 +195,7 @@ export default function ResultsPage({
     ).trim();
 
     if (!cleanComment) {
-      alert("Please enter the principal/head comment.");
+      alert("Please enter the principal/head report-card comment.");
       return;
     }
 
@@ -204,17 +204,22 @@ export default function ResultsPage({
       return;
     }
 
+    const studentId = Number(studentResults[0].student_id);
+
+    if (!studentId) {
+      alert("Unable to determine the student report card.");
+      return;
+    }
+
     try {
       setPrincipalCommentSaving(true);
 
-      for (const result of studentResults) {
-        await api.patch(
-          `/results/${result.id}/principal-comment`,
-          {
-            comment: cleanComment,
-          },
-        );
-      }
+      await api.patch(
+        `/results/student/${studentId}/principal-comment`,
+        {
+          comment: cleanComment,
+        },
+      );
 
       setStudentFetchedResults((current) =>
         current.map((item) => ({
@@ -226,10 +231,7 @@ export default function ResultsPage({
 
       setResults((current) =>
         current.map((item) =>
-          studentResults.some(
-            (selected) =>
-              Number(selected.id) === Number(item.id),
-          )
+          Number(item.student_id) === studentId
             ? {
                 ...item,
                 principal_comment: cleanComment,
@@ -239,17 +241,21 @@ export default function ResultsPage({
         ),
       );
 
-      alert("Principal comment saved successfully.");
+      setPrincipalCommentDraft(cleanComment);
+
+      alert(
+        "Principal report-card comment saved successfully."
+      );
     } catch (error: any) {
       console.error(
-        "SAVE PRINCIPAL COMMENT ERROR:",
+        "SAVE PRINCIPAL REPORT COMMENT ERROR:",
         error?.response?.data || error,
       );
 
       alert(
         String(
           error?.response?.data?.detail ||
-          "Unable to save the principal comment.",
+          "Unable to save the principal report-card comment.",
         ),
       );
     } finally {
@@ -1600,11 +1606,12 @@ export default function ResultsPage({
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t border-slate-200/80 space-y-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-xs font-bold text-slate-700">
-                            Principal / Head Comment
+                    {index === 0 && (
+                      <div className="pt-3 border-t border-slate-200/80 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-bold text-slate-700">
+                              Principal / Head Report Card Comment
                           </p>
                           <p className="text-[11px] text-slate-400">
                             Final comment shown on the published report card.
@@ -1655,10 +1662,12 @@ export default function ResultsPage({
                             : "Save Principal Comment"}
                         </button>
                       </div>
-                    </div>
+                      </div>
+                    )}
 
-                    <div className="pt-3 border-t border-slate-200/80">
-                      <div className="flex flex-col gap-2">
+                    {index === 0 && (
+                      <div className="pt-3 border-t border-slate-200/80">
+                        <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <p className="text-xs font-bold text-slate-700">
@@ -1692,13 +1701,10 @@ export default function ResultsPage({
                             );
 
                           const principalComplete =
-                            studentFetchedResults.every(
-                              (item) =>
-                                Boolean(
-                                  String(
-                                    item.principal_comment ?? "",
-                                  ).trim(),
-                                ),
+                            Boolean(
+                              String(
+                                studentFetchedResults[0]?.principal_comment ?? "",
+                              ).trim(),
                             );
 
                           const studentId = Number(
@@ -1753,7 +1759,8 @@ export default function ResultsPage({
                           );
                         })()}
                       </div>
-                    </div>
+                        </div>
+                      )}
                   </div>
                 ))
               ) : (

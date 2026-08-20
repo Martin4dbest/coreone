@@ -241,31 +241,48 @@ async def update_teacher_comment(
     result_id: int,
     payload: dict,
     current_user=Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_from_request),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    TEACHER ONLY
+    SUBJECT-LEVEL TEACHER COMMENT
 
-    Saves the official teacher comment.
-    Editing an existing published comment automatically unpublishes
-    the result so it must go through approval again.
+    A teacher enters the official comment only for the result/subject
+    assigned to that teacher.
+
+    Editing any teacher comment resets the ENTIRE student's report card
+    to review status so it must be reviewed and published again.
     """
 
     from app.modules.results.service import save_teacher_result_comment
 
-    result = await db.get(Result, result_id)
+    role_name = (
+        getattr(getattr(current_user, "role", None), "name", None)
+        or getattr(current_user, "role", None)
+        or ""
+    )
+    role_name = str(role_name).upper()
 
-    if not result:
-        raise HTTPException(status_code=404, detail="Result not found")
-
-    role = str(
-        getattr(current_user, "role", "")
-    ).upper()
-
-    if role not in {"TEACHER", "SCHOOL_ADMIN", "SUPER_ADMIN"}:
+    if role_name != "TEACHER":
         raise HTTPException(
             status_code=403,
-            detail="Only a teacher or authorized school administrator can enter the teacher comment.",
+            detail="Only a teacher can enter a teacher comment.",
+        )
+
+    result_query = await db.execute(
+        select(Result).where(
+            Result.id == result_id,
+            Result.school_id == tenant.school_id,
+            Result.is_active == True,
+        )
+    )
+
+    result = result_query.scalar_one_or_none()
+
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail="Result not found.",
         )
 
     comment = payload.get("comment")
@@ -277,7 +294,30 @@ async def update_teacher_comment(
             getattr(current_user, "id", None),
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        )
+
+    # Any teacher-comment edit reopens the WHOLE report card.
+    report_query = await db.execute(
+        select(Result).where(
+            Result.student_id == result.student_id,
+            Result.school_id == tenant.school_id,
+            Result.is_active == True,
+        )
+    )
+    report_rows = report_query.scalars().all()
+
+    for row in report_rows:
+        if hasattr(row, "is_published"):
+            row.is_published = False
+        if hasattr(row, "published_at"):
+            row.published_at = None
+        if hasattr(row, "published_by"):
+            row.published_by = None
+        if hasattr(row, "status"):
+            row.status = "REVIEW"
 
     await db.commit()
     await db.refresh(result)
@@ -285,60 +325,97 @@ async def update_teacher_comment(
     return {
         "message": "Teacher comment saved successfully.",
         "result_id": result.id,
+        "student_id": result.student_id,
         "teacher_comment": result.teacher_comment,
-        "is_published": getattr(result, "is_published", False),
+        "is_published": False,
     }
 
 
-@router.patch("/{result_id}/principal-comment")
-async def update_principal_comment(
-    result_id: int,
+@router.patch("/student/{student_id}/principal-comment")
+async def update_student_principal_comment(
+    student_id: int,
     payload: dict,
     current_user=Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_from_request),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    PRINCIPAL / SCHOOL ADMIN ONLY
+    REPORT-CARD-LEVEL PRINCIPAL COMMENT
 
-    Saves the official principal comment.
+    ONE principal/head comment belongs to the COMPLETE student report card.
+
+    It is stored on the report's anchor result for compatibility with the
+    current schema, but it is NOT a subject comment.
     """
 
-    from app.modules.results.service import save_principal_result_comment
+    role_name = (
+        getattr(getattr(current_user, "role", None), "name", None)
+        or getattr(current_user, "role", None)
+        or ""
+    )
+    role_name = str(role_name).upper()
 
-    result = await db.get(Result, result_id)
-
-    if not result:
-        raise HTTPException(status_code=404, detail="Result not found")
-
-    role = str(
-        getattr(current_user, "role", "")
-    ).upper()
-
-    if role not in {"SCHOOL_ADMIN", "SUPER_ADMIN", "PRINCIPAL"}:
+    if role_name not in {"SCHOOL_ADMIN", "PRINCIPAL", "SUPER_ADMIN"}:
         raise HTTPException(
             status_code=403,
-            detail="Only the Principal or authorized School Administrator can enter the principal comment.",
+            detail="Only the School Administrator or Principal can enter the report-card principal comment.",
         )
+
+    query = await db.execute(
+        select(Result)
+        .where(
+            Result.student_id == student_id,
+            Result.school_id == tenant.school_id,
+            Result.is_active == True,
+        )
+        .order_by(Result.id.asc())
+    )
+
+    rows = query.scalars().all()
+
+    if not rows:
+        raise HTTPException(
+            status_code=404,
+            detail="No result records were found for this student.",
+        )
+
+    anchor = rows[0]
+
+    from app.modules.results.service import save_principal_result_comment
 
     comment = payload.get("comment")
 
     try:
         await save_principal_result_comment(
-            result,
+            anchor,
             comment,
             getattr(current_user, "id", None),
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        )
+
+    # One principal comment controls the complete report card.
+    for row in rows:
+        if hasattr(row, "is_published"):
+            row.is_published = False
+        if hasattr(row, "published_at"):
+            row.published_at = None
+        if hasattr(row, "published_by"):
+            row.published_by = None
+        if hasattr(row, "status"):
+            row.status = "REVIEW"
 
     await db.commit()
-    await db.refresh(result)
+    await db.refresh(anchor)
 
     return {
-        "message": "Principal comment saved successfully.",
-        "result_id": result.id,
-        "principal_comment": result.principal_comment,
-        "is_published": getattr(result, "is_published", False),
+        "message": "Principal report-card comment saved successfully.",
+        "student_id": student_id,
+        "principal_comment": anchor.principal_comment,
+        "is_published": False,
     }
 
 
@@ -456,19 +533,23 @@ async def publish_student_report_card(
     )
     role_name = str(role_name).upper()
 
-    if role_name not in {"SUPER_ADMIN", "SCHOOL_ADMIN"}:
+    if role_name not in {"SUPER_ADMIN", "SCHOOL_ADMIN", "PRINCIPAL"}:
         raise HTTPException(
             status_code=403,
             detail="Only school administration can publish report cards.",
         )
 
-    query = select(Result).where(
-        Result.student_id == student_id,
-        Result.school_id == tenant.school_id,
-        Result.is_active == True,
+    query = await db.execute(
+        select(Result)
+        .where(
+            Result.student_id == student_id,
+            Result.school_id == tenant.school_id,
+            Result.is_active == True,
+        )
+        .order_by(Result.id.asc())
     )
 
-    rows = (await db.execute(query)).scalars().all()
+    rows = query.scalars().all()
 
     if not rows:
         raise HTTPException(
@@ -476,14 +557,11 @@ async def publish_student_report_card(
             detail="No result records were found for this student.",
         )
 
+    # Every subject/result must have its own teacher comment.
     missing_teacher = [
-        r.id for r in rows
+        r.id
+        for r in rows
         if not (r.teacher_comment or "").strip()
-    ]
-
-    missing_principal = [
-        r.id for r in rows
-        if not (r.principal_comment or "").strip()
     ]
 
     if missing_teacher:
@@ -491,15 +569,19 @@ async def publish_student_report_card(
             status_code=400,
             detail=(
                 "Teacher comments are missing for one or more subjects. "
-                "The report card cannot be published yet."
+                "Every subject teacher must complete the subject comment "
+                "before the report card can be published."
             ),
         )
 
-    if missing_principal:
+    # ONE principal comment for the COMPLETE report card.
+    anchor = rows[0]
+
+    if not (anchor.principal_comment or "").strip():
         raise HTTPException(
             status_code=400,
             detail=(
-                "Principal comments are missing for one or more subjects. "
+                "The principal/head report-card comment is missing. "
                 "The report card cannot be published yet."
             ),
         )

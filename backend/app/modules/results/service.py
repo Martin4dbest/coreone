@@ -640,6 +640,7 @@ class ResultService:
                 Result.school_id == school_id,
                 Result.is_active == True,
             )
+            .order_by(Result.id.asc())
         )
 
         results_rows = result_query.all()
@@ -676,6 +677,8 @@ class ResultService:
                 detail="No results found",
             )
 
+        first_result = results_rows[0][0]
+
         subjects = []
         total_score = 0
 
@@ -704,7 +707,11 @@ class ResultService:
                         else item.remark
                     ),
                     "teacher_comment": item.teacher_comment,
-                    "principal_comment": item.principal_comment,
+                    "principal_comment": (
+                        item.principal_comment
+                        if item.id == first_result.id
+                        else None
+                    ),
                     "is_published": getattr(
                         item,
                         "is_published",
@@ -714,8 +721,6 @@ class ResultService:
             )
 
             total_score += item.total_score
-
-        first_result = results_rows[0][0]
 
         average = (
             total_score / len(subjects)
