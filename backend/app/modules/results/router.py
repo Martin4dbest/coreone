@@ -9,6 +9,7 @@ from app.core.tenant.context import TenantContext
 from app.core.tenant.dependencies import get_tenant_from_request
 
 from app.models.user import User
+from app.models.classroom import Classroom
 from app.models.result import Result
 from app.modules.auth.dependencies.current_user import get_current_user
 
