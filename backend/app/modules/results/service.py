@@ -1039,6 +1039,26 @@ class ResultService:
         report_term_id: int | None = None,
         report_session_id: int | None = None,
     ):
+        """
+        Generate the student report card PDF.
+
+        IMPORTANT:
+        This function changes PDF presentation only.
+        The existing Admin report-card page, publication logic,
+        and report-data calculations are not changed.
+
+        The PDF mirrors the approved Admin report-card structure:
+        - school branding
+        - logo + watermark
+        - student passport/details
+        - session/term/date
+        - CA / Exam / Total / Grade / System Remark
+        - aggregate / average / position
+        - instructor/class-teacher comment
+        - principal comment
+        - signature area
+        """
+
         report = await self.get_student_report(
             student_id,
             current_user,
@@ -1048,228 +1068,926 @@ class ResultService:
             report_session_id=report_session_id,
         )
 
+        from reportlab.lib import colors
+        from reportlab.lib.colors import HexColor
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.lib.units import mm
+        from reportlab.pdfbase.pdfmetrics import stringWidth
         from reportlab.platypus import (
-            SimpleDocTemplate,
+            HRFlowable,
+            Image as RLImage,
+            KeepTogether,
             Paragraph,
             Spacer,
             Table,
             TableStyle,
-            Image as RLImage,
-        )
-        from reportlab.lib.styles import (
-            getSampleStyleSheet,
-        )
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.units import inch
-        from reportlab.lib.colors import HexColor
-        from reportlab.lib import colors
-
-        branding_result = await self.db.execute(
-            select(SchoolBranding).where(
-                SchoolBranding.school_id
-                == report["school"]["id"]
-            )
+            SimpleDocTemplate,
         )
 
-        branding = (
-            branding_result.scalar_one_or_none()
+        import io
+        import os
+        import urllib.request
+
+        # --------------------------------------------------------
+        # BRANDING
+        # --------------------------------------------------------
+        primary_value = (
+            report.get("school", {}).get("primary_color")
+            or "#1e3a8a"
         )
 
-        primary_color = (
-            branding.primary_color
-            if branding
-            and branding.primary_color
-            else "#2563EB"
+        accent_value = (
+            report.get("school", {}).get("accent_color")
+            or "#b45309"
         )
 
-        buffer = BytesIO()
+        try:
+            primary = HexColor(primary_value)
+        except Exception:
+            primary = HexColor("#1e3a8a")
 
-        pdf = SimpleDocTemplate(
+        try:
+            accent = HexColor(accent_value)
+        except Exception:
+            accent = HexColor("#b45309")
+
+        paper = HexColor("#fffdf9")
+        page_background = HexColor("#f4f1ea")
+        soft_background = HexColor("#faf8f5")
+        line_color = HexColor("#cbd5e1")
+        dark = HexColor("#0f172a")
+        muted = HexColor("#64748b")
+
+        buffer = io.BytesIO()
+
+        doc = SimpleDocTemplate(
             buffer,
             pagesize=A4,
-            title="Student Report Card",
+            rightMargin=15 * mm,
+            leftMargin=15 * mm,
+            topMargin=14 * mm,
+            bottomMargin=14 * mm,
+            title=f"Report Card - {report['student']['name']}",
+            author=report["school"]["name"] or "CoreOne",
         )
 
         styles = getSampleStyleSheet()
 
-        brand_color = HexColor(primary_color)
+        school_name_style = ParagraphStyle(
+            "SchoolName",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=17,
+            leading=20,
+            textColor=primary,
+            alignment=TA_LEFT,
+            spaceAfter=3,
+        )
 
-        styles["Title"].textColor = brand_color
-        styles["Heading2"].textColor = brand_color
+        motto_style = ParagraphStyle(
+            "Motto",
+            parent=styles["Normal"],
+            fontName="Helvetica-Oblique",
+            fontSize=8.5,
+            leading=11,
+            textColor=muted,
+        )
 
+        small_label_style = ParagraphStyle(
+            "SmallLabel",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=6.5,
+            leading=8,
+            textColor=muted,
+        )
+
+        small_value_style = ParagraphStyle(
+            "SmallValue",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=8.5,
+            leading=10,
+            textColor=dark,
+        )
+
+        title_style = ParagraphStyle(
+            "ReportTitle",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=11,
+            leading=13,
+            textColor=primary,
+            alignment=TA_CENTER,
+            spaceAfter=0,
+        )
+
+        body_style = ParagraphStyle(
+            "Body",
+            parent=styles["Normal"],
+            fontName="Helvetica",
+            fontSize=7.5,
+            leading=10,
+            textColor=dark,
+        )
+
+        italic_style = ParagraphStyle(
+            "Italic",
+            parent=body_style,
+            fontName="Helvetica-Oblique",
+            textColor=HexColor("#475569"),
+        )
+
+        section_label_style = ParagraphStyle(
+            "SectionLabel",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=6.5,
+            leading=8,
+            textColor=primary,
+            alignment=TA_LEFT,
+        )
+
+        # --------------------------------------------------------
+        # IMAGE RESOLUTION
+        # --------------------------------------------------------
+        def resolve_image(value):
+            if not value:
+                return None
+
+            raw = str(value).strip()
+
+            if not raw:
+                return None
+
+            # Existing local upload path.
+            candidates = []
+
+            if raw.startswith("/uploads/"):
+                candidates.append(raw.lstrip("/"))
+                candidates.append(raw.replace("/uploads/", "uploads/").lstrip("/"))
+            elif raw.startswith("uploads/"):
+                candidates.append(raw)
+            elif raw.startswith("/"):
+                candidates.append(raw.lstrip("/"))
+            else:
+                candidates.append(raw)
+
+            for candidate in candidates:
+                if os.path.exists(candidate):
+                    return candidate
+
+            # Absolute URL fallback.
+            if raw.startswith(("http://", "https://")):
+                try:
+                    response = urllib.request.urlopen(raw, timeout=10)
+                    return io.BytesIO(response.read())
+                except Exception:
+                    return None
+
+            # Render-host/public API fallback for relative URLs.
+            api_base = os.getenv(
+                "PUBLIC_API_URL",
+                os.getenv(
+                    "API_BASE_URL",
+                    "https://coreone.onrender.com",
+                ),
+            ).rstrip("/")
+
+            if raw.startswith("/"):
+                remote_url = f"{api_base}{raw}"
+            else:
+                remote_url = f"{api_base}/{raw}"
+
+            try:
+                response = urllib.request.urlopen(
+                    remote_url,
+                    timeout=10,
+                )
+                return io.BytesIO(response.read())
+            except Exception:
+                return None
+
+        # --------------------------------------------------------
+        # PAGE BORDER / BACKGROUND
+        # --------------------------------------------------------
+        def draw_page(canvas, doc_obj):
+            canvas.saveState()
+
+            width, height = A4
+
+            # Warm document background.
+            canvas.setFillColor(page_background)
+            canvas.rect(
+                0,
+                0,
+                width,
+                height,
+                stroke=0,
+                fill=1,
+            )
+
+            # Main report sheet.
+            sheet_left = 9 * mm
+            sheet_bottom = 9 * mm
+            sheet_width = width - 18 * mm
+            sheet_height = height - 18 * mm
+
+            canvas.setFillColor(paper)
+            canvas.roundRect(
+                sheet_left,
+                sheet_bottom,
+                sheet_width,
+                sheet_height,
+                2 * mm,
+                stroke=0,
+                fill=1,
+            )
+
+            # Double-style school-colour border.
+            canvas.setStrokeColor(primary)
+            canvas.setLineWidth(2.2)
+            canvas.rect(
+                sheet_left,
+                sheet_bottom,
+                sheet_width,
+                sheet_height,
+                stroke=1,
+                fill=0,
+            )
+
+            canvas.setLineWidth(0.8)
+            canvas.rect(
+                sheet_left + 3 * mm,
+                sheet_bottom + 3 * mm,
+                sheet_width - 6 * mm,
+                sheet_height - 6 * mm,
+                stroke=1,
+                fill=0,
+            )
+
+            # Corner flourishes.
+            canvas.setStrokeColor(primary)
+            canvas.setLineWidth(1.1)
+
+            corner_offset = 5 * mm
+            corner_len = 7 * mm
+
+            # Top-left.
+            x = sheet_left + corner_offset
+            y = height - sheet_bottom - corner_offset
+            canvas.line(x, y, x + corner_len, y)
+            canvas.line(x, y, x, y - corner_len)
+
+            # Top-right.
+            x = width - sheet_left - corner_offset
+            y = height - sheet_bottom - corner_offset
+            canvas.line(x, y, x - corner_len, y)
+            canvas.line(x, y, x, y - corner_len)
+
+            # Bottom-left.
+            x = sheet_left + corner_offset
+            y = sheet_bottom + corner_offset
+            canvas.line(x, y, x + corner_len, y)
+            canvas.line(x, y, x, y + corner_len)
+
+            # Bottom-right.
+            x = width - sheet_left - corner_offset
+            y = sheet_bottom + corner_offset
+            canvas.line(x, y, x - corner_len, y)
+            canvas.line(x, y, x, y + corner_len)
+
+            # Very light watermark.
+            logo = resolve_image(
+                report.get("school", {}).get("logo")
+            )
+
+            if logo:
+                try:
+                    canvas.saveState()
+                    canvas.setFillAlpha(0.035)
+                    canvas.drawImage(
+                        logo,
+                        width / 2 - 48 * mm,
+                        height / 2 - 48 * mm,
+                        width=96 * mm,
+                        height=96 * mm,
+                        preserveAspectRatio=True,
+                        mask="auto",
+                        anchor="c",
+                    )
+                    canvas.restoreState()
+                except Exception:
+                    canvas.restoreState()
+
+            canvas.restoreState()
+
+        # --------------------------------------------------------
+        # HEADER
+        # --------------------------------------------------------
         elements = []
 
-        logo = report["school"]["logo"]
+        logo = resolve_image(
+            report.get("school", {}).get("logo")
+        )
+
+        header_left = []
 
         if logo:
-            logo_path = (
-                logo
-                .replace("/uploads/", "uploads/")
-                .lstrip("/")
-            )
-
-            if os.path.exists(logo_path):
-                elements.append(
-                    RLImage(
-                        logo_path,
-                        width=1 * inch,
-                        height=1 * inch,
-                    )
+            try:
+                school_logo = RLImage(
+                    logo,
+                    width=24 * mm,
+                    height=24 * mm,
                 )
+                header_left.append(
+                    school_logo
+                )
+            except Exception:
+                pass
 
-        elements.append(
+        school_text = [
             Paragraph(
-                report["school"]["name"]
-                or "School Name",
-                styles["Title"],
+                report["school"]["name"] or "School Name",
+                school_name_style,
             )
-        )
+        ]
 
-        if report["school"]["motto"]:
-            elements.append(
+        if report["school"].get("motto"):
+            school_text.append(
                 Paragraph(
                     report["school"]["motto"],
-                    styles["Italic"],
+                    motto_style,
                 )
             )
 
-        elements.append(
-            Spacer(1, 20)
-        )
+        if header_left:
+            left_table = Table(
+                [
+                    [
+                        header_left[0],
+                        school_text,
+                    ]
+                ],
+                colWidths=[
+                    29 * mm,
+                    95 * mm,
+                ],
+                hAlign="LEFT",
+            )
+        else:
+            left_table = Table(
+                [[school_text]],
+                colWidths=[124 * mm],
+                hAlign="LEFT",
+            )
 
-        elements.append(
-            Paragraph(
-                "STUDENT REPORT CARD",
-                styles["Heading2"],
+        left_table.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
             )
         )
 
-        student_table = Table(
+        official_block = Table(
             [
                 [
-                    "Student",
-                    report["student"]["name"],
+                    Paragraph(
+                        "OFFICIAL RECORD",
+                        ParagraphStyle(
+                            "Official",
+                            parent=small_label_style,
+                            textColor=accent,
+                            alignment=TA_CENTER,
+                        ),
+                    )
                 ],
                 [
-                    "Admission No",
-                    report["student"][
-                        "admission_number"
-                    ],
+                    Paragraph(
+                        "TRANSCRIPT",
+                        ParagraphStyle(
+                            "Transcript",
+                            parent=styles["Normal"],
+                            fontName="Helvetica-Bold",
+                            fontSize=10,
+                            leading=12,
+                            textColor=dark,
+                            alignment=TA_CENTER,
+                        ),
+                    )
                 ],
-                [
-                    "Class",
-                    str(
-                        report["student"]["class"]
-                        or "N/A"
-                    ),
-                ],
-                [
-                    "Attendance",
-                    f'{report["attendance"]}%',
-                ],
-            ]
+            ],
+            colWidths=[39 * mm],
         )
 
-        student_table.setStyle(
+        official_block.setStyle(
             TableStyle(
                 [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 3),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                    ("TOPPADDING", (0, 0), (-1, -1), 1),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
                     (
-                        "BACKGROUND",
+                        "LINEBEFORE",
                         (0, 0),
                         (0, -1),
-                        brand_color,
-                    ),
-                    (
-                        "TEXTCOLOR",
-                        (0, 0),
-                        (0, -1),
-                        colors.white,
-                    ),
-                    (
-                        "GRID",
-                        (0, 0),
-                        (-1, -1),
                         0.5,
-                        brand_color,
-                    ),
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
+                        line_color,
                     ),
                 ]
             )
         )
 
-        elements.append(student_table)
-        elements.append(Spacer(1, 20))
+        header = Table(
+            [[left_table, official_block]],
+            colWidths=[124 * mm, 42 * mm],
+        )
 
-        results_data = [
+        header.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    (
+                        "LINEBELOW",
+                        (0, 0),
+                        (-1, -1),
+                        1.1,
+                        primary,
+                    ),
+                ]
+            )
+        )
+
+        elements.append(header)
+        elements.append(Spacer(1, 4 * mm))
+
+        # --------------------------------------------------------
+        # SESSION / TERM / DATE
+        # --------------------------------------------------------
+        current_print_date = (
+            report.get("date_printed")
+            or __import__("datetime").datetime.now().strftime(
+                "%B %d, %Y"
+            )
+        )
+
+        meta = Table(
             [
-                "Subject",
-                "CA",
-                "Exam",
-                "Total",
-                "Grade",
+                [
+                    Paragraph("SESSION:", small_label_style),
+                    Paragraph(
+                        report.get("session") or "—",
+                        small_value_style,
+                    ),
+                    Paragraph("TERM:", small_label_style),
+                    Paragraph(
+                        report.get("term") or "—",
+                        small_value_style,
+                    ),
+                    Paragraph("DATE ISSUED:", small_label_style),
+                    Paragraph(
+                        current_print_date,
+                        small_value_style,
+                    ),
+                ]
+            ],
+            colWidths=[
+                15 * mm,
+                40 * mm,
+                12 * mm,
+                40 * mm,
+                20 * mm,
+                39 * mm,
+            ],
+        )
+
+        meta.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    (
+                        "LINEBELOW",
+                        (0, 0),
+                        (-1, -1),
+                        0.5,
+                        line_color,
+                    ),
+                ]
+            )
+        )
+
+        elements.append(meta)
+
+        # --------------------------------------------------------
+        # DOCUMENT TITLE
+        # --------------------------------------------------------
+        elements.append(Spacer(1, 3 * mm))
+
+        title_table = Table(
+            [
+                [
+                    Paragraph(
+                        "TERMINAL REPORT CARD",
+                        title_style,
+                    )
+                ]
+            ],
+            colWidths=[166 * mm],
+        )
+
+        title_table.setStyle(
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, -1),
+                        HexColor("#f8fafc"),
+                    ),
+                    (
+                        "LINEABOVE",
+                        (0, 0),
+                        (-1, -1),
+                        0.5,
+                        line_color,
+                    ),
+                    (
+                        "LINEBELOW",
+                        (0, 0),
+                        (-1, -1),
+                        0.5,
+                        line_color,
+                    ),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ]
+            )
+        )
+
+        elements.append(title_table)
+        elements.append(Spacer(1, 4 * mm))
+
+        # --------------------------------------------------------
+        # STUDENT BIO
+        # --------------------------------------------------------
+        passport = resolve_image(
+            report["student"].get("passport")
+        )
+
+        photo_cell = ""
+
+        if passport:
+            try:
+                photo_cell = RLImage(
+                    passport,
+                    width=27 * mm,
+                    height=27 * mm,
+                )
+            except Exception:
+                photo_cell = ""
+        else:
+            photo_cell = Paragraph(
+                "PHOTO<br/>ARCHIVE",
+                ParagraphStyle(
+                    "NoPhoto",
+                    parent=small_label_style,
+                    alignment=TA_CENTER,
+                    textColor=HexColor("#94a3b8"),
+                ),
+            )
+
+        bio = Table(
+            [
+                [
+                    photo_cell,
+                    Paragraph(
+                        "<b>STUDENT'S FULL NAME</b><br/>"
+                        f"{report['student']['name']}",
+                        body_style,
+                    ),
+                    Paragraph(
+                        "<b>ADMISSION REFERENCE</b><br/>"
+                        f'<font color="{primary_value}">'
+                        f"{report['student']['admission_number']}"
+                        f"</font>",
+                        body_style,
+                    ),
+                ],
+                [
+                    "",
+                    Paragraph(
+                        "<b>CLASS ASSIGNATION</b><br/>"
+                        f"{report['student'].get('class') or '—'}",
+                        body_style,
+                    ),
+                    Paragraph(
+                        "<b>SESSION ATTENDANCE RATE</b><br/>"
+                        f"{report['attendance']}% of academic days",
+                        body_style,
+                    ),
+                ],
+            ],
+            colWidths=[
+                35 * mm,
+                65 * mm,
+                66 * mm,
+            ],
+        )
+
+        bio.setStyle(
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, -1),
+                        soft_background,
+                    ),
+                    (
+                        "BOX",
+                        (0, 0),
+                        (-1, -1),
+                        0.6,
+                        line_color,
+                    ),
+                    (
+                        "INNERGRID",
+                        (0, 0),
+                        (-1, -1),
+                        0.35,
+                        HexColor("#e2e8f0"),
+                    ),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ]
+            )
+        )
+
+        elements.append(bio)
+        elements.append(Spacer(1, 5 * mm))
+
+        # --------------------------------------------------------
+        # ACADEMIC TABLE
+        # --------------------------------------------------------
+        academic_data = [
+            [
+                "SUBJECT COURSEWORK",
+                "C.A.",
+                "EXAM",
+                "TOTAL",
+                "GRADE",
+                "SYSTEM REMARK",
             ]
         ]
 
         for item in report["subjects"]:
-            results_data.append(
+            academic_data.append(
                 [
                     item["name"],
                     item["ca"],
                     item["exam"],
                     item["total"],
-                    item["grade"] or "",
+                    item["grade"] or "—",
+                    item["remark"] or "—",
                 ]
             )
 
-        table = Table(results_data)
+        academic = Table(
+            academic_data,
+            colWidths=[
+                52 * mm,
+                17 * mm,
+                17 * mm,
+                18 * mm,
+                16 * mm,
+                46 * mm,
+                ],
+            repeatRows=1,
+        )
 
-        table.setStyle(
-            TableStyle(
-                [
+        academic_style = [
+            (
+                "BACKGROUND",
+                (0, 0),
+                (-1, 0),
+                primary,
+            ),
+            (
+                "TEXTCOLOR",
+                (0, 0),
+                (-1, 0),
+                colors.white,
+            ),
+            (
+                "FONTNAME",
+                (0, 0),
+                (-1, 0),
+                "Helvetica-Bold",
+            ),
+            (
+                "FONTSIZE",
+                (0, 0),
+                (-1, -1),
+                7,
+            ),
+            (
+                "GRID",
+                (0, 0),
+                (-1, -1),
+                0.45,
+                HexColor("#cbd5e1"),
+            ),
+            (
+                "BOX",
+                (0, 0),
+                (-1, -1),
+                1,
+                dark,
+            ),
+            (
+                "ALIGN",
+                (1, 0),
+                (-1, -1),
+                "CENTER",
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "MIDDLE",
+            ),
+            (
+                "LEFTPADDING",
+                (0, 0),
+                (-1, -1),
+                4,
+            ),
+            (
+                "RIGHTPADDING",
+                (0, 0),
+                (-1, -1),
+                4,
+            ),
+            (
+                "TOPPADDING",
+                (0, 0),
+                (-1, -1),
+                4,
+            ),
+            (
+                "BOTTOMPADDING",
+                (0, 0),
+                (-1, -1),
+                4,
+            ),
+        ]
+
+        for row_index in range(1, len(academic_data)):
+            if row_index % 2 == 0:
+                academic_style.append(
                     (
                         "BACKGROUND",
-                        (0, 0),
-                        (-1, 0),
-                        brand_color,
+                        (0, row_index),
+                        (-1, row_index),
+                        HexColor("#faf9f5"),
+                    )
+                )
+            else:
+                academic_style.append(
+                    (
+                        "BACKGROUND",
+                        (0, row_index),
+                        (-1, row_index),
+                        colors.white,
+                    )
+                )
+
+            academic_style.extend(
+                [
+                    (
+                        "FONTNAME",
+                        (0, row_index),
+                        (0, row_index),
+                        "Helvetica-Bold",
+                    ),
+                    (
+                        "FONTNAME",
+                        (3, row_index),
+                        (3, row_index),
+                        "Helvetica-Bold",
                     ),
                     (
                         "TEXTCOLOR",
-                        (0, 0),
-                        (-1, 0),
-                        colors.white,
+                        (3, row_index),
+                        (3, row_index),
+                        primary,
                     ),
                     (
-                        "GRID",
-                        (0, 0),
-                        (-1, -1),
-                        0.5,
-                        brand_color,
+                        "FONTNAME",
+                        (4, row_index),
+                        (4, row_index),
+                        "Helvetica-Bold",
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (4, row_index),
+                        (4, row_index),
+                        accent,
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (5, row_index),
+                        (5, row_index),
+                        muted,
                     ),
                 ]
             )
+
+        academic.setStyle(
+            TableStyle(academic_style)
         )
 
-        elements.append(table)
-        elements.append(Spacer(1, 20))
+        elements.append(academic)
+        elements.append(Spacer(1, 4 * mm))
 
+        # --------------------------------------------------------
+        # SUMMARY
+        # --------------------------------------------------------
         summary = Table(
             [
                 [
-                    "Total",
-                    "Average",
-                    "Position",
+                    Paragraph(
+                        "AGGREGATE MARK",
+                        small_label_style,
+                    ),
+                    Paragraph(
+                        "CUMULATIVE AVERAGE",
+                        small_label_style,
+                    ),
+                    Paragraph(
+                        "ORDER OF MERIT",
+                        small_label_style,
+                    ),
                 ],
                 [
-                    report["total"],
-                    report["average"],
-                    report["position"] or "N/A",
+                    Paragraph(
+                        str(report["total"]),
+                        ParagraphStyle(
+                            "Summary1",
+                            parent=small_value_style,
+                            fontSize=12,
+                            textColor=primary,
+                            alignment=TA_CENTER,
+                        ),
+                    ),
+                    Paragraph(
+                        f'{report["average"]}%',
+                        ParagraphStyle(
+                            "Summary2",
+                            parent=small_value_style,
+                            fontSize=12,
+                            textColor=primary,
+                            alignment=TA_CENTER,
+                        ),
+                    ),
+                    Paragraph(
+                        str(report["position"] or "—"),
+                        ParagraphStyle(
+                            "Summary3",
+                            parent=small_value_style,
+                            fontSize=12,
+                            textColor=accent,
+                            alignment=TA_CENTER,
+                        ),
+                    ),
                 ],
-            ]
+            ],
+            colWidths=[
+                55 * mm,
+                55 * mm,
+                56 * mm,
+            ],
         )
 
         summary.setStyle(
@@ -1278,65 +1996,291 @@ class ResultService:
                     (
                         "BACKGROUND",
                         (0, 0),
-                        (-1, 0),
-                        brand_color,
-                    ),
-                    (
-                        "TEXTCOLOR",
-                        (0, 0),
-                        (-1, 0),
+                        (-1, -1),
                         colors.white,
                     ),
                     (
-                        "GRID",
+                        "BACKGROUND",
+                        (1, 0),
+                        (1, -1),
+                        HexColor("#faf9f5"),
+                    ),
+                    (
+                        "BOX",
+                        (0, 0),
+                        (-1, -1),
+                        1,
+                        dark,
+                    ),
+                    (
+                        "INNERGRID",
                         (0, 0),
                         (-1, -1),
                         0.5,
-                        brand_color,
+                        dark,
+                    ),
+                    (
+                        "ALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "CENTER",
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "MIDDLE",
+                    ),
+                    (
+                        "TOPPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        5,
+                    ),
+                    (
+                        "BOTTOMPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        5,
                     ),
                 ]
             )
         )
 
         elements.append(summary)
-        elements.append(Spacer(1, 30))
+        elements.append(Spacer(1, 5 * mm))
 
-        elements.append(
-            Paragraph(
-                "Teacher Comment: "
-                f'{report["comments"]["teacher"] or ""}',
-                styles["Normal"],
+        # --------------------------------------------------------
+        # COMMENTS
+        # --------------------------------------------------------
+        teacher_comment = (
+            report["comments"].get("teacher")
+            or "No formal performance note entered by the assigned instructor."
+        )
+
+        principal_comment = (
+            report["comments"].get("principal")
+            or report.get("remark")
+            or "No administrative oversight statement declared."
+        )
+
+        comments = Table(
+            [
+                [
+                    Paragraph(
+                        "INSTRUCTOR ASSESSMENT REMARKS",
+                        section_label_style,
+                    )
+                ],
+                [
+                    Paragraph(
+                        f'"{teacher_comment}"',
+                        italic_style,
+                    )
+                ],
+                [
+                    Paragraph(
+                        "PRINCIPAL EXECUTIVE REVIEW",
+                        section_label_style,
+                    )
+                ],
+                [
+                    Paragraph(
+                        f'"{principal_comment}"',
+                        italic_style,
+                    )
+                ],
+            ],
+            colWidths=[166 * mm],
+        )
+
+        comments.setStyle(
+            TableStyle(
+                [
+                    (
+                        "BOX",
+                        (0, 0),
+                        (-1, 1),
+                        0.6,
+                        HexColor("#cbd5e1"),
+                    ),
+                    (
+                        "BOX",
+                        (0, 2),
+                        (-1, 3),
+                        0.6,
+                        HexColor("#cbd5e1"),
+                    ),
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, 0),
+                        colors.white,
+                    ),
+                    (
+                        "BACKGROUND",
+                        (0, 2),
+                        (-1, 2),
+                        colors.white,
+                    ),
+                    (
+                        "LEFTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        7,
+                    ),
+                    (
+                        "RIGHTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        7,
+                    ),
+                    (
+                        "TOPPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        5,
+                    ),
+                    (
+                        "BOTTOMPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        5,
+                    ),
+                ]
             )
         )
 
-        elements.append(Spacer(1, 15))
-
         elements.append(
-            Paragraph(
-                "Principal Comment: "
-                f'{report["comments"]["principal"] or ""}',
-                styles["Normal"],
+            KeepTogether(
+                [
+                    comments,
+                    Spacer(1, 6 * mm),
+                ]
             )
         )
 
-        elements.append(Spacer(1, 50))
-
+        # --------------------------------------------------------
+        # SIGNATURES
+        # --------------------------------------------------------
         signature = Table(
             [
                 [
-                    "________________",
-                    "________________",
+                    "",
+                    "",
                 ],
                 [
-                    "Class Teacher",
-                    "Principal",
+                    "CLASS INSTRUCTOR",
+                    "SCHOOL PRINCIPAL",
                 ],
-            ]
+                [
+                    "SIGNATURE & STAMP",
+                    "ENDORSEMENT SEAL",
+                ],
+            ],
+            colWidths=[
+                83 * mm,
+                83 * mm,
+            ],
+            rowHeights=[
+                11 * mm,
+                5 * mm,
+                4 * mm,
+            ],
+        )
+
+        signature.setStyle(
+            TableStyle(
+                [
+                    (
+                        "LINEABOVE",
+                        (0, 0),
+                        (0, 0),
+                        0,
+                        colors.white,
+                    ),
+                    (
+                        "LINEBELOW",
+                        (0, 0),
+                        (0, 0),
+                        0.6,
+                        HexColor("#94a3b8"),
+                    ),
+                    (
+                        "LINEBELOW",
+                        (1, 0),
+                        (1, 0),
+                        0.6,
+                        HexColor("#94a3b8"),
+                    ),
+                    (
+                        "FONTNAME",
+                        (0, 1),
+                        (-1, 1),
+                        "Helvetica-Bold",
+                    ),
+                    (
+                        "FONTSIZE",
+                        (0, 1),
+                        (-1, 1),
+                        7,
+                    ),
+                    (
+                        "FONTSIZE",
+                        (0, 2),
+                        (-1, 2),
+                        5.5,
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (0, 1),
+                        (-1, 1),
+                        dark,
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (0, 2),
+                        (-1, 2),
+                        HexColor("#94a3b8"),
+                    ),
+                    (
+                        "ALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "CENTER",
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "MIDDLE",
+                    ),
+                    (
+                        "TOPPADDING",
+                        (0, 1),
+                        (-1, -1),
+                        2,
+                    ),
+                    (
+                        "BOTTOMPADDING",
+                        (0, 1),
+                        (-1, -1),
+                        2,
+                    ),
+                ]
+            )
         )
 
         elements.append(signature)
 
-        pdf.build(elements)
+        # --------------------------------------------------------
+        # BUILD
+        # --------------------------------------------------------
+        doc.build(
+            elements,
+            onFirstPage=draw_page,
+            onLaterPages=draw_page,
+        )
 
         buffer.seek(0)
 
