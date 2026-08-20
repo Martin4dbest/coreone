@@ -30,6 +30,11 @@ type Result = {
   exam_score?: number;
   total_score: number;
   grade: string | null;
+  teacher_comment?: string | null;
+  principal_comment?: string | null;
+  is_published?: boolean;
+  published_at?: string | null;
+
 };
 
 type Option = {
@@ -137,6 +142,13 @@ export default function ResultsPage({
   const [studentScoresModalOpen, setStudentScoresModalOpen] = useState(false);
   const [studentScoresLoading, setStudentScoresLoading] = useState(false);
   const [studentFetchedResults, setStudentFetchedResults] = useState<Result[]>([]);
+  const [principalCommentDraft, setPrincipalCommentDraft] =
+    useState("");
+  const [principalCommentSaving, setPrincipalCommentSaving] =
+    useState(false);
+  const [reportPublishBusy, setReportPublishBusy] =
+    useState(false);
+
 
   // Error / Warning Dialog State
   const [errorModal, setErrorModal] = useState<ErrorModalState>(null);
@@ -174,6 +186,192 @@ export default function ResultsPage({
     }
     return "Operation failed";
   };
+
+  async function savePrincipalComment(
+    studentResults: Result[],
+  ) {
+    const cleanComment = String(
+      principalCommentDraft || "",
+    ).trim();
+
+    if (!cleanComment) {
+      alert("Please enter the principal/head comment.");
+      return;
+    }
+
+    if (!studentResults.length) {
+      alert("No result records are available.");
+      return;
+    }
+
+    try {
+      setPrincipalCommentSaving(true);
+
+      for (const result of studentResults) {
+        await api.patch(
+          `/results/${result.id}/principal-comment`,
+          {
+            comment: cleanComment,
+          },
+        );
+      }
+
+      setStudentFetchedResults((current) =>
+        current.map((item) => ({
+          ...item,
+          principal_comment: cleanComment,
+          is_published: false,
+        })),
+      );
+
+      setResults((current) =>
+        current.map((item) =>
+          studentResults.some(
+            (selected) =>
+              Number(selected.id) === Number(item.id),
+          )
+            ? {
+                ...item,
+                principal_comment: cleanComment,
+                is_published: false,
+              }
+            : item,
+        ),
+      );
+
+      alert("Principal comment saved successfully.");
+    } catch (error: any) {
+      console.error(
+        "SAVE PRINCIPAL COMMENT ERROR:",
+        error?.response?.data || error,
+      );
+
+      alert(
+        String(
+          error?.response?.data?.detail ||
+          "Unable to save the principal comment.",
+        ),
+      );
+    } finally {
+      setPrincipalCommentSaving(false);
+    }
+  }
+
+  async function publishStudentReportCard(
+    studentId: number,
+  ) {
+    if (!studentId) return;
+
+    if (!window.confirm(
+      "Publish this report card to the student now?"
+    )) {
+      return;
+    }
+
+    try {
+      setReportPublishBusy(true);
+
+      await api.post(
+        `/results/student/${studentId}/publish`,
+      );
+
+      setStudentFetchedResults((current) =>
+        current.map((item) => ({
+          ...item,
+          is_published: true,
+          status: "PUBLISHED",
+        })),
+      );
+
+      setResults((current) =>
+        current.map((item) =>
+          Number(item.student_id) === Number(studentId)
+            ? {
+                ...item,
+                is_published: true,
+                status: "PUBLISHED",
+              }
+            : item,
+        ),
+      );
+
+      alert(
+        "Report card published successfully. The student can now view it."
+      );
+    } catch (error: any) {
+      console.error(
+        "PUBLISH REPORT CARD ERROR:",
+        error?.response?.data || error,
+      );
+
+      alert(
+        String(
+          error?.response?.data?.detail ||
+          "Unable to publish the report card.",
+        ),
+      );
+    } finally {
+      setReportPublishBusy(false);
+    }
+  }
+
+  async function unpublishStudentReportCard(
+    studentId: number,
+  ) {
+    if (!studentId) return;
+
+    if (!window.confirm(
+      "Unpublish this report card from the student?"
+    )) {
+      return;
+    }
+
+    try {
+      setReportPublishBusy(true);
+
+      await api.post(
+        `/results/student/${studentId}/unpublish`,
+      );
+
+      setStudentFetchedResults((current) =>
+        current.map((item) => ({
+          ...item,
+          is_published: false,
+          status: "REVIEW",
+        })),
+      );
+
+      setResults((current) =>
+        current.map((item) =>
+          Number(item.student_id) === Number(studentId)
+            ? {
+                ...item,
+                is_published: false,
+                status: "REVIEW",
+              }
+            : item,
+        ),
+      );
+
+      alert("Report card unpublished.");
+    } catch (error: any) {
+      console.error(
+        "UNPUBLISH REPORT CARD ERROR:",
+        error?.response?.data || error,
+      );
+
+      alert(
+        String(
+          error?.response?.data?.detail ||
+          "Unable to unpublish the report card.",
+        ),
+      );
+    } finally {
+      setReportPublishBusy(false);
+    }
+  }
+
+
 
   async function loadData() {
     try {
@@ -1399,6 +1597,161 @@ export default function ResultsPage({
                       <div>
                         <span className="text-slate-500 block">Total</span>
                         <span className="font-bold text-slate-900 text-sm">{res.total_score}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-200/80 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-bold text-slate-700">
+                            Principal / Head Comment
+                          </p>
+                          <p className="text-[11px] text-slate-400">
+                            Final comment shown on the published report card.
+                          </p>
+                        </div>
+
+                        <span
+                          className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                            res.principal_comment
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {res.principal_comment
+                            ? "COMPLETED"
+                            : "REQUIRED"}
+                        </span>
+                      </div>
+
+                      <textarea
+                        value={
+                          principalCommentDraft ||
+                          res.principal_comment ||
+                          ""
+                        }
+                        onChange={(event) =>
+                          setPrincipalCommentDraft(
+                            event.target.value,
+                          )
+                        }
+                        placeholder="Enter the principal/head comment..."
+                        className="w-full min-h-[90px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                      />
+
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          disabled={principalCommentSaving}
+                          onClick={() =>
+                            savePrincipalComment(
+                              studentFetchedResults,
+                            )
+                          }
+                          className="rounded-lg bg-red-800 hover:bg-red-900 text-white px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                        >
+                          {principalCommentSaving
+                            ? "Saving..."
+                            : "Save Principal Comment"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-200/80">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-bold text-slate-700">
+                              Report Card Publication
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                              Students only see the report after publication.
+                            </p>
+                          </div>
+
+                          {res.is_published ? (
+                            <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">
+                              PUBLISHED
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600">
+                              NOT PUBLISHED
+                            </span>
+                          )}
+                        </div>
+
+                        {(() => {
+                          const teacherComplete =
+                            studentFetchedResults.every(
+                              (item) =>
+                                Boolean(
+                                  String(
+                                    item.teacher_comment ?? "",
+                                  ).trim(),
+                                ),
+                            );
+
+                          const principalComplete =
+                            studentFetchedResults.every(
+                              (item) =>
+                                Boolean(
+                                  String(
+                                    item.principal_comment ?? "",
+                                  ).trim(),
+                                ),
+                            );
+
+                          const studentId = Number(
+                            res.student_id,
+                          );
+
+                          if (res.is_published) {
+                            return (
+                              <button
+                                type="button"
+                                disabled={reportPublishBusy}
+                                onClick={() =>
+                                  unpublishStudentReportCard(
+                                    studentId,
+                                  )
+                                }
+                                className="w-full rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                              >
+                                {reportPublishBusy
+                                  ? "Updating..."
+                                  : "Unpublish Report Card"}
+                              </button>
+                            );
+                          }
+
+                          return (
+                            <button
+                              type="button"
+                              disabled={
+                                reportPublishBusy ||
+                                !teacherComplete ||
+                                !principalComplete
+                              }
+                              onClick={() =>
+                                publishStudentReportCard(
+                                  studentId,
+                                )
+                              }
+                              title={
+                                !teacherComplete
+                                  ? "Teacher comments must be completed first."
+                                  : !principalComplete
+                                    ? "Principal comment must be completed first."
+                                    : "Publish report card"
+                              }
+                              className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {reportPublishBusy
+                                ? "Publishing..."
+                                : "Publish Report Card"}
+                            </button>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>

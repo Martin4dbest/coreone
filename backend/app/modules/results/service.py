@@ -28,6 +28,156 @@ from app.modules.results.schemas import (
 )
 
 
+
+# ============================================================
+# COREONE RESULT PUBLISHING WORKFLOW
+# ============================================================
+# Publishing rule:
+#
+#   Teacher enters teacher comment
+#              ↓
+#   Principal/School Admin enters principal comment
+#              ↓
+#   Result can be published
+#
+# A result MUST NOT become visible to students/parents while
+# either required comment is missing.
+# ============================================================
+
+async def _validate_result_comments_before_publish(
+    db,
+    *,
+    school_id=None,
+    student_id=None,
+    academic_session_id=None,
+    term_id=None,
+):
+    """
+    Validate that every result in the publishing scope has both
+    teacher and principal comments.
+
+    This intentionally validates the complete result set rather
+    than checking only one subject/result row.
+    """
+
+    from sqlalchemy import select
+
+    query = select(Result)
+
+    if school_id is not None:
+        query = query.where(Result.school_id == school_id)
+
+    if student_id is not None:
+        query = query.where(Result.student_id == student_id)
+
+    if academic_session_id is not None:
+        query = query.where(
+            Result.academic_session_id == academic_session_id
+        )
+
+    if term_id is not None:
+        query = query.where(Result.term_id == term_id)
+
+    rows = (
+        await db.execute(query)
+    ).scalars().all()
+
+    if not rows:
+        raise ValueError("No results found to publish.")
+
+    missing_teacher = []
+    missing_principal = []
+
+    for row in rows:
+        teacher_comment = (
+            getattr(row, "teacher_comment", None) or ""
+        ).strip()
+
+        principal_comment = (
+            getattr(row, "principal_comment", None) or ""
+        ).strip()
+
+        if not teacher_comment:
+            missing_teacher.append(row)
+
+        if not principal_comment:
+            missing_principal.append(row)
+
+    if missing_teacher or missing_principal:
+        messages = []
+
+        if missing_teacher:
+            messages.append(
+                f"{len(missing_teacher)} result(s) are missing "
+                "the teacher comment."
+            )
+
+        if missing_principal:
+            messages.append(
+                f"{len(missing_principal)} result(s) are missing "
+                "the principal comment."
+            )
+
+        raise ValueError(
+            "Cannot publish report card. "
+            + " ".join(messages)
+        )
+
+    return rows
+
+
+async def _save_result_comment(
+    db,
+    *,
+    result,
+    comment,
+    comment_type,
+    user_id=None,
+):
+    """
+    Save one of the two report-card comments.
+
+    comment_type:
+      teacher
+      principal
+    """
+
+    value = (comment or "").strip()
+
+    if not value:
+        raise ValueError(
+            f"{comment_type.capitalize()} comment cannot be empty."
+        )
+
+    if comment_type == "teacher":
+        result.teacher_comment = value
+
+        if hasattr(result, "teacher_comment_by"):
+            result.teacher_comment_by = user_id
+
+    elif comment_type == "principal":
+        result.principal_comment = value
+
+        if hasattr(result, "principal_comment_by"):
+            result.principal_comment_by = user_id
+
+    else:
+        raise ValueError("Invalid comment type.")
+
+    # Any edit to comments means the result must be reviewed again.
+    # A previously published result must not silently remain published
+    # after its official comments are changed.
+    if hasattr(result, "is_published"):
+        result.is_published = False
+
+    if hasattr(result, "published_at"):
+        result.published_at = None
+
+    await db.commit()
+    await db.refresh(result)
+
+    return result
+
 class ResultService:
 
     async def _check_teacher_result_access(
@@ -493,6 +643,32 @@ class ResultService:
         )
 
         results_rows = result_query.all()
+        # ----------------------------------------------------
+        # REPORT CARD PUBLICATION GATE
+        # ----------------------------------------------------
+        # Students and parents must never receive unpublished
+        # result rows. School administrators and teachers still
+        # retain their existing report-card access.
+        role_name = (
+            getattr(getattr(current_user, "role", None), "name", None)
+            or getattr(current_user, "role", None)
+            or ""
+        )
+        role_name = str(role_name).upper()
+
+        if role_name in {"STUDENT", "PARENT"}:
+            results_rows = [
+                row
+                for row in results_rows
+                if getattr(row[0], "is_published", False) is True
+            ]
+
+            if not results_rows:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Your report card has not been published yet.",
+                )
+
 
         if not results_rows:
             raise HTTPException(

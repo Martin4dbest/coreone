@@ -32,6 +32,11 @@ type Result = {
   exam_score?: number;
   total_score: number;
   grade: string | null;
+  teacher_comment?: string | null;
+  principal_comment?: string | null;
+  is_published?: boolean;
+  published_at?: string | null;
+
 };
 
 type Option = {
@@ -139,7 +144,13 @@ export default function ResultsPage({
   const [studentScoresLoading, setStudentScoresLoading] = useState(false);
   const [studentFetchedResults, setStudentFetchedResults] = useState<Result[]>([]);
 
-  // Dialog State
+
+  const [teacherCommentDrafts, setTeacherCommentDrafts] =
+    useState<Record<number, string>>({});
+  const [teacherCommentSavingId, setTeacherCommentSavingId] =
+    useState<number | null>(null);
+
+// Dialog State
   const [errorModal, setErrorModal] = useState<ErrorModalState>(null);
 
   // Single Entry Inputs
@@ -177,6 +188,71 @@ export default function ResultsPage({
     }
     return "Operation failed";
   };
+
+  async function saveTeacherComment(
+    resultId: number,
+    comment: string,
+  ) {
+    const cleanComment = String(comment || "").trim();
+
+    if (!cleanComment) {
+      alert("Please enter a teacher comment.");
+      return;
+    }
+
+    try {
+      setTeacherCommentSavingId(resultId);
+
+      await api.patch(
+        `/results/${resultId}/teacher-comment`,
+        {
+          comment: cleanComment,
+        },
+      );
+
+      setStudentFetchedResults((current) =>
+        current.map((item) =>
+          Number(item.id) === Number(resultId)
+            ? {
+                ...item,
+                teacher_comment: cleanComment,
+                is_published: false,
+              }
+            : item,
+        ),
+      );
+
+      setResults((current) =>
+        current.map((item) =>
+          Number(item.id) === Number(resultId)
+            ? {
+                ...item,
+                teacher_comment: cleanComment,
+                is_published: false,
+              }
+            : item,
+        ),
+      );
+
+      alert("Teacher comment saved successfully.");
+    } catch (error: any) {
+      console.error(
+        "SAVE TEACHER COMMENT ERROR:",
+        error?.response?.data || error,
+      );
+
+      alert(
+        String(
+          error?.response?.data?.detail ||
+          "Unable to save the teacher comment.",
+        ),
+      );
+    } finally {
+      setTeacherCommentSavingId(null);
+    }
+  }
+
+
 
   async function loadData() {
     try {
@@ -657,7 +733,7 @@ export default function ResultsPage({
   return (
     <div className="min-h-screen bg-slate-50/60 py-6 px-4 sm:px-6 text-sm">
       <div className="max-w-6xl mx-auto space-y-6">
-        
+
         {/* Error Modal */}
         {errorModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
@@ -1374,6 +1450,67 @@ export default function ResultsPage({
                         <div>
                           <span className="block text-slate-400">Total Score</span>
                           <span className="font-bold text-slate-900 text-sm">{res.total_score}</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-200/60">
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                          <div>
+                            <p className="text-xs font-bold text-slate-700">
+                              Official Teacher Comment
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                              Required before this result can be published.
+                            </p>
+                          </div>
+
+                          <span
+                            className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                              res.teacher_comment
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            {res.teacher_comment ? "COMPLETED" : "REQUIRED"}
+                          </span>
+                        </div>
+
+                        <textarea
+                          value={
+                            teacherCommentDrafts[Number(res.id)] ??
+                            res.teacher_comment ??
+                            ""
+                          }
+                          onChange={(event) =>
+                            setTeacherCommentDrafts((current) => ({
+                              ...current,
+                              [Number(res.id)]: event.target.value,
+                            }))
+                          }
+                          placeholder="Enter the student's official teacher comment..."
+                          className="w-full min-h-[90px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                        />
+
+                        <div className="flex justify-end mt-2">
+                          <button
+                            type="button"
+                            disabled={
+                              teacherCommentSavingId === Number(res.id)
+                            }
+                            onClick={() =>
+                              saveTeacherComment(
+                                Number(res.id),
+                                teacherCommentDrafts[Number(res.id)] ??
+                                  res.teacher_comment ??
+                                  "",
+                              )
+                            }
+                            className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                          >
+                            {teacherCommentSavingId === Number(res.id)
+                              ? "Saving..."
+                              : "Save Teacher Comment"}
+                          </button>
                         </div>
                       </div>
                     </div>

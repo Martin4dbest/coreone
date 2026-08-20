@@ -1,4 +1,5 @@
-from sqlalchemy import Float, String, Text, UniqueConstraint
+from datetime import datetime
+from sqlalchemy import Float, String, Text, UniqueConstraint, Boolean, DateTime, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_model import BaseModel
@@ -59,6 +60,18 @@ class Result(Base, BaseModel, SchoolMixin, ActiveMixin):
         String(20),
         default="DRAFT",
         nullable=False,
+    )
+
+    is_published: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
     )
 
     teacher_comment: Mapped[str | None] = mapped_column(
