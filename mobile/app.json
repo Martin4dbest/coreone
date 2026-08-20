@@ -22,7 +22,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/presense-logo.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.martin4dbest.presense"
     },
     "web": {
       "bundler": "metro",
@@ -32,6 +33,18 @@
       "expo-router",
       "expo-secure-store",
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0989a34a-dce8-4145-8384-b055098c70d1"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/0989a34a-dce8-4145-8384-b055098c70d1"
+    }
   }
 }

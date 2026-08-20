@@ -31,7 +31,7 @@ const { width } = Dimensions.get("window");
 const isDesktopWeb = Platform.OS === "web" && width >= 900;
 
 // DYNAMIC API BASE URL RESOLUTION
-const API_BASE_URL = api.defaults?.baseURL || "https://coreone.onrender.com/api/v1";
+const API_BASE_URL = api.defaults?.baseURL || "http://10.196.122.196:8000";
 
 const getOriginHost = (baseUrl: string): string => {
   try {

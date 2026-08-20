@@ -23,7 +23,7 @@ const { width: screenWidth } = Dimensions.get("window");
 const isDesktopWeb = Platform.OS === "web" && screenWidth >= 900;
 const desktopMaxWidth = Math.min(
   Math.max(screenWidth - 48, 320),
-  1180
+  960
 );
 
 
@@ -169,39 +169,8 @@ const router = useRouter();
     try {
       setSubmitting(true);
 
-      // Submit the CBT attempt to the existing backend API.
       await submitCBTAttempt(attemptId);
 
-      // ------------------------------------------------------
-      // DESKTOP WEB
-      // React Native Alert can be unreliable in Expo Web.
-      // Use the browser dialog instead.
-      // ------------------------------------------------------
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        const viewResult = window.confirm(
-          "Examination Submitted\n\n" +
-          "Your examination has been submitted successfully.\n\n" +
-          "Click OK to view your result."
-        );
-
-        if (viewResult) {
-          router.replace({
-            pathname: "/student/cbt-result",
-            params: {
-              attemptId: String(attemptId),
-            },
-          });
-        } else {
-          setSubmitting(false);
-        }
-
-        return;
-      }
-
-      // ------------------------------------------------------
-      // ANDROID / IOS
-      // Preserve the existing native Alert flow.
-      // ------------------------------------------------------
       Alert.alert(
         "Examination Submitted",
         "Your examination has been submitted successfully.",
@@ -225,21 +194,6 @@ const router = useRouter();
 
       setSubmitting(false);
 
-      // ------------------------------------------------------
-      // DESKTOP WEB ERROR
-      // ------------------------------------------------------
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.alert(
-          "Submission Error\n\n" +
-          "Unable to submit the examination. Please try again."
-        );
-
-        return;
-      }
-
-      // ------------------------------------------------------
-      // ANDROID / IOS ERROR
-      // ------------------------------------------------------
       Alert.alert(
         "Submission Error",
         "Unable to submit the examination. Please try again."
@@ -258,21 +212,22 @@ const router = useRouter();
         ? `You still have ${remaining} unanswered question(s). Are you sure you want to finalize your submission?`
         : "Are you sure you want to finish and submit your answers?";
 
-    // Expo Web: use the browser confirmation dialog.
-    // React Native Alert callbacks can be unreliable on web.
-    if (Platform.OS === "web" && typeof window !== "undefined") {
+    // Desktop web uses the browser confirmation dialog because
+    // React Native Alert confirmation callbacks can behave
+    // differently when running through Expo Web.
+    if (isDesktopWeb && typeof window !== "undefined") {
       const confirmed = window.confirm(
         `Submit Assessment\n\n${message}`
       );
 
       if (confirmed) {
-        void finalizeSubmission();
+        finalizeSubmission();
       }
 
       return;
     }
 
-    // Android/iOS: preserve the existing native confirmation.
+    // Android/iOS keep the existing native confirmation flow.
     Alert.alert(
       "Submit Assessment",
       message,
@@ -565,10 +520,15 @@ const router = useRouter();
       </ScrollView>
 
       {/* BOTTOM CONTROL NAVIGATION */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, isDesktopWeb && styles.desktopFooter]}>
         <TouchableOpacity
           disabled={currentIndex === 0}
-          style={[styles.navButton, styles.prevButton, currentIndex === 0 && styles.disabledButton]}
+          style={[
+            styles.navButton,
+            isDesktopWeb && styles.desktopNavButton,
+            styles.prevButton,
+            currentIndex === 0 && styles.disabledButton,
+          ]}
           onPress={previousQuestion}
         >
           <Text style={styles.prevButtonText}>Previous</Text>
@@ -579,6 +539,7 @@ const router = useRouter();
             disabled={submitting || autoSubmitting}
             style={[
               styles.navButton,
+              isDesktopWeb && styles.desktopNavButton,
               styles.submitButton,
               (submitting || autoSubmitting) && styles.disabledButton,
             ]}
@@ -587,7 +548,14 @@ const router = useRouter();
             <Text style={styles.submitButtonText}>Submit Exam</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={[styles.navButton, styles.nextButton]} onPress={nextQuestion}>
+          <TouchableOpacity
+            style={[
+              styles.navButton,
+              isDesktopWeb && styles.desktopNavButton,
+              styles.nextButton,
+            ]}
+            onPress={nextQuestion}
+          >
             <Text style={styles.nextButtonText}>Next</Text>
           </TouchableOpacity>
         )}
@@ -875,6 +843,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  desktopFooter: {
+    width: desktopMaxWidth,
+    alignSelf: "center",
+    paddingHorizontal: 0,
+  },
+
+  desktopNavButton: {
+    flex: 0,
+    width: 180,
+    maxWidth: 180,
   },
   prevButton: {
     backgroundColor: "#F1F5F9",

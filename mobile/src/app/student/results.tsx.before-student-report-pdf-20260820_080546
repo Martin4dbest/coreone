@@ -1,0 +1,1349 @@
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+
+import { getStudentResults } from "@/services/student";
+
+type Subject = {
+  name: string;
+  ca: number;
+  exam: number;
+  total: number;
+  grade: string | null;
+  remark: string | null;
+};
+
+type Report = {
+  session?: string;
+  term?: string;
+  date_printed?: string;
+  student: {
+    name: string;
+    admission_number: string;
+    passport: string | null;
+    class: string | null;
+  };
+  school: {
+    name: string;
+    logo: string | null;
+    motto: string | null;
+    primary_color?: string | null;
+    accent_color?: string | null;
+  };
+  subjects: Subject[];
+  total: number;
+  average: number;
+  position: number | null;
+  attendance: number;
+  remark: string;
+  comments: {
+    teacher: string | null;
+    principal: string | null;
+  };
+};
+
+const { width: screenWidth } = Dimensions.get("window");
+const isDesktopWeb =
+  Platform.OS === "web" && screenWidth >= 900;
+
+const desktopMaxWidth = Math.min(
+  Math.max(screenWidth - 48, 320),
+  980
+);
+
+function normalizeImageUrl(value?: string | null) {
+  if (!value) return null;
+
+  const raw = String(value).trim();
+
+  if (!raw) return null;
+
+  if (
+    raw.startsWith("http://") ||
+    raw.startsWith("https://") ||
+    raw.startsWith("data:")
+  ) {
+    return raw;
+  }
+
+  const apiRoot =
+    process.env.EXPO_PUBLIC_API_URL ||
+    "https://coreone.onrender.com";
+
+  if (raw.startsWith("/")) {
+    return `${apiRoot}${raw}`;
+  }
+
+  return `${apiRoot}/${raw}`;
+}
+
+export default function StudentResults() {
+  const [loading, setLoading] = useState(true);
+  const [report, setReport] = useState<Report | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function load() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const data = await getStudentResults();
+
+      if (!data) {
+        throw new Error(
+          "The server returned an empty academic report."
+        );
+      }
+
+      setReport(data);
+    } catch (e: any) {
+      console.log(
+        "STUDENT REPORT ERROR:",
+        e?.response?.data || e
+      );
+
+      setError(
+        e?.response?.data?.detail ||
+          e?.response?.data?.message ||
+          "Unable to load the published report card."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const primary =
+    report?.school?.primary_color || "#1e3a8a";
+
+  const accent =
+    report?.school?.accent_color || "#b45309";
+
+  const logoUri = useMemo(
+    () => normalizeImageUrl(report?.school?.logo),
+    [report?.school?.logo]
+  );
+
+  const passportUri = useMemo(
+    () => normalizeImageUrl(report?.student?.passport),
+    [report?.student?.passport]
+  );
+
+  const currentPrintDate =
+    report?.date_printed ||
+    new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+  if (loading) {
+    return (
+      <View style={styles.loadingScreen}>
+        <ActivityIndicator
+          size="large"
+          color={primary}
+        />
+
+        <Text style={styles.loadingText}>
+          RETRIEVING ACADEMIC RECORD...
+        </Text>
+      </View>
+    );
+  }
+
+  if (!report) {
+    return (
+      <View style={styles.errorScreen}>
+        <View style={styles.errorCard}>
+          <Text style={styles.errorTitle}>
+            RECORD NOT FOUND
+          </Text>
+
+          <Text style={styles.errorText}>
+            {error ||
+              "The published report card could not be located."}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={[
+        styles.screen,
+        { backgroundColor: "#f4f1ea" },
+      ]}
+      contentContainerStyle={styles.screenContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <View
+        style={[
+          styles.reportCard,
+          {
+            borderColor: primary,
+            maxWidth: desktopMaxWidth,
+          },
+        ]}
+      >
+        {/* Traditional corner flourishes */}
+        <View
+          style={[
+            styles.corner,
+            styles.cornerTopLeft,
+            { borderColor: primary },
+          ]}
+        />
+        <View
+          style={[
+            styles.corner,
+            styles.cornerTopRight,
+            { borderColor: primary },
+          ]}
+        />
+        <View
+          style={[
+            styles.corner,
+            styles.cornerBottomLeft,
+            { borderColor: primary },
+          ]}
+        />
+        <View
+          style={[
+            styles.corner,
+            styles.cornerBottomRight,
+            { borderColor: primary },
+          ]}
+        />
+
+        {/* Background watermark */}
+        {logoUri ? (
+          <View
+            pointerEvents="none"
+            style={styles.watermarkContainer}
+          >
+            <Image
+              source={{ uri: logoUri }}
+              style={styles.watermark}
+              resizeMode="contain"
+            />
+          </View>
+        ) : null}
+
+        <View style={styles.dataContainer}>
+          {/* HEADER */}
+          <View
+            style={[
+              styles.header,
+              {
+                borderBottomColor: primary,
+              },
+            ]}
+          >
+            <View style={styles.headerIdentity}>
+              {logoUri ? (
+                <View style={styles.logoFrame}>
+                  <Image
+                    source={{ uri: logoUri }}
+                    style={styles.schoolLogo}
+                    resizeMode="contain"
+                  />
+                </View>
+              ) : null}
+
+              <View
+                style={[
+                  styles.schoolHeading,
+                  isDesktopWeb
+                    ? styles.schoolHeadingDesktop
+                    : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.schoolName,
+                    {
+                      color: primary,
+                    },
+                  ]}
+                >
+                  {report.school.name}
+                </Text>
+
+                {report.school.motto ? (
+                  <View style={styles.mottoRow}>
+                    <View
+                      style={[
+                        styles.mottoAccent,
+                        { backgroundColor: accent },
+                      ]}
+                    />
+
+                    <Text style={styles.motto}>
+                      {report.school.motto}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+
+            <View
+              style={[
+                styles.officialBlock,
+                !isDesktopWeb
+                  ? styles.officialBlockMobile
+                  : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.officialRecord,
+                  { color: accent },
+                ]}
+              >
+                OFFICIAL RECORD
+              </Text>
+
+              <Text style={styles.transcriptTitle}>
+                TRANSCRIPT
+              </Text>
+            </View>
+          </View>
+
+          {/* SESSION / TERM / DATE */}
+          <View style={styles.metaBar}>
+            <View style={styles.metaCell}>
+              <Text style={styles.metaLabel}>
+                SESSION:
+              </Text>
+
+              <Text style={styles.metaValue}>
+                {report.session || "—"}
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.metaCell,
+                styles.metaCellCenter,
+              ]}
+            >
+              <Text style={styles.metaLabel}>
+                TERM:
+              </Text>
+
+              <Text style={styles.metaValue}>
+                {report.term || "—"}
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.metaCell,
+                styles.metaCellRight,
+              ]}
+            >
+              <Text style={styles.metaLabel}>
+                DATE ISSUED:
+              </Text>
+
+              <Text style={styles.metaValue}>
+                {currentPrintDate}
+              </Text>
+            </View>
+          </View>
+
+          {/* TITLE */}
+          <View style={styles.documentTitleWrap}>
+            <View style={styles.documentTitleBar}>
+              <Text
+                style={[
+                  styles.documentTitle,
+                  { color: primary },
+                ]}
+              >
+                TERMINAL REPORT CARD
+              </Text>
+            </View>
+          </View>
+
+          {/* STUDENT BIO MATRIX */}
+          <View style={styles.bioMatrix}>
+            <View style={styles.passportColumn}>
+              {passportUri ? (
+                <View style={styles.passportFrame}>
+                  <Image
+                    source={{ uri: passportUri }}
+                    style={styles.passport}
+                    resizeMode="cover"
+                  />
+                </View>
+              ) : (
+                <View style={styles.noPhoto}>
+                  <Text style={styles.noPhotoText}>
+                    Photo Archive
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.bioDetails}>
+              <View style={styles.bioItem}>
+                <Text style={styles.bioLabel}>
+                  STUDENT'S FULL NAME
+                </Text>
+
+                <Text style={styles.bioName}>
+                  {report.student.name}
+                </Text>
+              </View>
+
+              <View style={styles.bioItem}>
+                <Text style={styles.bioLabel}>
+                  ADMISSION REFERENCE
+                </Text>
+
+                <Text
+                  style={[
+                    styles.bioAdmission,
+                    { color: primary },
+                  ]}
+                >
+                  {report.student.admission_number}
+                </Text>
+              </View>
+
+              <View style={styles.bioItem}>
+                <Text style={styles.bioLabel}>
+                  CLASS ASSIGNATION
+                </Text>
+
+                <Text style={styles.bioValue}>
+                  {report.student.class || "—"}
+                </Text>
+              </View>
+
+              <View style={styles.bioItem}>
+                <Text style={styles.bioLabel}>
+                  SESSION ATTENDANCE RATE
+                </Text>
+
+                <Text style={styles.bioValue}>
+                  {report.attendance}% of academic days
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* PERFORMANCE TABLE */}
+          <View style={styles.performanceSection}>
+            <Text style={styles.sectionCaption}>
+              ACADEMIC PERFORMANCE
+            </Text>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+            >
+              <View style={styles.table}>
+                <View
+                  style={[
+                    styles.tableHeader,
+                    { backgroundColor: primary },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.tableHeaderSubject,
+                      styles.tableHeaderText,
+                    ]}
+                  >
+                    SUBJECT COURSEWORK
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.tableHeaderScore,
+                      styles.tableHeaderText,
+                    ]}
+                  >
+                    C.A.
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.tableHeaderScore,
+                      styles.tableHeaderText,
+                    ]}
+                  >
+                    EXAM
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.tableHeaderScore,
+                      styles.tableHeaderText,
+                    ]}
+                  >
+                    TOTAL
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.tableHeaderGrade,
+                      styles.tableHeaderText,
+                    ]}
+                  >
+                    GRADE
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.tableHeaderRemark,
+                      styles.tableHeaderText,
+                    ]}
+                  >
+                    SYSTEM REMARK
+                  </Text>
+                </View>
+
+                {report.subjects.map(
+                  (item, index) => (
+                    <View
+                      key={`${item.name}-${index}`}
+                      style={[
+                        styles.tableRow,
+                        {
+                          backgroundColor:
+                            index % 2 === 0
+                              ? "#ffffff"
+                              : "#faf9f5",
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={styles.tableSubject}
+                      >
+                        {item.name}
+                      </Text>
+
+                      <Text
+                        style={styles.tableScore}
+                      >
+                        {item.ca}
+                      </Text>
+
+                      <Text
+                        style={styles.tableScore}
+                      >
+                        {item.exam}
+                      </Text>
+
+                      <Text
+                        style={[
+                          styles.tableScore,
+                          {
+                            color: primary,
+                            fontWeight: "800",
+                          },
+                        ]}
+                      >
+                        {item.total}
+                      </Text>
+
+                      <Text
+                        style={[
+                          styles.tableGrade,
+                          { color: accent },
+                        ]}
+                      >
+                        {item.grade || "—"}
+                      </Text>
+
+                      <Text
+                        style={styles.tableRemark}
+                      >
+                        {item.remark || "—"}
+                      </Text>
+                    </View>
+                  )
+                )}
+              </View>
+            </ScrollView>
+          </View>
+
+          {/* SUMMARY */}
+          <View style={styles.summary}>
+            <View style={styles.summaryCell}>
+              <Text style={styles.summaryLabel}>
+                AGGREGATE MARK
+              </Text>
+
+              <Text
+                style={[
+                  styles.summaryValue,
+                  { color: primary },
+                ]}
+              >
+                {report.total}
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.summaryCell,
+                styles.summaryMiddle,
+              ]}
+            >
+              <Text style={styles.summaryLabel}>
+                CUMULATIVE AVERAGE
+              </Text>
+
+              <Text
+                style={[
+                  styles.summaryValue,
+                  { color: primary },
+                ]}
+              >
+                {report.average}%
+              </Text>
+            </View>
+
+            <View style={styles.summaryCell}>
+              <Text style={styles.summaryLabel}>
+                ORDER OF MERIT
+              </Text>
+
+              <Text
+                style={[
+                  styles.summaryValue,
+                  { color: accent },
+                ]}
+              >
+                {report.position || "—"}
+              </Text>
+            </View>
+          </View>
+
+          {/* COMMENTS */}
+          <View style={styles.commentsSection}>
+            <View style={styles.commentBox}>
+              <Text
+                style={[
+                  styles.commentTitle,
+                  { color: primary },
+                ]}
+              >
+                INSTRUCTOR ASSESSMENT REMARKS
+              </Text>
+
+              <Text style={styles.commentText}>
+                "
+                {report.comments.teacher ||
+                  "No formal performance note entered by the assigned instructor."}
+                "
+              </Text>
+            </View>
+
+            <View style={styles.commentBox}>
+              <Text
+                style={[
+                  styles.commentTitle,
+                  { color: primary },
+                ]}
+              >
+                PRINCIPAL EXECUTIVE REVIEW
+              </Text>
+
+              <Text style={styles.commentText}>
+                "
+                {report.comments.principal ||
+                  report.remark ||
+                  "No administrative oversight statement declared."}
+                "
+              </Text>
+            </View>
+          </View>
+
+          {/* SIGNATURES */}
+          <View style={styles.signatures}>
+            <View style={styles.signatureCell}>
+              <View style={styles.signatureLine} />
+              <Text style={styles.signatureTitle}>
+                CLASS INSTRUCTOR
+              </Text>
+              <Text style={styles.signatureSub}>
+                SIGNATURE & STAMP
+              </Text>
+            </View>
+
+            <View style={styles.signatureCell}>
+              <View style={styles.signatureLine} />
+              <Text style={styles.signatureTitle}>
+                SCHOOL PRINCIPAL
+              </Text>
+              <Text style={styles.signatureSub}>
+                ENDORSEMENT SEAL
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Existing PDF button stays outside the report canvas. */}
+      <View
+        style={[
+          styles.bottomAction,
+          { maxWidth: desktopMaxWidth },
+        ]}
+      >
+        <Pressable
+          onPress={() => {
+            // The existing server PDF endpoint already uses the
+            // published report data. Keep this UI control visible;
+            // PDF download wiring remains separate from the report
+            // card presentation.
+          }}
+          style={[
+            styles.downloadButton,
+            { backgroundColor: primary },
+          ]}
+        >
+          <Text style={styles.downloadButtonText}>
+            DOWNLOAD ACADEMIC REGISTRY PDF
+          </Text>
+        </Pressable>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+
+  screenContent: {
+    alignItems: "center",
+    paddingVertical: isDesktopWeb ? 48 : 24,
+    paddingHorizontal: isDesktopWeb ? 24 : 12,
+  },
+
+  reportCard: {
+    width: "100%",
+    backgroundColor: "#fffdf9",
+    borderWidth: 12,
+    borderStyle: "solid",
+    padding: isDesktopWeb ? 48 : 24,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 5,
+    position: "relative",
+  },
+
+  dataContainer: {
+    width: "100%",
+  },
+
+  corner: {
+    position: "absolute",
+    width: 24,
+    height: 24,
+    opacity: 0.4,
+    zIndex: 5,
+  },
+
+  cornerTopLeft: {
+    top: 4,
+    left: 4,
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
+  },
+
+  cornerTopRight: {
+    top: 4,
+    right: 4,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
+  },
+
+  cornerBottomLeft: {
+    bottom: 4,
+    left: 4,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
+  },
+
+  cornerBottomRight: {
+    bottom: 4,
+    right: 4,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+  },
+
+  watermarkContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: 0.03,
+  },
+
+  watermark: {
+    width: isDesktopWeb ? 420 : 280,
+    height: isDesktopWeb ? 420 : 280,
+  },
+
+  header: {
+    flexDirection: isDesktopWeb ? "row" : "column",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: 16,
+    borderBottomWidth: 2,
+    gap: 16,
+  },
+
+  headerIdentity: {
+    flexDirection: isDesktopWeb ? "row" : "column",
+    alignItems: "center",
+    flex: 1,
+  },
+
+  logoFrame: {
+    padding: 6,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    marginRight: isDesktopWeb ? 20 : 0,
+    marginBottom: isDesktopWeb ? 0 : 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  schoolLogo: {
+    width: isDesktopWeb ? 90 : 80,
+    height: isDesktopWeb ? 90 : 80,
+  },
+
+  schoolHeading: {
+    alignItems: isDesktopWeb
+      ? "flex-start"
+      : "center",
+  },
+
+  schoolHeadingDesktop: {
+    flex: 1,
+  },
+
+  schoolName: {
+    fontSize: isDesktopWeb ? 30 : 22,
+    fontWeight: "900",
+    letterSpacing: 1,
+    textAlign: isDesktopWeb ? "left" : "center",
+  },
+
+  mottoRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    marginTop: 6,
+    maxWidth: 620,
+  },
+
+  mottoAccent: {
+    width: 3,
+    marginRight: 8,
+  },
+
+  motto: {
+    color: "#475569",
+    fontSize: 13,
+    fontStyle: "italic",
+    lineHeight: 18,
+  },
+
+  officialBlock: {
+    minWidth: 140,
+    alignItems: "center",
+  },
+
+  officialBlockMobile: {
+    marginTop: 4,
+  },
+
+  officialRecord: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 2,
+  },
+
+  transcriptTitle: {
+    marginTop: 2,
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#1e293b",
+    letterSpacing: 0.5,
+  },
+
+  metaBar: {
+    flexDirection: isDesktopWeb ? "row" : "column",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+    gap: isDesktopWeb ? 0 : 6,
+  },
+
+  metaCell: {
+    flex: 1,
+  },
+
+  metaCellCenter: {
+    alignItems: isDesktopWeb ? "center" : "flex-start",
+  },
+
+  metaCellRight: {
+    alignItems: isDesktopWeb ? "flex-end" : "flex-start",
+  },
+
+  metaLabel: {
+    fontSize: 9,
+    color: "#475569",
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+
+  metaValue: {
+    fontSize: 13,
+    color: "#1e293b",
+    fontWeight: "800",
+    marginTop: 2,
+  },
+
+  documentTitleWrap: {
+    marginVertical: 18,
+  },
+
+  documentTitleBar: {
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#cbd5e1",
+    backgroundColor: "rgba(248,250,252,0.7)",
+    paddingVertical: 6,
+    alignItems: "center",
+  },
+
+  documentTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    letterSpacing: 3,
+  },
+
+  bioMatrix: {
+    flexDirection: isDesktopWeb ? "row" : "column",
+    backgroundColor: "#faf8f5",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    padding: 14,
+  },
+
+  passportColumn: {
+    width: isDesktopWeb ? 135 : "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRightWidth: isDesktopWeb ? 1 : 0,
+    borderBottomWidth: isDesktopWeb ? 0 : 1,
+    borderColor: "#e2e8f0",
+    paddingRight: isDesktopWeb ? 14 : 0,
+    paddingBottom: isDesktopWeb ? 0 : 14,
+    marginBottom: isDesktopWeb ? 0 : 14,
+  },
+
+  passportFrame: {
+    borderWidth: 4,
+    borderColor: "#fff",
+    padding: 1,
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+
+  passport: {
+    width: 105,
+    height: 105,
+  },
+
+  noPhoto: {
+    width: 105,
+    height: 105,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#cbd5e1",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f1f5f9",
+  },
+
+  noPhotoText: {
+    color: "#94a3b8",
+    fontSize: 10,
+    textAlign: "center",
+  },
+
+  bioDetails: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingLeft: isDesktopWeb ? 18 : 0,
+    gap: 12,
+  },
+
+  bioItem: {
+    width: isDesktopWeb ? "46%" : "100%",
+  },
+
+  bioLabel: {
+    fontSize: 9,
+    color: "#64748b",
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+
+  bioName: {
+    marginTop: 2,
+    color: "#0f172a",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+
+  bioAdmission: {
+    marginTop: 2,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+
+  bioValue: {
+    marginTop: 2,
+    color: "#334155",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+
+  performanceSection: {
+    marginTop: 22,
+  },
+
+  sectionCaption: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#64748b",
+    letterSpacing: 2,
+    marginBottom: 6,
+  },
+
+  table: {
+    minWidth: isDesktopWeb ? 760 : 760,
+    borderWidth: 2,
+    borderColor: "#0f172a",
+  },
+
+  tableHeader: {
+    flexDirection: "row",
+    minHeight: 46,
+    alignItems: "center",
+  },
+
+  tableHeaderText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+
+  tableHeaderSubject: {
+    width: 250,
+    paddingHorizontal: 12,
+  },
+
+  tableHeaderScore: {
+    width: 78,
+    textAlign: "center",
+    borderLeftWidth: 1,
+    borderLeftColor: "rgba(148,163,184,0.3)",
+  },
+
+  tableHeaderGrade: {
+    width: 70,
+    textAlign: "center",
+    borderLeftWidth: 1,
+    borderLeftColor: "rgba(148,163,184,0.3)",
+  },
+
+  tableHeaderRemark: {
+    width: 160,
+    textAlign: "center",
+    borderLeftWidth: 1,
+    borderLeftColor: "rgba(148,163,184,0.3)",
+  },
+
+  tableRow: {
+    flexDirection: "row",
+    minHeight: 42,
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+  },
+
+  tableSubject: {
+    width: 250,
+    paddingHorizontal: 12,
+    color: "#334155",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+
+  tableScore: {
+    width: 78,
+    paddingHorizontal: 5,
+    textAlign: "center",
+    color: "#475569",
+    fontSize: 12,
+    borderLeftWidth: 1,
+    borderLeftColor: "#e2e8f0",
+  },
+
+  tableGrade: {
+    width: 70,
+    textAlign: "center",
+    fontSize: 14,
+    fontWeight: "900",
+    borderLeftWidth: 1,
+    borderLeftColor: "#e2e8f0",
+  },
+
+  tableRemark: {
+    width: 160,
+    paddingHorizontal: 6,
+    textAlign: "center",
+    color: "#64748b",
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    borderLeftWidth: 1,
+    borderLeftColor: "#e2e8f0",
+  },
+
+  summary: {
+    flexDirection: "row",
+    marginTop: 14,
+    borderWidth: 2,
+    borderColor: "#0f172a",
+    backgroundColor: "#ffffff",
+  },
+
+  summaryCell: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+
+  summaryMiddle: {
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: "#0f172a",
+    backgroundColor: "#faf9f5",
+  },
+
+  summaryLabel: {
+    color: "#64748b",
+    fontSize: 8,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    textAlign: "center",
+  },
+
+  summaryValue: {
+    marginTop: 4,
+    fontSize: 18,
+    fontWeight: "900",
+    fontFamily:
+      Platform.OS === "ios"
+        ? "Courier"
+        : Platform.OS === "android"
+          ? "monospace"
+          : undefined,
+  },
+
+  commentsSection: {
+    marginTop: 22,
+    gap: 18,
+  },
+
+  commentBox: {
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    padding: 14,
+    minHeight: 72,
+  },
+
+  commentTitle: {
+    alignSelf: "flex-start",
+    backgroundColor: "#ffffff",
+    marginTop: -24,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+  },
+
+  commentText: {
+    marginTop: 8,
+    color: "#475569",
+    fontSize: 11,
+    lineHeight: 17,
+    fontStyle: "italic",
+  },
+
+  signatures: {
+    flexDirection: "row",
+    marginTop: 32,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#cbd5e1",
+    borderStyle: "dashed",
+  },
+
+  signatureCell: {
+    flex: 1,
+    alignItems: "center",
+  },
+
+  signatureLine: {
+    width: isDesktopWeb ? 175 : 130,
+    height: 28,
+    borderBottomWidth: 1,
+    borderBottomColor: "#94a3b8",
+  },
+
+  signatureTitle: {
+    marginTop: 4,
+    color: "#1e293b",
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+
+  signatureSub: {
+    marginTop: 3,
+    color: "#94a3b8",
+    fontSize: 7,
+    letterSpacing: 1.4,
+  },
+
+  bottomAction: {
+    width: "100%",
+    alignItems: "flex-end",
+    marginTop: 18,
+  },
+
+  downloadButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+
+  downloadButtonText: {
+    color: "#ffffff",
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+  },
+
+  loadingScreen: {
+    flex: 1,
+    minHeight: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f4f1ea",
+    padding: 24,
+  },
+
+  loadingText: {
+    marginTop: 10,
+    color: "#475569",
+    fontSize: 10,
+    letterSpacing: 2,
+    fontWeight: "700",
+  },
+
+  errorScreen: {
+    flex: 1,
+    minHeight: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f4f1ea",
+    padding: 24,
+  },
+
+  errorCard: {
+    width: "100%",
+    maxWidth: 430,
+    backgroundColor: "#ffffff",
+    padding: 28,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+
+  errorTitle: {
+    color: "#991b1b",
+    fontSize: 18,
+    fontWeight: "900",
+    letterSpacing: 1.5,
+    textAlign: "center",
+  },
+
+  errorText: {
+    color: "#475569",
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center",
+    marginTop: 8,
+  },
+});

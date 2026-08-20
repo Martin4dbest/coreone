@@ -2,7 +2,7 @@ import { Image } from "react-native";
 import { WebView } from "react-native-webview";
 import React, { useEffect, useState } from "react";
 import {
-View,
+  View,
   Text,
   StyleSheet,
   ActivityIndicator,
@@ -19,19 +19,13 @@ import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import api from "@/services/api";
 import { Audio } from "expo-av";
 
-const { width: screenWidth } = Dimensions.get("window");
-const isDesktopWeb = Platform.OS === "web" && screenWidth >= 900;
-const desktopMaxWidth = Math.min(
-  Math.max(screenWidth - 48, 320),
-  1180
-);
-
-
 import {
   saveCBTAnswer,
   submitCBTAttempt,
 } from "@/services/cbt";
 
+const { width: screenWidth } = Dimensions.get("window");
+const isDesktopWeb = Platform.OS === "web" && screenWidth >= 900;
 
 function getCbtMediaUrl(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -53,7 +47,7 @@ function getCbtMediaUrl(url: string | null | undefined): string | null {
 }
 
 export default function CBTExam() {
-const router = useRouter();
+  const router = useRouter();
   const params = useLocalSearchParams();
 
   const examId = Number(params.examId);
@@ -95,7 +89,6 @@ const router = useRouter();
     return () => clearInterval(timer);
   }, [timeLeft, submitting, autoSubmitting]);
 
-
   async function fetchQuestions() {
     try {
       const response: any = await api.get(`/cbt/exams/${examId}/questions`);
@@ -115,12 +108,6 @@ const router = useRouter();
             ? apiDuration
             : 60;
 
-      console.log(
-        "CBT TIMER DURATION:",
-        duration,
-        "minutes"
-      );
-
       setTimeLeft(duration * 60);
     } catch (error) {
       console.log("LOAD QUESTIONS ERROR:", error);
@@ -131,21 +118,14 @@ const router = useRouter();
     }
   }
 
-  async function chooseAnswer(
-    questionId: number,
-    answerKey: string,
-  ) {
+  async function chooseAnswer(questionId: number, answerKey: string) {
     setAnswers((prev) => ({
       ...prev,
       [questionId]: answerKey,
     }));
 
     try {
-      await saveCBTAnswer(
-        attemptId,
-        questionId,
-        answerKey,
-      );
+      await saveCBTAnswer(attemptId, questionId, answerKey);
     } catch (e) {
       console.log(e);
     }
@@ -168,40 +148,8 @@ const router = useRouter();
 
     try {
       setSubmitting(true);
-
-      // Submit the CBT attempt to the existing backend API.
       await submitCBTAttempt(attemptId);
 
-      // ------------------------------------------------------
-      // DESKTOP WEB
-      // React Native Alert can be unreliable in Expo Web.
-      // Use the browser dialog instead.
-      // ------------------------------------------------------
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        const viewResult = window.confirm(
-          "Examination Submitted\n\n" +
-          "Your examination has been submitted successfully.\n\n" +
-          "Click OK to view your result."
-        );
-
-        if (viewResult) {
-          router.replace({
-            pathname: "/student/cbt-result",
-            params: {
-              attemptId: String(attemptId),
-            },
-          });
-        } else {
-          setSubmitting(false);
-        }
-
-        return;
-      }
-
-      // ------------------------------------------------------
-      // ANDROID / IOS
-      // Preserve the existing native Alert flow.
-      // ------------------------------------------------------
       Alert.alert(
         "Examination Submitted",
         "Your examination has been submitted successfully.",
@@ -211,9 +159,7 @@ const router = useRouter();
             onPress: () => {
               router.replace({
                 pathname: "/student/cbt-result",
-                params: {
-                  attemptId: String(attemptId),
-                },
+                params: { attemptId: String(attemptId) },
               });
             },
           },
@@ -222,24 +168,7 @@ const router = useRouter();
       );
     } catch (e) {
       console.log("SUBMIT CBT ERROR:", e);
-
       setSubmitting(false);
-
-      // ------------------------------------------------------
-      // DESKTOP WEB ERROR
-      // ------------------------------------------------------
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.alert(
-          "Submission Error\n\n" +
-          "Unable to submit the examination. Please try again."
-        );
-
-        return;
-      }
-
-      // ------------------------------------------------------
-      // ANDROID / IOS ERROR
-      // ------------------------------------------------------
       Alert.alert(
         "Submission Error",
         "Unable to submit the examination. Please try again."
@@ -258,36 +187,18 @@ const router = useRouter();
         ? `You still have ${remaining} unanswered question(s). Are you sure you want to finalize your submission?`
         : "Are you sure you want to finish and submit your answers?";
 
-    // Expo Web: use the browser confirmation dialog.
-    // React Native Alert callbacks can be unreliable on web.
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      const confirmed = window.confirm(
-        `Submit Assessment\n\n${message}`
-      );
-
+    if (isDesktopWeb && typeof window !== "undefined") {
+      const confirmed = window.confirm(`Submit Assessment\n\n${message}`);
       if (confirmed) {
-        void finalizeSubmission();
+        finalizeSubmission();
       }
-
       return;
     }
 
-    // Android/iOS: preserve the existing native confirmation.
-    Alert.alert(
-      "Submit Assessment",
-      message,
-      [
-        {
-          text: "Continue Test",
-          style: "cancel",
-        },
-        {
-          text: "Submit Exam",
-          style: "destructive",
-          onPress: finalizeSubmission,
-        },
-      ]
-    );
+    Alert.alert("Submit Assessment", message, [
+      { text: "Continue Test", style: "cancel" },
+      { text: "Submit Exam", style: "destructive", onPress: finalizeSubmission },
+    ]);
   }
 
   async function handleTimeExpired() {
@@ -302,16 +213,10 @@ const router = useRouter();
       Alert.alert(
         "Time Expired",
         "Your examination time has ended and your answers have been submitted.",
-        [
-          {
-            text: "OK",
-            onPress: () => router.replace("/student/cbt"),
-          },
-        ]
+        [{ text: "OK", onPress: () => router.replace("/student/cbt") }]
       );
     } catch (e) {
       console.log("AUTO SUBMIT ERROR:", e);
-
       setSubmitting(false);
       setAutoSubmitting(false);
 
@@ -375,43 +280,46 @@ const router = useRouter();
         </View>
       </Modal>
 
-      {/* TOP APPBAR */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>CBT Assessment</Text>
-          <Text style={styles.headerSub}>Attempt #{attemptId || "1"}</Text>
-        </View>
+      {/* TOP APPBAR WRAPPER */}
+      <View style={styles.headerWrapper}>
+        <View style={[styles.header, isDesktopWeb && styles.desktopContentContainer]}>
+          <View>
+            <Text style={styles.headerTitle}>CBT Assessment</Text>
+            <Text style={styles.headerSub}>Attempt #{attemptId || "1"}</Text>
+          </View>
 
-        {/* TIMER & PALETTE BUTTON */}
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={styles.gridButton}
-            onPress={() => setShowGridModal(true)}
-          >
-            <Text style={styles.gridButtonText}>
-              📊 {answeredCount}/{questions.length}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.gridButton}
+              onPress={() => setShowGridModal(true)}
+            >
+              <Text style={styles.gridButtonText}>
+                📊 {answeredCount}/{questions.length}
+              </Text>
+            </TouchableOpacity>
 
-          <View style={styles.timerBadge}>
-            <Text style={styles.timerText}>
-              ⏱ {Math.floor(timeLeft / 60)}:
-              {String(timeLeft % 60).padStart(2, "0")}
-            </Text>
+            <View style={styles.timerBadge}>
+              <Text style={styles.timerText}>
+                ⏱ {Math.floor(timeLeft / 60)}:
+                {String(timeLeft % 60).padStart(2, "0")}
+              </Text>
+            </View>
           </View>
         </View>
       </View>
 
-      {/* PROGRESS TRACKER */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressHeader}>
-          <Text style={styles.progressLabel}>
-            Question {currentIndex + 1} of {questions.length}
-          </Text>
-          <Text style={styles.progressPercent}>{Math.round(progressPercent)}%</Text>
-        </View>
-        <View style={styles.progressBarBackground}>
-          <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+      {/* PROGRESS TRACKER WRAPPER */}
+      <View style={styles.progressWrapper}>
+        <View style={[styles.progressContainer, isDesktopWeb && styles.desktopContentContainer]}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressLabel}>
+              Question {currentIndex + 1} of {questions.length}
+            </Text>
+            <Text style={styles.progressPercent}>{Math.round(progressPercent)}%</Text>
+          </View>
+          <View style={styles.progressBarBackground}>
+            <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+          </View>
         </View>
       </View>
 
@@ -420,109 +328,99 @@ const router = useRouter();
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.card}>
-          <View style={styles.questionContent}>
-              <Text style={styles.questionPrompt}>
-                {currentQuestion.question || currentQuestion.title}
-              </Text>
+        <View style={[styles.card, isDesktopWeb && styles.desktopCardLayout]}>
+          {/* QUESTION TEXT AND MEDIA COLUMN */}
+          <View style={[styles.questionContent, isDesktopWeb && styles.desktopLeftColumn]}>
+            <Text style={styles.questionPrompt}>
+              {currentQuestion.question || currentQuestion.title}
+            </Text>
 
-              {/* QUESTION IMAGE */}
-              {getCbtMediaUrl(
-                currentQuestion.image_url ??
-                currentQuestion.imageUrl ??
-                currentQuestion.image
-              ) ? (
-                <Image
+            {/* QUESTION IMAGE */}
+            {getCbtMediaUrl(
+              currentQuestion.image_url ??
+              currentQuestion.imageUrl ??
+              currentQuestion.image
+            ) ? (
+              <Image
+                source={{
+                  uri: getCbtMediaUrl(
+                    currentQuestion.image_url ??
+                    currentQuestion.imageUrl ??
+                    currentQuestion.image
+                  )!,
+                }}
+                style={styles.questionMediaImage}
+                resizeMode="contain"
+              />
+            ) : null}
+
+            {/* QUESTION AUDIO */}
+            {getCbtMediaUrl(
+              currentQuestion.audio_url ??
+              currentQuestion.audioUrl ??
+              currentQuestion.audio
+            ) ? (
+              <View style={styles.questionMediaAudio}>
+                <WebView
                   source={{
-                    uri: getCbtMediaUrl(
-                      currentQuestion.image_url ??
-                      currentQuestion.imageUrl ??
-                      currentQuestion.image
-                    )!,
+                    html: `
+                      <!doctype html>
+                      <html>
+                        <body style="margin:0;padding:12px;background:#111827;">
+                          <audio controls preload="metadata" style="width:100%;" src="${getCbtMediaUrl(
+                            currentQuestion.audio_url ??
+                            currentQuestion.audioUrl ??
+                            currentQuestion.audio
+                          )}"></audio>
+                        </body>
+                      </html>
+                    `,
                   }}
-                  style={styles.questionMediaImage}
-                  resizeMode="contain"
+                  style={{ flex: 1, backgroundColor: "#111827" }}
+                  javaScriptEnabled
+                  domStorageEnabled
+                  allowsInlineMediaPlayback
+                  mediaPlaybackRequiresUserAction
+                  originWhitelist={["*"]}
                 />
-              ) : null}
+              </View>
+            ) : null}
 
-              {/* QUESTION AUDIO */}
-              {getCbtMediaUrl(
-                currentQuestion.audio_url ??
-                currentQuestion.audioUrl ??
-                currentQuestion.audio
-              ) ? (
-                <View style={styles.questionMediaAudio}>
-                  <WebView
-                    source={{
-                      html: `
-                        <!doctype html>
-                        <html>
-                          <body style="margin:0;padding:12px;background:#111827;">
-                            <audio
-                              controls
-                              preload="metadata"
-                              style="width:100%;"
-                              src="${getCbtMediaUrl(
-                                currentQuestion.audio_url ??
-                                currentQuestion.audioUrl ??
-                                currentQuestion.audio
-                              )}"
-                            ></audio>
-                          </body>
-                        </html>
-                      `,
-                    }}
-                    style={{ flex: 1, backgroundColor: "#111827" }}
-                    javaScriptEnabled
-                    domStorageEnabled
-                    allowsInlineMediaPlayback
-                    mediaPlaybackRequiresUserAction
-                    originWhitelist={["*"]}
-                  />
-                </View>
-              ) : null}
+            {/* QUESTION VIDEO */}
+            {getCbtMediaUrl(
+              currentQuestion.video_url ??
+              currentQuestion.videoUrl ??
+              currentQuestion.video
+            ) ? (
+              <View style={styles.questionMediaVideo}>
+                <WebView
+                  source={{
+                    html: `
+                      <!doctype html>
+                      <html>
+                        <body style="margin:0;padding:0;background:#000;">
+                          <video controls playsinline preload="metadata" style="width:100%;height:100%;background:#000;" src="${getCbtMediaUrl(
+                            currentQuestion.video_url ??
+                            currentQuestion.videoUrl ??
+                            currentQuestion.video
+                          )}"></video>
+                        </body>
+                      </html>
+                    `,
+                  }}
+                  style={{ flex: 1, backgroundColor: "#000" }}
+                  javaScriptEnabled
+                  domStorageEnabled
+                  allowsInlineMediaPlayback
+                  mediaPlaybackRequiresUserAction
+                  originWhitelist={["*"]}
+                />
+              </View>
+            ) : null}
+          </View>
 
-              {/* QUESTION VIDEO */}
-              {getCbtMediaUrl(
-                currentQuestion.video_url ??
-                currentQuestion.videoUrl ??
-                currentQuestion.video
-              ) ? (
-                <View style={styles.questionMediaVideo}>
-                  <WebView
-                    source={{
-                      html: `
-                        <!doctype html>
-                        <html>
-                          <body style="margin:0;padding:0;background:#000;">
-                            <video
-                              controls
-                              playsinline
-                              preload="metadata"
-                              style="width:100%;height:100%;background:#000;"
-                              src="${getCbtMediaUrl(
-                                currentQuestion.video_url ??
-                                currentQuestion.videoUrl ??
-                                currentQuestion.video
-                              )}"
-                            ></video>
-                          </body>
-                        </html>
-                      `,
-                    }}
-                    style={{ flex: 1, backgroundColor: "#000" }}
-                    javaScriptEnabled
-                    domStorageEnabled
-                    allowsInlineMediaPlayback
-                    mediaPlaybackRequiresUserAction
-                    originWhitelist={["*"]}
-                  />
-                </View>
-              ) : null}
-            </View>
-
-          {/* OPTIONS */}
-          <View style={styles.optionsWrapper}>
+          {/* OPTIONS COLUMN */}
+          <View style={[styles.optionsWrapper, isDesktopWeb && styles.desktopRightColumn]}>
             {optionItems.map((item) => {
               const isSelected = answers[currentQuestion.id] === item.key;
 
@@ -533,28 +431,13 @@ const router = useRouter();
                   style={[styles.optionCard, isSelected && styles.selectedOptionCard]}
                   onPress={() => chooseAnswer(currentQuestion.id, item.key)}
                 >
-                  <View
-                    style={[
-                      styles.badge,
-                      isSelected && styles.selectedBadge,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        isSelected && styles.selectedBadgeText,
-                      ]}
-                    >
+                  <View style={[styles.badge, isSelected && styles.selectedBadge]}>
+                    <Text style={[styles.badgeText, isSelected && styles.selectedBadgeText]}>
                       {item.key}
                     </Text>
                   </View>
 
-                  <Text
-                    style={[
-                      styles.optionText,
-                      isSelected && styles.selectedOptionText,
-                    ]}
-                  >
+                  <Text style={[styles.optionText, isSelected && styles.selectedOptionText]}>
                     {item.value}
                   </Text>
                 </TouchableOpacity>
@@ -564,39 +447,54 @@ const router = useRouter();
         </View>
       </ScrollView>
 
-      {/* BOTTOM CONTROL NAVIGATION */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          disabled={currentIndex === 0}
-          style={[styles.navButton, styles.prevButton, currentIndex === 0 && styles.disabledButton]}
-          onPress={previousQuestion}
-        >
-          <Text style={styles.prevButtonText}>Previous</Text>
-        </TouchableOpacity>
-
-        {currentIndex === questions.length - 1 ? (
+      {/* BOTTOM CONTROL NAVIGATION WRAPPER */}
+      <View style={styles.footerWrapper}>
+        <View style={[styles.footer, isDesktopWeb && styles.desktopContentContainer]}>
           <TouchableOpacity
-            disabled={submitting || autoSubmitting}
+            disabled={currentIndex === 0}
             style={[
               styles.navButton,
-              styles.submitButton,
-              (submitting || autoSubmitting) && styles.disabledButton,
+              isDesktopWeb && styles.desktopNavButton,
+              styles.prevButton,
+              currentIndex === 0 && styles.disabledButton,
             ]}
-            onPress={handleSubmit}
+            onPress={previousQuestion}
           >
-            <Text style={styles.submitButtonText}>Submit Exam</Text>
+            <Text style={styles.prevButtonText}>Previous</Text>
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={[styles.navButton, styles.nextButton]} onPress={nextQuestion}>
-            <Text style={styles.nextButtonText}>Next</Text>
-          </TouchableOpacity>
-        )}
+
+          {currentIndex === questions.length - 1 ? (
+            <TouchableOpacity
+              disabled={submitting || autoSubmitting}
+              style={[
+                styles.navButton,
+                isDesktopWeb && styles.desktopNavButton,
+                styles.submitButton,
+                (submitting || autoSubmitting) && styles.disabledButton,
+              ]}
+              onPress={handleSubmit}
+            >
+              <Text style={styles.submitButtonText}>Submit Exam</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.navButton,
+                isDesktopWeb && styles.desktopNavButton,
+                styles.nextButton,
+              ]}
+              onPress={nextQuestion}
+            >
+              <Text style={styles.nextButtonText}>Next</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* QUESTION PALETTE MODAL */}
       <Modal visible={showGridModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, isDesktopWeb && styles.desktopModalContent]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Question Overview</Text>
               <TouchableOpacity onPress={() => setShowGridModal(false)}>
@@ -707,8 +605,18 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontSize: 13,
   },
-  header: {
+
+  /* Desktop Structural Layout Wrappers */
+  desktopContentContainer: {
+    width: "100%",
+    maxWidth: 1100,
+    alignSelf: "center",
+  },
+  headerWrapper: {
     backgroundColor: "#1E293B",
+    width: "100%",
+  },
+  header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     flexDirection: "row",
@@ -755,10 +663,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
   },
+  progressWrapper: {
+    backgroundColor: "#F8FAFC",
+    width: "100%",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+  },
   progressContainer: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 8,
+    paddingBottom: 16,
   },
   progressHeader: {
     flexDirection: "row",
@@ -787,13 +701,14 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   scrollContent: {
-    padding: 20,
-    width: isDesktopWeb ? desktopMaxWidth : "100%",
-    alignSelf: isDesktopWeb ? "center" : "stretch",
+    padding: isDesktopWeb ? 32 : 20,
+    width: "100%",
+    maxWidth: 1100,
+    alignSelf: "center",
   },
   card: {
     backgroundColor: "#FFFFFF",
-    padding: 20,
+    padding: 24,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "#E2E8F0",
@@ -803,10 +718,19 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  desktopCardLayout: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 32,
+    padding: 32,
+  },
   questionContent: {
     width: "100%",
   },
-
+  desktopLeftColumn: {
+    flex: 1.2,
+    marginBottom: 0,
+  },
   questionPrompt: {
     fontSize: 17,
     fontWeight: "700",
@@ -815,7 +739,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   optionsWrapper: {
+    width: "100%",
     gap: 12,
+  },
+  desktopRightColumn: {
+    flex: 1,
   },
   optionCard: {
     flexDirection: "row",
@@ -861,13 +789,17 @@ const styles = StyleSheet.create({
     color: "#1E1B4B",
     fontWeight: "700",
   },
-  footer: {
-    flexDirection: "row",
-    padding: 16,
+  footerWrapper: {
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
+    width: "100%",
+  },
+  footer: {
+    flexDirection: "row",
+    padding: 16,
     gap: 12,
+    justifyContent: "space-between",
   },
   navButton: {
     flex: 1,
@@ -875,6 +807,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+  },
+  desktopNavButton: {
+    flex: 0,
+    width: 180,
   },
   prevButton: {
     backgroundColor: "#F1F5F9",
@@ -911,6 +847,14 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 24,
     maxHeight: "70%",
+  },
+  desktopModalContent: {
+    maxWidth: 600,
+    alignSelf: "center",
+    width: "100%",
+    borderRadius: 24,
+    marginBottom: "auto",
+    marginTop: "auto",
   },
   modalHeader: {
     flexDirection: "row",
@@ -967,7 +911,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#111827",
   },
-
   questionMediaAudio: {
     width: "100%",
     height: 58,
@@ -977,7 +920,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: "#111827",
   },
-
   questionMediaVideo: {
     width: "100%",
     height: 240,
@@ -987,5 +929,4 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: "#000",
   },
-
 });
