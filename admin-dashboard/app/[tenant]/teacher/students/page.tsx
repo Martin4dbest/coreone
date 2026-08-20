@@ -29,6 +29,9 @@ type StudentRow = {
   id: number;
   admission_number: string;
   name: string;
+  total_score?: number;
+  average?: number;
+  position?: number | null;
   results: Record<string, StudentResult | null>;
 };
 
@@ -37,6 +40,14 @@ type BroadsheetResponse = {
     id: number;
     name: string;
     student_count: number;
+  };
+  school?: {
+    name?: string | null;
+    logo?: string | null;
+    motto?: string | null;
+    primary_color?: string | null;
+    secondary_color?: string | null;
+    accent_color?: string | null;
   };
   term: {
     id: number;
@@ -198,21 +209,43 @@ export default function TeacherStudentsPage() {
         String(session.id) === String(sessionId)
     )?.name;
 
+  const primaryColor =
+    report?.school?.primary_color || "#4f46e5";
+
+  const secondaryColor =
+    report?.school?.secondary_color || "#0f172a";
+
+  const accentColor =
+    report?.school?.accent_color || "#f59e0b";
+
   return (
     <div className="min-h-screen bg-slate-50/60 p-4 sm:p-6">
       <div className="max-w-[1800px] mx-auto space-y-5">
 
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <div
+          className="bg-white rounded-2xl shadow-sm p-5 border"
+          style={{
+            borderColor: `${primaryColor}35`,
+          }}
+        >
           <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
 
             <div>
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-700">
+                <div
+                  className="p-2.5 rounded-xl text-white shadow-sm"
+                  style={{
+                    background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})`,
+                  }}
+                >
                   <GraduationCap size={22} />
                 </div>
 
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+                  <h1
+                    className="text-xl sm:text-2xl font-bold"
+                    style={{ color: secondaryColor }}
+                  >
                     Class Teacher Broadsheet
                   </h1>
 
@@ -232,7 +265,7 @@ export default function TeacherStudentsPage() {
                   setSessionId(event.target.value)
                 }
                 disabled={loadingOptions}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:ring-2"
               >
                 <option value="">
                   Select Academic Session
@@ -356,11 +389,19 @@ export default function TeacherStudentsPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div
+              className="bg-white rounded-2xl shadow-sm overflow-hidden border"
+              style={{
+                borderColor: `${primaryColor}35`,
+              }}
+            >
 
               <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
                 <div>
-                  <h2 className="font-bold text-slate-900">
+                  <h2
+                    className="font-bold"
+                    style={{ color: secondaryColor }}
+                  >
                     {report.classroom.name} Academic Broadsheet
                   </h2>
                   <p className="text-xs text-slate-500 mt-1">
@@ -385,21 +426,35 @@ export default function TeacherStudentsPage() {
                 </div>
               </div>
 
+              <div
+                className="h-1.5"
+                style={{
+                  background: `linear-gradient(90deg, ${primaryColor} 0%, ${accentColor} 100%)`,
+                }}
+              />
+
               <div className="overflow-auto max-h-[calc(100vh-280px)]">
                 <table className="min-w-max w-full border-collapse">
 
                   <thead className="sticky top-0 z-20">
-                    <tr className="bg-slate-900 text-white">
+                    <tr
+                      className="text-white"
+                      style={{
+                        backgroundColor: primaryColor,
+                      }}
+                    >
                       <th
                         rowSpan={2}
-                        className="sticky left-0 z-30 bg-slate-900 px-4 py-3 text-left text-xs font-bold border-r border-slate-700 min-w-[210px]"
+                        className="sticky left-0 z-30 px-4 py-3 text-left text-xs font-bold border-r border-slate-700 min-w-[210px] text-white"
+                        style={{ backgroundColor: primaryColor }}
                       >
                         Student
                       </th>
 
                       <th
                         rowSpan={2}
-                        className="sticky left-[210px] z-30 bg-slate-900 px-4 py-3 text-left text-xs font-bold border-r border-slate-700 min-w-[130px]"
+                        className="sticky left-[210px] z-30 px-4 py-3 text-left text-xs font-bold border-r border-slate-700 min-w-[130px] text-white"
+                        style={{ backgroundColor: primaryColor }}
                       >
                         Admission No.
                       </th>
@@ -415,7 +470,12 @@ export default function TeacherStudentsPage() {
                       ))}
                     </tr>
 
-                    <tr className="bg-slate-800 text-slate-100">
+                    <tr
+                      className="text-white"
+                      style={{
+                        backgroundColor: secondaryColor,
+                      }}
+                    >
                       {report.subjects.flatMap((subject) => [
                         <th
                           key={`${subject.id}-ca`}
@@ -442,6 +502,21 @@ export default function TeacherStudentsPage() {
                           GRADE
                         </th>,
                       ])}
+                      <th
+                        className="px-3 py-2 text-center text-[11px] font-bold border-r border-slate-700 min-w-[120px]"
+                      >
+                        TOTAL SCORE
+                      </th>
+                      <th
+                        className="px-3 py-2 text-center text-[11px] font-bold border-r border-slate-700 min-w-[110px]"
+                      >
+                        AVERAGE
+                      </th>
+                      <th
+                        className="px-3 py-2 text-center text-[11px] font-bold min-w-[100px]"
+                      >
+                        POSITION
+                      </th>
                     </tr>
                   </thead>
 
@@ -498,6 +573,36 @@ export default function TeacherStudentsPage() {
                               );
                             }
                           )}
+                          <td
+                            className="px-3 py-3 text-center text-sm font-black border-r border-b border-slate-200"
+                            style={{
+                              color: primaryColor,
+                            }}
+                          >
+                            {student.total_score !== undefined
+                              ? student.total_score
+                              : "—"}
+                          </td>
+
+                          <td
+                            className="px-3 py-3 text-center text-sm font-black border-r border-b border-slate-200"
+                            style={{
+                              color: primaryColor,
+                            }}
+                          >
+                            {student.average !== undefined
+                              ? `${Number(student.average).toFixed(2)}%`
+                              : "—"}
+                          </td>
+
+                          <td
+                            className="px-3 py-3 text-center text-sm font-black border-b border-slate-200"
+                            style={{
+                              color: accentColor,
+                            }}
+                          >
+                            {student.position ?? "—"}
+                          </td>
                         </tr>
                       )
                     )}
