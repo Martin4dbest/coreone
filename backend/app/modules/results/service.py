@@ -1346,3 +1346,60 @@ class ResultService:
                 )
 
         return created
+
+
+# ============================================================
+# COREONE - OFFICIAL RESULT COMMENT HELPERS
+# NON-CBT
+# ============================================================
+
+async def save_teacher_result_comment(result, comment, user_id):
+    comment = str(comment or "").strip()
+
+    if not comment:
+        raise ValueError("Teacher comment cannot be empty.")
+
+    result.teacher_comment = comment
+
+    if hasattr(result, "teacher_comment_by"):
+        result.teacher_comment_by = user_id
+
+    if hasattr(result, "is_published"):
+        result.is_published = False
+
+    if hasattr(result, "published_at"):
+        result.published_at = None
+
+    if hasattr(result, "published_by"):
+        result.published_by = None
+
+    if hasattr(result, "status"):
+        result.status = "REVIEW"
+
+    return result
+
+
+async def save_principal_result_comment(result, comment, user_id):
+    comment = str(comment or "").strip()
+
+    if not comment:
+        raise ValueError("Principal comment cannot be empty.")
+
+    result.principal_comment = comment
+
+    if hasattr(result, "principal_comment_by"):
+        result.principal_comment_by = user_id
+
+    if hasattr(result, "is_published"):
+        result.is_published = False
+
+    if hasattr(result, "published_at"):
+        result.published_at = None
+
+    if hasattr(result, "published_by"):
+        result.published_by = None
+
+    if hasattr(result, "status"):
+        result.status = "REVIEW"
+
+    return result
