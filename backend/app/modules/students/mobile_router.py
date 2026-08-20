@@ -54,11 +54,47 @@ async def student_results(
             "detail": "Student profile not found"
         }
 
-    # EXACTLY the same service the admin dashboard uses
+    # --------------------------------------------------------
+    # EXACT PUBLISHED REPORT DELIVERY
+    #
+    # The student receives the same report scope that the Admin
+    # publication selected: class + term + academic session.
+    #
+    # Existing Admin report-card UI is untouched.
+    # --------------------------------------------------------
+
+    from app.models.result import Result
+
+    published_result = await db.execute(
+        select(Result)
+        .where(
+            Result.student_id == student.id,
+            Result.school_id == tenant.school_id,
+            Result.is_active == True,
+            Result.is_published == True,
+        )
+        .order_by(
+            Result.published_at.desc(),
+            Result.id.desc(),
+        )
+        .limit(1)
+    )
+
+    published_anchor = published_result.scalar_one_or_none()
+
+    if not published_anchor:
+        raise HTTPException(
+            status_code=403,
+            detail="Your report card has not been published yet.",
+        )
+
     return await ResultService(db).get_student_report(
         student.id,
         current_user,
         tenant,
+        report_class_id=published_anchor.class_id,
+        report_term_id=published_anchor.term_id,
+        report_session_id=published_anchor.academic_session_id,
     )
 
 
@@ -79,10 +115,38 @@ async def student_results_pdf(
             "detail": "Student profile not found"
         }
 
+    from app.models.result import Result
+
+    published_result = await db.execute(
+        select(Result)
+        .where(
+            Result.student_id == student.id,
+            Result.school_id == tenant.school_id,
+            Result.is_active == True,
+            Result.is_published == True,
+        )
+        .order_by(
+            Result.published_at.desc(),
+            Result.id.desc(),
+        )
+        .limit(1)
+    )
+
+    published_anchor = published_result.scalar_one_or_none()
+
+    if not published_anchor:
+        raise HTTPException(
+            status_code=403,
+            detail="Your report card has not been published yet.",
+        )
+
     pdf = await ResultService(db).generate_student_report_pdf(
         student.id,
         current_user,
         tenant,
+        report_class_id=published_anchor.class_id,
+        report_term_id=published_anchor.term_id,
+        report_session_id=published_anchor.academic_session_id,
     )
 
     return StreamingResponse(

@@ -572,6 +572,9 @@ class ResultService:
         student_id: int,
         current_user,
         tenant,
+        report_class_id: int | None = None,
+        report_term_id: int | None = None,
+        report_session_id: int | None = None,
     ):
         school_id = tenant.school_id
 
@@ -687,6 +690,31 @@ class ResultService:
                     class_teacher_id == teacher_id
                 )
 
+        report_filters = [
+            Result.student_id == student_id,
+            Result.school_id == school_id,
+            Result.is_active == True,
+        ]
+
+        # Student delivery can explicitly request the exact
+        # published report-card scope.
+        #
+        # Existing Admin report-card calls do not provide these
+        # optional values, so their existing behavior is preserved.
+        if (
+            report_class_id is not None
+            and report_term_id is not None
+            and report_session_id is not None
+        ):
+            report_filters.extend(
+                [
+                    Result.class_id == int(report_class_id),
+                    Result.term_id == int(report_term_id),
+                    Result.academic_session_id == int(report_session_id),
+                    Result.is_published == True,
+                ]
+            )
+
         result_query = await self.db.execute(
             select(
                 Result,
@@ -696,11 +724,7 @@ class ResultService:
                 Subject,
                 Subject.id == Result.subject_id,
             )
-            .where(
-                Result.student_id == student_id,
-                Result.school_id == school_id,
-                Result.is_active == True,
-            )
+            .where(*report_filters)
             .order_by(Result.id.asc())
         )
 
@@ -1011,11 +1035,17 @@ class ResultService:
         student_id: int,
         current_user,
         tenant,
+        report_class_id: int | None = None,
+        report_term_id: int | None = None,
+        report_session_id: int | None = None,
     ):
         report = await self.get_student_report(
             student_id,
             current_user,
             tenant,
+            report_class_id=report_class_id,
+            report_term_id=report_term_id,
+            report_session_id=report_session_id,
         )
 
         from reportlab.platypus import (
