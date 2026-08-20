@@ -772,9 +772,9 @@ async def publish_selected_report_cards(
             detail=publication_errors,
         )
 
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
 
     published_count = 0
 
@@ -861,9 +861,9 @@ async def publish_student_report_card(
             ),
         )
 
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
 
     for result in rows:
         result.is_published = True
