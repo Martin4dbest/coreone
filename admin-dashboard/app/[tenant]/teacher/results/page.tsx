@@ -33,6 +33,8 @@ type Result = {
   total_score: number;
   grade: string | null;
   teacher_comment?: string | null;
+  class_teacher_comment?: string | null;
+  is_class_teacher_access?: boolean;
   principal_comment?: string | null;
   is_published?: boolean;
   published_at?: string | null;
@@ -142,6 +144,9 @@ export default function ResultsPage({
   } | null>(null);
   const [studentScoresModalOpen, setStudentScoresModalOpen] = useState(false);
   const [studentScoresLoading, setStudentScoresLoading] = useState(false);
+  const [studentReportViewerIsClassTeacher, setStudentReportViewerIsClassTeacher] = useState(false);
+  const [classTeacherCommentDraft, setClassTeacherCommentDraft] = useState("");
+  const [classTeacherCommentSaving, setClassTeacherCommentSaving] = useState(false);
   const [studentFetchedResults, setStudentFetchedResults] = useState<Result[]>([]);
 
 
@@ -615,6 +620,75 @@ export default function ResultsPage({
     }
   }
 
+  async function saveClassTeacherComment(
+    studentId: number,
+    comment: string,
+  ) {
+    const cleanComment = String(comment || "").trim();
+
+    if (!studentId) {
+      alert("Unable to determine the student.");
+      return;
+    }
+
+    if (!cleanComment) {
+      alert("Please enter the class teacher comment.");
+      return;
+    }
+
+    try {
+      setClassTeacherCommentSaving(true);
+
+      await api.patch(
+        `/results/student/${studentId}/class-teacher-comment`,
+        {
+          comment: cleanComment,
+        },
+      );
+
+      setClassTeacherCommentDraft(cleanComment);
+
+      setStudentFetchedResults((current) =>
+        current.map((item) => ({
+          ...item,
+          class_teacher_comment: cleanComment,
+          is_published: false,
+        })),
+      );
+
+      setResults((current) =>
+        current.map((item) =>
+          Number(item.student_id) === Number(studentId)
+            ? {
+                ...item,
+                class_teacher_comment: cleanComment,
+                is_published: false,
+              }
+            : item,
+        ),
+      );
+
+      alert(
+        "Class teacher report comment saved successfully."
+      );
+    } catch (error: any) {
+      console.error(
+        "SAVE CLASS TEACHER COMMENT ERROR:",
+        error?.response?.data || error,
+      );
+
+      alert(
+        String(
+          error?.response?.data?.detail ||
+          "Unable to save the class teacher comment.",
+        ),
+      );
+    } finally {
+      setClassTeacherCommentSaving(false);
+    }
+  }
+
+
   async function handleOpenStudentScores(student: {
     id: number;
     first_name: string;
@@ -632,6 +706,22 @@ export default function ResultsPage({
       const response = await api.get(`/results/student/${student.id}/report`);
       const report = response?.data ?? {};
       const reportSubjects = Array.isArray(report?.subjects) ? report.subjects : [];
+
+      const viewerIsClassTeacher = Boolean(
+        report?.viewer_is_class_teacher
+      );
+
+      setStudentReportViewerIsClassTeacher(
+        viewerIsClassTeacher
+      );
+
+      setClassTeacherCommentDraft(
+        String(
+          report?.comments?.class_teacher ??
+          report?.comments?.teacher ??
+          ""
+        )
+      );
 
       let normalizedResults: Result[] = reportSubjects.map((subject: any, index: number) => ({
         id: Number(
@@ -657,7 +747,7 @@ export default function ResultsPage({
         is_published: subject?.is_published ?? false,
       }));
 
-      if (isTeacher) {
+      if (isTeacher && !viewerIsClassTeacher) {
         normalizedResults = normalizedResults.filter((r) => {
           if (r.subject_id && teacherSubjectIds.has(r.subject_id)) return true;
           return subjects.some((s) => s.name.toLowerCase() === r.subject_name.toLowerCase());
@@ -681,6 +771,7 @@ export default function ResultsPage({
 
   const filteredRawResults = isTeacher
     ? results.filter((r) => {
+        if (r.is_class_teacher_access === true) return true;
         if (r.subject_id && teacherSubjectIds.has(r.subject_id)) return true;
         return subjects.some((s) => s.name.toLowerCase() === r.subject_name.toLowerCase());
       })
@@ -1461,66 +1552,64 @@ export default function ResultsPage({
                         </div>
                       </div>
 
-                      <div className="pt-3 border-t border-slate-200/60">
-                        <div className="flex items-center justify-between gap-3 mb-2">
-                          <div>
-                            <p className="text-xs font-bold text-slate-700">
-                              Official Teacher Comment
-                            </p>
-                            <p className="text-[11px] text-slate-400">
-                              Required before this result can be published.
-                            </p>
+
+                      {studentReportViewerIsClassTeacher &&
+                        index === 0 && (
+                          <div className="pt-3 border-t border-slate-200/60">
+                            <div className="flex items-center justify-between gap-3 mb-2">
+                              <div>
+                                <p className="text-xs font-bold text-slate-700">
+                                  Class Teacher Comment
+                                </p>
+                                <p className="text-[11px] text-slate-400">
+                                  One overall comment for this student.
+                                </p>
+                              </div>
+
+                              <span
+                                className={`text-[10px] font-bold px-2 py-1 rounded ${
+                                  classTeacherCommentDraft.trim()
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "bg-amber-100 text-amber-700"
+                                }`}
+                              >
+                                {classTeacherCommentDraft.trim()
+                                  ? "COMPLETED"
+                                  : "REQUIRED"}
+                              </span>
+                            </div>
+
+                            <textarea
+                              value={classTeacherCommentDraft}
+                              onChange={(event) =>
+                                setClassTeacherCommentDraft(
+                                  event.target.value
+                                )
+                              }
+                              placeholder="Enter the student's overall class teacher comment..."
+                              className="w-full min-h-[100px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                            />
+
+                            <div className="flex justify-end mt-2">
+                              <button
+                                type="button"
+                                disabled={classTeacherCommentSaving}
+                                onClick={() =>
+                                  saveClassTeacherComment(
+                                    Number(res.student_id),
+                                    classTeacherCommentDraft,
+                                  )
+                                }
+                                className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                              >
+                                {classTeacherCommentSaving
+                                  ? "Saving..."
+                                  : "Save Class Teacher Comment"}
+                              </button>
+                            </div>
                           </div>
+                        )}
 
-                          <span
-                            className={`text-[10px] font-bold px-2 py-1 rounded-full ${
-                              res.teacher_comment
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-amber-100 text-amber-700"
-                            }`}
-                          >
-                            {res.teacher_comment ? "COMPLETED" : "REQUIRED"}
-                          </span>
-                        </div>
-
-                        <textarea
-                          value={
-                            teacherCommentDrafts[Number(res.id)] ??
-                            res.teacher_comment ??
-                            ""
-                          }
-                          onChange={(event) =>
-                            setTeacherCommentDrafts((current) => ({
-                              ...current,
-                              [Number(res.id)]: event.target.value,
-                            }))
-                          }
-                          placeholder="Enter the student's official teacher comment..."
-                          className="w-full min-h-[90px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                        />
-
-                        <div className="flex justify-end mt-2">
-                          <button
-                            type="button"
-                            disabled={
-                              teacherCommentSavingId === Number(res.id)
-                            }
-                            onClick={() =>
-                              saveTeacherComment(
-                                Number(res.id),
-                                teacherCommentDrafts[Number(res.id)] ??
-                                  res.teacher_comment ??
-                                  "",
-                              )
-                            }
-                            className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-                          >
-                            {teacherCommentSavingId === Number(res.id)
-                              ? "Saving..."
-                              : "Save Teacher Comment"}
-                          </button>
-                        </div>
-                      </div>
                     </div>
                   ))
                 ) : (

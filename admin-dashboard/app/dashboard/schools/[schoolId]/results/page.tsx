@@ -149,6 +149,21 @@ export default function ResultsPage({
   const [reportPublishBusy, setReportPublishBusy] =
     useState(false);
 
+  const [publishResultsModalOpen, setPublishResultsModalOpen] =
+    useState(false);
+  const [publishReviewMode, setPublishReviewMode] =
+    useState(false);
+  const [publishClassId, setPublishClassId] =
+    useState("");
+  const [publishTermId, setPublishTermId] =
+    useState("");
+  const [publishSessionId, setPublishSessionId] =
+    useState("");
+  const [publishSelectedStudentIds, setPublishSelectedStudentIds] =
+    useState<number[]>([]);
+  const [publishResultsBusy, setPublishResultsBusy] =
+    useState(false);
+
 
   // Error / Warning Dialog State
   const [errorModal, setErrorModal] = useState<ErrorModalState>(null);
@@ -263,121 +278,157 @@ export default function ResultsPage({
     }
   }
 
-  async function publishStudentReportCard(
-    studentId: number,
-  ) {
-    if (!studentId) return;
+  const publishCandidates = allStudents.filter((student) =>
+    publishClassId
+      ? String(student.class_id ?? student.classroom_id) === String(publishClassId)
+      : false
+  );
 
-    if (!window.confirm(
-      "Publish this report card to the student now?"
-    )) {
+  const publishAllSelected =
+    publishCandidates.length > 0 &&
+    publishCandidates.every((student) =>
+      publishSelectedStudentIds.includes(Number(student.id))
+    );
+
+  function togglePublishStudent(studentId: number) {
+    setPublishSelectedStudentIds((current) =>
+      current.includes(studentId)
+        ? current.filter((id) => id !== studentId)
+        : [...current, studentId]
+    );
+  }
+
+  function togglePublishAll() {
+    const candidateIds = publishCandidates.map((student) =>
+      Number(student.id)
+    );
+
+    setPublishSelectedStudentIds((current) => {
+      const allSelected =
+        candidateIds.length > 0 &&
+        candidateIds.every((id) => current.includes(id));
+
+      if (allSelected) {
+        return current.filter(
+          (id) => !candidateIds.includes(id)
+        );
+      }
+
+      return Array.from(
+        new Set([...current, ...candidateIds])
+      );
+    });
+  }
+
+  function openPublishResults() {
+    setPublishTermId(termId || "");
+    setPublishSessionId(sessionId || "");
+    setPublishClassId("");
+    setPublishSelectedStudentIds([]);
+    setPublishReviewMode(false);
+    setPublishResultsModalOpen(true);
+  }
+
+  function reviewSelectedReportCards() {
+    if (!publishSessionId) {
+      alert("Please select the academic session first.");
+      return;
+    }
+
+    if (!publishTermId) {
+      alert("Please select the term first.");
+      return;
+    }
+
+    if (!publishClassId) {
+      alert("Please select a class first.");
+      return;
+    }
+
+    if (!publishSelectedStudentIds.length) {
+      alert("Please select at least one student.");
+      return;
+    }
+
+    setPublishReviewMode(true);
+  }
+
+  async function publishSelectedReportCards() {
+    if (!publishSelectedStudentIds.length) {
       return;
     }
 
     try {
-      setReportPublishBusy(true);
+      setPublishResultsBusy(true);
 
       await api.post(
-        `/results/student/${studentId}/publish`,
+        "/results/publish-selected",
+        {
+          class_id: Number(publishClassId),
+          term_id: Number(publishTermId),
+          academic_session_id: Number(publishSessionId),
+          student_ids: publishSelectedStudentIds,
+        },
       );
 
-      setStudentFetchedResults((current) =>
-        current.map((item) => ({
-          ...item,
-          is_published: true,
-          status: "PUBLISHED",
-        })),
+      const selectedIds = new Set(
+        publishSelectedStudentIds.map(Number)
       );
 
       setResults((current) =>
         current.map((item) =>
-          Number(item.student_id) === Number(studentId)
+          selectedIds.has(Number(item.student_id))
             ? {
                 ...item,
                 is_published: true,
                 status: "PUBLISHED",
               }
-            : item,
-        ),
-      );
-
-      alert(
-        "Report card published successfully. The student can now view it."
-      );
-    } catch (error: any) {
-      console.error(
-        "PUBLISH REPORT CARD ERROR:",
-        error?.response?.data || error,
-      );
-
-      alert(
-        String(
-          error?.response?.data?.detail ||
-          "Unable to publish the report card.",
-        ),
-      );
-    } finally {
-      setReportPublishBusy(false);
-    }
-  }
-
-  async function unpublishStudentReportCard(
-    studentId: number,
-  ) {
-    if (!studentId) return;
-
-    if (!window.confirm(
-      "Unpublish this report card from the student?"
-    )) {
-      return;
-    }
-
-    try {
-      setReportPublishBusy(true);
-
-      await api.post(
-        `/results/student/${studentId}/unpublish`,
+            : item
+        )
       );
 
       setStudentFetchedResults((current) =>
-        current.map((item) => ({
-          ...item,
-          is_published: false,
-          status: "REVIEW",
-        })),
-      );
-
-      setResults((current) =>
         current.map((item) =>
-          Number(item.student_id) === Number(studentId)
+          selectedIds.has(Number(item.student_id))
             ? {
                 ...item,
-                is_published: false,
-                status: "REVIEW",
+                is_published: true,
+                status: "PUBLISHED",
               }
-            : item,
-        ),
+            : item
+        )
       );
 
-      alert("Report card unpublished.");
+      setPublishResultsModalOpen(false);
+      setPublishReviewMode(false);
+      setPublishSelectedStudentIds([]);
+      setPublishClassId("");
+      setPublishTermId("");
+      setPublishSessionId("");
+
+      alert(
+        "The selected report cards were published successfully."
+      );
     } catch (error: any) {
       console.error(
-        "UNPUBLISH REPORT CARD ERROR:",
+        "PUBLISH SELECTED REPORT CARDS ERROR:",
         error?.response?.data || error,
       );
 
+      const detail = error?.response?.data?.detail;
+
       alert(
-        String(
-          error?.response?.data?.detail ||
-          "Unable to unpublish the report card.",
-        ),
+        Array.isArray(detail)
+          ? detail.join("\n")
+          : String(
+              detail ||
+              "Unable to publish the selected report cards."
+            )
       );
     } finally {
-      setReportPublishBusy(false);
+      setPublishResultsBusy(false);
     }
   }
-
-
 
   async function loadData() {
     try {
@@ -1058,6 +1109,16 @@ export default function ResultsPage({
         </div>
 
         <div className="flex flex-wrap gap-3">
+          {["SCHOOL_ADMIN", "SUPER_ADMIN"].includes(userRole) && (
+            <button
+              type="button"
+              onClick={openPublishResults}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl transition-colors font-semibold text-sm shadow-xs"
+            >
+              <FileText size={18} />
+              Publish Results
+            </button>
+          )}
           {!canEnterResults && (
             <button
               onClick={() => {
@@ -1095,6 +1156,326 @@ export default function ResultsPage({
           )}
         </div>
       </div>
+
+      {/* PUBLISH RESULTS MODAL */}
+      {publishResultsModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-200">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">
+                    {publishReviewMode
+                      ? "Review Selected Report Cards"
+                      : "Publish Results"}
+                  </h2>
+                  <p className="text-sm text-slate-500 mt-1">
+                    {publishReviewMode
+                      ? "Review the selected students before final publication."
+                      : "Select the class and students whose complete report cards should be published."}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPublishResultsModalOpen(false);
+                    setPublishReviewMode(false);
+                  }}
+                  className="text-slate-400 hover:text-slate-700 p-1"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {!publishReviewMode ? (
+              <div className="p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-2">
+                      Academic Session
+                    </label>
+
+                    <select
+                      value={publishSessionId}
+                      onChange={(event) => {
+                        setPublishSessionId(event.target.value);
+                        setPublishSelectedStudentIds([]);
+                      }}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                    >
+                      <option value="">Select session</option>
+
+                      {sessions.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-2">
+                      Term
+                    </label>
+
+                    <select
+                      value={publishTermId}
+                      onChange={(event) => {
+                        setPublishTermId(event.target.value);
+                        setPublishSelectedStudentIds([]);
+                      }}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                    >
+                      <option value="">Select term</option>
+
+                      {terms.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <label className="block text-xs font-bold text-slate-700 mb-2">
+                  Select Class
+                </label>
+
+                <select
+                  value={publishClassId}
+                  onChange={(event) => {
+                    setPublishClassId(event.target.value);
+                    setPublishSelectedStudentIds([]);
+                  }}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                >
+                  <option value="">Select a class</option>
+                  {classes.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+
+                {publishSessionId &&
+                  publishTermId &&
+                  publishClassId && (
+                  <div className="mt-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-800">
+                          Students
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                          {publishSelectedStudentIds.length} selected
+                        </p>
+                      </div>
+
+                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={publishAllSelected}
+                          onChange={togglePublishAll}
+                          className="h-4 w-4"
+                        />
+                        Select All
+                      </label>
+                    </div>
+
+                    <div className="max-h-[320px] overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
+                      {publishCandidates.length > 0 ? (
+                        publishCandidates.map((student) => {
+                          const studentId = Number(student.id);
+                          const checked =
+                            publishSelectedStudentIds.includes(studentId);
+
+                          return (
+                            <label
+                              key={studentId}
+                              className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() =>
+                                  togglePublishStudent(studentId)
+                                }
+                                className="h-4 w-4"
+                              />
+
+                              <div>
+                                <p className="text-sm font-semibold text-slate-800">
+                                  {student.first_name}{" "}
+                                  {student.middle_name
+                                    ? `${student.middle_name} `
+                                    : ""}
+                                  {student.last_name}
+                                </p>
+
+                                <p className="text-xs text-slate-400">
+                                  Admission:{" "}
+                                  {student.admission_number || "N/A"}
+                                </p>
+                              </div>
+                            </label>
+                          );
+                        })
+                      ) : (
+                        <div className="p-8 text-center text-sm text-slate-400">
+                          No students found in this class.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                      CoreOne will verify every selected student's
+                      report card before publication.
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPublishResultsModalOpen(false);
+                      setPublishSelectedStudentIds([]);
+                      setPublishClassId("");
+                      setPublishTermId("");
+                      setPublishSessionId("");
+                    }}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={
+                      !publishSessionId ||
+                      !publishTermId ||
+                      !publishClassId ||
+                      publishSelectedStudentIds.length === 0
+                    }
+                    onClick={reviewSelectedReportCards}
+                    className="px-5 py-2.5 rounded-xl bg-red-700 hover:bg-red-800 text-white text-sm font-semibold disabled:opacity-50"
+                  >
+                    Review Selected
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-6">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Selected Class
+                  </p>
+
+                  <p className="mt-1 text-lg font-bold text-slate-900">
+                    {classes.find(
+                      (item) =>
+                        String(item.id) === String(publishClassId)
+                    )?.name || "Selected Class"}
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        Academic Session
+                      </p>
+                      <p className="text-sm font-semibold text-slate-800 mt-1">
+                        {sessions.find(
+                          (item) =>
+                            String(item.id) === String(publishSessionId)
+                        )?.name || "Selected Session"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        Term
+                      </p>
+                      <p className="text-sm font-semibold text-slate-800 mt-1">
+                        {terms.find(
+                          (item) =>
+                            String(item.id) === String(publishTermId)
+                        )?.name || "Selected Term"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Selected Students
+                  </p>
+
+                  <div className="mt-2 space-y-2">
+                    {publishCandidates
+                      .filter((student) =>
+                        publishSelectedStudentIds.includes(
+                          Number(student.id)
+                        )
+                      )
+                      .map((student) => (
+                        <div
+                          key={student.id}
+                          className="flex items-center gap-2 text-sm text-slate-700"
+                        >
+                          <span className="text-emerald-600">
+                            ✓
+                          </span>
+
+                          <span>
+                            {student.first_name}{" "}
+                            {student.middle_name
+                              ? `${student.middle_name} `
+                              : ""}
+                            {student.last_name}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-xl border border-red-100 bg-red-50 px-4 py-4">
+                  <p className="text-sm font-bold text-red-900">
+                    Do you want to publish these report cards?
+                  </p>
+
+                  <p className="text-xs text-red-700 mt-1">
+                    The selected students will be able to view
+                    their complete published report cards.
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPublishReviewMode(false)
+                    }
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Review Again
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={publishResultsBusy}
+                    onClick={publishSelectedReportCards}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold disabled:opacity-50"
+                  >
+                    {publishResultsBusy
+                      ? "Publishing..."
+                      : "Yes, Publish"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Single Result Modal */}
       {open && (
@@ -1665,102 +2046,6 @@ export default function ResultsPage({
                       </div>
                     )}
 
-                    {index === 0 && (
-                      <div className="pt-3 border-t border-slate-200/80">
-                        <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-bold text-slate-700">
-                              Report Card Publication
-                            </p>
-                            <p className="text-[11px] text-slate-400">
-                              Students only see the report after publication.
-                            </p>
-                          </div>
-
-                          {res.is_published ? (
-                            <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">
-                              PUBLISHED
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600">
-                              NOT PUBLISHED
-                            </span>
-                          )}
-                        </div>
-
-                        {(() => {
-                          const teacherComplete =
-                            studentFetchedResults.every(
-                              (item) =>
-                                Boolean(
-                                  String(
-                                    item.teacher_comment ?? "",
-                                  ).trim(),
-                                ),
-                            );
-
-                          const principalComplete =
-                            Boolean(
-                              String(
-                                studentFetchedResults[0]?.principal_comment ?? "",
-                              ).trim(),
-                            );
-
-                          const studentId = Number(
-                            res.student_id,
-                          );
-
-                          if (res.is_published) {
-                            return (
-                              <button
-                                type="button"
-                                disabled={reportPublishBusy}
-                                onClick={() =>
-                                  unpublishStudentReportCard(
-                                    studentId,
-                                  )
-                                }
-                                className="w-full rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 px-3 py-2 text-xs font-semibold disabled:opacity-50"
-                              >
-                                {reportPublishBusy
-                                  ? "Updating..."
-                                  : "Unpublish Report Card"}
-                              </button>
-                            );
-                          }
-
-                          return (
-                            <button
-                              type="button"
-                              disabled={
-                                reportPublishBusy ||
-                                !teacherComplete ||
-                                !principalComplete
-                              }
-                              onClick={() =>
-                                publishStudentReportCard(
-                                  studentId,
-                                )
-                              }
-                              title={
-                                !teacherComplete
-                                  ? "Teacher comments must be completed first."
-                                  : !principalComplete
-                                    ? "Principal comment must be completed first."
-                                    : "Publish report card"
-                              }
-                              className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              {reportPublishBusy
-                                ? "Publishing..."
-                                : "Publish Report Card"}
-                            </button>
-                          );
-                        })()}
-                      </div>
-                        </div>
-                      )}
                   </div>
                 ))
               ) : (

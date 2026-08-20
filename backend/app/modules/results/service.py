@@ -626,6 +626,67 @@ class ResultService:
 
         student = student_row[0]
 
+        viewer_is_class_teacher = False
+
+        role_name_for_report = (
+            getattr(
+                getattr(current_user, "role", None),
+                "name",
+                None,
+            )
+            or getattr(current_user, "role", None)
+            or ""
+        )
+        role_name_for_report = str(
+            role_name_for_report
+        ).upper()
+
+        if role_name_for_report == "TEACHER":
+            teacher_profile = getattr(
+                current_user,
+                "teacher",
+                None,
+            )
+
+            if teacher_profile is None:
+                from app.models.teacher import Teacher
+
+                teacher_result = await self.db.execute(
+                    select(Teacher.id).where(
+                        Teacher.user_id == current_user.id,
+                        Teacher.school_id == school_id,
+                    )
+                )
+
+                teacher_id = teacher_result.scalar_one_or_none()
+            else:
+                teacher_id = teacher_profile.id
+
+            viewer_is_class_teacher = bool(
+                teacher_id
+                and getattr(
+                    student,
+                    "classroom_id",
+                    None,
+                ) is not None
+            )
+
+            if viewer_is_class_teacher:
+                classroom_result = await self.db.execute(
+                    select(Classroom.class_teacher_id).where(
+                        Classroom.id == student.classroom_id,
+                        Classroom.school_id == school_id,
+                    )
+                )
+
+                class_teacher_id = (
+                    classroom_result.scalar_one_or_none()
+                )
+
+                viewer_is_class_teacher = (
+                    class_teacher_id == teacher_id
+                )
+
         result_query = await self.db.execute(
             select(
                 Result,
@@ -853,9 +914,15 @@ class ResultService:
                 if average >= 60
                 else "Needs Improvement"
             ),
+            "viewer_is_class_teacher":
+                viewer_is_class_teacher,
             "comments": {
+                # Backward-compatible "teacher" key now points
+                # to the report-level class teacher comment.
                 "teacher":
-                    first_result.teacher_comment,
+                    first_result.class_teacher_comment,
+                "class_teacher":
+                    first_result.class_teacher_comment,
                 "principal":
                     first_result.principal_comment,
             },
@@ -1403,6 +1470,39 @@ async def save_principal_result_comment(result, comment, user_id):
 
     if hasattr(result, "principal_comment_by"):
         result.principal_comment_by = user_id
+
+    if hasattr(result, "is_published"):
+        result.is_published = False
+
+    if hasattr(result, "published_at"):
+        result.published_at = None
+
+    if hasattr(result, "published_by"):
+        result.published_by = None
+
+    if hasattr(result, "status"):
+        result.status = "REVIEW"
+
+    return result
+
+# ============================================================
+# COREONE - REPORT-LEVEL CLASS TEACHER COMMENT
+# NON-CBT
+# ============================================================
+
+async def save_class_teacher_result_comment(
+    result,
+    comment,
+    user_id,
+):
+    comment = str(comment or "").strip()
+
+    if not comment:
+        raise ValueError(
+            "Class teacher comment cannot be empty."
+        )
+
+    result.class_teacher_comment = comment
 
     if hasattr(result, "is_published"):
         result.is_published = False

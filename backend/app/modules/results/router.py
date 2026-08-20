@@ -241,23 +241,44 @@ async def update_teacher_comment(
     result_id: int,
     payload: dict,
     current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Subject-level teacher comments are no longer part of the
+    CoreOne report-card workflow.
+
+    The official teacher-side report comment is now the single
+    class-teacher comment per student.
+    """
+    raise HTTPException(
+        status_code=410,
+        detail=(
+            "Subject-level teacher comments are no longer used. "
+            "The assigned class teacher enters one report-level "
+            "comment per student."
+        ),
+    )
+
+
+@router.patch("/student/{student_id}/class-teacher-comment")
+async def update_student_class_teacher_comment(
+    student_id: int,
+    payload: dict,
+    current_user=Depends(get_current_user),
     tenant: TenantContext = Depends(get_tenant_from_request),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    SUBJECT-LEVEL TEACHER COMMENT
-
-    A teacher enters the official comment only for the result/subject
-    assigned to that teacher.
-
-    Editing any teacher comment resets the ENTIRE student's report card
-    to review status so it must be reviewed and published again.
+    ONE report-level comment written by the assigned class teacher
+    for the complete student report card.
     """
 
-    from app.modules.results.service import save_teacher_result_comment
-
     role_name = (
-        getattr(getattr(current_user, "role", None), "name", None)
+        getattr(
+            getattr(current_user, "role", None),
+            "name",
+            None,
+        )
         or getattr(current_user, "role", None)
         or ""
     )
@@ -266,32 +287,78 @@ async def update_teacher_comment(
     if role_name != "TEACHER":
         raise HTTPException(
             status_code=403,
-            detail="Only a teacher can enter a teacher comment.",
+            detail="Only a teacher can enter the class-teacher report comment.",
         )
 
-    result_query = await db.execute(
-        select(Result).where(
-            Result.id == result_id,
+    teacher = getattr(
+        current_user,
+        "teacher",
+        None,
+    )
+
+    if teacher is None:
+        from app.models.teacher import Teacher
+
+        teacher_result = await db.execute(
+            select(Teacher).where(
+                Teacher.user_id == current_user.id,
+                Teacher.school_id == tenant.school_id,
+            )
+        )
+        teacher = teacher_result.scalar_one_or_none()
+
+    if teacher is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Teacher profile not found.",
+        )
+
+    student_result = await db.execute(
+        select(
+            Result,
+            Classroom.class_teacher_id,
+        )
+        .join(
+            Classroom,
+            Classroom.id == Result.class_id,
+        )
+        .where(
+            Result.student_id == student_id,
             Result.school_id == tenant.school_id,
             Result.is_active == True,
         )
+        .order_by(Result.id.asc())
     )
 
-    result = result_query.scalar_one_or_none()
+    rows = student_result.all()
 
-    if not result:
+    if not rows:
         raise HTTPException(
             status_code=404,
-            detail="Result not found.",
+            detail="No result records were found for this student.",
         )
 
-    comment = payload.get("comment")
+    anchor = rows[0][0]
+    assigned_class_teacher_id = rows[0][1]
+
+    if assigned_class_teacher_id != teacher.id:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "You are not the assigned class teacher for "
+                "this student's class."
+            ),
+        )
+
+    from app.modules.results.service import (
+        save_class_teacher_result_comment,
+    )
 
     try:
-        await save_teacher_result_comment(
-            result,
-            comment,
-            getattr(current_user, "id", None),
+        await save_class_teacher_result_comment(
+            anchor,
+            payload.get("comment"),
+            teacher.id,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -299,35 +366,18 @@ async def update_teacher_comment(
             detail=str(exc),
         )
 
-    # Any teacher-comment edit reopens the WHOLE report card.
-    report_query = await db.execute(
-        select(Result).where(
-            Result.student_id == result.student_id,
-            Result.school_id == tenant.school_id,
-            Result.is_active == True,
-        )
-    )
-    report_rows = report_query.scalars().all()
-
-    for row in report_rows:
-        if hasattr(row, "is_published"):
-            row.is_published = False
-        if hasattr(row, "published_at"):
-            row.published_at = None
-        if hasattr(row, "published_by"):
-            row.published_by = None
-        if hasattr(row, "status"):
-            row.status = "REVIEW"
-
     await db.commit()
-    await db.refresh(result)
+    await db.refresh(anchor)
 
     return {
-        "message": "Teacher comment saved successfully.",
-        "result_id": result.id,
-        "student_id": result.student_id,
-        "teacher_comment": result.teacher_comment,
-        "is_published": False,
+        "message": (
+            "Class teacher report comment saved successfully."
+        ),
+        "student_id": student_id,
+        "class_teacher_comment":
+            anchor.class_teacher_comment,
+        "is_published":
+            getattr(anchor, "is_published", False),
     }
 
 
@@ -519,6 +569,237 @@ async def unpublish_result(
 # COMPLETE REPORT CARD PUBLISH / UNPUBLISH
 # ============================================================
 
+@router.post("/publish-selected")
+async def publish_selected_report_cards(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_from_request),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    CENTRAL SCHOOL-ADMIN REPORT CARD PUBLISHING.
+
+    Publishes complete report cards for explicitly selected students.
+    """
+
+    role_name = (
+        getattr(
+            getattr(current_user, "role", None),
+            "name",
+            None,
+        )
+        or getattr(current_user, "role", None)
+        or ""
+    )
+    role_name = str(role_name).upper()
+
+    if role_name not in {
+        "SUPER_ADMIN",
+        "SCHOOL_ADMIN",
+    }:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the School Administrator can publish report cards.",
+        )
+
+    raw_student_ids = payload.get("student_ids") or []
+    class_id = payload.get("class_id")
+    term_id = payload.get("term_id")
+    academic_session_id = payload.get("academic_session_id")
+
+    if not term_id or not academic_session_id:
+        raise HTTPException(
+            status_code=400,
+            detail="term_id and academic_session_id are required.",
+        )
+
+    try:
+        term_id = int(term_id)
+        academic_session_id = int(academic_session_id)
+        if term_id <= 0 or academic_session_id <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail="term_id and academic_session_id must be valid IDs.",
+        )
+
+    try:
+        student_ids = sorted(
+            {
+                int(value)
+                for value in raw_student_ids
+                if int(value) > 0
+            }
+        )
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail="student_ids must contain valid student IDs.",
+        )
+
+    if not student_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="Select at least one student to publish.",
+        )
+
+    query = await db.execute(
+        select(Result)
+        .where(
+            Result.student_id.in_(student_ids),
+            Result.school_id == tenant.school_id,
+            Result.term_id == term_id,
+            Result.academic_session_id == academic_session_id,
+            Result.is_active == True,
+        )
+        .order_by(
+            Result.student_id.asc(),
+            Result.id.asc(),
+        )
+    )
+
+    rows = query.scalars().all()
+
+    grouped = {}
+
+    for row in rows:
+        grouped.setdefault(
+            row.student_id,
+            [],
+        ).append(row)
+
+    missing_students = [
+        student_id
+        for student_id in student_ids
+        if student_id not in grouped
+    ]
+
+    if missing_students:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "No result records were found for student IDs: "
+                + ", ".join(str(value) for value in missing_students)
+            ),
+        )
+
+    from app.models.teacher_subject import TeacherSubject
+
+    publication_errors = []
+
+    for student_id in student_ids:
+        student_rows = grouped[student_id]
+        anchor = student_rows[0]
+
+        if class_id is None:
+            publication_errors.append(
+                f"Student {student_id}: class_id is required."
+            )
+            continue
+
+        try:
+            requested_class_id = int(class_id)
+        except (TypeError, ValueError):
+            publication_errors.append(
+                f"Student {student_id}: selected class is invalid."
+            )
+            continue
+
+        if requested_class_id != int(anchor.class_id):
+            publication_errors.append(
+                f"Student {student_id} does not belong to the selected class."
+            )
+            continue
+
+        if int(anchor.term_id) != term_id:
+            publication_errors.append(
+                f"Student {student_id}: result term does not match the selected term."
+            )
+            continue
+
+        if int(anchor.academic_session_id) != academic_session_id:
+            publication_errors.append(
+                f"Student {student_id}: result session does not match the selected session."
+            )
+            continue
+
+        if not (anchor.class_teacher_comment or "").strip():
+            publication_errors.append(
+                f"Student {student_id}: class-teacher comment is missing."
+            )
+
+        if not (anchor.principal_comment or "").strip():
+            publication_errors.append(
+                f"Student {student_id}: principal comment is missing."
+            )
+
+        assignment_result = await db.execute(
+            select(TeacherSubject.subject_id).where(
+                TeacherSubject.classroom_id == anchor.class_id,
+                TeacherSubject.school_id == tenant.school_id,
+                TeacherSubject.academic_session_id
+                == anchor.academic_session_id,
+                TeacherSubject.is_active == True,
+            )
+        )
+
+        expected_subject_ids = {
+            value[0]
+            for value in assignment_result.all()
+            if value[0] is not None
+        }
+
+        actual_subject_ids = {
+            row.subject_id
+            for row in student_rows
+        }
+
+        missing_subjects = (
+            expected_subject_ids - actual_subject_ids
+        )
+
+        if missing_subjects:
+            publication_errors.append(
+                f"Student {student_id}: one or more subject results "
+                "have not been entered yet."
+            )
+
+    if publication_errors:
+        raise HTTPException(
+            status_code=400,
+            detail=publication_errors,
+        )
+
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+
+    published_count = 0
+
+    for student_id in student_ids:
+        for result in grouped[student_id]:
+            result.is_published = True
+            result.published_at = now
+            result.published_by = current_user.id
+            result.status = "PUBLISHED"
+            published_count += 1
+
+    await db.commit()
+
+    return {
+        "message": "Selected report cards published successfully.",
+        "student_ids": student_ids,
+        "student_count": len(student_ids),
+        "published_result_count": published_count,
+        "class_id": int(class_id),
+        "term_id": term_id,
+        "academic_session_id": academic_session_id,
+        "is_published": True,
+        "published_at": now,
+    }
+
+
 @router.post("/student/{student_id}/publish")
 async def publish_student_report_card(
     student_id: int,
@@ -557,26 +838,19 @@ async def publish_student_report_card(
             detail="No result records were found for this student.",
         )
 
-    # Every subject/result must have its own teacher comment.
-    missing_teacher = [
-        r.id
-        for r in rows
-        if not (r.teacher_comment or "").strip()
-    ]
+    # ONE class-teacher comment for the COMPLETE report card.
+    anchor = rows[0]
 
-    if missing_teacher:
+    if not (anchor.class_teacher_comment or "").strip():
         raise HTTPException(
             status_code=400,
             detail=(
-                "Teacher comments are missing for one or more subjects. "
-                "Every subject teacher must complete the subject comment "
-                "before the report card can be published."
+                "The class-teacher report comment is missing. "
+                "The report card cannot be published yet."
             ),
         )
 
     # ONE principal comment for the COMPLETE report card.
-    anchor = rows[0]
-
     if not (anchor.principal_comment or "").strip():
         raise HTTPException(
             status_code=400,

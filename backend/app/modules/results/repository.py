@@ -15,7 +15,7 @@ class ResultRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    def _serialize_row(self, row):
+    def _serialize_row(self, row, class_teacher_access=False):
         result = row[0]
 
         middle_str = (
@@ -54,6 +54,14 @@ class ResultRepository:
                 result,
                 "teacher_comment",
                 None,
+            ),
+            "class_teacher_comment": getattr(
+                result,
+                "class_teacher_comment",
+                None,
+            ),
+            "is_class_teacher_access": bool(
+                class_teacher_access
             ),
             "principal_comment": getattr(
                 result,
@@ -132,11 +140,20 @@ class ResultRepository:
         user_id: int,
         school_id: int,
     ):
-        query = (
+        # ----------------------------------------------------
+        # EXISTING SUBJECT-TEACHER ACCESS
+        # KEEP THIS EXACT PERMISSION MODEL INTACT.
+        # ----------------------------------------------------
+        subject_query = (
             self._base_query()
             .join(
                 Teacher,
-                Teacher.user_id == user_id,
+                (
+                    Teacher.user_id == user_id
+                )
+                & (
+                    Teacher.school_id == school_id
+                ),
             )
             .join(
                 TeacherSubject,
@@ -165,14 +182,63 @@ class ResultRepository:
             )
         )
 
-        rows = (
-            await self.db.execute(query)
+        subject_rows = (
+            await self.db.execute(subject_query)
         ).all()
 
-        return [
-            self._serialize_row(row)
-            for row in rows
-        ]
+        # ----------------------------------------------------
+        # ADDITIVE CLASS-TEACHER ACCESS
+        # Classroom.class_teacher_id grants access to ALL
+        # students + ALL subjects/results in that class.
+        # ----------------------------------------------------
+        class_query = (
+            self._base_query()
+            .join(
+                Teacher,
+                (
+                    Teacher.user_id == user_id
+                )
+                & (
+                    Teacher.school_id == school_id
+                )
+                & (
+                    Classroom.class_teacher_id
+                    == Teacher.id
+                ),
+            )
+            .where(
+                Result.school_id == school_id,
+            )
+            .order_by(
+                Result.created_at.desc()
+            )
+        )
+
+        class_rows = (
+            await self.db.execute(class_query)
+        ).all()
+
+        merged = {}
+
+        for row in subject_rows:
+            result = row[0]
+            merged[result.id] = self._serialize_row(
+                row,
+                class_teacher_access=False,
+            )
+
+        for row in class_rows:
+            result = row[0]
+            merged[result.id] = self._serialize_row(
+                row,
+                class_teacher_access=True,
+            )
+
+        return sorted(
+            merged.values(),
+            key=lambda item: item["id"],
+            reverse=True,
+        )
 
     async def get_by_id(
         self,

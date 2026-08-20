@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Float, String, Text, UniqueConstraint, Boolean, DateTime, DateTime
+from sqlalchemy import Float, String, Text, UniqueConstraint, Boolean, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_model import BaseModel
@@ -75,6 +75,11 @@ class Result(Base, BaseModel, SchoolMixin, ActiveMixin):
     )
 
     teacher_comment: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    class_teacher_comment: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
