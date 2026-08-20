@@ -4,6 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.database import get_db
+from app.core.tenant.context import TenantContext
+from app.core.tenant.dependencies import get_tenant_from_request
 from app.models.user import User
 from app.models.student import Student
 from app.modules.auth.dependencies.current_user import get_current_user
@@ -38,6 +40,7 @@ async def student_attendance(
 @router.get("/results")
 async def student_results(
     db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_from_request),
     current_user: User = Depends(get_current_user),
 ):
     student = (
@@ -55,12 +58,14 @@ async def student_results(
     return await ResultService(db).get_student_report(
         student.id,
         current_user,
+        tenant,
     )
 
 
 @router.get("/results/pdf")
 async def student_results_pdf(
     db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_from_request),
     current_user: User = Depends(get_current_user),
 ):
     student = (
@@ -77,6 +82,7 @@ async def student_results_pdf(
     pdf = await ResultService(db).generate_student_report_pdf(
         student.id,
         current_user,
+        tenant,
     )
 
     return StreamingResponse(

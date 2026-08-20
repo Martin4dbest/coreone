@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.tenant.context import TenantContext
 from app.models.classroom import Classroom
 from app.models.student import Student
 from app.models.partner_school import PartnerSchool
@@ -206,6 +207,7 @@ class MobileStudentService:
     async def get_results(
         self,
         current_user: User,
+        tenant: TenantContext,
     ):
         student_result = await self.db.execute(
             select(Student).where(
@@ -223,11 +225,13 @@ class MobileStudentService:
         return await ResultService(self.db).get_student_report(
             student.id,
             current_user,
+            tenant,
         )
 
     async def get_results_pdf(
         self,
         current_user: User,
+        tenant: TenantContext,
     ):
         student_result = await self.db.execute(
             select(Student).where(
@@ -243,4 +247,5 @@ class MobileStudentService:
         return await ResultService(self.db).generate_student_report_pdf(
             student.id,
             current_user,
+            tenant,
         )
