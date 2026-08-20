@@ -634,7 +634,11 @@ export default function ResultsPage({
       const reportSubjects = Array.isArray(report?.subjects) ? report.subjects : [];
 
       let normalizedResults: Result[] = reportSubjects.map((subject: any, index: number) => ({
-        id: Number(subject?.id ?? index + 1),
+        id: Number(
+          subject?.result_id ??
+          subject?.id ??
+          0
+        ),
         student_id: student.id,
         student_name: report?.student?.name ?? `${student.first_name} ${student.last_name}`,
         admission_number: report?.student?.admission_number ?? student.admission_number,
@@ -647,6 +651,10 @@ export default function ResultsPage({
         exam_score: Number(subject?.exam ?? subject?.exam_score ?? 0),
         total_score: Number(subject?.total ?? subject?.total_score ?? 0),
         grade: subject?.grade ?? null,
+        remark: subject?.remark ?? null,
+        teacher_comment: subject?.teacher_comment ?? null,
+        principal_comment: subject?.principal_comment ?? null,
+        is_published: subject?.is_published ?? false,
       }));
 
       if (isTeacher) {

@@ -687,6 +687,8 @@ class ResultService:
 
             subjects.append(
                 {
+                    "id": item.id,
+                    "result_id": item.id,
                     "name": subject_name or "Unknown",
                     "ca": item.ca_score,
                     "exam": item.exam_score,
@@ -700,6 +702,13 @@ class ResultService:
                         grading.remark
                         if grading
                         else item.remark
+                    ),
+                    "teacher_comment": item.teacher_comment,
+                    "principal_comment": item.principal_comment,
+                    "is_published": getattr(
+                        item,
+                        "is_published",
+                        False,
                     ),
                 }
             )
