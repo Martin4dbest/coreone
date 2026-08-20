@@ -904,30 +904,93 @@ export default function ResultsPage({
     }
   }
 
-  // --- Grouping results by unique student ---
-  const groupedStudentsMap = results.reduce<Record<number, GroupedStudent>>((acc, r) => {
-    if (!acc[r.student_id]) {
-      acc[r.student_id] = {
-        student_id: r.student_id,
-        student_name: r.student_name,
-        admission_number: r.admission_number,
-        class_name: r.class_name,
-        results: [],
-      };
-    }
-    acc[r.student_id].results.push(r);
-    return acc;
-  }, {});
+  // ------------------------------------------------------------
+  // ADMIN / GENERAL RESULTS VIEW
+  //
+  // Important:
+  // The School Admin search must be driven by ALL students in the
+  // school, not only students who already have result rows.
+  //
+  // Teacher "My Subjects Only" filtering is intentionally unchanged.
+  // ------------------------------------------------------------
 
-  const groupedStudents = Object.values(groupedStudentsMap).filter((item) => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      (item.student_name && item.student_name.toLowerCase().includes(q)) ||
-      (item.admission_number && item.admission_number.toLowerCase().includes(q)) ||
-      (item.class_name && item.class_name.toLowerCase().includes(q))
-    );
-  });
+  const groupedStudentsMap = isTeacher
+    ? results.reduce<Record<number, GroupedStudent>>((acc, r) => {
+        if (!acc[r.student_id]) {
+          acc[r.student_id] = {
+            student_id: r.student_id,
+            student_name: r.student_name,
+            admission_number: r.admission_number,
+            class_name: r.class_name,
+            results: [],
+          };
+        }
+
+        acc[r.student_id].results.push(r);
+        return acc;
+      }, {})
+    : allStudents.reduce<Record<number, GroupedStudent>>((acc, student) => {
+        const studentId = Number(student.id);
+
+        const studentResults = results.filter(
+          (result) =>
+            Number(result.student_id) === studentId
+        );
+
+        const rawClassId =
+          student.class_id ??
+          student.classroom_id;
+
+        const className =
+          classes.find(
+            (item) =>
+              String(item.id) === String(rawClassId)
+          )?.name ??
+          studentResults[0]?.class_name ??
+          "N/A";
+
+        const fullName = [
+          student.first_name,
+          student.middle_name,
+          student.last_name,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+
+        acc[studentId] = {
+          student_id: studentId,
+          student_name:
+            fullName ||
+            studentResults[0]?.student_name ||
+            "Unknown Student",
+          admission_number:
+            student.admission_number ||
+            studentResults[0]?.admission_number ||
+            "N/A",
+          class_name: className,
+          results: studentResults,
+        };
+
+        return acc;
+      }, {});
+
+  const groupedStudents = Object.values(groupedStudentsMap).filter(
+    (item) => {
+      const q = searchQuery.toLowerCase().trim();
+
+      if (!q) return true;
+
+      return (
+        (item.student_name &&
+          item.student_name.toLowerCase().includes(q)) ||
+        (item.admission_number &&
+          item.admission_number.toLowerCase().includes(q)) ||
+        (item.class_name &&
+          item.class_name.toLowerCase().includes(q))
+      );
+    },
+  );
 
   const filteredBulkStudents = bulkStudents.filter((student) => {
     const q = bulkSearchQuery.toLowerCase().trim();
