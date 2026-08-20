@@ -1,10 +1,10 @@
 import { AxiosHeaders } from "axios";
 import axios from "axios";
-import { getToken } from "@/storage/auth";
+import { getToken, getTenant } from "@/storage/auth";
 
 
 const API_BASE_URL =
-  "http://10.11.244.196:8000/api/v1";
+  `${process.env.EXPO_PUBLIC_API_URL || "https://coreone.onrender.com"}/api/v1`;
 
 
 const api = axios.create({
@@ -26,6 +26,7 @@ api.interceptors.request.use(
 async (config) => {
 
   const token = await getToken();
+  const tenant = await getTenant();
 
   if (!config.headers) {
     config.headers = new AxiosHeaders();
@@ -35,9 +36,23 @@ async (config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
+  const tenantCode =
+    tenant?.school_code ||
+    tenant?.code ||
+    tenant?.schoolCode ||
+    "";
+
+  if (tenantCode) {
+    config.headers["X-Tenant"] = String(tenantCode).trim().toUpperCase();
+  }
+
   console.log("========== API REQUEST ==========");
   console.log(config.method?.toUpperCase(), `${API_BASE_URL}${config.url}`);
   console.log("TOKEN:", token ? "FOUND" : "MISSING");
+  console.log(
+    "TENANT:",
+    tenantCode ? String(tenantCode).trim().toUpperCase() : "MISSING"
+  );
 
   return config;
 },
