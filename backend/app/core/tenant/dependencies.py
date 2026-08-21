@@ -73,6 +73,38 @@ async def get_tenant_from_request(
 
     tenant = getattr(request.state, "tenant", None)
 
+    # =========================================================
+    # SUPER ADMIN
+    # =========================================================
+    # SUPER_ADMIN operates from the CoreOne master portal.
+    # The master portal does not resolve to a school tenant.
+    #
+    # Therefore an unresolved tenant is allowed for SUPER_ADMIN.
+    # Endpoints that accept school_id must use that explicitly
+    # requested school.
+    # =========================================================
+
+    if current_user.role.name == "SUPER_ADMIN":
+
+        if tenant is None or not tenant.resolved:
+            print(
+                "SUPER_ADMIN MASTER PORTAL: "
+                "allowing unresolved tenant"
+            )
+            return TenantContext()
+
+        if not tenant.tenant_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Tenant is inactive.",
+            )
+
+        return tenant
+
+    # =========================================================
+    # SCHOOL ADMIN / NORMAL TENANT USERS
+    # =========================================================
+
     if tenant is None or not tenant.resolved:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -86,7 +118,6 @@ async def get_tenant_from_request(
         )
 
     if current_user.role.name == "SCHOOL_ADMIN":
-
         tenant = TenantContext(
             school_id=current_user.school_id,
             school_code=tenant.school_code,
@@ -104,3 +135,4 @@ async def get_tenant_from_request(
     )
 
     return tenant
+
