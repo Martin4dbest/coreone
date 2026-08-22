@@ -10,6 +10,7 @@ import {
   PlayCircle,
   Trophy,
   Loader2,
+  ChevronDown,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -65,6 +66,22 @@ export default function StudentActivityPage({
 
   const [data, setData] = useState<StudentActivityData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [openSections, setOpenSections] = useState({
+    cbt: true,
+    ebook: true,
+    browser: true,
+    youtube: true,
+  });
+
+  function toggleSection(
+    section: keyof typeof openSections
+  ) {
+    setOpenSections((current) => ({
+      ...current,
+      [section]: !current[section],
+    }));
+  }
 
   async function loadActivity() {
     try {
@@ -206,6 +223,8 @@ export default function StudentActivityPage({
       <ActivitySection
         title="CBT Results"
         icon={<Trophy size={20} />}
+        open={openSections.cbt}
+        onToggle={() => toggleSection("cbt")}
       >
         {cbt_scores.length === 0 ? (
           <EmptyState text="No CBT activity recorded for this student." />
@@ -254,6 +273,8 @@ export default function StudentActivityPage({
       <ActivitySection
         title="E-book Activity"
         icon={<BookOpen size={20} />}
+        open={openSections.ebook}
+        onToggle={() => toggleSection("ebook")}
       >
         {ebook_activity.length === 0 ? (
           <EmptyState text="No e-book activity recorded for this student." />
@@ -270,6 +291,8 @@ export default function StudentActivityPage({
       <ActivitySection
         title="Browser Activity"
         icon={<Globe size={20} />}
+        open={openSections.browser}
+        onToggle={() => toggleSection("browser")}
       >
         {browser_activity.length === 0 ? (
           <EmptyState text="No browser activity recorded for this student." />
@@ -286,6 +309,8 @@ export default function StudentActivityPage({
       <ActivitySection
         title="YouTube Learning Activity"
         icon={<PlayCircle size={20} />}
+        open={openSections.youtube}
+        onToggle={() => toggleSection("youtube")}
       >
         {youtube_activity.length === 0 ? (
           <EmptyState text="No YouTube Learning activity recorded for this student." />
@@ -334,22 +359,46 @@ function ActivitySection({
   title,
   icon,
   children,
+  open,
+  onToggle,
 }: {
   title: string;
   icon: React.ReactNode;
   children: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl bg-white shadow-sm border border-slate-100">
-      <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
-        <div className="text-indigo-600">{icon}</div>
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-slate-50"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+            {icon}
+          </div>
 
-        <h2 className="font-bold text-slate-900">
-          {title}
-        </h2>
-      </div>
+          <h2 className="text-base font-bold text-slate-900">
+            {title}
+          </h2>
+        </div>
 
-      {children}
+        <ChevronDown
+          size={20}
+          className={`shrink-0 text-slate-500 transition-transform duration-200 ${
+            open ? "rotate-0" : "-rotate-90"
+          }`}
+        />
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-100">
+          {children}
+        </div>
+      )}
     </section>
   );
 }
