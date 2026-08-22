@@ -16,6 +16,7 @@ import {
   Upload,
   Search,
   SlidersHorizontal,
+  Activity,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -937,6 +938,28 @@ export default function StudentsPage({
                           ? "Deleting..."
                           : "Delete"}
                       </button>
+
+                      <Link
+                        href={`/dashboard/schools/${schoolId}/students/${student.id}/activity`}
+                        className="
+                          inline-flex
+                          items-center
+                          justify-center
+                          gap-2
+                          rounded-lg
+                          bg-indigo-100
+                          px-3
+                          py-2
+                          text-xs
+                          font-bold
+                          text-indigo-700
+                          transition
+                          hover:bg-indigo-200
+                        "
+                      >
+                        <Activity size={14} />
+                        Activity
+                      </Link>
 
                       <Link
                         href={`/dashboard/schools/${schoolId}/students/${student.id}`}
