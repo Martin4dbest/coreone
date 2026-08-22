@@ -939,47 +939,80 @@ export default function StudentsPage({
                           : "Delete"}
                       </button>
 
-                      <Link
-                        href={`/dashboard/schools/${schoolId}/students/${student.id}/activity`}
-                        className="
-                          inline-flex
-                          items-center
-                          justify-center
-                          gap-2
-                          rounded-lg
-                          bg-indigo-100
-                          px-3
-                          py-2
-                          text-xs
-                          font-bold
-                          text-indigo-700
-                          transition
-                          hover:bg-indigo-200
-                        "
-                      >
-                        <Activity size={14} />
-                        Activity
-                      </Link>
+                      <details className="relative inline-block">
+                        <summary
+                          className="
+                            inline-flex
+                            cursor-pointer
+                            list-none
+                            items-center
+                            justify-center
+                            rounded-lg
+                            bg-rose-500
+                            px-4
+                            py-2
+                            text-sm
+                            font-bold
+                            text-white
+                            transition
+                            hover:bg-rose-600
+                            [&::-webkit-details-marker]:hidden
+                          "
+                        >
+                          View
+                          <span className="ml-2 text-xs">▼</span>
+                        </summary>
 
-                      <Link
-                        href={`/dashboard/schools/${schoolId}/students/${student.id}`}
-                        className="
-                          inline-flex
-                          items-center
-                          justify-center
-                          rounded-lg
-                          bg-rose-500
-                          px-4
-                          py-2
-                          text-sm
-                          font-bold
-                          text-white
-                          transition
-                          hover:bg-rose-600
-                        "
-                      >
-                        View
-                      </Link>
+                        <div
+                          className="
+                            absolute
+                            right-0
+                            z-50
+                            mt-2
+                            w-56
+                            overflow-hidden
+                            rounded-xl
+                            border
+                            border-slate-200
+                            bg-white
+                            shadow-xl
+                          "
+                        >
+                          <Link
+                            href={`/dashboard/schools/${schoolId}/students/${student.id}`}
+                            className="
+                              block
+                              px-4
+                              py-3
+                              text-sm
+                              font-semibold
+                              text-slate-700
+                              transition
+                              hover:bg-slate-50
+                            "
+                          >
+                            View Student Profile
+                          </Link>
+
+                          <Link
+                            href={`/dashboard/schools/${schoolId}/students/${student.id}/activity`}
+                            className="
+                              block
+                              border-t
+                              border-slate-100
+                              px-4
+                              py-3
+                              text-sm
+                              font-semibold
+                              text-indigo-600
+                              transition
+                              hover:bg-indigo-50
+                            "
+                          >
+                            View Student Activities
+                          </Link>
+                        </div>
+                      </details>
                     </td>
                   </tr>
                 ))}
