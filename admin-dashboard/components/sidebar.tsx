@@ -227,12 +227,6 @@ const schoolBase =
       color: "text-blue-400",
     },
     {
-      name: "Students",
-      href: "/teacher/dashboard/students",
-      icon: GraduationCap,
-      color: "text-purple-400",
-feature: "students",
-    },
     {
       name: "Teachers",
 href: `${schoolBase}/teachers`,
@@ -248,12 +242,6 @@ feature: "teachers",
 feature: "staff",
     },
     {
-      name: "Classes",
-      href: `${schoolBase}/classes`,
-      icon: Building2,
-      color: "text-indigo-400",
-feature: "classes",
-    },
     {
       name: "Academics",
       href: `${schoolBase}/academics`,
@@ -269,12 +257,6 @@ color: "text-yellow-400",
 feature: "results",
 },
 {
-      name: "Attendance",
-feature: "attendance",
-      href: "/teacher/dashboard/attendance",
-      icon: ClipboardCheck,
-      color: "text-green-400",
-    },
     {
       name: "Events",
 feature: "events",
@@ -306,6 +288,8 @@ const teacherMenu = [
     icon: LayoutDashboard,
     color: "text-blue-400",
   },
+  {
+  {
   {
     name: "Students",
     href: "/teacher/students",
