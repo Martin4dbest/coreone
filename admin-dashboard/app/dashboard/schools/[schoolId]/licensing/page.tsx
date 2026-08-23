@@ -445,11 +445,7 @@ export default function LicensingPage() {
           </div>
         ) : currentUserRole === "SCHOOL_ADMIN" ? (
           <div className="mb-6 rounded-2xl border border-cyan-200 bg-white p-5 shadow-sm">
-            <div className="text-xs font-bold uppercase tracking-wider text-cyan-600">
-              School License
-            </div>
-
-            <h2 className="mt-1 text-2xl font-bold text-slate-900">
+            <h2 className="text-2xl font-bold text-slate-900">
               {schoolName} License
             </h2>
 
