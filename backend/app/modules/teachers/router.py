@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
+from app.models.classroom import Classroom
 
 from app.core.permissions import require_roles
 from app.core.tenant.context import TenantContext
@@ -199,6 +200,27 @@ async def my_classes(
         current_user
     )
 
+
+@router.get("/me/class-teacher-status")
+async def my_class_teacher_status(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role.name != "TEACHER":
+        raise HTTPException(status_code=403, detail="Teacher access only")
+
+    teacher = current_user.teacher
+    if not teacher:
+        raise HTTPException(status_code=403, detail="Teacher profile missing")
+
+    result = await db.execute(
+        select(Classroom.id).where(
+            Classroom.class_teacher_id == teacher.id,
+            Classroom.school_id == current_user.school_id,
+        ).limit(1)
+    )
+
+    return {"is_class_teacher": result.scalar_one_or_none() is not None}
 
 @router.get(
     "/{teacher_id}",
