@@ -308,21 +308,27 @@ const teacherMenu = [
   },
   {
     name: "Students",
-    href: "/teacher/dashboard/students",
+    href: "/teacher/students",
     icon: GraduationCap,
     color: "text-purple-400",
   },
   {
     name: "Attendance",
-    href: "/teacher/dashboard/attendance",
+    href: "/teacher/attendance",
     icon: ClipboardCheck,
     color: "text-green-400",
   },
   {
     name: "Results",
-    href: `/dashboard/schools/${schoolId}/results`,
+    href: "/teacher/results",
     icon: FileText,
     color: "text-yellow-400",
+  },
+  {
+    name: "Learning",
+    href: "/teacher/learning",
+    icon: BookOpen,
+    color: "text-cyan-400",
   },
 ];
 
