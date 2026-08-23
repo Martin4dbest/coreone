@@ -80,45 +80,53 @@ async def get_licensing_summary(
     """
     Super Admin-only licensing statistics.
 
-    Licensing is a global Super Admin function, so this endpoint
-    intentionally does NOT depend on tenant resolution.
-    The selected school is queried directly by school_id.
+    Licensing hierarchy:
+
+    - The platform has one global/main SUPER_ADMIN controller.
+    - For each school, the first registered admin is the
+      school's Super Admin / primary admin.
+    - Additional admins in that school are ordinary Admins.
+    - Teachers, students, parents and staff are counted by school.
+
+    This endpoint intentionally does not depend on tenant resolution.
     """
 
     # ---------------------------------------------------------
-    # SUPER ADMINS
+    # SCHOOL SUPER ADMIN / PRIMARY ADMIN
     #
-    # Super Admin accounts can have school_id = NULL.
-    # Therefore this count is intentionally global.
+    # The first registered admin belonging to this school is the
+    # school's Super Admin. We calculate this from existing data
+    # without changing the database.
+    #
+    # Both legacy SUPER_ADMIN and SCHOOL_ADMIN records are included
+    # as admin candidates because older school records may have used
+    # the SUPER_ADMIN role for the first school administrator.
     # ---------------------------------------------------------
-    super_admin_result = await db.execute(
-        select(func.count(User.id))
-        .join(Role, User.role_id == Role.id)
-        .where(
-            Role.name == "SUPER_ADMIN",
-            User.is_active == True,
-        )
-    )
-
-    super_admin_count = int(
-        super_admin_result.scalar() or 0
-    )
-
-    # ---------------------------------------------------------
-    # SCHOOL ADMINS
-    # ---------------------------------------------------------
-    admin_result = await db.execute(
-        select(func.count(User.id))
+    school_admins_result = await db.execute(
+        select(User)
         .join(Role, User.role_id == Role.id)
         .where(
             User.school_id == school_id,
-            Role.name == "SCHOOL_ADMIN",
             User.is_active == True,
+            Role.name.in_(["SUPER_ADMIN", "SCHOOL_ADMIN"]),
+        )
+        .order_by(
+            User.created_at.asc(),
+            User.id.asc(),
         )
     )
 
-    admin_count = int(
-        admin_result.scalar() or 0
+    school_admins = list(
+        school_admins_result.scalars().all()
+    )
+
+    super_admin_count = 1 if school_admins else 0
+
+    # Every admin registered after the first school admin is an
+    # ordinary admin for licensing purposes.
+    admin_count = max(
+        len(school_admins) - 1,
+        0,
     )
 
     # ---------------------------------------------------------
@@ -151,6 +159,9 @@ async def get_licensing_summary(
 
     # ---------------------------------------------------------
     # PARENTS
+    #
+    # parents does not have school_id. The school is obtained
+    # through the parent's linked user.
     # ---------------------------------------------------------
     parent_result = await db.execute(
         select(func.count(Parent.id))
@@ -166,6 +177,9 @@ async def get_licensing_summary(
 
     # ---------------------------------------------------------
     # STAFF
+    #
+    # staff does not have school_id. The school is obtained
+    # through the staff member's linked user.
     # ---------------------------------------------------------
     staff_result = await db.execute(
         select(func.count(Staff.id))
