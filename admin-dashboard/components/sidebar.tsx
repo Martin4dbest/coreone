@@ -178,6 +178,12 @@ const schoolBase =
       color: "text-blue-400",
     },
     {
+      name: "Licensing",
+      href: "/dashboard/licensing",
+      icon: FileText,
+      color: "text-cyan-400",
+    },
+    {
       name: "Administrators",
       href: "/dashboard/admins",
       icon: Users,

@@ -11,29 +11,26 @@ type School = {
   school_code?: string;
 };
 
-type User = {
-  id: number;
-  school_id?: number | null;
-  role?: string | null;
-  role_name?: string | null;
-  roles?: Array<{ name?: string }>;
-};
-
-type PersonRecord = {
-  id: number;
-  school_id?: number | null;
-  user_id?: number | null;
-  role?: string | null;
+type LicensingSummary = {
+  super_admin: number;
+  admin: number;
+  teacher: number;
+  student: number;
+  parent: number;
+  staff: number;
 };
 
 type LicenseRow = {
-  key: string;
+  key: keyof LicensingSummary;
   label: string;
   count: number;
   price: number;
+  icon: string;
+  cardClass: string;
+  iconClass: string;
 };
 
-const DEFAULT_PRICES: Record<string, number> = {
+const DEFAULT_PRICES: Record<keyof LicensingSummary, number> = {
   super_admin: 5000,
   admin: 5000,
   teacher: 2000,
@@ -44,36 +41,21 @@ const DEFAULT_PRICES: Record<string, number> = {
 
 const PRICE_STORAGE_KEY = "coreone_licensing_prices_v1";
 
+const EMPTY_SUMMARY: LicensingSummary = {
+  super_admin: 0,
+  admin: 0,
+  teacher: 0,
+  student: 0,
+  parent: 0,
+  staff: 0,
+};
+
 function money(value: number) {
   return new Intl.NumberFormat("en-NG", {
     style: "currency",
     currency: "NGN",
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-function normalizeRole(user: User): string {
-  const raw =
-    user.role ||
-    user.role_name ||
-    user.roles?.[0]?.name ||
-    "";
-
-  return String(raw)
-    .trim()
-    .toUpperCase()
-    .replace(/[\s-]+/g, "_");
-}
-
-function getSchoolId(item: any): number | null {
-  const value =
-    item?.school_id ??
-    item?.schoolId ??
-    item?.school?.id ??
-    null;
-
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 function safeArray<T = any>(response: any): T[] {
@@ -86,32 +68,38 @@ function safeArray<T = any>(response: any): T[] {
   return [];
 }
 
-function extractId(item: any): number | null {
-  const id = Number(item?.id ?? item?.user_id ?? item?.userId);
-  return Number.isFinite(id) && id > 0 ? id : null;
+function getResponseData(response: any): any {
+  if (response?.data !== undefined) {
+    return response.data;
+  }
+
+  return response;
 }
 
 export default function LicensingPage() {
   const [schools, setSchools] = useState<School[]>([]);
-  const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null);
+  const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(
+    null
+  );
 
-  const [users, setUsers] = useState<User[]>([]);
-  const [students, setStudents] = useState<PersonRecord[]>([]);
-  const [teachers, setTeachers] = useState<PersonRecord[]>([]);
-  const [parents, setParents] = useState<PersonRecord[]>([]);
-  const [staff, setStaff] = useState<PersonRecord[]>([]);
+  const [summary, setSummary] =
+    useState<LicensingSummary>(EMPTY_SUMMARY);
 
   const [prices, setPrices] =
-    useState<Record<string, number>>(DEFAULT_PRICES);
+    useState<Record<keyof LicensingSummary, number>>(
+      DEFAULT_PRICES
+    );
 
   const [loadingSchools, setLoadingSchools] = useState(true);
-  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingSummary, setLoadingSummary] = useState(false);
   const [savingPrices, setSavingPrices] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(PRICE_STORAGE_KEY);
+      const saved = window.localStorage.getItem(
+        PRICE_STORAGE_KEY
+      );
 
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -125,21 +113,22 @@ export default function LicensingPage() {
                 Number(value) || 0,
               ])
             ),
-          });
+          } as Record<keyof LicensingSummary, number>);
         }
       }
     } catch {
-      // Keep defaults if local storage contains invalid data.
+      // Keep defaults.
     }
   }, []);
 
   useEffect(() => {
-    const loadSchools = async () => {
+    async function loadSchools() {
       setLoadingSchools(true);
       setError("");
 
       try {
         const response = await api.get("/schools");
+
         const list = safeArray<School>(response);
 
         setSchools(list);
@@ -148,7 +137,11 @@ export default function LicensingPage() {
           setSelectedSchoolId(Number(list[0].id));
         }
       } catch (err: any) {
-        console.error("Licensing schools load failed:", err);
+        console.error(
+          "Licensing schools load failed:",
+          err
+        );
+
         setError(
           err?.response?.data?.detail ||
             err?.message ||
@@ -157,181 +150,118 @@ export default function LicensingPage() {
       } finally {
         setLoadingSchools(false);
       }
-    };
+    }
 
     loadSchools();
   }, []);
 
   useEffect(() => {
-    if (!selectedSchoolId) return;
+    if (!selectedSchoolId) {
+      setSummary(EMPTY_SUMMARY);
+      return;
+    }
 
-    const loadSchoolUsers = async () => {
-      setLoadingUsers(true);
+    async function loadSummary() {
+      setLoadingSummary(true);
       setError("");
 
       try {
-        /*
-         * We deliberately load the different registered-user sources.
-         * This prevents the licensing page from depending only on /users,
-         * because students, teachers, parents and staff can also exist
-         * in their own modules.
-         */
+        const response = await api.get(
+          `/users/licensing-summary?school_id=${selectedSchoolId}`
+        );
 
-        const requests = await Promise.allSettled([
-          api.get("/users"),
-          api.get("/students/"),
-          api.get("/teachers"),
-          api.get("/parents"),
-          api.get("/staff"),
-        ]);
+        const data = getResponseData(response);
 
-        const getResult = <T,>(index: number): T[] => {
-          const result = requests[index];
-
-          if (result.status !== "fulfilled") {
-            return [];
-          }
-
-          return safeArray<T>(result.value);
-        };
-
-        setUsers(getResult<User>(0));
-        setStudents(getResult<PersonRecord>(1));
-        setTeachers(getResult<PersonRecord>(2));
-        setParents(getResult<PersonRecord>(3));
-        setStaff(getResult<PersonRecord>(4));
+        setSummary({
+          super_admin: Number(data?.super_admin) || 0,
+          admin: Number(data?.admin) || 0,
+          teacher: Number(data?.teacher) || 0,
+          student: Number(data?.student) || 0,
+          parent: Number(data?.parent) || 0,
+          staff: Number(data?.staff) || 0,
+        });
       } catch (err: any) {
-        console.error("Licensing users load failed:", err);
+        console.error(
+          "Licensing summary load failed:",
+          err
+        );
+
+        setSummary(EMPTY_SUMMARY);
 
         setError(
           err?.response?.data?.detail ||
             err?.message ||
-            "Unable to load school users."
+            "Unable to load licensing statistics."
         );
       } finally {
-        setLoadingUsers(false);
+        setLoadingSummary(false);
       }
-    };
+    }
 
-    loadSchoolUsers();
+    loadSummary();
   }, [selectedSchoolId]);
-
-  const counts = useMemo(() => {
-    const schoolId = Number(selectedSchoolId);
-
-    const schoolUsers = users.filter(
-      (user) => getSchoolId(user) === schoolId
-    );
-
-    const superAdminCount = schoolUsers.filter((user) => {
-      const role = normalizeRole(user);
-
-      return (
-        role === "SUPER_ADMIN" ||
-        role === "SUPERADMIN" ||
-        role === "SUPER_ADMINISTRATOR"
-      );
-    }).length;
-
-    const adminCount = schoolUsers.filter((user) => {
-      const role = normalizeRole(user);
-
-      return (
-        role === "SCHOOL_ADMIN" ||
-        role === "ADMIN" ||
-        role === "ADMINISTRATOR"
-      );
-    }).length;
-
-    const countRecords = (records: PersonRecord[]) =>
-      records.filter((item) => getSchoolId(item) === schoolId).length;
-
-    /*
-     * If /users already contains the role, use it.
-     * Otherwise use the dedicated module count.
-     */
-    const userTeacherCount = schoolUsers.filter((user) => {
-      const role = normalizeRole(user);
-      return role === "TEACHER" || role === "TEACHERS";
-    }).length;
-
-    const userStudentCount = schoolUsers.filter((user) => {
-      const role = normalizeRole(user);
-      return role === "STUDENT" || role === "STUDENTS";
-    }).length;
-
-    const userParentCount = schoolUsers.filter((user) => {
-      const role = normalizeRole(user);
-      return role === "PARENT" || role === "PARENTS";
-    }).length;
-
-    const userStaffCount = schoolUsers.filter((user) => {
-      const role = normalizeRole(user);
-      return role === "STAFF" || role === "STAFF_MEMBER";
-    }).length;
-
-    return {
-      super_admin: superAdminCount,
-      admin: adminCount,
-      teacher:
-        userTeacherCount > 0
-          ? userTeacherCount
-          : countRecords(teachers),
-      student:
-        userStudentCount > 0
-          ? userStudentCount
-          : countRecords(students),
-      parent:
-        userParentCount > 0
-          ? userParentCount
-          : countRecords(parents),
-      staff:
-        userStaffCount > 0
-          ? userStaffCount
-          : countRecords(staff),
-    };
-  }, [selectedSchoolId, users, students, teachers, parents, staff]);
 
   const rows: LicenseRow[] = [
     {
       key: "super_admin",
       label: "Super Admin",
-      count: counts.super_admin,
+      count: summary.super_admin,
       price: prices.super_admin,
+      icon: "SA",
+      cardClass: "border-rose-200 bg-rose-50",
+      iconClass: "bg-rose-100 text-rose-700",
     },
     {
       key: "admin",
-      label: "Admins",
-      count: counts.admin,
+      label: "School Admins",
+      count: summary.admin,
       price: prices.admin,
+      icon: "A",
+      cardClass: "border-purple-200 bg-purple-50",
+      iconClass: "bg-purple-100 text-purple-700",
     },
     {
       key: "teacher",
       label: "Teachers",
-      count: counts.teacher,
+      count: summary.teacher,
       price: prices.teacher,
+      icon: "T",
+      cardClass: "border-orange-200 bg-orange-50",
+      iconClass: "bg-orange-100 text-orange-700",
     },
     {
       key: "student",
       label: "Students",
-      count: counts.student,
+      count: summary.student,
       price: prices.student,
+      icon: "S",
+      cardClass: "border-blue-200 bg-blue-50",
+      iconClass: "bg-blue-100 text-blue-700",
     },
     {
       key: "parent",
       label: "Parents",
-      count: counts.parent,
+      count: summary.parent,
       price: prices.parent,
+      icon: "P",
+      cardClass: "border-emerald-200 bg-emerald-50",
+      iconClass: "bg-emerald-100 text-emerald-700",
     },
     {
       key: "staff",
       label: "Staff",
-      count: counts.staff,
+      count: summary.staff,
       price: prices.staff,
+      icon: "ST",
+      cardClass: "border-cyan-200 bg-cyan-50",
+      iconClass: "bg-cyan-100 text-cyan-700",
     },
   ];
 
-  const totalUsers = rows.reduce((sum, row) => sum + row.count, 0);
+  const totalUsers = rows.reduce(
+    (sum, row) => sum + row.count,
+    0
+  );
 
   const grandTotal = rows.reduce(
     (sum, row) => sum + row.count * row.price,
@@ -339,11 +269,18 @@ export default function LicensingPage() {
   );
 
   const selectedSchool = schools.find(
-    (school) => Number(school.id) === Number(selectedSchoolId)
+    (school) =>
+      Number(school.id) === Number(selectedSchoolId)
   );
 
-  const updatePrice = (key: string, value: string) => {
-    const numericValue = Math.max(0, Number(value) || 0);
+  const updatePrice = (
+    key: keyof LicensingSummary,
+    value: string
+  ) => {
+    const numericValue = Math.max(
+      0,
+      Number(value) || 0
+    );
 
     setPrices((current) => ({
       ...current,
@@ -365,42 +302,62 @@ export default function LicensingPage() {
       }, 300);
     } catch {
       setSavingPrices(false);
-      setError("Unable to save the licensing prices.");
+      setError(
+        "Unable to save the licensing prices."
+      );
     }
   };
 
+  const schoolName =
+    selectedSchool?.name ||
+    selectedSchool?.school_name ||
+    "Selected School";
+
   return (
-    <div className="min-h-screen bg-black text-white p-6 md:p-8">
+    <div className="min-h-screen bg-slate-50 p-5 text-slate-900 md:p-8">
       <div className="mx-auto max-w-7xl">
+
         {/* HEADER */}
         <div className="mb-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">
+              <div className="mb-2 inline-flex items-center rounded-full bg-cyan-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-cyan-700">
+                Super Admin
+              </div>
+
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
                 School Licensing
               </h1>
 
-              <p className="mt-2 text-sm text-gray-400">
-                View registered users for a school and calculate its
-                tentative licensing amount.
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                Review registered users and calculate the
+                tentative licensing amount for each school.
               </p>
             </div>
 
-            <div className="rounded-xl border border-white/10 bg-zinc-900 px-5 py-4">
-              <div className="text-xs uppercase tracking-wider text-gray-500">
-                Total Users
+            <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Total Registered Users
               </div>
 
-              <div className="mt-1 text-3xl font-bold">
-                {loadingUsers ? "..." : totalUsers.toLocaleString()}
+              <div className="mt-1 text-3xl font-bold text-slate-900">
+                {loadingSummary
+                  ? "..."
+                  : totalUsers.toLocaleString()}
               </div>
+
+              {selectedSchool && (
+                <div className="mt-1 text-xs text-slate-500">
+                  {schoolName}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* SCHOOL SELECTOR */}
-        <div className="mb-6 rounded-2xl border border-white/10 bg-zinc-950 p-5">
-          <label className="mb-2 block text-sm font-medium text-gray-300">
+        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <label className="mb-2 block text-sm font-semibold text-slate-700">
             Select School
           </label>
 
@@ -414,7 +371,7 @@ export default function LicensingPage() {
               )
             }
             disabled={loadingSchools}
-            className="w-full rounded-xl border border-white/10 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-white/30 md:max-w-xl"
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 md:max-w-xl"
           >
             <option value="">
               {loadingSchools
@@ -423,7 +380,10 @@ export default function LicensingPage() {
             </option>
 
             {schools.map((school) => (
-              <option key={school.id} value={school.id}>
+              <option
+                key={school.id}
+                value={school.id}
+              >
                 {school.name ||
                   school.school_name ||
                   `School #${school.id}`}
@@ -435,67 +395,81 @@ export default function LicensingPage() {
           </select>
 
           {selectedSchool && (
-            <div className="mt-3 text-sm text-gray-500">
-              Licensing calculation for{" "}
-              <span className="font-medium text-gray-300">
-                {selectedSchool.name ||
-                  selectedSchool.school_name ||
-                  `School #${selectedSchool.id}`}
+            <div className="mt-3 text-sm text-slate-500">
+              Showing licensing users for{" "}
+              <span className="font-semibold text-slate-800">
+                {schoolName}
               </span>
             </div>
           )}
         </div>
 
+        {/* ERROR */}
         {error && (
-          <div className="mb-6 rounded-xl border border-red-500/20 bg-red-950/30 px-4 py-3 text-sm text-red-300">
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         )}
 
-        {/* SUMMARY CARDS */}
-        <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+        {/* USER CARDS */}
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {rows.map((row) => (
             <div
               key={row.key}
-              className="rounded-2xl border border-white/10 bg-zinc-950 p-4"
+              className={`rounded-2xl border p-5 shadow-sm ${row.cardClass}`}
             >
-              <div className="text-xs text-gray-500">
+              <div
+                className={`flex h-11 w-11 items-center justify-center rounded-xl text-sm font-bold ${row.iconClass}`}
+              >
+                {row.icon}
+              </div>
+
+              <div className="mt-4 text-sm font-semibold text-slate-600">
                 {row.label}
               </div>
 
-              <div className="mt-2 text-2xl font-bold">
-                {loadingUsers ? "..." : row.count.toLocaleString()}
+              <div className="mt-1 text-3xl font-bold text-slate-900">
+                {loadingSummary
+                  ? "..."
+                  : row.count.toLocaleString()}
               </div>
 
-              <div className="mt-1 text-xs text-gray-600">
-                registered
+              <div className="mt-1 text-xs text-slate-500">
+                registered users
               </div>
             </div>
           ))}
         </div>
 
-        {/* LICENSING TABLE */}
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-950">
-          <div className="border-b border-white/10 px-5 py-5">
-            <h2 className="text-xl font-semibold">
+        {/* LICENSING CALCULATION */}
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-5 py-5 md:px-6">
+            <h2 className="text-xl font-bold text-slate-900">
               Licensing Calculation
             </h2>
 
-            <p className="mt-1 text-sm text-gray-500">
-              Change the price per registered user. The total updates
-              automatically.
+            <p className="mt-1 text-sm text-slate-500">
+              Set the price per registered user. The total
+              updates automatically.
             </p>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px]">
               <thead>
-                <tr className="border-b border-white/10 bg-zinc-900/60 text-left text-xs uppercase tracking-wider text-gray-500">
-                  <th className="px-5 py-4">User Type</th>
+                <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+                  <th className="px-5 py-4">
+                    User Type
+                  </th>
+
                   <th className="px-5 py-4 text-center">
                     Registered
                   </th>
-                  <th className="px-5 py-4">Price / User</th>
+
+                  <th className="px-5 py-4">
+                    Price / User
+                  </th>
+
                   <th className="px-5 py-4 text-right">
                     Amount
                   </th>
@@ -506,23 +480,23 @@ export default function LicensingPage() {
                 {rows.map((row) => (
                   <tr
                     key={row.key}
-                    className="border-b border-white/5"
+                    className="border-b border-slate-100"
                   >
                     <td className="px-5 py-5">
-                      <div className="font-medium">
+                      <div className="font-semibold text-slate-800">
                         {row.label}
                       </div>
                     </td>
 
                     <td className="px-5 py-5 text-center">
-                      <span className="inline-flex min-w-12 items-center justify-center rounded-lg bg-white/5 px-3 py-2 font-semibold">
+                      <span className="inline-flex min-w-14 items-center justify-center rounded-lg bg-slate-100 px-3 py-2 font-bold text-slate-800">
                         {row.count.toLocaleString()}
                       </span>
                     </td>
 
                     <td className="px-5 py-5">
-                      <div className="flex max-w-[220px] items-center rounded-xl border border-white/10 bg-black">
-                        <span className="px-3 text-sm text-gray-500">
+                      <div className="flex max-w-[220px] items-center rounded-xl border border-slate-300 bg-white">
+                        <span className="px-3 text-sm font-semibold text-slate-400">
                           ₦
                         </span>
 
@@ -537,28 +511,30 @@ export default function LicensingPage() {
                               event.target.value
                             )
                           }
-                          className="w-full bg-transparent px-2 py-3 text-white outline-none"
+                          className="w-full bg-transparent px-2 py-3 text-slate-900 outline-none"
                         />
                       </div>
                     </td>
 
-                    <td className="px-5 py-5 text-right text-lg font-semibold">
-                      {money(row.count * row.price)}
+                    <td className="px-5 py-5 text-right text-lg font-bold text-slate-900">
+                      {money(
+                        row.count * row.price
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
 
               <tfoot>
-                <tr className="bg-white/[0.03]">
+                <tr className="bg-slate-50">
                   <td
                     colSpan={3}
-                    className="px-5 py-6 text-right text-lg font-semibold"
+                    className="px-5 py-6 text-right text-lg font-bold text-slate-700"
                   >
                     TOTAL LICENSE AMOUNT
                   </td>
 
-                  <td className="px-5 py-6 text-right text-2xl font-bold">
+                  <td className="px-5 py-6 text-right text-2xl font-bold text-cyan-700">
                     {money(grandTotal)}
                   </td>
                 </tr>
@@ -566,56 +542,63 @@ export default function LicensingPage() {
             </table>
           </div>
 
-          {/* SAVE */}
-          <div className="flex flex-col gap-4 border-t border-white/10 px-5 py-5 md:flex-row md:items-center md:justify-between">
-            <div className="text-sm text-gray-500">
-              Prices are controlled by the Super Admin.
+          <div className="flex flex-col gap-4 border-t border-slate-200 px-5 py-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="text-sm font-semibold text-slate-700">
+                Pricing Configuration
+              </div>
+
+              <div className="mt-1 text-xs text-slate-500">
+                Prices are controlled by the Super Admin.
+              </div>
             </div>
 
             <button
               type="button"
               onClick={savePrices}
               disabled={savingPrices}
-              className="rounded-xl bg-white px-6 py-3 font-semibold text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl bg-cyan-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {savingPrices ? "Saving..." : "Save Prices"}
+              {savingPrices
+                ? "Saving..."
+                : "Save Prices"}
             </button>
           </div>
         </div>
 
-        {/* GRAND TOTAL */}
+        {/* TOTAL SUMMARY */}
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-zinc-950 p-6">
-            <div className="text-sm text-gray-500">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="text-sm font-semibold text-slate-500">
               Registered Users
             </div>
 
-            <div className="mt-2 text-3xl font-bold">
+            <div className="mt-2 text-3xl font-bold text-slate-900">
               {totalUsers.toLocaleString()}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-zinc-950 p-6">
-            <div className="text-sm text-gray-500">
-              Price Configuration
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="text-sm font-semibold text-slate-500">
+              Selected School
             </div>
 
-            <div className="mt-2 text-lg font-semibold">
-              Editable by Super Admin
+            <div className="mt-2 truncate text-lg font-bold text-slate-900">
+              {schoolName}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white p-6 text-black">
-            <div className="text-sm text-gray-600">
+          <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-6 shadow-sm">
+            <div className="text-sm font-semibold text-cyan-700">
               Tentative School License
             </div>
 
-            <div className="mt-2 text-3xl font-bold">
+            <div className="mt-2 text-3xl font-bold text-cyan-900">
               {money(grandTotal)}
             </div>
 
-            <div className="mt-1 text-xs text-gray-500">
-              Based on current registered users and prices
+            <div className="mt-1 text-xs text-cyan-700">
+              Based on registered users and current prices
             </div>
           </div>
         </div>
