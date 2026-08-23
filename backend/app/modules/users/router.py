@@ -1,8 +1,14 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select
 
 from app.db.database import get_db
 from app.models.user import User
+from app.models.role import Role
+from app.models.teacher import Teacher
+from app.models.student import Student
+from app.models.parent import Parent
+from app.models.staff import Staff
 from app.core.permissions import require_roles
 from app.modules.users.schemas import (
     UserCreateRequest,
@@ -58,6 +64,129 @@ async def get_users(
     return await service.get_users(
         current_user
     )
+
+
+
+@router.get(
+    "/licensing-summary",
+)
+async def get_licensing_summary(
+    school_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        require_roles("SUPER_ADMIN")
+    ),
+):
+    """
+    Super Admin-only licensing statistics.
+
+    Licensing is a global Super Admin function, so this endpoint
+    intentionally does NOT depend on tenant resolution.
+    The selected school is queried directly by school_id.
+    """
+
+    # ---------------------------------------------------------
+    # SUPER ADMINS
+    #
+    # Super Admin accounts can have school_id = NULL.
+    # Therefore this count is intentionally global.
+    # ---------------------------------------------------------
+    super_admin_result = await db.execute(
+        select(func.count(User.id))
+        .join(Role, User.role_id == Role.id)
+        .where(
+            Role.name == "SUPER_ADMIN",
+            User.is_active == True,
+        )
+    )
+
+    super_admin_count = int(
+        super_admin_result.scalar() or 0
+    )
+
+    # ---------------------------------------------------------
+    # SCHOOL ADMINS
+    # ---------------------------------------------------------
+    admin_result = await db.execute(
+        select(func.count(User.id))
+        .join(Role, User.role_id == Role.id)
+        .where(
+            User.school_id == school_id,
+            Role.name == "SCHOOL_ADMIN",
+            User.is_active == True,
+        )
+    )
+
+    admin_count = int(
+        admin_result.scalar() or 0
+    )
+
+    # ---------------------------------------------------------
+    # TEACHERS
+    # ---------------------------------------------------------
+    teacher_result = await db.execute(
+        select(func.count(Teacher.id))
+        .where(
+            Teacher.school_id == school_id,
+        )
+    )
+
+    teacher_count = int(
+        teacher_result.scalar() or 0
+    )
+
+    # ---------------------------------------------------------
+    # STUDENTS
+    # ---------------------------------------------------------
+    student_result = await db.execute(
+        select(func.count(Student.id))
+        .where(
+            Student.school_id == school_id,
+        )
+    )
+
+    student_count = int(
+        student_result.scalar() or 0
+    )
+
+    # ---------------------------------------------------------
+    # PARENTS
+    # ---------------------------------------------------------
+    parent_result = await db.execute(
+        select(func.count(Parent.id))
+        .join(User, Parent.user_id == User.id)
+        .where(
+            User.school_id == school_id,
+        )
+    )
+
+    parent_count = int(
+        parent_result.scalar() or 0
+    )
+
+    # ---------------------------------------------------------
+    # STAFF
+    # ---------------------------------------------------------
+    staff_result = await db.execute(
+        select(func.count(Staff.id))
+        .join(User, Staff.user_id == User.id)
+        .where(
+            User.school_id == school_id,
+        )
+    )
+
+    staff_count = int(
+        staff_result.scalar() or 0
+    )
+
+    return {
+        "super_admin": super_admin_count,
+        "admin": admin_count,
+        "teacher": teacher_count,
+        "student": student_count,
+        "parent": parent_count,
+        "staff": staff_count,
+    }
 
 
 @router.get(
