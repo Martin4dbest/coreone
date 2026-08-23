@@ -3,6 +3,7 @@ import { create } from "zustand";
 import api from "@/lib/api";
 
 type CurrentUser = {
+  is_primary_school_admin?: boolean;
   id: number;
   email: string;
   school_id: number | null;

@@ -1,0 +1,386 @@
+ "use client";
+
+import { useEffect, useMemo, useState } from "react";
+import api from "@/lib/api";
+
+type School = {
+  id: number;
+  name: string;
+  code?: string;
+};
+
+type User = {
+  id: number;
+  school_id?: number | null;
+  role?: {
+    name?: string | null;
+  } | null;
+};
+
+const PRICES: Record<string, number> = {
+  SUPER_ADMIN: 3000,
+  SCHOOL_ADMIN: 2500,
+  TEACHER: 2000,
+  STUDENT: 1000,
+  PARENT: 500,
+  STAFF: 1500,
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: "Super Admin",
+  SCHOOL_ADMIN: "School Admin",
+  TEACHER: "Teachers",
+  STUDENT: "Students",
+  PARENT: "Parents",
+  STAFF: "Staff",
+};
+
+const ROLE_ORDER = [
+  "SUPER_ADMIN",
+  "SCHOOL_ADMIN",
+  "TEACHER",
+  "STUDENT",
+  "PARENT",
+  "STAFF",
+];
+
+function money(value: number) {
+  return `₦${value.toLocaleString("en-NG")}`;
+}
+
+export default function LicensingPage() {
+  const [schools, setSchools] = useState<School[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      try {
+        setLoading(true);
+        setError("");
+
+        const [schoolsResponse, usersResponse] = await Promise.all([
+          api.get("/schools"),
+          api.get("/users"),
+        ]);
+
+        const schoolData = Array.isArray(schoolsResponse.data)
+          ? schoolsResponse.data
+          : [];
+
+        const userData = Array.isArray(usersResponse.data)
+          ? usersResponse.data
+          : [];
+
+        setSchools(schoolData);
+        setUsers(userData);
+
+        if (schoolData.length > 0) {
+          setSelectedSchoolId(schoolData[0].id);
+        }
+      } catch (err: any) {
+        console.error("Failed to load licensing data:", err);
+        setError(
+          err?.response?.data?.detail ||
+            "Unable to load licensing information."
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void load();
+  }, []);
+
+  const schoolStats = useMemo(() => {
+    return schools.map((school) => {
+      const schoolUsers = users.filter(
+        (user) => Number(user.school_id) === Number(school.id)
+      );
+
+      const counts: Record<string, number> = {};
+
+      for (const role of ROLE_ORDER) {
+        counts[role] = schoolUsers.filter(
+          (user) => user.role?.name === role
+        ).length;
+      }
+
+      const total = schoolUsers.length;
+
+      const licenseTotal = ROLE_ORDER.reduce(
+        (sum, role) => sum + counts[role] * PRICES[role],
+        0
+      );
+
+      return {
+        school,
+        counts,
+        total,
+        licenseTotal,
+      };
+    });
+  }, [schools, users]);
+
+  const selectedStats = schoolStats.find(
+    (item) => item.school.id === selectedSchoolId
+  );
+
+  const grandTotal = schoolStats.reduce(
+    (sum, item) => sum + item.licenseTotal,
+    0
+  );
+
+  const totalRegisteredUsers = schoolStats.reduce(
+    (sum, item) => sum + item.total,
+    0
+  );
+
+  return (
+    <div className="min-h-screen bg-[#050505] text-white p-6 md:p-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-8">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-blue-400">
+                Super Admin
+              </p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight">
+                Licensing
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm text-gray-400">
+                View registered users for every school and calculate the
+                tentative CoreOne license value.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4">
+              <p className="text-xs uppercase tracking-wider text-gray-500">
+                All Schools
+              </p>
+              <p className="mt-1 text-2xl font-bold">
+                {schools.length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-gray-400">
+            Loading licensing information...
+          </div>
+        ) : (
+          <>
+            <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <p className="text-sm text-gray-500">
+                  Total Registered Users
+                </p>
+                <p className="mt-2 text-3xl font-bold">
+                  {totalRegisteredUsers.toLocaleString()}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <p className="text-sm text-gray-500">
+                  Schools
+                </p>
+                <p className="mt-2 text-3xl font-bold">
+                  {schools.length.toLocaleString()}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
+                <p className="text-sm text-blue-300">
+                  Estimated Total Licensing
+                </p>
+                <p className="mt-2 text-3xl font-bold">
+                  {money(grandTotal)}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Tentative pricing
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr]">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="mb-4">
+                  <h2 className="font-semibold">Schools</h2>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Select a school to view its license.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  {schoolStats.map((item) => (
+                    <button
+                      key={item.school.id}
+                      type="button"
+                      onClick={() => setSelectedSchoolId(item.school.id)}
+                      className={`w-full rounded-xl border p-4 text-left transition ${
+                        selectedSchoolId === item.school.id
+                          ? "border-blue-500/50 bg-blue-500/10"
+                          : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"
+                      }`}
+                    >
+                      <div className="font-medium">
+                        {item.school.name}
+                      </div>
+
+                      {item.school.code && (
+                        <div className="mt-1 text-xs text-gray-500">
+                          {item.school.code}
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex justify-between text-xs">
+                        <span className="text-gray-500">
+                          Registered
+                        </span>
+                        <span className="font-semibold text-gray-300">
+                          {item.total}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+
+                  {schoolStats.length === 0 && (
+                    <div className="py-8 text-center text-sm text-gray-500">
+                      No schools found.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {selectedStats ? (
+                <div className="space-y-6">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-blue-400">
+                          School License
+                        </p>
+                        <h2 className="mt-1 text-2xl font-bold">
+                          {selectedStats.school.name}
+                        </h2>
+                        {selectedStats.school.code && (
+                          <p className="mt-1 text-sm text-gray-500">
+                            {selectedStats.school.code}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="rounded-xl bg-blue-500/10 px-5 py-4 text-right">
+                        <p className="text-xs text-blue-300">
+                          Tentative License Total
+                        </p>
+                        <p className="mt-1 text-2xl font-bold">
+                          {money(selectedStats.licenseTotal)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+                    <div className="border-b border-white/10 px-6 py-4">
+                      <h3 className="font-semibold">
+                        Registered Users & License Calculation
+                      </h3>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Current registered accounts grouped by role.
+                      </p>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[650px]">
+                        <thead className="bg-white/[0.03]">
+                          <tr className="text-left text-xs uppercase tracking-wider text-gray-500">
+                            <th className="px-6 py-4">User Type</th>
+                            <th className="px-6 py-4 text-right">
+                              Registered
+                            </th>
+                            <th className="px-6 py-4 text-right">
+                              Tentative Rate
+                            </th>
+                            <th className="px-6 py-4 text-right">
+                              Amount
+                            </th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {ROLE_ORDER.map((role) => {
+                            const count = selectedStats.counts[role];
+                            const rate = PRICES[role];
+                            const amount = count * rate;
+
+                            return (
+                              <tr
+                                key={role}
+                                className="border-t border-white/10"
+                              >
+                                <td className="px-6 py-4 font-medium">
+                                  {ROLE_LABELS[role]}
+                                </td>
+
+                                <td className="px-6 py-4 text-right text-gray-300">
+                                  {count.toLocaleString()}
+                                </td>
+
+                                <td className="px-6 py-4 text-right text-gray-400">
+                                  {money(rate)}
+                                </td>
+
+                                <td className="px-6 py-4 text-right font-semibold">
+                                  {money(amount)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+
+                        <tfoot>
+                          <tr className="border-t border-white/20 bg-white/[0.04]">
+                            <td className="px-6 py-5 font-bold">
+                              TOTAL
+                            </td>
+                            <td className="px-6 py-5 text-right font-bold">
+                              {selectedStats.total.toLocaleString()}
+                            </td>
+                            <td />
+                            <td className="px-6 py-5 text-right text-lg font-bold text-blue-400">
+                              {money(selectedStats.licenseTotal)}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-4 text-sm text-amber-300">
+                    <strong>Tentative pricing:</strong> These rates are
+                    placeholders for the CoreOne licensing model and can be
+                    changed later without changing the user-count system.
+                  </div>
+                </div>
+              ) : (
+                <div className="flex min-h-[400px] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-gray-500">
+                  Select a school.
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

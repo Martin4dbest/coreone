@@ -35,7 +35,6 @@ export default function Sidebar() {
   const [role, setRole] = useState("");
   const [schoolId, setSchoolId] = useState("");
   const [schoolName, setSchoolName] = useState("");
-  const [isPrimarySchoolAdmin, setIsPrimarySchoolAdmin] = useState(false);
 const [schoolLogo, setSchoolLogo] = useState("");
 const [schoolFeatures, setSchoolFeatures] = useState<any[]>([]);
 const [featuresLoaded, setFeaturesLoaded] = useState(false);
@@ -73,12 +72,9 @@ const [featuresLoaded, setFeaturesLoaded] = useState(false);
       }
 
       console.log("SIDEBAR ROLE:", userRole);
-      console.log("SIDEBAR USER:", user);
+  console.log("SIDEBAR USER:", user);
 
-      setRole(userRole);
-      setIsPrimarySchoolAdmin(
-        Boolean(user?.is_primary_school_admin)
-      );
+  setRole(userRole);
 
       if (userSchoolId) {
         const schoolIdString = String(userSchoolId);
@@ -283,13 +279,6 @@ feature: "events",
       color: "text-pink-400",
     },
     {
-      name: "Licensing",
-      href: `${schoolBase}/licensing`,
-      icon: FileText,
-      color: "text-cyan-400",
-      schoolPrimaryOnly: true,
-    },
-    {
       name: "Settings",
       href: `${schoolBase}/settings`,
       icon: Settings,
@@ -353,10 +342,6 @@ const featureEnabled = (featureKey: string) => {
 };
 
 const filteredSchoolAdminMenu = schoolAdminMenu.filter((item) => {
-  if (item.schoolPrimaryOnly && !isPrimarySchoolAdmin) {
-    return false;
-  }
-
   if (!item.feature) {
     return true;
   }
