@@ -86,6 +86,9 @@ export default function LicensingPage() {
     Number.isFinite(schoolId) && schoolId > 0 ? schoolId : null
   );
 
+  const [currentUserRole, setCurrentUserRole] = useState("");
+  const [isPrimarySchoolAdmin, setIsPrimarySchoolAdmin] = useState(false);
+
   const [summary, setSummary] =
     useState<LicensingSummary>(EMPTY_SUMMARY);
 
@@ -147,19 +150,45 @@ export default function LicensingPage() {
             ? user.role
             : user?.role?.name || "";
 
+        const normalizedRole = String(role).toUpperCase();
+
+        setCurrentUserRole(normalizedRole);
+        setIsPrimarySchoolAdmin(
+          Boolean(user?.is_primary_school_admin) ||
+          Boolean(user?.role?.is_primary_school_admin)
+        );
+
+        // SCHOOL_ADMIN licensing is always locked to their own school.
+        if (normalizedRole === "SCHOOL_ADMIN") {
+          const userSchoolId = Number(user?.school_id);
+
+          if (
+            !userSchoolId ||
+            !Number.isFinite(userSchoolId) ||
+            userSchoolId !== Number(schoolId)
+          ) {
+            window.location.replace(
+              `/dashboard/schools/${user?.school_id || ""}`
+            );
+            return;
+          }
+
+          setSelectedSchoolId(userSchoolId);
+          return;
+        }
+
+        // Controller SUPER_ADMIN can access any school,
+        // provided through the route.
         if (
-          role.toUpperCase() === "SCHOOL_ADMIN" &&
-          (
-            !user?.is_primary_school_admin ||
-            Number(user?.school_id) !== Number(schoolId)
-          )
+          normalizedRole !== "SUPER_ADMIN"
         ) {
-          window.location.replace(
-            `/dashboard/schools/${user.school_id}`
-          );
+          window.location.replace("/dashboard");
         }
       } catch (error) {
-        console.error("Licensing access verification failed:", error);
+        console.error(
+          "Licensing access verification failed:",
+          error
+        );
       }
     }
 
@@ -366,50 +395,69 @@ export default function LicensingPage() {
           </div>
         </div>
 
-        {/* SCHOOL SELECTOR */}
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <label className="mb-2 block text-sm font-semibold text-slate-700">
-            Select School
-          </label>
+        {/* SCHOOL SELECTOR / SCHOOL LICENSE TITLE */}
+        {currentUserRole === "SUPER_ADMIN" ? (
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <label className="mb-2 block text-sm font-semibold text-slate-700">
+              Select School
+            </label>
 
-          <select
-            value={selectedSchoolId ?? ""}
-            disabled={loadingSchools}
-            onChange={() => {}}
-            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 md:max-w-xl"
-          >
-            <option value="">
-              {loadingSchools
-                ? "Loading schools..."
-                : "Select a school"}
-            </option>
-
-            {schools.filter(
-            (school) => Number(school.id) === Number(selectedSchoolId)
-          ).map((school) => (
-              <option
-                key={school.id}
-                value={school.id}
-              >
-                {school.name ||
-                  school.school_name ||
-                  `School #${school.id}`}
-                {school.code || school.school_code
-                  ? ` (${school.code || school.school_code})`
-                  : ""}
+            <select
+              value={selectedSchoolId ?? ""}
+              disabled={loadingSchools}
+              onChange={() => {}}
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 md:max-w-xl"
+            >
+              <option value="">
+                {loadingSchools
+                  ? "Loading schools..."
+                  : "Select a school"}
               </option>
-            ))}
-          </select>
 
-          {selectedSchool && (
-            <div className="mt-3 text-sm text-slate-500">
-              Showing licensing users for{" "}
-              <span className="font-semibold text-slate-800">
-                {schoolName}
-              </span>
+              {schools
+                .filter(
+                  (school) =>
+                    Number(school.id) === Number(selectedSchoolId)
+                )
+                .map((school) => (
+                  <option
+                    key={school.id}
+                    value={school.id}
+                  >
+                    {school.name ||
+                      school.school_name ||
+                      `School #${school.id}`}
+                    {school.code || school.school_code
+                      ? ` (${school.code || school.school_code})`
+                      : ""}
+                  </option>
+                ))}
+            </select>
+
+            {selectedSchool && (
+              <div className="mt-3 text-sm text-slate-500">
+                Showing licensing users for{" "}
+                <span className="font-semibold text-slate-800">
+                  {schoolName}
+                </span>
+              </div>
+            )}
+          </div>
+        ) : currentUserRole === "SCHOOL_ADMIN" ? (
+          <div className="mb-6 rounded-2xl border border-cyan-200 bg-white p-5 shadow-sm">
+            <div className="text-xs font-bold uppercase tracking-wider text-cyan-600">
+              School License
             </div>
-          )}
-        </div>
+
+            <h2 className="mt-1 text-2xl font-bold text-slate-900">
+              {schoolName} License
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Licensing information for your school.
+            </p>
+          </div>
+        ) : null}
 
         {/* ERROR */}
         {error && (
