@@ -313,22 +313,6 @@ const tenant = params.tenant as string;
             <span className="text-xs text-slate-400 mt-0.5">Schedule & Periods</span>
           </Link>
 
-          <Link
-            href={`/${tenant}/teacher/learning`}
-            className="group flex flex-col items-center justify-center rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80 hover:border-indigo-300 hover:shadow-md transition-all text-center"
-          >
-            <div
-              className="flex h-12 w-12 items-center justify-center rounded-xl group-hover:scale-110 transition-transform"
-              style={{
-                backgroundColor: hexToRgba(primaryColor, 0.1),
-                color: primaryColor,
-              }}
-            >
-              <BookOpen className="h-6 w-6" />
-            </div>
-            <span className="mt-3 text-sm font-bold text-slate-800">Learning</span>
-            <span className="text-xs text-slate-400 mt-0.5">School Learning Centre</span>
-          </Link>
         </div>
       </div>
 
