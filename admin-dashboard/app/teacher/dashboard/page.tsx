@@ -314,7 +314,7 @@ const tenant = params.tenant as string;
           </Link>
 
           <Link
-            href={school?.id ? `/dashboard/schools/${school.id}/learning` : `/${tenant}/teacher/dashboard`}
+            href={`/${tenant}/teacher/learning`}
             className="group flex flex-col items-center justify-center rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80 hover:border-indigo-300 hover:shadow-md transition-all text-center"
           >
             <div
