@@ -172,11 +172,6 @@ export default function SchoolWorkspaceLayout({
       icon: LayoutDashboard,
     },
     {
-      name: "Students",
-      href: `${basePath}/students`,
-      icon: GraduationCap,
-      feature: "students",
-    },
     {
       name: "Partner Schools",
       href: `${basePath}/partner-schools`,
@@ -196,11 +191,6 @@ export default function SchoolWorkspaceLayout({
       feature: "staff",
     },
     {
-      name: "Classes",
-      href: `${basePath}/classes`,
-      icon: School,
-      feature: "classes",
-    },
     {
       name: "Academics",
       href: `${basePath}/academics`,
@@ -208,11 +198,6 @@ export default function SchoolWorkspaceLayout({
       feature: "academics",
     },
     {
-      name: "Attendance",
-      href: `${basePath}/attendance`,
-      icon: ClipboardCheck,
-      feature: "attendance",
-    },
     {
       name: "Learning",
       href: `${basePath}/learning`,
