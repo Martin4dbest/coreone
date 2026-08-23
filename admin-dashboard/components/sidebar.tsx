@@ -67,16 +67,22 @@ export default function Sidebar() {
 
         const userSchoolId = user.school_id;
 
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
+
+        console.log("SIDEBAR ROLE:", userRole);
+        console.log("SIDEBAR USER:", user);
 
         setRole(userRole);
         setIsPrimarySchoolAdmin(Boolean(user?.is_primary_school_admin));
 
         if (userSchoolId) {
           const schoolIdString = String(userSchoolId);
+
           setSchoolId(schoolIdString);
 
-          // Load school feature-control state
+          // Load the school's feature-control state.
           try {
             const featuresResponse = await api.get(
               `/school-features/${schoolIdString}`
@@ -95,10 +101,15 @@ export default function Sidebar() {
               "Unable to load school features for sidebar:",
               featureError
             );
-            if (mounted) setFeaturesLoaded(true);
+
+            if (mounted) {
+              // Fail open during a temporary API failure.
+              setFeaturesLoaded(true);
+            }
           }
 
           const school = await getSchool(schoolIdString);
+
           if (mounted) {
             setSchoolName(school.name || "");
           }
@@ -113,9 +124,15 @@ export default function Sidebar() {
             }
           } catch (brandingError: any) {
             if (brandingError.response?.status !== 404) {
-              console.error("Unable to load school branding:", brandingError);
+              console.error(
+                "Unable to load school branding:",
+                brandingError
+              );
             }
-            if (mounted) setSchoolLogo("");
+
+            if (mounted) {
+              setSchoolLogo("");
+            }
           }
         }
       } catch (error) {
@@ -262,7 +279,7 @@ export default function Sidebar() {
     },
     {
       name: "Students",
-      href: `${schoolBase}/students`,
+      href: "/teacher/students",
       icon: GraduationCap,
       color: "text-purple-400",
     },
@@ -287,7 +304,9 @@ export default function Sidebar() {
   ];
 
   const featureEnabled = (featureKey: string) => {
-    if (!featuresLoaded) return true;
+    if (!featuresLoaded) {
+      return true;
+    }
 
     const feature = schoolFeatures.find(
       (item) =>
@@ -314,7 +333,9 @@ export default function Sidebar() {
 
   if (role === "SCHOOL_ADMIN") {
     menu = filteredSchoolAdminMenu;
-  } else if (role === "TEACHER") {
+  }
+
+  if (role === "TEACHER") {
     menu = teacherMenu;
   }
 
@@ -331,6 +352,8 @@ export default function Sidebar() {
       router.replace("/login");
     }
   }
+
+  console.log("FINAL MENU ROLE:", role, menu);
 
   return (
     <>
