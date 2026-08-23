@@ -330,8 +330,6 @@ const tenant = params.tenant as string;
             >
               <BookOpen className="h-6 w-6" />
             </div>
-            <span className="mt-3 text-sm font-bold text-slate-800">Learning</span>
-            <span className="text-xs text-slate-400 mt-0.5">School Learning Centre</span>
           </Link>
 
         </div>
