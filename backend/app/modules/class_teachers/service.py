@@ -110,7 +110,7 @@ class ClassTeacherService:
         session_id: int,
     ):
 
-        teacher = await self.repository.get_teacher(
+        teacher = await self.repository.get_teacher_by_user(
             current_user.id,
             current_user.school_id,
         )

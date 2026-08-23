@@ -315,6 +315,97 @@ const tenant = params.tenant as string;
         </div>
       </div>
 
+      {/* 4B. Learning & Teaching Tools */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+            Learning & Teaching Tools
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Access your teaching, assessment and learning resources from here.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+
+          <Link
+            href={`/${tenant}/teacher/attendance`}
+            className="group rounded-2xl border border-slate-200/80 bg-white p-5 text-center shadow-sm transition-all hover:border-emerald-300 hover:shadow-md"
+          >
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition-transform group-hover:scale-110">
+              <UserCheck className="h-6 w-6" />
+            </div>
+            <h3 className="mt-3 text-sm font-bold text-slate-800">
+              Attendance
+            </h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Mark attendance
+            </p>
+          </Link>
+
+          <Link
+            href={`/${tenant}/teacher/learning/cbt`}
+            className="group rounded-2xl border border-slate-200/80 bg-white p-5 text-center shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+          >
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-transform group-hover:scale-110">
+              <FileSpreadsheet className="h-6 w-6" />
+            </div>
+            <h3 className="mt-3 text-sm font-bold text-slate-800">
+              CBT
+            </h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Manage examinations
+            </p>
+          </Link>
+
+          <Link
+            href={`/${tenant}/teacher/learning/ebooks`}
+            className="group rounded-2xl border border-slate-200/80 bg-white p-5 text-center shadow-sm transition-all hover:border-purple-300 hover:shadow-md"
+          >
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-purple-50 text-purple-600 transition-transform group-hover:scale-110">
+              <BookOpen className="h-6 w-6" />
+            </div>
+            <h3 className="mt-3 text-sm font-bold text-slate-800">
+              Ebooks
+            </h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Digital materials
+            </p>
+          </Link>
+
+          <Link
+            href={`/${tenant}/teacher/learning/youtube`}
+            className="group rounded-2xl border border-slate-200/80 bg-white p-5 text-center shadow-sm transition-all hover:border-red-300 hover:shadow-md"
+          >
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 text-red-600 transition-transform group-hover:scale-110">
+              <span className="text-xl font-bold">▶</span>
+            </div>
+            <h3 className="mt-3 text-sm font-bold text-slate-800">
+              YouTube Learning
+            </h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Educational videos
+            </p>
+          </Link>
+
+          <Link
+            href={`/${tenant}/teacher/learning/browser`}
+            className="group rounded-2xl border border-slate-200/80 bg-white p-5 text-center shadow-sm transition-all hover:border-cyan-300 hover:shadow-md"
+          >
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 transition-transform group-hover:scale-110">
+              <span className="text-xl">🌐</span>
+            </div>
+            <h3 className="mt-3 text-sm font-bold text-slate-800">
+              Browser Resources
+            </h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Teaching resources
+            </p>
+          </Link>
+
+        </div>
+      </div>
+
       {/* 5. Assigned Classes & Subjects Cards */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
