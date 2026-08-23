@@ -17,152 +17,122 @@ import {
   BookOpen,
   CalendarDays,
   ClipboardCheck,
-  Building2,
   LogOut,
   Menu,
   X,
+  LucideIcon,
 } from "lucide-react";
 
 import Logo from "./logo";
 import api from "@/lib/api";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 
+interface MenuItem {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  color: string;
+  feature?: string;
+  schoolPrimaryOnly?: boolean;
+}
+
 export default function Sidebar() {
   const router = useRouter();
 
   const [mobileOpen, setMobileOpen] = useState(false);
-
   const [role, setRole] = useState("");
   const [schoolId, setSchoolId] = useState("");
   const [schoolName, setSchoolName] = useState("");
   const [isPrimarySchoolAdmin, setIsPrimarySchoolAdmin] = useState(false);
-const [schoolLogo, setSchoolLogo] = useState("");
-const [schoolFeatures, setSchoolFeatures] = useState<any[]>([]);
-const [featuresLoaded, setFeaturesLoaded] = useState(false);
+  const [schoolLogo, setSchoolLogo] = useState("");
+  const [schoolFeatures, setSchoolFeatures] = useState<any[]>([]);
+  const [featuresLoaded, setFeaturesLoaded] = useState(false);
 
-  const getCurrentUser = useWorkspaceStore(
-    (state) => state.getCurrentUser
-  );
-
-  const getSchool = useWorkspaceStore(
-    (state) => state.getSchool
-  );
-
+  const getCurrentUser = useWorkspaceStore((state) => state.getCurrentUser);
+  const getSchool = useWorkspaceStore((state) => state.getSchool);
   const clearWorkspaceCache = useWorkspaceStore(
     (state) => state.clearWorkspaceCache
   );
 
   useEffect(() => {
-  let mounted = true;
+    let mounted = true;
 
-  async function loadUser() {
-    try {
-      const user = await getCurrentUser();
+    async function loadUser() {
+      try {
+        const user = await getCurrentUser();
 
-      const userRole =
-        (
-          typeof user.role === "string"
-            ? user.role
-            : user.role?.name || ""
+        const userRole = (
+          typeof user.role === "string" ? user.role : user.role?.name || ""
         ).toUpperCase();
 
-      const userSchoolId = user.school_id;
+        const userSchoolId = user.school_id;
 
-      if (!mounted) {
-        return;
-      }
+        if (!mounted) return;
 
-      console.log("SIDEBAR ROLE:", userRole);
-      console.log("SIDEBAR USER:", user);
+        setRole(userRole);
+        setIsPrimarySchoolAdmin(Boolean(user?.is_primary_school_admin));
 
-      setRole(userRole);
-      setIsPrimarySchoolAdmin(
-        Boolean(user?.is_primary_school_admin)
-      );
+        if (userSchoolId) {
+          const schoolIdString = String(userSchoolId);
+          setSchoolId(schoolIdString);
 
-      if (userSchoolId) {
-        const schoolIdString = String(userSchoolId);
-
-        setSchoolId(schoolIdString);
-
-        
-
-    // Load the school's feature-control state.
-    try {
-      const featuresResponse = await api.get(
-        `/school-features/${schoolIdString}`
-      );
-
-      if (mounted) {
-        setSchoolFeatures(
-          Array.isArray(featuresResponse.data)
-            ? featuresResponse.data
-            : []
-        );
-        setFeaturesLoaded(true);
-      }
-    } catch (featureError) {
-      console.error(
-        "Unable to load school features for sidebar:",
-        featureError
-      );
-
-      if (mounted) {
-        // Fail open during a temporary API failure.
-        setFeaturesLoaded(true);
-      }
-    }
-
-const school = await getSchool(
-          schoolIdString
-        );
-
-        if (mounted) {
-          setSchoolName(school.name || "");
-        }
-
-        try {
-          const brandingResponse = await api.get(
-            `/branding?school_id=${schoolIdString}`
-          );
-
-          if (mounted) {
-            setSchoolLogo(
-              brandingResponse.data.logo_url || ""
+          // Load school feature-control state
+          try {
+            const featuresResponse = await api.get(
+              `/school-features/${schoolIdString}`
             );
-          }
-        } catch (brandingError: any) {
-          if (brandingError.response?.status !== 404) {
+
+            if (mounted) {
+              setSchoolFeatures(
+                Array.isArray(featuresResponse.data)
+                  ? featuresResponse.data
+                  : []
+              );
+              setFeaturesLoaded(true);
+            }
+          } catch (featureError) {
             console.error(
-              "Unable to load school branding:",
-              brandingError
+              "Unable to load school features for sidebar:",
+              featureError
             );
+            if (mounted) setFeaturesLoaded(true);
           }
 
+          const school = await getSchool(schoolIdString);
           if (mounted) {
-            setSchoolLogo("");
+            setSchoolName(school.name || "");
+          }
+
+          try {
+            const brandingResponse = await api.get(
+              `/branding?school_id=${schoolIdString}`
+            );
+
+            if (mounted) {
+              setSchoolLogo(brandingResponse.data.logo_url || "");
+            }
+          } catch (brandingError: any) {
+            if (brandingError.response?.status !== 404) {
+              console.error("Unable to load school branding:", brandingError);
+            }
+            if (mounted) setSchoolLogo("");
           }
         }
+      } catch (error) {
+        console.error("Unable to load sidebar user/school:", error);
       }
-    } catch (error) {
-      console.error(
-        "Unable to load sidebar user/school:",
-        error
-      );
     }
-  }
 
-  loadUser();
+    loadUser();
 
-  return () => {
-    mounted = false;
-  };
-}, [getCurrentUser, getSchool]);
+    return () => {
+      mounted = false;
+    };
+  }, [getCurrentUser, getSchool]);
 
-const schoolBase =
-    `/dashboard/schools/${schoolId}`;
+  const schoolBase = `/dashboard/schools/${schoolId}`;
 
-  const superAdminMenu = [
+  const superAdminMenu: MenuItem[] = [
     {
       name: "Dashboard",
       href: "/dashboard",
@@ -219,7 +189,7 @@ const schoolBase =
     },
   ];
 
-  const schoolAdminMenu = [
+  const schoolAdminMenu: MenuItem[] = [
     {
       name: "School Dashboard",
       href: schoolBase,
@@ -227,42 +197,46 @@ const schoolBase =
       color: "text-blue-400",
     },
     {
-    {
       name: "Teachers",
-href: `${schoolBase}/teachers`,
+      href: `${schoolBase}/teachers`,
       icon: Users,
       color: "text-orange-400",
-feature: "teachers",
+      feature: "teachers",
     },
     {
       name: "Staff",
       href: `${schoolBase}/staff`,
       icon: UserRound,
       color: "text-cyan-400",
-feature: "staff",
+      feature: "staff",
     },
-    {
     {
       name: "Academics",
       href: `${schoolBase}/academics`,
       icon: BookOpen,
       color: "text-rose-400",
-feature: "academics",
+      feature: "academics",
     },
     {
-name: "Results",
-href: `/dashboard/schools/${schoolId}/results`,
-icon: FileText,
-color: "text-yellow-400",
-feature: "results",
-},
-{
+      name: "Attendance",
+      href: `${schoolBase}/attendance`,
+      icon: ClipboardCheck,
+      color: "text-green-400",
+      feature: "attendance",
+    },
+    {
+      name: "Results",
+      href: `${schoolBase}/results`,
+      icon: FileText,
+      color: "text-yellow-400",
+      feature: "results",
+    },
     {
       name: "Events",
-feature: "events",
       href: `${schoolBase}/events`,
       icon: CalendarDays,
       color: "text-pink-400",
+      feature: "events",
     },
     {
       name: "Licensing",
@@ -279,92 +253,72 @@ feature: "events",
     },
   ];
 
-  
+  const teacherMenu: MenuItem[] = [
+    {
+      name: "Dashboard",
+      href: "/teacher/dashboard",
+      icon: LayoutDashboard,
+      color: "text-blue-400",
+    },
+    {
+      name: "Students",
+      href: `${schoolBase}/students`,
+      icon: GraduationCap,
+      color: "text-purple-400",
+    },
+    {
+      name: "Attendance",
+      href: `${schoolBase}/attendance`,
+      icon: ClipboardCheck,
+      color: "text-green-400",
+    },
+    {
+      name: "Results",
+      href: "/teacher/results",
+      icon: FileText,
+      color: "text-yellow-400",
+    },
+    {
+      name: "Learning",
+      href: "/teacher/learning",
+      icon: BookOpen,
+      color: "text-cyan-400",
+    },
+  ];
 
-const teacherMenu = [
-  {
-    name: "Dashboard",
-    href: "/teacher/dashboard",
-    icon: LayoutDashboard,
-    color: "text-blue-400",
-  },
-  {
-  {
-  {
-    name: "Students",
-    href: "/teacher/students",
-    icon: GraduationCap,
-    color: "text-purple-400",
-  },
-  {
-    name: "Attendance",
-    href: "/teacher/attendance",
-    icon: ClipboardCheck,
-    color: "text-green-400",
-  },
-  {
-    name: "Results",
-    href: "/teacher/results",
-    icon: FileText,
-    color: "text-yellow-400",
-  },
-  {
-    name: "Learning",
-    href: "/teacher/learning",
-    icon: BookOpen,
-    color: "text-cyan-400",
-  },
-];
+  const featureEnabled = (featureKey: string) => {
+    if (!featuresLoaded) return true;
 
-  
+    const feature = schoolFeatures.find(
+      (item) =>
+        String(item?.feature_key || "").trim().toLowerCase() ===
+        featureKey.trim().toLowerCase()
+    );
 
-const featureEnabled = (featureKey: string) => {
-  /*
-   * Feature control is authoritative for School Admin.
-   *
-   * IMPORTANT:
-   * - While the API is loading, keep the current menu visible.
-   * - Once the API has loaded, an explicit feature record controls
-   *   visibility.
-   * - Missing records remain visible so an incomplete database
-   *   configuration cannot accidentally break the dashboard.
-   */
-  if (!featuresLoaded) {
-    return true;
+    return feature?.enabled ?? true;
+  };
+
+  const filteredSchoolAdminMenu = schoolAdminMenu.filter((item) => {
+    if (item.schoolPrimaryOnly && !isPrimarySchoolAdmin) {
+      return false;
+    }
+
+    if (!item.feature) {
+      return true;
+    }
+
+    return featureEnabled(item.feature);
+  });
+
+  let menu = superAdminMenu;
+
+  if (role === "SCHOOL_ADMIN") {
+    menu = filteredSchoolAdminMenu;
+  } else if (role === "TEACHER") {
+    menu = teacherMenu;
   }
 
-  const feature = schoolFeatures.find(
-    (item) =>
-      String(item?.feature_key || "").trim().toLowerCase() ===
-      featureKey.trim().toLowerCase()
-  );
-
-  return feature?.enabled ?? true;
-};
-
-const filteredSchoolAdminMenu = schoolAdminMenu.filter((item) => {
-  if (item.schoolPrimaryOnly && !isPrimarySchoolAdmin) {
-    return false;
-  }
-
-  if (!item.feature) {
-    return true;
-  }
-
-  return featureEnabled(item.feature);
-});
-
-let menu = superAdminMenu;
-
-if (role === "SCHOOL_ADMIN") {
-  menu = filteredSchoolAdminMenu;
-}
-
-if (role === "TEACHER") {
-  menu = teacherMenu;
-}
-
-function handleLogout() {
+  function handleLogout() {
     clearWorkspaceCache();
     localStorage.removeItem("access_token");
 
@@ -377,8 +331,6 @@ function handleLogout() {
       router.replace("/login");
     }
   }
-
-  console.log("FINAL MENU ROLE:", role, menu);
 
   return (
     <>
@@ -410,16 +362,16 @@ function handleLogout() {
         `}
       >
         <div className="relative h-full overflow-y-auto rounded-3xl bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-900 p-5 shadow-2xl lg:p-6">
-        <button
-          type="button"
-          aria-label="Close navigation menu"
-          onClick={() => setMobileOpen(false)}
-          className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20 lg:hidden"
-        >
-          <X size={20} />
-        </button>
+          <button
+            type="button"
+            aria-label="Close navigation menu"
+            onClick={() => setMobileOpen(false)}
+            className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20 lg:hidden"
+          >
+            <X size={20} />
+          </button>
 
-        <div className="relative min-h-40 rounded-2xl bg-white/10 p-4 backdrop-blur">
+          <div className="relative min-h-40 rounded-2xl bg-white/10 p-4 backdrop-blur">
             <div className="relative h-20 w-20 overflow-hidden rounded-2xl bg-white/10">
               {schoolLogo ? (
                 <Image
@@ -434,51 +386,43 @@ function handleLogout() {
               )}
             </div>
 
-          <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-indigo-200">
-            {schoolName || "Smart School Platform"}
-          </p>
-        </div>
+            <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-indigo-200">
+              {schoolName || "Smart School Platform"}
+            </p>
+          </div>
 
-        <div className="mt-10 space-y-3">
-          {menu.map((item) => {
-            const Icon = item.icon;
+          <div className="mt-10 space-y-3">
+            {menu.map((item) => {
+              const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className="group flex items-center gap-4 rounded-2xl px-4 py-3 transition hover:bg-white/10"
-              >
-                <Icon
-                  size={21}
-                  className={item.color}
-                />
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="group flex items-center gap-4 rounded-2xl px-4 py-3 transition hover:bg-white/10"
+                >
+                  <Icon size={21} className={item.color} />
 
-                <span className="font-semibold text-white">
-                  {item.name}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
+                  <span className="font-semibold text-white">
+                    {item.name}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
 
-        <div className="mt-8 border-t border-white/10 pt-5">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-left transition hover:bg-red-500/10"
-          >
-            <LogOut
-              size={21}
-              className="text-red-400"
-            />
+          <div className="mt-8 border-t border-white/10 pt-5">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-left transition hover:bg-red-500/10"
+            >
+              <LogOut size={21} className="text-red-400" />
 
-            <span className="font-semibold text-white">
-              Sign Out
-            </span>
-          </button>
-        </div>
+              <span className="font-semibold text-white">Sign Out</span>
+            </button>
+          </div>
         </div>
       </aside>
     </>
