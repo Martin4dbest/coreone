@@ -18,6 +18,8 @@ type Teacher = {
   employee_number: string;
   first_name: string;
   last_name: string;
+  email?: string | null;
+  school_id?: number;
 };
 
 type TeacherAssignment = {
@@ -172,12 +174,62 @@ export default function RegisteredUsersPage({
 
           const teacherList: Teacher[] = teachers;
 
-          setTeachers(
-            teacherList.map((teacher) => ({
-              ...teacher,
-              assignment: null,
-            }))
+          // Load the real assignment summary for every registered teacher.
+          // This provides the teacher email, class-teacher classes,
+          // and assigned subjects/classes.
+          const teachersWithAssignments = await Promise.all(
+            teacherList.map(async (teacher) => {
+              try {
+                const assignmentResult = await api.get(
+                  `/teachers/${teacher.id}/assignments`,
+                  {
+                    params: {
+                      school_id: Number(schoolId),
+                    },
+                  }
+                );
+
+                const assignment = assignmentResult?.data;
+
+                return {
+                  ...teacher,
+                  assignment: assignment
+                    ? {
+                        teacher: assignment.teacher,
+                        email: assignment.email || teacher.email || null,
+                        class_teacher_of: Array.isArray(
+                          assignment.class_teacher_of
+                        )
+                          ? assignment.class_teacher_of
+                          : [],
+                        subjects: Array.isArray(assignment.subjects)
+                          ? assignment.subjects
+                          : [],
+                      }
+                    : null,
+                };
+              } catch (assignmentError) {
+                console.error(
+                  `Failed to load assignments for teacher ${teacher.id}:`,
+                  assignmentError
+                );
+
+                // Do not remove the teacher if one assignment request fails.
+                return {
+                  ...teacher,
+                  assignment: {
+                    teacher:
+                      `${teacher.first_name} ${teacher.last_name}`.trim(),
+                    email: teacher.email || null,
+                    class_teacher_of: [],
+                    subjects: [],
+                  },
+                };
+              }
+            })
           );
+
+          setTeachers(teachersWithAssignments);
 
           // Build registered admins directly from /users + /roles.
           // This keeps Super Admin working for the selected school
