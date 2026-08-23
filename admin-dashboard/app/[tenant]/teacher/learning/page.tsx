@@ -1,111 +1,142 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import {
+  BookOpen,
+  MonitorPlay,
+  Globe,
+  FileQuestion,
+} from "lucide-react";
+import api from "@/lib/api";
 
+type LearningItem = {
+  title: string;
+  description: string;
+  href: string;
+  icon: any;
+};
 
-export default function TeacherLearningPage(){
+export default function TeacherLearningPage() {
+  const [isClassTeacher, setIsClassTeacher] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-const params = useParams();
+  useEffect(() => {
+    let active = true;
 
-const tenant = params.tenant as string;
+    (async () => {
+      try {
+        const response = await api.get(
+          "/teachers/me/class-teacher-status"
+        );
 
+        if (active) {
+          setIsClassTeacher(
+            response?.data?.is_class_teacher === true
+          );
+        }
+      } catch (error) {
+        console.error(
+          "[teacher-learning] Class Teacher check failed:",
+          error
+        );
 
-const modules = [
+        if (active) {
+          setIsClassTeacher(false);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    })();
 
-{
-title:"Attendance",
-description:"Manage attendance for assigned classes",
-icon:"📅",
-link:`/${tenant}/teacher/attendance`
-},
+    return () => {
+      active = false;
+    };
+  }, []);
 
-{
-title:"CBT",
-description:"Create and manage exams for assigned subjects",
-icon:"📝",
-link:`/${tenant}/teacher/learning/cbt`
-},
+  const items: LearningItem[] = [
+    {
+      title: "Ebooks",
+      description: "Access digital learning materials",
+      href: "learning/ebooks",
+      icon: BookOpen,
+    },
 
-{
-title:"Ebooks",
-description:"Access digital learning materials",
-icon:"📚",
-link:`/${tenant}/teacher/learning/ebooks`
-},
+    ...(isClassTeacher
+      ? [
+          {
+            title: "CBT",
+            description:
+              "Create and manage computer-based tests",
+            href: "learning/cbt",
+            icon: FileQuestion,
+          },
+          {
+            title: "YouTube Learning",
+            description:
+              "Access educational YouTube resources",
+            href: "learning/youtube",
+            icon: MonitorPlay,
+          },
+          {
+            title: "Browser",
+            description:
+              "Explore approved learning websites",
+            href: "learning/browser",
+            icon: Globe,
+          },
+        ]
+      : []),
+  ];
 
-{
-title:"YouTube Learning",
-description:"Educational videos and lessons",
-icon:"▶️",
-link:`/${tenant}/teacher/learning/youtube`
-},
+  return (
+    <div className="min-h-screen p-8">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">
+            Teacher Learning
+          </h1>
 
-{
-title:"Browser Resources",
-description:"Approved teaching resources",
-icon:"🌐",
-link:`/${tenant}/teacher/learning/browser`
-}
+          <p className="mt-2 text-gray-500">
+            Access your available teaching and learning
+            resources.
+          </p>
+        </div>
 
-];
+        {loading ? (
+          <p className="text-sm text-gray-500">
+            Loading learning resources...
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {items.map((item) => {
+              const Icon = item.icon;
 
+              return (
+                <Link
+                  key={item.title}
+                  href={item.href}
+                  className="group rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                >
+                  <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100">
+                    <Icon className="h-6 w-6" />
+                  </div>
 
-return (
+                  <h2 className="text-xl font-semibold">
+                    {item.title}
+                  </h2>
 
-<div className="space-y-6">
-
-
-<div>
-
-<h1 className="text-3xl font-bold">
-Teacher Learning Hub
-</h1>
-
-<p className="text-slate-500">
-Teaching tools, resources and assessments
-</p>
-
-</div>
-
-
-
-<div className="grid md:grid-cols-3 gap-5">
-
-
-{
-modules.map(item=>(
-
-<Link
-key={item.title}
-href={item.link}
-className="rounded-2xl border bg-white p-6 shadow-sm hover:shadow-md"
->
-
-<div className="text-4xl mb-4">
-{item.icon}
-</div>
-
-<h2 className="font-bold text-xl">
-{item.title}
-</h2>
-
-<p className="mt-2 text-sm text-slate-500">
-{item.description}
-</p>
-
-
-</Link>
-
-))
-}
-
-
-</div>
-
-
-</div>
-
-);
-
+                  <p className="mt-2 text-sm text-gray-500">
+                    {item.description}
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
