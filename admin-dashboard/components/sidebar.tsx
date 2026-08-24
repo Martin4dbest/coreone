@@ -235,25 +235,11 @@ export default function Sidebar() {
       feature: "academics",
     },
     {
-      name: "Attendance",
-      href: `${schoolBase}/attendance`,
-      icon: ClipboardCheck,
-      color: "text-green-400",
-      feature: "attendance",
-    },
-    {
       name: "Results",
       href: `${schoolBase}/results`,
       icon: FileText,
       color: "text-yellow-400",
       feature: "results",
-    },
-    {
-      name: "Events",
-      href: `${schoolBase}/events`,
-      icon: CalendarDays,
-      color: "text-pink-400",
-      feature: "events",
     },
     {
       name: "Licensing",
