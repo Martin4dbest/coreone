@@ -264,12 +264,6 @@ export default function Sidebar() {
       color: "text-blue-400",
     },
     {
-      name: "Students",
-      href: "/teacher/students",
-      icon: GraduationCap,
-      color: "text-purple-400",
-    },
-    {
       name: "Results",
       href: "/teacher/results",
       icon: FileText,
