@@ -221,13 +221,6 @@ export default function Sidebar() {
       feature: "teachers",
     },
     {
-      name: "Staff",
-      href: `${schoolBase}/staff`,
-      icon: UserRound,
-      color: "text-cyan-400",
-      feature: "staff",
-    },
-    {
       name: "Academics",
       href: `${schoolBase}/academics`,
       icon: BookOpen,
