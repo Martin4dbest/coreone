@@ -172,7 +172,6 @@ export default function SchoolWorkspaceLayout({
       icon: LayoutDashboard,
     },
     {
-    {
       name: "Partner Schools",
       href: `${basePath}/partner-schools`,
       icon: Users,
@@ -191,13 +190,11 @@ export default function SchoolWorkspaceLayout({
       feature: "staff",
     },
     {
-    {
       name: "Academics",
       href: `${basePath}/academics`,
       icon: BookOpen,
       feature: "academics",
     },
-    {
     {
       name: "Learning",
       href: `${basePath}/learning`,
