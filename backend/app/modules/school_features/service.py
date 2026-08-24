@@ -24,6 +24,8 @@ DEFAULT_FEATURES = [
     "settings",
     "branding",
     "partner_schools",
+    "school_books",
+    "school_bus",
 ]
 
 

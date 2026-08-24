@@ -23,6 +23,7 @@ import {
   Globe,
   FileQuestion,
   Bell,
+  Bus,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -200,6 +201,18 @@ export default function SchoolWorkspaceLayout({
       href: `${basePath}/learning`,
       icon: BookOpen,
       feature: "learning",
+    },
+    {
+      name: "School Books",
+      href: `${basePath}/school-books`,
+      icon: BookOpen,
+      feature: "school_books",
+    },
+    {
+      name: "School Bus",
+      href: `${basePath}/school-bus`,
+      icon: Bus,
+      feature: "school_bus",
     },
     {
       name: "Events",

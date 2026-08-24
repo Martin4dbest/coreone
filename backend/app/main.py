@@ -15,6 +15,8 @@ from app.modules.admins.router import router as admins_router
 from app.modules.super_admins.router import router as super_admins_router
 from app.modules.schools.router import router as schools_router
 from app.modules.school_features.router import router as school_features_router
+from app.modules.school_books.router import router as school_books_router
+from app.modules.school_bus.router import router as school_bus_router
 from app.modules.partner_schools.router import router as partner_schools_router
 from app.modules.roles.router import router as roles_router
 from app.modules.parents.router import router as parents_router
@@ -462,3 +464,14 @@ except Exception as _route_diag_error:
     print(repr(_route_diag_error))
     print("=" * 80)
 
+
+
+app.include_router(
+    school_books_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    school_bus_router,
+    prefix="/api/v1",
+)

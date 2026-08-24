@@ -36,6 +36,8 @@ __all__ = [
     "Teacher",
     "Term",
     "User",
+    "SchoolBook",
+    "SchoolBus",
 "Result",
     "Ebook",
     "EbookStudentAccess",
@@ -69,3 +71,6 @@ from app.models.browser_activity import BrowserActivity
 
 from app.models.partner_school import PartnerSchool
 from app.models.student_partner_school import StudentPartnerSchool
+
+from app.models.school_book import SchoolBook
+from app.models.school_bus import SchoolBus

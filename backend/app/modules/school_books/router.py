@@ -1,0 +1,167 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.permissions import require_roles
+from app.db.database import get_db
+from app.models.school_book import SchoolBook
+from app.modules.school_books.schemas import (
+    SchoolBookCreate,
+    SchoolBookResponse,
+    SchoolBookUpdate,
+)
+
+router = APIRouter(
+    prefix="/school-books",
+    tags=["School Books"],
+)
+
+
+def verify_school_access(current_user, school_id: int):
+    role = current_user.role.name if current_user.role else None
+
+    if role == "SUPER_ADMIN":
+        return
+
+    if role == "SCHOOL_ADMIN" and current_user.school_id == school_id:
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail="You do not have permission to manage School Books.",
+    )
+
+
+@router.get(
+    "/{school_id}",
+    response_model=list[SchoolBookResponse],
+)
+async def list_school_books(
+    school_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
+    ),
+):
+    verify_school_access(current_user, school_id)
+
+    result = await db.execute(
+        select(SchoolBook)
+        .where(SchoolBook.school_id == school_id)
+        .order_by(SchoolBook.title.asc())
+    )
+
+    return list(result.scalars().all())
+
+
+@router.post(
+    "/{school_id}",
+    response_model=SchoolBookResponse,
+)
+async def create_school_book(
+    school_id: int,
+    payload: SchoolBookCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
+    ),
+):
+    verify_school_access(current_user, school_id)
+
+    book = SchoolBook(
+        school_id=school_id,
+        title=payload.title.strip(),
+        author=payload.author.strip() if payload.author else None,
+        isbn=payload.isbn.strip() if payload.isbn else None,
+        category=payload.category.strip() if payload.category else None,
+        subject_id=payload.subject_id,
+        quantity=payload.quantity,
+        is_active=True,
+    )
+
+    db.add(book)
+    await db.commit()
+    await db.refresh(book)
+
+    return book
+
+
+@router.patch(
+    "/{school_id}/{book_id}",
+    response_model=SchoolBookResponse,
+)
+async def update_school_book(
+    school_id: int,
+    book_id: int,
+    payload: SchoolBookUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
+    ),
+):
+    verify_school_access(current_user, school_id)
+
+    result = await db.execute(
+        select(SchoolBook).where(
+            SchoolBook.id == book_id,
+            SchoolBook.school_id == school_id,
+        )
+    )
+
+    book = result.scalar_one_or_none()
+
+    if not book:
+        raise HTTPException(
+            status_code=404,
+            detail="School book not found.",
+        )
+
+    data = payload.model_dump(exclude_unset=True)
+
+    for key, value in data.items():
+        if isinstance(value, str):
+            value = value.strip()
+
+        setattr(book, key, value)
+
+    await db.commit()
+    await db.refresh(book)
+
+    return book
+
+
+@router.delete(
+    "/{school_id}/{book_id}",
+)
+async def archive_school_book(
+    school_id: int,
+    book_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
+    ),
+):
+    verify_school_access(current_user, school_id)
+
+    result = await db.execute(
+        select(SchoolBook).where(
+            SchoolBook.id == book_id,
+            SchoolBook.school_id == school_id,
+        )
+    )
+
+    book = result.scalar_one_or_none()
+
+    if not book:
+        raise HTTPException(
+            status_code=404,
+            detail="School book not found.",
+        )
+
+    book.is_active = False
+
+    await db.commit()
+
+    return {
+        "message": "School book archived successfully.",
+    }

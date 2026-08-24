@@ -70,6 +70,16 @@ const FEATURES: FeatureDefinition[] = [
     description: "The school's digital learning centre.",
   },
   {
+    key: "school_books",
+    name: "School Books",
+    description: "School book management and physical book resources.",
+  },
+  {
+    key: "school_bus",
+    name: "School Bus",
+    description: "School transportation and bus management.",
+  },
+  {
     key: "ebooks",
     name: "Ebooks",
     description: "Digital books and ebook resources.",
