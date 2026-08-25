@@ -74,21 +74,38 @@ class UserService:
                 detail="Only a Super Admin can assign the SUPER_ADMIN role",
             )
 
+        # ---------------------------------------------------------
+        # PRIMARY SCHOOL ADMIN RESTRICTIONS
+        # ---------------------------------------------------------
+        # Only the Primary School Admin may create:
+        #   1. Additional SCHOOL_ADMIN accounts
+        #   2. ACCOUNTANT / School Bookkeeper accounts
+        #
+        # SUPER_ADMIN remains unrestricted by this school-level rule.
+        # ---------------------------------------------------------
         if (
             current_user.role.name == "SCHOOL_ADMIN"
-            and role.name == "SCHOOL_ADMIN"
+            and role.name in {"SCHOOL_ADMIN", "ACCOUNTANT"}
             and not getattr(
                 current_user,
                 "is_primary_school_admin",
                 False,
             )
         ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
+            if role.name == "SCHOOL_ADMIN":
+                detail = (
                     "Only the Primary School Admin can "
                     "create additional School Administrators."
-                ),
+                )
+            else:
+                detail = (
+                    "Only the Primary School Admin can "
+                    "create an Accountant / School Bookkeeper."
+                )
+
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=detail,
             )
 
         return role

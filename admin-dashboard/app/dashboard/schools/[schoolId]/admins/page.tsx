@@ -45,7 +45,10 @@ export default function SchoolAdminsPage({
   const router = useRouter();
 
   const [admins, setAdmins] = useState<User[]>([]);
+  const [accountants, setAccountants] = useState<User[]>([]);
   const [schoolAdminRole, setSchoolAdminRole] =
+    useState<Role | null>(null);
+  const [accountantRole, setAccountantRole] =
     useState<Role | null>(null);
 
   const [loading, setLoading] = useState(true);
@@ -54,6 +57,10 @@ export default function SchoolAdminsPage({
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  const [accountantEmail, setAccountantEmail] = useState("");
+  const [accountantPassword, setAccountantPassword] = useState("");
+  const [accountantSaving, setAccountantSaving] = useState(false);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -74,14 +81,20 @@ export default function SchoolAdminsPage({
         (item) => item.name === "SCHOOL_ADMIN"
       );
 
+      const accountant = rolesResponse.data.find(
+        (item) => item.name === "ACCOUNTANT"
+      );
+
       if (!role) {
         setSchoolAdminRole(null);
         setAdmins([]);
+        setAccountants([]);
         setError("SCHOOL_ADMIN role was not found.");
         return;
       }
 
       setSchoolAdminRole(role);
+      setAccountantRole(accountant || null);
 
       const schoolAdmins = usersResponse.data
         .filter(
@@ -92,6 +105,18 @@ export default function SchoolAdminsPage({
         .sort((a, b) => a.email.localeCompare(b.email));
 
       setAdmins(schoolAdmins);
+
+      const schoolAccountants = accountant
+        ? usersResponse.data
+            .filter(
+              (user) =>
+                user.school_id === Number(schoolId) &&
+                user.role_id === accountant.id
+            )
+            .sort((a, b) => a.email.localeCompare(b.email))
+        : [];
+
+      setAccountants(schoolAccountants);
     } catch (error) {
       console.error("Failed to load school admins:", error);
       setError("Unable to load school administrators.");
@@ -190,6 +215,87 @@ export default function SchoolAdminsPage({
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function createAccountant(event: FormEvent) {
+    event.preventDefault();
+
+    if (
+      currentUserRole !== "SUPER_ADMIN" &&
+      !currentUserIsPrimary
+    ) {
+      setError(
+        "Only the Primary School Admin can register a School Bookkeeper."
+      );
+      return;
+    }
+
+    if (!accountantRole) {
+      setError("ACCOUNTANT role is unavailable.");
+      return;
+    }
+
+    try {
+      setAccountantSaving(true);
+      setError("");
+      setSuccess("");
+
+      const response = await api.post<User>("/users", {
+        email: accountantEmail.trim(),
+        password: accountantPassword,
+        role_id: accountantRole.id,
+        school_id: Number(schoolId),
+      });
+
+      setAccountants((current) =>
+        [...current, response.data].sort((a, b) =>
+          a.email.localeCompare(b.email)
+        )
+      );
+
+      setAccountantEmail("");
+      setAccountantPassword("");
+      setSuccess("School Bookkeeper / Accountant created successfully.");
+    } catch (error) {
+      console.error("Failed to create accountant:", error);
+      setError(
+        "Unable to create School Bookkeeper / Accountant. The email may already exist."
+      );
+    } finally {
+      setAccountantSaving(false);
+    }
+  }
+
+  async function toggleAccountantStatus(accountant: User) {
+    try {
+      setActionId(accountant.id);
+      setError("");
+      setSuccess("");
+
+      const response = await api.patch<User>(
+        `/users/${accountant.id}/status`,
+        {
+          is_active: !accountant.is_active,
+        }
+      );
+
+      setAccountants((current) =>
+        current.map((item) =>
+          item.id === accountant.id ? response.data : item
+        )
+      );
+
+      setSuccess(
+        response.data.is_active
+          ? "School Bookkeeper activated successfully."
+          : "School Bookkeeper deactivated successfully."
+      );
+    } catch (error) {
+      console.error("Failed to update accountant status:", error);
+      setError("Unable to update School Bookkeeper status.");
+    } finally {
+      setActionId(null);
     }
   }
 
@@ -393,6 +499,86 @@ export default function SchoolAdminsPage({
           </div>
         </form>
 
+        <form
+          onSubmit={createAccountant}
+          autoComplete="off"
+          className="h-fit rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <UserPlus size={21} />
+            </div>
+
+            <div>
+              <h2 className="font-bold text-slate-900">
+                Add School Bookkeeper
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Create an Accountant who can manage School Books.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-5">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-slate-700">
+                Email Address
+              </label>
+
+              <input
+                type="email"
+                name="accountant-email"
+                autoComplete="off"
+                value={accountantEmail}
+                onChange={(event) =>
+                  setAccountantEmail(event.target.value)
+                }
+                placeholder="accounts@school.com"
+                required
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-slate-700">
+                Temporary Password
+              </label>
+
+              <input
+                type="password"
+                name="accountant-temporary-password"
+                autoComplete="new-password"
+                value={accountantPassword}
+                onChange={(event) =>
+                  setAccountantPassword(event.target.value)
+                }
+                placeholder="Enter temporary password"
+                required
+                minLength={6}
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={accountantSaving || !accountantRole}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {accountantSaving ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Creating Bookkeeper...
+                </>
+              ) : (
+                <>
+                  <UserPlus size={18} />
+                  Create School Bookkeeper
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
@@ -493,6 +679,93 @@ export default function SchoolAdminsPage({
                         />
                       ) : (
                         <Power size={16} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="font-bold text-slate-900">
+                School Bookkeepers / Accountants
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Accountant accounts assigned to this school.
+              </p>
+            </div>
+
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600">
+              {accountants.length} Accountants
+            </span>
+          </div>
+
+          {accountants.length === 0 ? (
+            <div className="py-12 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                <Users size={21} />
+              </div>
+
+              <p className="mt-3 text-sm font-semibold text-slate-700">
+                No School Bookkeepers yet
+              </p>
+
+              <p className="mt-1 text-xs text-slate-500">
+                Create one using the form above.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-5 space-y-3">
+              {accountants.map((accountant) => (
+                <div
+                  key={accountant.id}
+                  className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                      <Mail size={18} />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="break-words font-semibold text-slate-900">
+                        {accountant.email}
+                      </p>
+                      <p className="mt-1 text-xs text-emerald-600">
+                        School Bookkeeper / Accountant
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        accountant.is_active
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {accountant.is_active ? "Active" : "Inactive"}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleAccountantStatus(accountant)}
+                      disabled={actionId === accountant.id}
+                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      title={
+                        accountant.is_active
+                          ? "Deactivate accountant"
+                          : "Activate accountant"
+                      }
+                    >
+                      {actionId === accountant.id ? (
+                        <Loader2 size={17} className="animate-spin" />
+                      ) : (
+                        <Power size={17} />
                       )}
                     </button>
                   </div>
