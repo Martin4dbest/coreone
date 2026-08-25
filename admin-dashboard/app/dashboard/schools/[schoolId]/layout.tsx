@@ -288,17 +288,36 @@ export default function SchoolWorkspaceLayout({
    * SUPER_ADMIN and SCHOOL_ADMIN retain the normal navigation.
    */
   const visibleNavigation = navigation.filter((item) => {
+    /*
+     * ACCOUNTANT = SCHOOL BOOKKEEPER
+     *
+     * Accountants must only see the parts of the school workspace
+     * required for bookkeeping. School Books is their primary
+     * workspace and must remain accessible even if the optional
+     * school_books feature flag is disabled.
+     */
     if (currentRole === "ACCOUNTANT") {
-      const accountantAllowed =
-        item.name === "Overview" ||
-        item.name === "School Books";
-
       return (
-        accountantAllowed &&
-        (!item.feature || featureEnabled(item.feature))
+        item.name === "Overview" ||
+        item.name === "School Books"
       );
     }
 
+    /*
+     * BOOK_STOREKEEPER has the same School Books workspace access
+     * as an Accountant.
+     */
+    if (currentRole === "BOOK_STOREKEEPER") {
+      return (
+        item.name === "Overview" ||
+        item.name === "School Books"
+      );
+    }
+
+    /*
+     * SUPER_ADMIN and SCHOOL_ADMIN retain the normal navigation.
+     * Feature toggles continue to control their optional modules.
+     */
     return (
       (!item.superAdminOnly ||
         currentRole === "SUPER_ADMIN") &&
