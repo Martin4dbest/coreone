@@ -1,3 +1,6 @@
+from datetime import date
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -5,6 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.permissions import require_roles
 from app.db.database import get_db
 from app.models.school_book import SchoolBook
+from app.models.student import Student
+from app.models.school_book_inventory import (
+    SchoolBookReceipt,
+    SchoolBookDistribution,
+    SchoolBookDistributionStudent,
+)
 from app.modules.school_books.schemas import (
     SchoolBookCreate,
     SchoolBookResponse,
@@ -17,14 +26,27 @@ router = APIRouter(
 )
 
 
+BOOK_MANAGEMENT_ROLES = (
+    "SUPER_ADMIN",
+    "SCHOOL_ADMIN",
+    "ACCOUNTANT",
+    "BOOK_STOREKEEPER",
+)
+
+
 def verify_school_access(current_user, school_id: int):
     role = current_user.role.name if current_user.role else None
 
     if role == "SUPER_ADMIN":
         return
 
-    if role == "SCHOOL_ADMIN" and current_user.school_id == school_id:
-        return
+    if role in {
+        "SCHOOL_ADMIN",
+        "ACCOUNTANT",
+        "BOOK_STOREKEEPER",
+    }:
+        if current_user.school_id == school_id:
+            return
 
     raise HTTPException(
         status_code=403,
@@ -40,14 +62,17 @@ async def list_school_books(
     school_id: int,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(
-        require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
+        require_roles(*BOOK_MANAGEMENT_ROLES)
     ),
 ):
     verify_school_access(current_user, school_id)
 
     result = await db.execute(
         select(SchoolBook)
-        .where(SchoolBook.school_id == school_id)
+        .where(
+            SchoolBook.school_id == school_id,
+            SchoolBook.is_active == True,
+        )
         .order_by(SchoolBook.title.asc())
     )
 
@@ -63,10 +88,16 @@ async def create_school_book(
     payload: SchoolBookCreate,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(
-        require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
+        require_roles(*BOOK_MANAGEMENT_ROLES)
     ),
 ):
     verify_school_access(current_user, school_id)
+
+    if payload.quantity < 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Quantity cannot be negative.",
+        )
 
     book = SchoolBook(
         school_id=school_id,
@@ -96,7 +127,7 @@ async def update_school_book(
     payload: SchoolBookUpdate,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(
-        require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
+        require_roles(*BOOK_MANAGEMENT_ROLES)
     ),
 ):
     verify_school_access(current_user, school_id)
@@ -118,6 +149,13 @@ async def update_school_book(
 
     data = payload.model_dump(exclude_unset=True)
 
+    if "quantity" in data and data["quantity"] is not None:
+        if data["quantity"] < 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Quantity cannot be negative.",
+            )
+
     for key, value in data.items():
         if isinstance(value, str):
             value = value.strip()
@@ -138,7 +176,7 @@ async def archive_school_book(
     book_id: int,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(
-        require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
+        require_roles(*BOOK_MANAGEMENT_ROLES)
     ),
 ):
     verify_school_access(current_user, school_id)
@@ -165,3 +203,305 @@ async def archive_school_book(
     return {
         "message": "School book archived successfully.",
     }
+
+
+# ============================================================
+# RECEIVING BOOKS INTO STORE
+# ============================================================
+
+@router.post(
+    "/{school_id}/{book_id}/receipts",
+)
+async def receive_school_books(
+    school_id: int,
+    book_id: int,
+    quantity: int,
+    date_received: date,
+    supplier: str | None = None,
+    reference_number: str | None = None,
+    notes: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        require_roles(*BOOK_MANAGEMENT_ROLES)
+    ),
+):
+    verify_school_access(current_user, school_id)
+
+    if quantity <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Received quantity must be greater than zero.",
+        )
+
+    result = await db.execute(
+        select(SchoolBook).where(
+            SchoolBook.id == book_id,
+            SchoolBook.school_id == school_id,
+            SchoolBook.is_active == True,
+        )
+    )
+
+    book = result.scalar_one_or_none()
+
+    if not book:
+        raise HTTPException(
+            status_code=404,
+            detail="School book not found.",
+        )
+
+    receipt = SchoolBookReceipt(
+        school_id=school_id,
+        school_book_id=book_id,
+        quantity_received=quantity,
+        date_received=date_received,
+        supplier=supplier.strip() if supplier else None,
+        reference_number=(
+            reference_number.strip()
+            if reference_number
+            else None
+        ),
+        received_by=current_user.id,
+        notes=notes.strip() if notes else None,
+    )
+
+    book.quantity += quantity
+
+    db.add(receipt)
+
+    await db.commit()
+    await db.refresh(receipt)
+
+    return {
+        "message": "Books received successfully.",
+        "receipt_id": receipt.id,
+        "school_book_id": book.id,
+        "quantity_received": quantity,
+        "new_quantity": book.quantity,
+    }
+
+
+# ============================================================
+# ISSUE BOOKS TO A CLASS
+# ============================================================
+
+@router.post(
+    "/{school_id}/{book_id}/distributions",
+)
+async def distribute_school_books(
+    school_id: int,
+    book_id: int,
+    classroom_id: int,
+    quantity_issued: int,
+    student_count: int,
+    date_issued: date,
+    student_ids: List[int] | None = None,
+    notes: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        require_roles(
+            "SUPER_ADMIN",
+            "SCHOOL_ADMIN",
+            "ACCOUNTANT",
+            "BOOK_STOREKEEPER",
+        )
+    ),
+):
+    verify_school_access(current_user, school_id)
+
+    if quantity_issued <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Issued quantity must be greater than zero.",
+        )
+
+    if student_count <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Student count must be greater than zero.",
+        )
+
+    # ------------------------------------------------------------
+    # Validate classroom belongs to this school.
+    # ------------------------------------------------------------
+    from app.models.classroom import Classroom
+
+    classroom_result = await db.execute(
+        select(Classroom).where(
+            Classroom.id == classroom_id,
+            Classroom.school_id == school_id,
+        )
+    )
+
+    classroom = classroom_result.scalar_one_or_none()
+
+    if not classroom:
+        raise HTTPException(
+            status_code=400,
+            detail="Selected classroom does not belong to this school.",
+        )
+
+    # If individual students are supplied, validate them.
+    if student_ids is not None:
+        if len(student_ids) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="student_ids cannot be empty when supplied.",
+            )
+
+        if len(set(student_ids)) != len(student_ids):
+            raise HTTPException(
+                status_code=400,
+                detail="Duplicate student IDs are not allowed.",
+            )
+
+        if len(student_ids) != student_count:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "student_count must match the number of "
+                    "student_ids supplied."
+                ),
+            )
+
+        student_result = await db.execute(
+            select(Student).where(
+                Student.id.in_(student_ids),
+                Student.school_id == school_id,
+            )
+        )
+
+        students = list(student_result.scalars().all())
+
+        if len(students) != len(student_ids):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "One or more selected students do not belong "
+                    "to this school."
+                ),
+            )
+
+    result = await db.execute(
+        select(SchoolBook).where(
+            SchoolBook.id == book_id,
+            SchoolBook.school_id == school_id,
+            SchoolBook.is_active == True,
+        )
+    )
+
+    book = result.scalar_one_or_none()
+
+    if not book:
+        raise HTTPException(
+            status_code=404,
+            detail="School book not found.",
+        )
+
+    if book.quantity < quantity_issued:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Insufficient stock. Available: {book.quantity}, "
+                f"requested: {quantity_issued}."
+            ),
+        )
+
+    distribution = SchoolBookDistribution(
+        school_id=school_id,
+        school_book_id=book_id,
+        classroom_id=classroom_id,
+        quantity_issued=quantity_issued,
+        student_count=student_count,
+        date_issued=date_issued,
+        issued_by=current_user.id,
+        notes=notes.strip() if notes else None,
+    )
+
+    book.quantity -= quantity_issued
+
+    db.add(distribution)
+
+    await db.flush()
+
+    # Record each individual student who received a book.
+    if student_ids:
+        for student_id in student_ids:
+            db.add(
+                SchoolBookDistributionStudent(
+                    school_id=school_id,
+                    distribution_id=distribution.id,
+                    student_id=student_id,
+                    quantity_issued=1,
+                )
+            )
+
+    await db.commit()
+    await db.refresh(distribution)
+
+    return {
+        "message": "Books issued successfully.",
+        "distribution_id": distribution.id,
+        "school_book_id": book.id,
+        "quantity_issued": quantity_issued,
+        "remaining_quantity": book.quantity,
+    }
+
+
+# ============================================================
+# INVENTORY HISTORY
+# ============================================================
+
+@router.get(
+    "/{school_id}/{book_id}/receipts/history",
+)
+async def receipt_history(
+    school_id: int,
+    book_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        require_roles(*BOOK_MANAGEMENT_ROLES)
+    ),
+):
+    verify_school_access(current_user, school_id)
+
+    result = await db.execute(
+        select(SchoolBookReceipt)
+        .where(
+            SchoolBookReceipt.school_id == school_id,
+            SchoolBookReceipt.school_book_id == book_id,
+        )
+        .order_by(
+            SchoolBookReceipt.date_received.desc(),
+            SchoolBookReceipt.id.desc(),
+        )
+    )
+
+    return list(result.scalars().all())
+
+
+@router.get(
+    "/{school_id}/{book_id}/distributions/history",
+)
+async def distribution_history(
+    school_id: int,
+    book_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        require_roles(*BOOK_MANAGEMENT_ROLES)
+    ),
+):
+    verify_school_access(current_user, school_id)
+
+    result = await db.execute(
+        select(SchoolBookDistribution)
+        .where(
+            SchoolBookDistribution.school_id == school_id,
+            SchoolBookDistribution.school_book_id == book_id,
+        )
+        .order_by(
+            SchoolBookDistribution.date_issued.desc(),
+            SchoolBookDistribution.id.desc(),
+        )
+    )
+
+    return list(result.scalars().all())

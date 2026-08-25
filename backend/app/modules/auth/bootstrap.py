@@ -26,6 +26,7 @@ async def bootstrap_super_admin(db: AsyncSession):
         ("TEACHER", "Teaching Staff"),
         ("STAFF", "Non-Teaching Staff"),
         ("ACCOUNTANT", "Accounts Officer"),
+        ("BOOK_STOREKEEPER", "School Book Storekeeper"),
         ("STUDENT", "Student"),
         ("PARENT", "Parent/Guardian"),
     ]

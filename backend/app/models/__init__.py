@@ -74,3 +74,9 @@ from app.models.student_partner_school import StudentPartnerSchool
 
 from app.models.school_book import SchoolBook
 from app.models.school_bus import SchoolBus
+
+from app.models.school_book_inventory import (
+    SchoolBookReceipt,
+    SchoolBookDistribution,
+    SchoolBookDistributionStudent,
+)
