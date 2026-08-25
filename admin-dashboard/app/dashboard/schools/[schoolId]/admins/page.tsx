@@ -257,11 +257,29 @@ export default function SchoolAdminsPage({
       setAccountantEmail("");
       setAccountantPassword("");
       setSuccess("School Bookkeeper / Accountant created successfully.");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create accountant:", error);
-      setError(
-        "Unable to create School Bookkeeper / Accountant. The email may already exist."
-      );
+
+      const detail =
+        error?.response?.data?.detail;
+
+      let message = "Unable to create School Bookkeeper / Accountant.";
+
+      if (Array.isArray(detail)) {
+        message = detail
+          .map((item: any) => {
+            const field = Array.isArray(item?.loc)
+              ? item.loc.slice(1).join(".")
+              : "request";
+
+            return `${field}: ${item?.msg || "Invalid value"}`;
+          })
+          .join(" | ");
+      } else if (typeof detail === "string") {
+        message = detail;
+      }
+
+      setError(message);
     } finally {
       setAccountantSaving(false);
     }
