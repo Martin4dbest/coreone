@@ -276,12 +276,35 @@ export default function SchoolWorkspaceLayout({
     },
   ];
 
-  const visibleNavigation = navigation.filter(
-    (item) =>
+  const currentRole = currentUser?.role?.name;
+
+  /*
+   * ACCOUNTANT = SCHOOL BOOKKEEPER
+   *
+   * Accountants must NOT inherit the School Admin workspace.
+   * They only need the school overview and School Books/inventory
+   * functionality from this workspace.
+   *
+   * SUPER_ADMIN and SCHOOL_ADMIN retain the normal navigation.
+   */
+  const visibleNavigation = navigation.filter((item) => {
+    if (currentRole === "ACCOUNTANT") {
+      const accountantAllowed =
+        item.name === "Overview" ||
+        item.name === "School Books";
+
+      return (
+        accountantAllowed &&
+        (!item.feature || featureEnabled(item.feature))
+      );
+    }
+
+    return (
       (!item.superAdminOnly ||
-        currentUser?.role?.name === "SUPER_ADMIN") &&
+        currentRole === "SUPER_ADMIN") &&
       (!item.feature || featureEnabled(item.feature))
-  );
+    );
+  });
 
   if (loading) {
     return (

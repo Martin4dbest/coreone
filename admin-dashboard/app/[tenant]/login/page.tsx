@@ -153,6 +153,15 @@ export default function TenantLoginPage() {
         return;
       }
 
+      // ACCOUNTANT = SCHOOL BOOKKEEPER
+      // Send directly to the School Books workspace after login.
+      if (user.role?.name === "ACCOUNTANT") {
+        router.replace(
+          `/dashboard/schools/${tenant.id}/school-books`
+        );
+        return;
+      }
+
       router.replace(`/${tenant.slug}/dashboard`);
 
     } catch (err: unknown) {
