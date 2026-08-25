@@ -153,9 +153,12 @@ export default function TenantLoginPage() {
         return;
       }
 
-      // ACCOUNTANT = SCHOOL BOOKKEEPER
-      // Send directly to the School Books workspace after login.
-      if (user.role?.name === "ACCOUNTANT") {
+      // ACCOUNTANT / BOOK_STOREKEEPER = SCHOOL BOOKKEEPING
+      // Send both roles directly to the School Books workspace after login.
+      if (
+        user.role?.name === "ACCOUNTANT" ||
+        user.role?.name === "BOOK_STOREKEEPER"
+      ) {
         router.replace(
           `/dashboard/schools/${tenant.id}/school-books`
         );
