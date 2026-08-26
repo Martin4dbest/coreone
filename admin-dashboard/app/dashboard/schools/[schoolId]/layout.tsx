@@ -352,8 +352,6 @@ export default function SchoolWorkspaceLayout({
     );
   }
 
-  const currentRole = currentUser?.role?.name;
-
   // ACCOUNTANT / BOOK_STOREKEEPER:
   // They do NOT use the school workspace sidebar/header.
   // They only need the School Books page.
