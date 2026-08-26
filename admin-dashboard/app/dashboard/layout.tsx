@@ -49,10 +49,16 @@ export default function DashboardLayout({
   }, []);
 
   function handleAccountantLogout() {
+    const tenant = localStorage.getItem("tenant_slug");
+
     localStorage.removeItem("access_token");
     localStorage.removeItem("tenant_slug");
 
-    router.replace("/");
+    if (tenant) {
+      router.replace(`/${tenant}`);
+    } else {
+      router.replace("/");
+    }
   }
 
   const isBookkeepingRole =
