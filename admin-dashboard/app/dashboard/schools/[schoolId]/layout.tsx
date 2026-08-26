@@ -87,18 +87,37 @@ export default function SchoolWorkspaceLayout({
 
     async function loadWorkspace() {
       try {
-        const [schoolResponse, userResponse] = await Promise.all([
-          api.get(`/schools/${schoolId}`),
-          api.get("/auth/me"),
-        ]);
+        const userResponse = await api.get("/auth/me");
+        const user = userResponse.data;
+        const role = user?.role?.name;
 
-        let brandingData = null;
+        // Accountant / Book Storekeeper:
+        // DO NOT call school, branding, or feature endpoints.
+        // They only render the School Books page.
+        if (
+          role === "ACCOUNTANT" ||
+          role === "BOOK_STOREKEEPER"
+        ) {
+          if (mounted) {
+            setCurrentUser(user);
+            setSchool(null);
+            setBranding(null);
+            setFeatures([]);
+            setLoading(false);
+          }
+          return;
+        }
+
+        const schoolResponse = await api.get(
+          `/schools/${schoolId}`
+        );
+
+        let brandingData: BrandingData | null = null;
 
         try {
           const brandingResponse = await api.get(
             `/branding?school_id=${schoolId}`
           );
-
           brandingData = brandingResponse.data;
         } catch (brandingError: any) {
           if (brandingError.response?.status !== 404) {
@@ -109,39 +128,31 @@ export default function SchoolWorkspaceLayout({
           }
         }
 
-    let featureData: SchoolFeature[] = [];
+        let featureData: SchoolFeature[] = [];
 
-    /*
-     * Feature MANAGEMENT is SUPER_ADMIN-only.
-     *
-     * Feature visibility is different:
-     * SCHOOL_ADMIN is allowed to READ the feature state for
-     * their own school so disabled modules can be hidden.
-     *
-     * The backend still prevents SCHOOL_ADMIN from PATCHing
-     * or toggling feature configuration.
-     */
-    try {
-      const featureResponse = await api.get(
-        `/school-features/${schoolId}`
-      );
-
-      featureData = featureResponse.data || [];
-    } catch (featureError: any) {
-      console.error(
-        "Failed to load school features:",
-        featureError
-      );
-    }
+        try {
+          const featureResponse = await api.get(
+            `/school-features/${schoolId}`
+          );
+          featureData = featureResponse.data || [];
+        } catch (featureError: any) {
+          console.error(
+            "Failed to load school features:",
+            featureError
+          );
+        }
 
         if (mounted) {
           setSchool(schoolResponse.data);
-          setCurrentUser(userResponse.data);
+          setCurrentUser(user);
           setBranding(brandingData);
           setFeatures(featureData);
         }
       } catch (error) {
-        console.error("Failed to load school workspace:", error);
+        console.error(
+          "Failed to load school workspace:",
+          error
+        );
       } finally {
         if (mounted) {
           setLoading(false);
@@ -339,6 +350,18 @@ export default function SchoolWorkspaceLayout({
         </div>
       </div>
     );
+  }
+
+  const currentRole = currentUser?.role?.name;
+
+  // ACCOUNTANT / BOOK_STOREKEEPER:
+  // They do NOT use the school workspace sidebar/header.
+  // They only need the School Books page.
+  if (
+    currentRole === "ACCOUNTANT" ||
+    currentRole === "BOOK_STOREKEEPER"
+  ) {
+    return <>{children}</>;
   }
 
   if (!school) {
