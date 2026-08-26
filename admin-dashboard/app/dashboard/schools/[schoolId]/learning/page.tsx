@@ -2,15 +2,19 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 
 
 export default function LearningHubPage(){
 
   const params = useParams();
+  const searchParams = useSearchParams();
 
   const schoolId = params.schoolId as string;
+
+  const teacherLearning =
+    searchParams.get("teacherLearning") === "1";
 
 const [schoolFeatures, setSchoolFeatures] = useState<any[]>([]);
 
@@ -47,35 +51,35 @@ const featureEnabled = (featureKey: string) =>
     {
       title:"Attendance",
       description:"Monitor student attendance and reports",
-      link:`/dashboard/schools/${schoolId}/attendance`,
+      link:`/dashboard/schools/${schoolId}/attendance${teacherLearning ? "?teacherLearning=1" : ""}`,
       icon:"📅",
       feature: "attendance",
     },
     {
       title:"CBT",
       description:"Create exams, questions and analyse results",
-      link:`/dashboard/schools/${schoolId}/cbt`,
+      link:`/dashboard/schools/${schoolId}/cbt${teacherLearning ? "?teacherLearning=1" : ""}`,
       icon:"📝",
       feature: "cbt",
     },
     {
       title:"Ebooks",
       description:"Manage digital learning materials",
-      link:`/dashboard/schools/${schoolId}/ebooks`,
+      link:`/dashboard/schools/${schoolId}/ebooks${teacherLearning ? "?teacherLearning=1" : ""}`,
       icon:"📚",
       feature: "ebooks",
     },
     {
       title:"YouTube Learning",
       description:"Manage educational videos",
-      link:`/dashboard/schools/${schoolId}/youtube-learning`,
+      link:`/dashboard/schools/${schoolId}/youtube-learning${teacherLearning ? "?teacherLearning=1" : ""}`,
       icon:"▶️",
       feature: "youtube_learning",
     },
     {
       title:"Browser Resources",
       description:"Manage approved learning links",
-      link:`/dashboard/schools/${schoolId}/browser`,
+      link:`/dashboard/schools/${schoolId}/browser${teacherLearning ? "?teacherLearning=1" : ""}`,
       icon:"🌐",
       feature: "browser",
     }

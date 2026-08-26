@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { use, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import {
   LayoutDashboard,
@@ -168,6 +168,20 @@ export default function SchoolWorkspaceLayout({
   }, [schoolId]);
 
   const basePath = `/dashboard/schools/${schoolId}`;
+
+  // ----------------------------------------------------------
+  // CLASS TEACHER LEARNING MODE
+  //
+  // Teachers are allowed to use the EXISTING school Learning
+  // modules. When they enter through the teacher Learning Centre,
+  // the school-admin sidebar/topbar must NOT be shown.
+  //
+  // ?teacherLearning=1 is only a presentation/layout flag.
+  // It does NOT create another CBT, Ebooks, YouTube or Browser.
+  // ----------------------------------------------------------
+  const searchParams = useSearchParams();
+  const teacherLearning =
+    searchParams.get("teacherLearning") === "1";
 
   const featureEnabled = (featureKey: string) => {
     return features.some(
@@ -335,6 +349,16 @@ export default function SchoolWorkspaceLayout({
       (!item.feature || featureEnabled(item.feature))
     );
   });
+
+  // ----------------------------------------------------------
+  // TEACHER LEARNING MODE
+  //
+  // Render the EXISTING school page directly.
+  // This bypasses the School Admin sidebar/topbar only.
+  // ----------------------------------------------------------
+  if (teacherLearning) {
+    return <>{children}</>;
+  }
 
   if (loading) {
     return (
