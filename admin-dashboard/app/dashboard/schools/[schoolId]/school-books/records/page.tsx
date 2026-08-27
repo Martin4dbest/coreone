@@ -20,7 +20,8 @@ import { useTenant } from "@/context/TenantContext";
 interface DistributionRecord {
   id: number;
   distribution_id: number;
-  student_id: number;
+  record_type?: "student" | "class";
+  student_id?: number | null;
   student_name: string;
   admission_number?: string | null;
   book_id: number;
@@ -28,6 +29,7 @@ interface DistributionRecord {
   classroom_id?: number | null;
   class_name: string;
   quantity_issued: number;
+  student_count?: number | null;
   date_received: string;
   issued_by?: number | null;
   issued_by_name: string;
@@ -170,6 +172,9 @@ export default function SchoolBookDistributionRecordsPage() {
           record.book_name,
           record.class_name,
           record.issued_by_name,
+          record.record_type === "class"
+            ? "historical class record"
+            : "student record",
         ]
           .filter(Boolean)
           .some((value) =>
@@ -215,10 +220,20 @@ export default function SchoolBookDistributionRecordsPage() {
   );
 
   const uniqueStudents = new Set(
-    filteredRecords.map(
-      (record) => record.student_id
-    )
+    filteredRecords
+      .filter(
+        (record) =>
+          record.record_type === "student" &&
+          record.student_id != null
+      )
+      .map(
+        (record) => record.student_id
+      )
   ).size;
+
+  const classLevelRecords = filteredRecords.filter(
+    (record) => record.record_type === "class"
+  ).length;
 
   function exportCsv() {
     const headers = [
@@ -425,6 +440,13 @@ export default function SchoolBookDistributionRecordsPage() {
                 <p className="mt-1 text-2xl font-bold text-slate-900">
                   {filteredRecords.length}
                 </p>
+
+                {classLevelRecords > 0 && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    {classLevelRecords} historical class-level record
+                    {classLevelRecords === 1 ? "" : "s"}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -594,14 +616,35 @@ export default function SchoolBookDistributionRecordsPage() {
                     >
                       <td className="px-5 py-4">
                         <div>
-                          <p className="font-semibold text-slate-900">
-                            {record.student_name}
-                          </p>
+                          {record.record_type === "class" ? (
+                            <>
+                              <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-700">
+                                Historical Class Record
+                              </span>
 
-                          {record.admission_number && (
-                            <p className="mt-1 text-xs text-slate-400">
-                              {record.admission_number}
-                            </p>
+                              <p className="mt-2 font-semibold text-slate-800">
+                                Student details not captured
+                              </p>
+
+                              <p className="mt-1 text-xs text-slate-400">
+                                {record.student_count || 0} student
+                                {(record.student_count || 0) === 1
+                                  ? ""
+                                  : "s"} recorded
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="font-semibold text-slate-900">
+                                {record.student_name}
+                              </p>
+
+                              {record.admission_number && (
+                                <p className="mt-1 text-xs text-slate-400">
+                                  {record.admission_number}
+                                </p>
+                              )}
+                            </>
                           )}
                         </div>
                       </td>

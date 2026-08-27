@@ -477,20 +477,6 @@ async def distribution_records(
         require_roles(*BOOK_MANAGEMENT_ROLES)
     ),
 ):
-    """
-    Complete school-wide history of physical books
-    distributed to individual students.
-
-    Returned fields:
-      - student name
-      - admission number
-      - book name
-      - class
-      - quantity issued
-      - date received
-      - actual issuing staff/account name
-    """
-
     verify_school_access(current_user, school_id)
 
     from app.models.school_book import SchoolBook
@@ -502,6 +488,36 @@ async def distribution_records(
     from app.models.classroom import Classroom
     from app.models.user import User
     from app.models.staff import Staff
+
+    def issuer_name(user, staff, issued_by):
+        if staff is not None:
+            name = " ".join(
+                part
+                for part in [
+                    getattr(staff, "first_name", None),
+                    getattr(staff, "last_name", None),
+                ]
+                if part
+            ).strip()
+
+            if name:
+                return name
+
+        if user is not None:
+            email = getattr(user, "email", None)
+            if email:
+                return email
+
+        if issued_by is not None:
+            return f"Account #{issued_by}"
+
+        return "Unknown Account"
+
+    records = []
+
+    # ============================================================
+    # INDIVIDUAL STUDENT RECORDS
+    # ============================================================
 
     result = await db.execute(
         select(
@@ -530,13 +546,11 @@ async def distribution_records(
         )
         .outerjoin(
             Classroom,
-            Classroom.id
-            == Student.classroom_id,
+            Classroom.id == Student.classroom_id,
         )
         .outerjoin(
             User,
-            User.id
-            == SchoolBookDistribution.issued_by,
+            User.id == SchoolBookDistribution.issued_by,
         )
         .outerjoin(
             Staff,
@@ -545,7 +559,6 @@ async def distribution_records(
         .where(
             SchoolBookDistributionStudent.school_id == school_id,
             SchoolBookDistribution.school_id == school_id,
-            SchoolBook.school_id == school_id,
             Student.school_id == school_id,
         )
         .order_by(
@@ -555,8 +568,9 @@ async def distribution_records(
         )
     )
 
-    rows = result.all()
-    records = []
+    student_rows = result.all()
+
+    individual_ids = set()
 
     for (
         distribution_student,
@@ -564,13 +578,12 @@ async def distribution_records(
         book,
         student,
         classroom,
-        issuer,
+        user,
         staff,
-    ) in rows:
+    ) in student_rows:
 
-        # --------------------------------------------------------
-        # STUDENT NAME
-        # --------------------------------------------------------
+        individual_ids.add(distribution.id)
+
         student_name = " ".join(
             part
             for part in [
@@ -587,56 +600,18 @@ async def distribution_records(
                 or f"Student #{student.id}"
             )
 
-        # --------------------------------------------------------
-        # CLASS NAME
-        # --------------------------------------------------------
         class_name = (
             getattr(classroom, "name", None)
             or getattr(classroom, "title", None)
             or getattr(classroom, "level_name", None)
-            or (
-                f"Class #{student.classroom_id}"
-                if getattr(student, "classroom_id", None)
-                else "Unassigned"
-            )
+            or "Unassigned"
         )
-
-        # --------------------------------------------------------
-        # ISSUING ACCOUNT NAME
-        #
-        # Accountant/bookkeeper names live in Staff:
-        #     Staff.user_id -> User.id
-        #
-        # The User email remains a fallback only.
-        # --------------------------------------------------------
-        account_name = None
-
-        if staff is not None:
-            account_name = " ".join(
-                part
-                for part in [
-                    getattr(staff, "first_name", None),
-                    getattr(staff, "last_name", None),
-                ]
-                if part
-            ).strip()
-
-        if not account_name and issuer is not None:
-            account_name = getattr(
-                issuer,
-                "email",
-                None,
-            )
-
-        if not account_name and distribution.issued_by:
-            account_name = (
-                f"Account #{distribution.issued_by}"
-            )
 
         records.append(
             {
                 "id": distribution_student.id,
                 "distribution_id": distribution.id,
+                "record_type": "student",
 
                 "student_id": student.id,
                 "student_name": student_name,
@@ -656,21 +631,122 @@ async def distribution_records(
                 ),
                 "class_name": class_name,
 
-                "quantity_issued": (
-                    distribution_student.quantity_issued
-                ),
+                "quantity_issued": distribution_student.quantity_issued,
+                "student_count": 1,
 
-                # The UI labels this "Date Received" because
-                # this is the date the student received the book.
                 "date_received": distribution.date_issued,
 
                 "issued_by": distribution.issued_by,
-                "issued_by_name": account_name
-                or "Unknown Account",
+                "issued_by_name": issuer_name(
+                    user,
+                    staff,
+                    distribution.issued_by,
+                ),
 
                 "notes": distribution.notes,
             }
         )
+
+    # ============================================================
+    # HISTORICAL CLASS-LEVEL RECORDS
+    # ============================================================
+
+    result = await db.execute(
+        select(
+            SchoolBookDistribution,
+            SchoolBook,
+            Classroom,
+            User,
+            Staff,
+        )
+        .join(
+            SchoolBook,
+            SchoolBook.id
+            == SchoolBookDistribution.school_book_id,
+        )
+        .outerjoin(
+            Classroom,
+            Classroom.id
+            == SchoolBookDistribution.classroom_id,
+        )
+        .outerjoin(
+            User,
+            User.id
+            == SchoolBookDistribution.issued_by,
+        )
+        .outerjoin(
+            Staff,
+            Staff.user_id == User.id,
+        )
+        .where(
+            SchoolBookDistribution.school_id == school_id,
+            SchoolBook.school_id == school_id,
+        )
+        .order_by(
+            SchoolBookDistribution.date_issued.desc(),
+            SchoolBookDistribution.id.desc(),
+        )
+    )
+
+    class_rows = result.all()
+
+    for (
+        distribution,
+        book,
+        classroom,
+        user,
+        staff,
+    ) in class_rows:
+
+        if distribution.id in individual_ids:
+            continue
+
+        class_name = (
+            getattr(classroom, "name", None)
+            or getattr(classroom, "title", None)
+            or getattr(classroom, "level_name", None)
+            or f"Class #{distribution.classroom_id}"
+        )
+
+        records.append(
+            {
+                "id": -distribution.id,
+                "distribution_id": distribution.id,
+                "record_type": "class",
+
+                "student_id": None,
+                "student_name": "Student details not captured",
+                "admission_number": None,
+
+                "book_id": book.id,
+                "book_name": book.title,
+
+                "classroom_id": distribution.classroom_id,
+                "class_name": class_name,
+
+                "quantity_issued": distribution.quantity_issued,
+                "student_count": distribution.student_count,
+
+                "date_received": distribution.date_issued,
+
+                "issued_by": distribution.issued_by,
+                "issued_by_name": issuer_name(
+                    user,
+                    staff,
+                    distribution.issued_by,
+                ),
+
+                "notes": distribution.notes,
+            }
+        )
+
+    records.sort(
+        key=lambda item: (
+            str(item.get("date_received") or ""),
+            int(item.get("distribution_id") or 0),
+        ),
+        reverse=True,
+    )
 
     return records
 
