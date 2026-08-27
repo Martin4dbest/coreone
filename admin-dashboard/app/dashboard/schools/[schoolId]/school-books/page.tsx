@@ -745,35 +745,48 @@ export default function SchoolBooksPage() {
     }
   };
 
-  const filteredStudents = students.filter((student) =>
+  // Only students belonging to the selected classroom can
+  // appear in the distribution selector.
+  const classroomStudents = issueForm.classroom_id
+    ? students.filter(
+        (student) =>
+          Number(student.classroom_id) ===
+          Number(issueForm.classroom_id)
+      )
+    : [];
+
+  const filteredStudents = classroomStudents.filter((student) =>
     studentName(student)
-      .toLowerCase()
-      .includes(studentSearch.trim().toLowerCase()) ||
-    String(student.admission_number || "")
       .toLowerCase()
       .includes(studentSearch.trim().toLowerCase())
   );
 
+  const allClassroomStudentsSelected =
+    classroomStudents.length > 0 &&
+    classroomStudents.every((student) =>
+      selectedStudentIds.includes(student.id)
+    );
+
+  const toggleSelectAllStudents = () => {
+    if (!issueForm.classroom_id || classroomStudents.length === 0) {
+      return;
+    }
+
+    if (allClassroomStudentsSelected) {
+      setSelectedStudentIds([]);
+    } else {
+      setSelectedStudentIds(
+        classroomStudents.map((student) => student.id)
+      );
+    }
+  };
+
   const toggleStudent = (studentId: number) => {
-    const student = students.find(
+    const student = classroomStudents.find(
       (item) => item.id === studentId
     );
 
     if (!student) {
-      return;
-    }
-
-    // A student can only be selected for the currently selected
-    // classroom. Never allow a stale student from another class
-    // to enter the distribution payload.
-    if (
-      issueForm.classroom_id &&
-      Number(student.classroom_id) !==
-        Number(issueForm.classroom_id)
-    ) {
-      setError(
-        "Selected student does not belong to the selected classroom."
-      );
       return;
     }
 
@@ -792,7 +805,9 @@ export default function SchoolBooksPage() {
       classroom_id: classroomId,
     }));
 
+    // Changing classroom clears all previous student selections.
     setSelectedStudentIds([]);
+    setStudentSearch("");
 
     if (classroomId) {
       await loadStudents(Number(classroomId));
@@ -1546,7 +1561,32 @@ export default function SchoolBooksPage() {
               </div>
 
               {issueForm.classroom_id && (
-                <div className="mt-3 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white">
+                <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  {classroomStudents.length > 0 && (
+                    <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
+                      <div>
+                        <p className="text-xs font-bold text-slate-700">
+                          {classroomStudents.length} student
+                          {classroomStudents.length === 1 ? "" : "s"} in this class
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-slate-500">
+                          {selectedStudentIds.length} selected
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={toggleSelectAllStudents}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-100"
+                      >
+                        {allClassroomStudentsSelected
+                          ? "Deselect All"
+                          : "Select All"}
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="max-h-48 overflow-y-auto">
                   {filteredStudents.length === 0 ? (
                     <div className="p-5 text-center text-sm text-slate-500">
                       No students found.
@@ -1602,6 +1642,7 @@ export default function SchoolBooksPage() {
                       );
                     })
                   )}
+                  </div>
                 </div>
               )}
             </div>
