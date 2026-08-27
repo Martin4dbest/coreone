@@ -566,23 +566,19 @@ export default function SchoolBooksPage() {
       return;
     }
 
-    if (selectedStudentIds.length === 0) {
-      setError(
-        "Select the students who received the books so the distribution can be recorded."
-      );
-      return;
-    }
-
-    if (selectedStudentIds.length !== count) {
-      setError(
-        "The number of selected students must match the student count."
-      );
-      return;
-    }
-
     if (quantity > Number(selectedBook.quantity)) {
       setError(
         `Only ${selectedBook.quantity} copies are currently available.`
+      );
+      return;
+    }
+
+    if (
+      selectedStudentIds.length > 0 &&
+      selectedStudentIds.length !== count
+    ) {
+      setError(
+        "The number of selected students must match the student count."
       );
       return;
     }

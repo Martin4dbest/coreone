@@ -320,17 +320,6 @@ async def distribute_school_books(
             detail="Student count must be greater than zero.",
         )
 
-    # Student-level accountability is required because every issued
-    # copy must be traceable to the individual student who received it.
-    if not student_ids:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Select the individual students who received the books. "
-                "Student-level distribution records are required."
-            ),
-        )
-
     # ------------------------------------------------------------
     # Validate classroom belongs to this school.
     # ------------------------------------------------------------

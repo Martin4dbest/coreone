@@ -566,23 +566,19 @@ export default function SchoolBooksPage() {
       return;
     }
 
-    if (selectedStudentIds.length === 0) {
-      setError(
-        "Select the students who received the books so the distribution can be recorded."
-      );
-      return;
-    }
-
-    if (selectedStudentIds.length !== count) {
-      setError(
-        "The number of selected students must match the student count."
-      );
-      return;
-    }
-
     if (quantity > Number(selectedBook.quantity)) {
       setError(
         `Only ${selectedBook.quantity} copies are currently available.`
+      );
+      return;
+    }
+
+    if (
+      selectedStudentIds.length > 0 &&
+      selectedStudentIds.length !== count
+    ) {
+      setError(
+        "The number of selected students must match the student count."
       );
       return;
     }
@@ -737,15 +733,6 @@ export default function SchoolBooksPage() {
                 <Plus size={18} />
                 Add Book
               </button>
-
-
-              <a
-                href={`/dashboard/schools/${schoolId}/school-books/records`}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
-              >
-                <History size={17} />
-                Distribution Records
-              </a>
 
               <button
                 onClick={loadData}
