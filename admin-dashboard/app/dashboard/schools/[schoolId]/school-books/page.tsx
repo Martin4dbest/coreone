@@ -691,22 +691,14 @@ export default function SchoolBooksPage() {
 
       await api.post(
         `/school-books/${schoolId}/${selectedBook.id}/distributions`,
-        null,
         {
-          params: {
-            classroom_id: classroomId,
-            quantity_issued: quantity,
-            student_count: count,
-            date_issued: issueForm.date_issued,
-            ...(selectedStudentIds.length
-              ? { student_ids: selectedStudentIds }
-              : {}),
-            notes:
-              issueForm.notes.trim() || undefined,
-          },
-          paramsSerializer: {
-            indexes: null,
-          },
+          classroom_id: classroomId,
+          quantity_issued: quantity,
+          student_count: count,
+          date_issued: issueForm.date_issued,
+          student_ids: selectedStudentIds,
+          notes:
+            issueForm.notes.trim() || undefined,
         }
       );
 
@@ -1523,8 +1515,8 @@ export default function SchoolBooksPage() {
                     Individual Students
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Optional. Select students if you want the
-                    distribution recorded individually.
+                    Required. Select every student who received
+                    a copy so the distribution can be tracked individually.
                   </p>
                 </div>
 

@@ -16,6 +16,7 @@ from app.models.school_book_inventory import (
 )
 from app.modules.school_books.schemas import (
     SchoolBookCreate,
+    SchoolBookDistributionCreate,
     SchoolBookResponse,
     SchoolBookUpdate,
 )
@@ -290,12 +291,7 @@ async def receive_school_books(
 async def distribute_school_books(
     school_id: int,
     book_id: int,
-    classroom_id: int,
-    quantity_issued: int,
-    student_count: int,
-    date_issued: date,
-    student_ids: List[int] | None = None,
-    notes: str | None = None,
+    payload: SchoolBookDistributionCreate,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(
         require_roles(
@@ -308,26 +304,41 @@ async def distribute_school_books(
 ):
     verify_school_access(current_user, school_id)
 
-    if quantity_issued <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Issued quantity must be greater than zero.",
-        )
+    classroom_id = payload.classroom_id
+    quantity_issued = payload.quantity_issued
+    student_count = payload.student_count
+    date_issued = payload.date_issued
+    student_ids = list(payload.student_ids)
+    notes = payload.notes
 
-    if student_count <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Student count must be greater than zero.",
-        )
-
-    # Student-level accountability is required because every issued
-    # copy must be traceable to the individual student who received it.
     if not student_ids:
         raise HTTPException(
             status_code=400,
             detail=(
                 "Select the individual students who received the books. "
                 "Student-level distribution records are required."
+            ),
+        )
+
+    if len(set(student_ids)) != len(student_ids):
+        raise HTTPException(
+            status_code=400,
+            detail="Duplicate student IDs are not allowed.",
+        )
+
+    if len(student_ids) != student_count:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Student count must match the number of selected students."
+            ),
+        )
+
+    if quantity_issued != len(student_ids):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Issued quantity must match the number of selected students."
             ),
         )
 
@@ -351,61 +362,38 @@ async def distribute_school_books(
             detail="Selected classroom does not belong to this school.",
         )
 
-    # If individual students are supplied, validate them.
-    if student_ids is not None:
-        if len(student_ids) == 0:
-            raise HTTPException(
-                status_code=400,
-                detail="student_ids cannot be empty when supplied.",
-            )
+    student_result = await db.execute(
+        select(Student).where(
+            Student.id.in_(student_ids),
+            Student.school_id == school_id,
+        )
+    )
 
-        if len(set(student_ids)) != len(student_ids):
-            raise HTTPException(
-                status_code=400,
-                detail="Duplicate student IDs are not allowed.",
-            )
+    students = list(student_result.scalars().all())
 
-        if len(student_ids) != student_count:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "student_count must match the number of "
-                    "student_ids supplied."
-                ),
-            )
-
-        student_result = await db.execute(
-            select(Student).where(
-                Student.id.in_(student_ids),
-                Student.school_id == school_id,
-            )
+    if len(students) != len(student_ids):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "One or more selected students do not belong "
+                "to this school."
+            ),
         )
 
-        students = list(student_result.scalars().all())
+    invalid_class_students = [
+        student.id
+        for student in students
+        if student.classroom_id != classroom_id
+    ]
 
-        if len(students) != len(student_ids):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "One or more selected students do not belong "
-                    "to this school."
-                ),
-            )
-
-        invalid_class_students = [
-            student.id
-            for student in students
-            if student.classroom_id != classroom_id
-        ]
-
-        if invalid_class_students:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "One or more selected students do not belong "
-                    "to the selected classroom."
-                ),
-            )
+    if invalid_class_students:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "One or more selected students do not belong "
+                "to the selected classroom."
+            ),
+        )
 
     result = await db.execute(
         select(SchoolBook).where(

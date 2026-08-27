@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -36,3 +36,12 @@ class SchoolBookResponse(BaseModel):
     is_active: bool
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class SchoolBookDistributionCreate(BaseModel):
+    classroom_id: int = Field(..., gt=0)
+    quantity_issued: int = Field(..., gt=0)
+    student_count: int = Field(..., gt=0)
+    date_issued: date
+    student_ids: list[int] = Field(..., min_length=1)
+    notes: str | None = Field(None, max_length=2000)
