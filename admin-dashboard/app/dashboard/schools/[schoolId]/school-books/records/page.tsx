@@ -275,7 +275,7 @@ export default function SchoolBookDistributionRecordsPage() {
       .join("\n");
 
     const blob = new Blob(
-      [csv],
+      ["\uFEFF", csv],
       { type: "text/csv;charset=utf-8;" }
     );
 
@@ -293,7 +293,11 @@ export default function SchoolBookDistributionRecordsPage() {
     anchor.click();
     anchor.remove();
 
-    URL.revokeObjectURL(url);
+    // Give the browser time to start consuming the Blob
+    // before releasing the object URL.
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 1000);
   }
 
   return (
