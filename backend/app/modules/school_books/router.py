@@ -499,7 +499,6 @@ async def distribution_records(
                 ]
                 if part
             ).strip()
-
             if name:
                 return name
 
@@ -514,9 +513,10 @@ async def distribution_records(
         return "Unknown Account"
 
     records = []
+    individual_ids = set()
 
     # ============================================================
-    # INDIVIDUAL STUDENT RECORDS
+    # INDIVIDUAL STUDENT DISTRIBUTION RECORDS
     # ============================================================
 
     result = await db.execute(
@@ -568,10 +568,6 @@ async def distribution_records(
         )
     )
 
-    student_rows = result.all()
-
-    individual_ids = set()
-
     for (
         distribution_student,
         distribution,
@@ -580,7 +576,7 @@ async def distribution_records(
         classroom,
         user,
         staff,
-    ) in student_rows:
+    ) in result.all():
 
         individual_ids.add(distribution.id)
 
@@ -612,43 +608,36 @@ async def distribution_records(
                 "id": distribution_student.id,
                 "distribution_id": distribution.id,
                 "record_type": "student",
-
                 "student_id": student.id,
                 "student_name": student_name,
                 "admission_number": getattr(
-                    student,
-                    "admission_number",
-                    None,
+                    student, "admission_number", None
                 ),
-
                 "book_id": book.id,
                 "book_name": book.title,
-
                 "classroom_id": getattr(
-                    student,
-                    "classroom_id",
-                    None,
+                    student, "classroom_id", None
                 ),
                 "class_name": class_name,
-
                 "quantity_issued": distribution_student.quantity_issued,
                 "student_count": 1,
-
                 "date_received": distribution.date_issued,
-
                 "issued_by": distribution.issued_by,
                 "issued_by_name": issuer_name(
                     user,
                     staff,
                     distribution.issued_by,
                 ),
-
                 "notes": distribution.notes,
             }
         )
 
     # ============================================================
-    # HISTORICAL CLASS-LEVEL RECORDS
+    # PARENT DISTRIBUTION RECORDS
+    #
+    # IMPORTANT:
+    # Every distribution must remain visible even if an older
+    # distribution has no student-child rows.
     # ============================================================
 
     result = await db.execute(
@@ -688,16 +677,16 @@ async def distribution_records(
         )
     )
 
-    class_rows = result.all()
-
     for (
         distribution,
         book,
         classroom,
         user,
         staff,
-    ) in class_rows:
+    ) in result.all():
 
+        # If student-level rows exist, they are already displayed
+        # individually above. Do not duplicate that distribution.
         if distribution.id in individual_ids:
             continue
 
@@ -713,29 +702,22 @@ async def distribution_records(
                 "id": -distribution.id,
                 "distribution_id": distribution.id,
                 "record_type": "class",
-
                 "student_id": None,
                 "student_name": "Student details not captured",
                 "admission_number": None,
-
                 "book_id": book.id,
                 "book_name": book.title,
-
                 "classroom_id": distribution.classroom_id,
                 "class_name": class_name,
-
                 "quantity_issued": distribution.quantity_issued,
                 "student_count": distribution.student_count,
-
                 "date_received": distribution.date_issued,
-
                 "issued_by": distribution.issued_by,
                 "issued_by_name": issuer_name(
                     user,
                     staff,
                     distribution.issued_by,
                 ),
-
                 "notes": distribution.notes,
             }
         )
@@ -744,11 +726,13 @@ async def distribution_records(
         key=lambda item: (
             str(item.get("date_received") or ""),
             int(item.get("distribution_id") or 0),
+            int(item.get("id") or 0),
         ),
         reverse=True,
     )
 
     return records
+
 
 @router.get(
     "/{school_id}/{book_id}/receipts/history",
