@@ -499,6 +499,7 @@ async def distribution_records(
                 ]
                 if part
             ).strip()
+
             if name:
                 return name
 
@@ -512,11 +513,37 @@ async def distribution_records(
 
         return "Unknown Account"
 
+    def student_name(student):
+        name = " ".join(
+            part
+            for part in [
+                getattr(student, "first_name", None),
+                getattr(student, "middle_name", None),
+                getattr(student, "last_name", None),
+            ]
+            if part
+        ).strip()
+
+        return (
+            name
+            or getattr(student, "admission_number", None)
+            or f"Student #{student.id}"
+        )
+
+    def class_name(classroom, fallback=None):
+        return (
+            getattr(classroom, "name", None)
+            or getattr(classroom, "title", None)
+            or getattr(classroom, "level_name", None)
+            or fallback
+            or "Unassigned"
+        )
+
     records = []
     individual_ids = set()
 
     # ============================================================
-    # INDIVIDUAL STUDENT DISTRIBUTION RECORDS
+    # CURRENT / STUDENT-LEVEL DISTRIBUTION RECORDS
     # ============================================================
 
     result = await db.execute(
@@ -580,45 +607,29 @@ async def distribution_records(
 
         individual_ids.add(distribution.id)
 
-        student_name = " ".join(
-            part
-            for part in [
-                getattr(student, "first_name", None),
-                getattr(student, "middle_name", None),
-                getattr(student, "last_name", None),
-            ]
-            if part
-        ).strip()
-
-        if not student_name:
-            student_name = (
-                getattr(student, "admission_number", None)
-                or f"Student #{student.id}"
-            )
-
-        class_name = (
-            getattr(classroom, "name", None)
-            or getattr(classroom, "title", None)
-            or getattr(classroom, "level_name", None)
-            or "Unassigned"
-        )
-
         records.append(
             {
                 "id": distribution_student.id,
                 "distribution_id": distribution.id,
                 "record_type": "student",
                 "student_id": student.id,
-                "student_name": student_name,
+                "student_name": student_name(student),
                 "admission_number": getattr(
-                    student, "admission_number", None
+                    student,
+                    "admission_number",
+                    None,
                 ),
                 "book_id": book.id,
                 "book_name": book.title,
                 "classroom_id": getattr(
-                    student, "classroom_id", None
+                    student,
+                    "classroom_id",
+                    None,
                 ),
-                "class_name": class_name,
+                "class_name": class_name(
+                    classroom,
+                    fallback="Unassigned",
+                ),
                 "quantity_issued": distribution_student.quantity_issued,
                 "student_count": 1,
                 "date_received": distribution.date_issued,
@@ -633,11 +644,15 @@ async def distribution_records(
         )
 
     # ============================================================
-    # PARENT DISTRIBUTION RECORDS
+    # PARENT / LEGACY DISTRIBUTION RECORDS
     #
-    # IMPORTANT:
-    # Every distribution must remain visible even if an older
-    # distribution has no student-child rows.
+    # For old records created before individual student rows existed:
+    #
+    #   - If the classroom roster count exactly matches the saved
+    #     student_count, we can safely expose one record per student.
+    #
+    #   - Otherwise we preserve the legacy class-level record instead
+    #     of inventing student identities.
     # ============================================================
 
     result = await db.execute(
@@ -685,30 +700,114 @@ async def distribution_records(
         staff,
     ) in result.all():
 
-        # If student-level rows exist, they are already displayed
-        # individually above. Do not duplicate that distribution.
+        # Already represented by individual student records.
         if distribution.id in individual_ids:
             continue
 
-        class_name = (
-            getattr(classroom, "name", None)
-            or getattr(classroom, "title", None)
-            or getattr(classroom, "level_name", None)
-            or f"Class #{distribution.classroom_id}"
+        students = []
+
+        if classroom is not None:
+            student_result = await db.execute(
+                select(Student)
+                .where(
+                    Student.school_id == school_id,
+                    Student.classroom_id == classroom.id,
+                )
+                .order_by(
+                    Student.first_name.asc(),
+                    Student.last_name.asc(),
+                    Student.id.asc(),
+                )
+            )
+
+            students = list(student_result.scalars().all())
+
+        expected_count = int(
+            distribution.student_count or 0
         )
+
+        # --------------------------------------------------------
+        # SAFE LEGACY RECOVERY
+        # --------------------------------------------------------
+        # Only expand when the historical student_count exactly
+        # matches the current classroom roster.
+        #
+        # This prevents us from falsely assigning books to only
+        # some of the current students.
+        # --------------------------------------------------------
+
+        if (
+            classroom is not None
+            and expected_count > 0
+            and len(students) == expected_count
+        ):
+            per_student_quantity = 1
+
+            for index, student in enumerate(students, start=1):
+                records.append(
+                    {
+                        # Negative synthetic IDs prevent collision
+                        # with real SchoolBookDistributionStudent IDs.
+                        "id": -(
+                            distribution.id * 1_000_000
+                            + student.id
+                        ),
+                        "distribution_id": distribution.id,
+                        "record_type": "student",
+                        "legacy_recovered": True,
+                        "student_id": student.id,
+                        "student_name": student_name(student),
+                        "admission_number": getattr(
+                            student,
+                            "admission_number",
+                            None,
+                        ),
+                        "book_id": book.id,
+                        "book_name": book.title,
+                        "classroom_id": classroom.id,
+                        "class_name": class_name(
+                            classroom,
+                            fallback=f"Class #{classroom.id}",
+                        ),
+                        "quantity_issued": per_student_quantity,
+                        "student_count": 1,
+                        "date_received": distribution.date_issued,
+                        "issued_by": distribution.issued_by,
+                        "issued_by_name": issuer_name(
+                            user,
+                            staff,
+                            distribution.issued_by,
+                        ),
+                        "notes": distribution.notes,
+                    }
+                )
+
+            continue
+
+        # --------------------------------------------------------
+        # TRUE LEGACY FALLBACK
+        # --------------------------------------------------------
 
         records.append(
             {
                 "id": -distribution.id,
                 "distribution_id": distribution.id,
                 "record_type": "class",
+                "legacy_recovered": False,
                 "student_id": None,
-                "student_name": "Student details not captured",
+                "student_name": "Historical record - student allocation unavailable",
                 "admission_number": None,
                 "book_id": book.id,
                 "book_name": book.title,
                 "classroom_id": distribution.classroom_id,
-                "class_name": class_name,
+                "class_name": class_name(
+                    classroom,
+                    fallback=(
+                        f"Class #{distribution.classroom_id}"
+                        if distribution.classroom_id
+                        else "Unassigned"
+                    ),
+                ),
                 "quantity_issued": distribution.quantity_issued,
                 "student_count": distribution.student_count,
                 "date_received": distribution.date_issued,
