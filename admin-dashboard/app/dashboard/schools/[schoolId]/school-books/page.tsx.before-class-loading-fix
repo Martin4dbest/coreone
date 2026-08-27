@@ -175,116 +175,35 @@ export default function SchoolBooksPage() {
       setLoading(true);
       setError("");
 
-      const results = await Promise.allSettled([
+      const responses = await Promise.all([
         api.get(`/school-books/${schoolId}`),
         api.get(`/subjects?school_id=${schoolId}`),
-        api.get(`/classes?school_id=${schoolId}`),
+        api.get("/classes"),
       ]);
 
-      // ----------------------------------------------------------
-      // BOOKS
-      // ----------------------------------------------------------
-      if (results[0].status === "fulfilled") {
-        const data = results[0].value.data;
+      setBooks(
+        Array.isArray(responses[0].data)
+          ? responses[0].data
+          : []
+      );
 
-        setBooks(
-          Array.isArray(data)
-            ? data
-            : Array.isArray(data?.items)
-              ? data.items
-              : Array.isArray(data?.data)
-                ? data.data
-                : []
-        );
-      } else {
-        console.error(
-          "Failed to load school books:",
-          results[0].reason
-        );
+      setSubjects(
+        Array.isArray(responses[1].data)
+          ? responses[1].data
+          : []
+      );
 
-        setBooks([]);
-      }
+      const classData = Array.isArray(responses[2].data)
+        ? responses[2].data
+        : [];
 
-      // ----------------------------------------------------------
-      // SUBJECTS
-      // ----------------------------------------------------------
-      if (results[1].status === "fulfilled") {
-        const data = results[1].value.data;
-
-        setSubjects(
-          Array.isArray(data)
-            ? data
-            : Array.isArray(data?.items)
-              ? data.items
-              : Array.isArray(data?.data)
-                ? data.data
-                : []
-        );
-      } else {
-        console.error(
-          "Failed to load subjects:",
-          results[1].reason
-        );
-
-        setSubjects([]);
-      }
-
-      // ----------------------------------------------------------
-      // CLASSROOMS
-      //
-      // The Classes API may return either:
-      //   [...]
-      // or
-      //   { items: [...] }
-      // or
-      //   { data: [...] }
-      //
-      // Normalise all supported response shapes.
-      // ----------------------------------------------------------
-      if (results[2].status === "fulfilled") {
-        const rawClassData = results[2].value.data;
-
-        const classData: Classroom[] =
-          Array.isArray(rawClassData)
-            ? rawClassData
-            : Array.isArray(rawClassData?.items)
-              ? rawClassData.items
-              : Array.isArray(rawClassData?.data)
-                ? rawClassData.data
-                : [];
-
-        console.log(
-          "SCHOOL BOOKS — CLASS API RESPONSE:",
-          rawClassData
-        );
-
-        console.log(
-          "SCHOOL BOOKS — NORMALIZED CLASSROOMS:",
-          classData
-        );
-
-        setClassrooms(
-          classData.filter(
-            (item: Classroom) =>
-              !item.school_id ||
-              Number(item.school_id) === schoolId
-          )
-        );
-      } else {
-        console.error(
-          "Failed to load classrooms:",
-          results[2].reason
-        );
-
-        setClassrooms([]);
-      }
-
-      // Only show a page-level error if the critical book request
-      // itself failed. Class/subject failures are logged separately
-      // so one failing endpoint does not hide the others.
-      if (results[0].status === "rejected") {
-        throw results[0].reason;
-      }
+      setClassrooms(
+        classData.filter(
+          (item: Classroom) =>
+            !item.school_id ||
+            Number(item.school_id) === schoolId
+        )
+      );
     } catch (err: any) {
       console.error(err);
       setError(
