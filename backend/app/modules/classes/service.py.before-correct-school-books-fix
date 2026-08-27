@@ -70,23 +70,11 @@ class ClassService:
         self,
         tenant,
         current_user,
-        school_id: int | None = None,
     ):
-        # Central Super Admin dashboard can explicitly request
-        # classes for the selected school.
-        #
-        # School-level users remain locked to their own school.
-        if current_user.role.name == "SUPER_ADMIN":
-            target_school_id = (
-                school_id
-                if school_id is not None
-                else tenant.school_id
-            )
-        else:
-            target_school_id = current_user.school_id
+        school_id = tenant.school_id
 
         return await self.repository.get_all(
-            target_school_id
+            school_id
         )
 
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
@@ -47,7 +47,6 @@ async def create_class(
     response_model=list[ClassResponse],
 )
 async def get_classes(
-    school_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_from_request),
     current_user: User = Depends(get_current_user),
@@ -55,7 +54,6 @@ async def get_classes(
     return await ClassService(db).get_classes(
         tenant,
         current_user,
-        school_id=school_id,
     )
 
 

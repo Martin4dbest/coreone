@@ -675,6 +675,208 @@ async def distribution_records(
     return records
 
 @router.get(
+    "/{school_id}/distribution-records",
+)
+async def distribution_records(
+    school_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        require_roles(*BOOK_MANAGEMENT_ROLES)
+    ),
+):
+    """
+    Return the complete school-wide history of physical books
+    distributed to individual students.
+
+    Each row contains:
+      - student name
+      - book name
+      - student class
+      - date received
+      - issuing account name
+      - quantity issued
+    """
+
+    verify_school_access(current_user, school_id)
+
+    # Local imports keep this addition isolated from the existing
+    # School Books imports and avoid changing unrelated code.
+    from app.models.school_book import SchoolBook
+    from app.models.school_book_inventory import (
+        SchoolBookDistribution,
+        SchoolBookDistributionStudent,
+    )
+    from app.models.student import Student
+    from app.models.classroom import Classroom
+    from app.models.user import User
+
+    result = await db.execute(
+        select(
+            SchoolBookDistributionStudent,
+            SchoolBookDistribution,
+            SchoolBook,
+            Student,
+            Classroom,
+            User,
+        )
+        .join(
+            SchoolBookDistribution,
+            SchoolBookDistribution.id
+            == SchoolBookDistributionStudent.distribution_id,
+        )
+        .join(
+            SchoolBook,
+            SchoolBook.id
+            == SchoolBookDistribution.school_book_id,
+        )
+        .join(
+            Student,
+            Student.id
+            == SchoolBookDistributionStudent.student_id,
+        )
+        .outerjoin(
+            Classroom,
+            Classroom.id
+            == Student.classroom_id,
+        )
+        .outerjoin(
+            User,
+            User.id
+            == SchoolBookDistribution.issued_by,
+        )
+        .where(
+            SchoolBookDistributionStudent.school_id == school_id,
+            SchoolBookDistribution.school_id == school_id,
+            SchoolBook.school_id == school_id,
+            Student.school_id == school_id,
+        )
+        .order_by(
+            SchoolBookDistribution.date_issued.desc(),
+            SchoolBookDistribution.id.desc(),
+            SchoolBookDistributionStudent.id.desc(),
+        )
+    )
+
+    rows = result.all()
+
+    records = []
+
+    for (
+        distribution_student,
+        distribution,
+        book,
+        student,
+        classroom,
+        issuer,
+    ) in rows:
+
+        student_name = " ".join(
+            part
+            for part in [
+                getattr(student, "first_name", None),
+                getattr(student, "middle_name", None),
+                getattr(student, "last_name", None),
+            ]
+            if part
+        ).strip()
+
+        if not student_name:
+            student_name = (
+                getattr(student, "name", None)
+                or getattr(student, "admission_number", None)
+                or f"Student #{student.id}"
+            )
+
+        class_name = (
+            getattr(classroom, "name", None)
+            or getattr(classroom, "title", None)
+            or getattr(classroom, "level_name", None)
+            or (
+                f"Class #{student.classroom_id}"
+                if getattr(student, "classroom_id", None)
+                else "Unassigned"
+            )
+        )
+
+        account_name = None
+
+        if issuer is not None:
+            account_name = (
+                getattr(issuer, "full_name", None)
+                or getattr(issuer, "name", None)
+            )
+
+            if not account_name:
+                first_name = getattr(
+                    issuer,
+                    "first_name",
+                    None,
+                )
+                middle_name = getattr(
+                    issuer,
+                    "middle_name",
+                    None,
+                )
+                last_name = getattr(
+                    issuer,
+                    "last_name",
+                    None,
+                )
+
+                account_name = " ".join(
+                    part
+                    for part in [
+                        first_name,
+                        middle_name,
+                        last_name,
+                    ]
+                    if part
+                ).strip()
+
+            if not account_name:
+                account_name = getattr(
+                    issuer,
+                    "email",
+                    None,
+                )
+
+        records.append(
+            {
+                "id": distribution_student.id,
+                "distribution_id": distribution.id,
+                "student_id": student.id,
+                "student_name": student_name,
+                "admission_number": getattr(
+                    student,
+                    "admission_number",
+                    None,
+                ),
+                "book_id": book.id,
+                "book_name": book.title,
+                "classroom_id": getattr(
+                    student,
+                    "classroom_id",
+                    None,
+                ),
+                "class_name": class_name,
+                "quantity_issued": distribution_student.quantity_issued,
+                "date_received": distribution.date_issued,
+                "issued_by": distribution.issued_by,
+                "issued_by_name": (
+                    account_name
+                    or (
+                        f"Account #{distribution.issued_by}"
+                        if distribution.issued_by
+                        else "Unknown Account"
+                    )
+                ),
+                "notes": distribution.notes,
+            }
+        )
+
+    return records
+
+@router.get(
     "/{school_id}/{book_id}/receipts/history",
 )
 async def receipt_history(
