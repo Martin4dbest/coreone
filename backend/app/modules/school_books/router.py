@@ -795,7 +795,7 @@ async def distribution_records(
                 "record_type": "class",
                 "legacy_recovered": False,
                 "student_id": None,
-                "student_name": "Historical record - student allocation unavailable",
+                "student_name": "Class Distribution",
                 "admission_number": None,
                 "book_id": book.id,
                 "book_name": book.title,
