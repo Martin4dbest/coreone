@@ -392,6 +392,21 @@ async def distribute_school_books(
                 ),
             )
 
+        invalid_class_students = [
+            student.id
+            for student in students
+            if student.classroom_id != classroom_id
+        ]
+
+        if invalid_class_students:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "One or more selected students do not belong "
+                    "to the selected classroom."
+                ),
+            )
+
     result = await db.execute(
         select(SchoolBook).where(
             SchoolBook.id == book_id,

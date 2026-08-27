@@ -583,6 +583,23 @@ export default function SchoolBooksPage() {
       return;
     }
 
+    const selectedStudents = students.filter(
+      (student) =>
+        selectedStudentIds.includes(student.id) &&
+        (!issueForm.classroom_id ||
+          Number(student.classroom_id) ===
+            Number(issueForm.classroom_id))
+    );
+
+    if (
+      selectedStudents.length !== selectedStudentIds.length
+    ) {
+      setError(
+        "One or more selected students do not belong to the selected classroom."
+      );
+      return;
+    }
+
     try {
       setSaving(true);
       clearMessages();
@@ -746,6 +763,28 @@ export default function SchoolBooksPage() {
   );
 
   const toggleStudent = (studentId: number) => {
+    const student = students.find(
+      (item) => item.id === studentId
+    );
+
+    if (!student) {
+      return;
+    }
+
+    // A student can only be selected for the currently selected
+    // classroom. Never allow a stale student from another class
+    // to enter the distribution payload.
+    if (
+      issueForm.classroom_id &&
+      Number(student.classroom_id) !==
+        Number(issueForm.classroom_id)
+    ) {
+      setError(
+        "Selected student does not belong to the selected classroom."
+      );
+      return;
+    }
+
     setSelectedStudentIds((current) =>
       current.includes(studentId)
         ? current.filter((id) => id !== studentId)
