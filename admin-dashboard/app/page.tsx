@@ -86,7 +86,7 @@ export default function Home() {
             >
               <Image
                 src="/logo.png"
-                alt="PreSense"
+                alt="CoreOne"
                 fill
                 sizes="56px"
                 className="object-contain"
@@ -95,7 +95,7 @@ export default function Home() {
 
             <div>
               <h1 className="text-xl font-bold text-rose-600">
-                PreSense
+                CoreOne
               </h1>
 
               <p className="text-xs text-gray-500">
@@ -175,7 +175,7 @@ export default function Home() {
                 text-gray-600
               "
             >
-              PreSense helps schools manage students,
+              CoreOne helps schools manage students,
               teachers, parents, academics and daily
               operations through one intelligent,
               secure and easy-to-use platform.
@@ -236,8 +236,8 @@ export default function Home() {
             >
               <div className="relative h-full w-full">
                 <Image
-                  src="/logo.png"
-                  alt="PreSense Logo"
+                  src="/core1.png"
+                  alt="CoreOne Logo"
                   fill
                   sizes="330px"
                   className="object-contain"
