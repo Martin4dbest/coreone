@@ -85,7 +85,7 @@ export default function Home() {
               "
             >
               <Image
-                src="/logo.png"
+                src="/core1.png"
                 alt="CoreOne"
                 fill
                 sizes="56px"
