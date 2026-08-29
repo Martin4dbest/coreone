@@ -126,27 +126,53 @@ class TeacherService:
             school_id = tenant.school_id
 
 
-        teacher = await self.repository.get_by_id(
-            teacher_id,
-            school_id,
+        # --------------------------------------------------------
+        # COREONE COMPATIBILITY:
+        # The Registered Users screen may provide either:
+        #   1. Teacher.id
+        #   2. User.id belonging to the teacher
+        #
+        # Resolve the canonical Teacher profile ID first.
+        # This keeps the existing API contract intact while fixing
+        # the "Teacher not found" error caused by ID mismatch.
+        # --------------------------------------------------------
+
+        teacher_query = await self.db.execute(
+            select(Teacher).where(
+                Teacher.id == teacher_id,
+                Teacher.school_id == school_id,
+            )
         )
 
+        teacher = teacher_query.scalar_one_or_none()
 
-        if not teacher:
+        if teacher is None:
+            teacher_query = await self.db.execute(
+                select(Teacher).where(
+                    Teacher.user_id == teacher_id,
+                    Teacher.school_id == school_id,
+                )
+            )
+
+            teacher = teacher_query.scalar_one_or_none()
+
+        if teacher is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Teacher not found",
             )
 
+        canonical_teacher_id = teacher.id
 
-        assignments = await self.repository.get_teacher_assignments_summary(
-            teacher_id,
-            school_id,
+        assignments = (
+            await self.repository.get_teacher_assignments_summary(
+                canonical_teacher_id,
+                school_id,
+            )
         )
 
-
         class_teacher = await self.repository.get_class_teacher(
-            teacher_id
+            canonical_teacher_id
         )
 
 

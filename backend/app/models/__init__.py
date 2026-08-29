@@ -6,6 +6,7 @@ from app.models.grading_system import GradingSystem
 from app.models.house import House
 from app.models.level import Level
 from app.models.parent import Parent
+from app.models.parent_student import ParentStudent
 from app.models.permission import Permission
 from app.models.role import Role
 from app.models.role_permission import RolePermission
@@ -26,6 +27,7 @@ __all__ = [
     "House",
     "Level",
     "Parent",
+    "ParentStudent",
     "Permission",
     "Role",
     "RolePermission",

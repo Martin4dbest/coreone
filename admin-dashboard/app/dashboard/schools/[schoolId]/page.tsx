@@ -188,6 +188,11 @@ const schoolModules = [
       icon: GraduationCap,
       href: `/dashboard/schools/${schoolId}/students`,
     },{
+      title: "Parents",
+      description: "Register and manage parents",
+      icon: Users,
+      href: `/dashboard/schools/${schoolId}/parents`,
+    },{
       title: "Teachers",
       feature: "teachers",
       description: "Manage teaching staff",

@@ -23,3 +23,9 @@ class Parent(Base, BaseModel):
         "User",
         back_populates="parent",
     )
+
+    student_links = relationship(
+        "ParentStudent",
+        back_populates="parent",
+        cascade="all, delete-orphan",
+    )

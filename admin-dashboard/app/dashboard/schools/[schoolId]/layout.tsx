@@ -210,6 +210,17 @@ export default function SchoolWorkspaceLayout({
       feature: "teachers",
     },
     {
+      name: "Students",
+      href: `${basePath}/students`,
+      icon: GraduationCap,
+      feature: "students",
+    },
+    {
+      name: "Parents",
+      href: `${basePath}/parents`,
+      icon: UserRound,
+    },
+    {
       name: "Staff",
       href: `${basePath}/staff`,
       icon: UserRound,

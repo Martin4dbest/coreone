@@ -172,11 +172,60 @@ export default function RegisteredUsersPage({
             school_id: Number(user.school_id || schoolId),
           }));
 
-          const teacherList: Teacher[] = teachers;
+          // ------------------------------------------------------
+          // CANONICAL TEACHER RECORDS
+          //
+          // The /users endpoint returns User IDs. The assignment
+          // endpoint requires Teacher profile IDs.
+          //
+          // Load the actual /teachers records so teacher.id is
+          // always Teacher.id, not User.id.
+          // ------------------------------------------------------
 
-          // Load the real assignment summary for every registered teacher.
-          // This provides the teacher email, class-teacher classes,
-          // and assigned subjects/classes.
+          const teachersResponse = await api.get(
+            "/teachers",
+            {
+              params: {
+                school_id: Number(schoolId),
+              },
+            }
+          );
+
+          const teachersData = teachersResponse?.data;
+
+          const teacherRecords = Array.isArray(teachersData)
+            ? teachersData
+            : Array.isArray(teachersData?.data)
+              ? teachersData.data
+              : [];
+
+          const teacherList: Teacher[] = teacherRecords
+            .map((teacher: any) => ({
+              id: Number(teacher.id || 0),
+              user_id: Number(
+                teacher.user_id ||
+                teacher.user?.id ||
+                0
+              ),
+              employee_number:
+                teacher.employee_number || "",
+              first_name:
+                teacher.first_name || "",
+              last_name:
+                teacher.last_name || "",
+              email:
+                teacher.email ||
+                teacher.user?.email ||
+                "",
+              school_id: Number(
+                teacher.school_id || schoolId
+              ),
+            }))
+            .filter(
+              (teacher: Teacher) =>
+                teacher.id > 0
+            );
+
           const teachersWithAssignments = await Promise.all(
             teacherList.map(async (teacher) => {
               try {

@@ -79,6 +79,13 @@ class Student(Base, BaseModel, SchoolMixin, ActiveMixin):
         "Classroom",
     )
 
+
+    parent_links = relationship(
+        "ParentStudent",
+        back_populates="student",
+        cascade="all, delete-orphan",
+    )
+
 # Partner School is an additional association.
 # It does NOT replace student.school_id.
 Student.partner_school_links = relationship(
