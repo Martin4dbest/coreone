@@ -688,21 +688,39 @@ class StudentService:
             )
 
         # --------------------------------------------------------
-        # SAFE DELETE ORDER
+        # SAFE DIRECT-SQL DELETE
         #
-        # Student-dependent records use ON DELETE CASCADE.
-        # students.user_id also uses ON DELETE CASCADE.
+        # SQLAlchemy relationship management can attempt to set
+        # students.user_id = NULL when deleting a loaded User/
+        # Student relationship. user_id is NOT NULL, so that
+        # produces an IntegrityError before the DELETE occurs.
         #
-        # Delete the Student first, flush the database, then
-        # delete the associated User.
+        # Use direct SQL DELETE statements instead:
+        #
+        #   1. Capture the student's user_id.
+        #   2. Delete the Student row directly.
+        #      PostgreSQL handles all Student foreign-key
+        #      ON DELETE CASCADE relationships.
+        #   3. Delete the associated User row directly.
+        #
+        # This bypasses ORM relationship synchronization while
+        # preserving the database's existing cascade rules.
         # --------------------------------------------------------
 
-        user = getattr(student, "user", None)
+        user_id = student.user_id
 
-        await self.db.delete(student)
-        await self.db.flush()
+        from sqlalchemy import delete as sqlalchemy_delete
 
-        if user is not None:
-            await self.db.delete(user)
+        await self.db.execute(
+            sqlalchemy_delete(Student).where(
+                Student.id == student.id
+            )
+        )
+
+        await self.db.execute(
+            sqlalchemy_delete(User).where(
+                User.id == user_id
+            )
+        )
 
         await self.db.commit()
