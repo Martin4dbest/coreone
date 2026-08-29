@@ -170,7 +170,7 @@ export default function LoginPage() {
             </h1>
 
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Sign in to access your PreSense management platform.
+              Sign in to access your management platform.
             </p>
 
           </div>
@@ -291,7 +291,7 @@ export default function LoginPage() {
                   Signing in...
                 </>
               ) : (
-                "Sign in to PreSense"
+                "Sign in to CoreOne"
               )}
             </button>
 
