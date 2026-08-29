@@ -3,6 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import require_roles
 from app.db.database import get_db
+
+from app.core.tenant.context import TenantContext
+from app.core.tenant.dependencies import get_tenant_from_request
 from app.modules.parents.schemas import (
     ParentCreateRequest,
     ParentExistingStudentLinkRequest,
