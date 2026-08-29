@@ -144,6 +144,47 @@ export default function SchoolWorkspaceLayout({
 
         if (mounted) {
           setSchool(schoolResponse.data);
+
+        // ------------------------------------------------------
+        // COREONE TENANT SYNC
+        //
+        // The School Workspace URL is authoritative. Whenever
+        // /dashboard/schools/{schoolId} is opened, persist the
+        // selected school's code so every tenant-aware API call
+        // sends the correct X-Tenant header.
+        // ------------------------------------------------------
+        if (typeof window !== "undefined") {
+          const selectedSchool = schoolResponse.data;
+
+          if (selectedSchool?.school_code) {
+            localStorage.setItem(
+              "school_code",
+              String(selectedSchool.school_code)
+                .trim()
+                .toUpperCase()
+            );
+
+            localStorage.setItem(
+              "tenant_slug",
+              String(selectedSchool.school_code)
+                .trim()
+                .toUpperCase()
+            );
+
+            localStorage.setItem(
+              "tenant",
+              JSON.stringify({
+                id: selectedSchool.id,
+                name: selectedSchool.name,
+                school_code: String(
+                  selectedSchool.school_code
+                )
+                  .trim()
+                  .toUpperCase(),
+              })
+            );
+          }
+        }
           setCurrentUser(user);
           setBranding(brandingData);
           setFeatures(featureData);

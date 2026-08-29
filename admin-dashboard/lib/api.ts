@@ -37,8 +37,8 @@ api.interceptors.request.use((config) => {
     }
 
     const tenant =
-      localStorage.getItem("tenant_slug") ||
       localStorage.getItem("school_code") ||
+      localStorage.getItem("tenant_slug") ||
       localStorage.getItem("tenant");
 
     if (tenant) {
