@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.parent import Parent
 from app.models.parent_student import ParentStudent
+from app.models.parent_school import ParentSchool
 from app.models.role import Role
 from app.models.school_branding import SchoolBranding
 from app.models.student import Student
@@ -67,6 +68,7 @@ class ParentService:
         self,
         parent_id: int,
         current_user,
+        school_id: int | None = None,
     ):
         # Parent records are school-visible to School Admins and
         # globally visible to the SUPER_ADMIN.
@@ -98,8 +100,17 @@ class ParentService:
         # IMPORTANT:
         # A parent can have children in multiple schools.
         # The relationship table is the source of truth.
-        rows = await self.repository.get_students_for_parent(
-            parent.id
+        if school_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="School context is required.",
+            )
+
+        rows = (
+            await self.repository.get_students_for_parent_in_school(
+                parent.id,
+                school_id,
+            )
         )
 
         students = [
@@ -474,6 +485,37 @@ class ParentService:
         )
 
         try:
+            # ----------------------------------------------------
+            # SCHOOL MEMBERSHIP
+            #
+            # A parent has one global CoreOne account, but must
+            # also be registered with every school where they
+            # have a child.
+            # ----------------------------------------------------
+
+            membership_result = await self.db.execute(
+                select(ParentSchool).where(
+                    ParentSchool.parent_id == parent.id,
+                    ParentSchool.school_id == student.school_id,
+                )
+            )
+
+            membership = (
+                membership_result.scalar_one_or_none()
+            )
+
+            if membership is None:
+                self.db.add(
+                    ParentSchool(
+                        parent_id=parent.id,
+                        school_id=student.school_id,
+                    )
+                )
+
+            # ----------------------------------------------------
+            # CHILD RELATIONSHIP
+            # ----------------------------------------------------
+
             self.db.add(
                 ParentStudent(
                     parent_id=parent.id,

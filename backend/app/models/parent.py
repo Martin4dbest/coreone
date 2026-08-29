@@ -29,3 +29,9 @@ class Parent(Base, BaseModel):
         back_populates="parent",
         cascade="all, delete-orphan",
     )
+
+    school_memberships = relationship(
+        "ParentSchool",
+        back_populates="parent",
+        cascade="all, delete-orphan",
+    )

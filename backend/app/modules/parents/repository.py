@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.attendance import Attendance
 from app.models.parent import Parent
 from app.models.parent_student import ParentStudent
+from app.models.parent_school import ParentSchool
 from app.models.school import School
 from app.models.classroom import Classroom
 from app.models.school_branding import SchoolBranding
@@ -20,18 +21,29 @@ class ParentRepository:
         self,
         school_id: int | None = None,
     ):
-        query = select(Parent).order_by(Parent.id)
+        query = select(Parent)
 
         if school_id is not None:
             query = (
                 query
-                .join(Parent.user)
-                .where(User.school_id == school_id)
+                .join(
+                    ParentSchool,
+                    ParentSchool.parent_id == Parent.id,
+                )
+                .where(
+                    ParentSchool.school_id == school_id
+                )
             )
+
+        query = query.order_by(
+            Parent.first_name.asc(),
+            Parent.last_name.asc(),
+            Parent.id.asc(),
+        )
 
         result = await self.db.execute(query)
 
-        return result.scalars().all()
+        return result.scalars().unique().all()
 
     async def get_by_id(
         self,
@@ -45,8 +57,13 @@ class ParentRepository:
         if school_id is not None:
             query = (
                 query
-                .join(Parent.user)
-                .where(User.school_id == school_id)
+                .join(
+                    ParentSchool,
+                    ParentSchool.parent_id == Parent.id,
+                )
+                .where(
+                    ParentSchool.school_id == school_id
+                )
             )
 
         result = await self.db.execute(query)
@@ -117,6 +134,50 @@ class ParentRepository:
         result = await self.db.execute(query)
 
         return result.all()
+
+    async def get_students_for_parent_in_school(
+        self,
+        parent_id: int,
+        school_id: int,
+    ):
+        query = (
+            select(
+                ParentStudent,
+                Student,
+                School,
+                SchoolBranding,
+                Classroom.name.label("class_name"),
+            )
+            .join(
+                Student,
+                ParentStudent.student_id == Student.id,
+            )
+            .join(
+                School,
+                Student.school_id == School.id,
+            )
+            .outerjoin(
+                Classroom,
+                Classroom.id == Student.classroom_id,
+            )
+            .outerjoin(
+                SchoolBranding,
+                SchoolBranding.school_id == School.id,
+            )
+            .where(
+                ParentStudent.parent_id == parent_id,
+                Student.school_id == school_id,
+            )
+            .order_by(
+                Student.first_name,
+                Student.last_name,
+            )
+        )
+
+        result = await self.db.execute(query)
+
+        return result.all()
+
 
     async def get_attendance_for_student(
         self,

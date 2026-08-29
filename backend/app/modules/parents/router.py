@@ -150,6 +150,9 @@ async def get_my_student(
 )
 async def get_parent_details(
     parent_id: int,
+    tenant: TenantContext = Depends(
+        get_tenant_from_request
+    ),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(
         require_roles(
@@ -163,6 +166,7 @@ async def get_parent_details(
     return await service.get_parent_details(
         parent_id,
         current_user,
+        school_id=tenant.school_id,
     )
 
 
