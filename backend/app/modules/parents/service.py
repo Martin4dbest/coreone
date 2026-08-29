@@ -271,6 +271,21 @@ class ParentService:
             self.db.add(parent)
             await self.db.flush()
 
+            # ----------------------------------------------------
+            # REGISTER THE PARENT WITH THIS SCHOOL
+            #
+            # A parent has one global CoreOne account, but must
+            # have a ParentSchool membership for every school
+            # where the parent has a child.
+            # ----------------------------------------------------
+
+            self.db.add(
+                ParentSchool(
+                    parent_id=parent.id,
+                    school_id=payload.school_id,
+                )
+            )
+
             for student in students:
                 self.db.add(
                     ParentStudent(
