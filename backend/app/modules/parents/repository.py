@@ -5,6 +5,7 @@ from app.models.attendance import Attendance
 from app.models.parent import Parent
 from app.models.parent_student import ParentStudent
 from app.models.school import School
+from app.models.classroom import Classroom
 from app.models.school_branding import SchoolBranding
 from app.models.student import Student
 from app.models.user import User
@@ -86,6 +87,7 @@ class ParentRepository:
                 Student,
                 School,
                 SchoolBranding,
+                Classroom.name.label("class_name"),
             )
             .join(
                 Student,
@@ -94,6 +96,10 @@ class ParentRepository:
             .join(
                 School,
                 Student.school_id == School.id,
+            )
+            .outerjoin(
+                Classroom,
+                Classroom.id == Student.classroom_id,
             )
             .outerjoin(
                 SchoolBranding,
@@ -141,6 +147,7 @@ class ParentRepository:
                 Student,
                 School,
                 SchoolBranding,
+                Classroom.name.label("class_name"),
             )
             .join(
                 Student,
@@ -149,6 +156,10 @@ class ParentRepository:
             .join(
                 School,
                 Student.school_id == School.id,
+            )
+            .outerjoin(
+                Classroom,
+                Classroom.id == Student.classroom_id,
             )
             .outerjoin(
                 SchoolBranding,

@@ -91,10 +91,25 @@ class ParentStudentResponse(BaseModel):
     passport: str | None = None
 
     classroom_id: int | None = None
+    class_name: str | None = None
 
     relationship_type: str
 
     school: ParentSchoolResponse
+
+
+class ParentDetailsResponse(BaseModel):
+    id: int
+    user_id: int
+
+    first_name: str
+    last_name: str
+    phone: str
+    email: str | None = None
+
+    students: list[ParentStudentResponse] = Field(
+        default_factory=list
+    )
 
 
 class ParentMeResponse(BaseModel):

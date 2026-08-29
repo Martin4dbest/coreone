@@ -6,6 +6,7 @@ from app.db.database import get_db
 from app.modules.parents.schemas import (
     ParentCreateRequest,
     ParentExistingStudentLinkRequest,
+    ParentDetailsResponse,
     ParentMeResponse,
     ParentResponse,
     ParentStudentLinkRequest,
@@ -135,6 +136,32 @@ async def get_my_student(
 ):
     return await ParentService(db).get_my_student(
         student_id,
+        current_user,
+    )
+
+
+# ============================================================
+# ADMIN PARENT DETAILS
+# ============================================================
+
+@router.get(
+    "/{parent_id}/details",
+    response_model=ParentDetailsResponse,
+)
+async def get_parent_details(
+    parent_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        require_roles(
+            "SUPER_ADMIN",
+            "SCHOOL_ADMIN",
+        )
+    ),
+):
+    service = ParentService(db)
+
+    return await service.get_parent_details(
+        parent_id,
         current_user,
     )
 

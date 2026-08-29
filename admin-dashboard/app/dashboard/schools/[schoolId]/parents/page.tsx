@@ -4,6 +4,9 @@ import { use, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
+  Download,
+  Eye,
+  GraduationCap,
   Loader2,
   Mail,
   Phone,
@@ -21,6 +24,35 @@ type Parent = {
   first_name: string;
   last_name: string;
   phone: string;
+};
+
+type ParentStudent = {
+  id: number;
+  admission_number: string;
+  first_name: string;
+  last_name: string;
+  middle_name?: string | null;
+  classroom_id?: number | null;
+  class_name?: string | null;
+  relationship_type: string;
+  school: {
+    id: number;
+    name: string;
+    school_code: string;
+    primary_color: string;
+    secondary_color: string;
+    branding?: {
+      logo_url?: string | null;
+      primary_color?: string;
+      secondary_color?: string;
+      accent_color?: string;
+    } | null;
+  };
+};
+
+type ParentDetails = Parent & {
+  email?: string | null;
+  students: ParentStudent[];
 };
 
 type Student = {
@@ -90,6 +122,13 @@ export default function ParentsPage({
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const [selectedParent, setSelectedParent] =
+    useState<ParentDetails | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [viewError, setViewError] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState("");
@@ -220,6 +259,207 @@ export default function ParentsPage({
 
     setShowLinkModal(false);
     setLinkForm(emptyLinkForm);
+  }
+
+  function escapeExcelXml(value: unknown) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
+  }
+
+  async function exportParentsToExcel() {
+    if (exporting) return;
+
+    try {
+      setExporting(true);
+      setError("");
+      setSuccess("");
+
+      if (!parents.length) {
+        setError("There are no parent records to export.");
+        return;
+      }
+
+      const detailsResponse = await Promise.all(
+        parents.map(async (parent) => {
+          const response = await api.get<ParentDetails>(
+            `/parents/${parent.id}/details`
+          );
+
+          return response.data;
+        })
+      );
+
+      const headers = [
+        "Parent ID",
+        "User ID",
+        "Parent First Name",
+        "Parent Last Name",
+        "Email",
+        "Phone",
+        "Student ID",
+        "Student Name",
+        "Admission Number",
+        "Class",
+        "Relationship",
+        "School",
+        "School Code",
+      ];
+
+      const rows: string[][] = [headers];
+
+      for (const parent of detailsResponse) {
+        if (!parent.students.length) {
+          rows.push([
+            String(parent.id),
+            String(parent.user_id),
+            parent.first_name,
+            parent.last_name,
+            parent.email || "",
+            parent.phone || "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+          ]);
+
+          continue;
+        }
+
+        for (const student of parent.students) {
+          rows.push([
+            String(parent.id),
+            String(parent.user_id),
+            parent.first_name,
+            parent.last_name,
+            parent.email || "",
+            parent.phone || "",
+            String(student.id),
+            [
+              student.first_name,
+              student.middle_name || "",
+              student.last_name,
+            ]
+              .filter(Boolean)
+              .join(" "),
+            student.admission_number || "",
+            student.class_name || "",
+            student.relationship_type || "Parent/Guardian",
+            student.school?.name || "",
+            student.school?.school_code || "",
+          ]);
+        }
+      }
+
+      const xmlRows = rows
+        .map((row, index) => {
+          const cells = row
+            .map(
+              (cell) =>
+                `<Cell><Data ss:Type="String">${escapeExcelXml(
+                  cell
+                )}</Data></Cell>`
+            )
+            .join("");
+
+          return `<Row>${cells}</Row>`;
+        })
+        .join("");
+
+      const xml = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook
+  xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+  xmlns:x="urn:schemas-microsoft-com:office:excel"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+>
+  <Worksheet ss:Name="Parents">
+    <Table>
+      ${xmlRows}
+    </Table>
+  </Worksheet>
+</Workbook>`;
+
+      const blob = new Blob(
+        ["\uFEFF", xml],
+        {
+          type: "application/vnd.ms-excel",
+        }
+      );
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      const dateStamp = new Date()
+        .toISOString()
+        .slice(0, 10);
+
+      link.href = url;
+      link.download = `CoreOne-Parents-${dateStamp}.xls`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+
+      setSuccess(
+        `${detailsResponse.length} parent account${
+          detailsResponse.length === 1 ? "" : "s"
+        } exported successfully.`
+      );
+    } catch (err: any) {
+      console.error(
+        "Failed to export parent records:",
+        err
+      );
+
+      setError(
+        err?.response?.data?.detail ||
+          "Failed to export parent records."
+      );
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function viewParent(parentId: number) {
+    try {
+      setViewLoading(true);
+      setViewError("");
+      setSelectedParent(null);
+      setShowViewModal(true);
+
+      const response = await api.get<ParentDetails>(
+        `/parents/${parentId}/details`
+      );
+
+      setSelectedParent(response.data);
+    } catch (err: any) {
+      console.error("Failed to load parent details:", err);
+
+      setViewError(
+        err?.response?.data?.detail ||
+          "Failed to load parent details."
+      );
+    } finally {
+      setViewLoading(false);
+    }
+  }
+
+  function closeViewModal() {
+    if (viewLoading) return;
+
+    setShowViewModal(false);
+    setSelectedParent(null);
+    setViewError("");
   }
 
   async function createParent(
@@ -363,6 +603,23 @@ export default function ParentsPage({
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={exportParentsToExcel}
+            disabled={exporting || loading || parents.length === 0}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-bold text-emerald-700 shadow-xs transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {exporting ? (
+              <Loader2
+                size={17}
+                className="animate-spin"
+              />
+            ) : (
+              <Download size={17} />
+            )}
+            {exporting ? "Exporting..." : "Export Excel"}
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -562,13 +819,22 @@ export default function ParentsPage({
                     <td className="px-6 py-5 text-right">
                       <button
                         type="button"
+                        onClick={() => viewParent(parent.id)}
+                        className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200"
+                      >
+                        <Eye size={14} />
+                        View
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => {
                           setLinkForm((current) => ({
                             ...current,
                           }));
                           setShowLinkModal(true);
                         }}
-                        className="inline-flex items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100"
+                        className="ml-2 inline-flex items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100"
                       >
                         <UserPlus size={14} />
                         Link Child
@@ -580,6 +846,223 @@ export default function ParentsPage({
             </table>
           </div>
         </section>
+      )}
+
+      {/* VIEW PARENT */}
+      {showViewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-8 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-rose-50 text-sm font-black text-rose-500">
+                    {selectedParent?.first_name?.[0] || "P"}
+                    {selectedParent?.last_name?.[0] || ""}
+                  </div>
+
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">
+                      {selectedParent
+                        ? `${selectedParent.first_name} ${selectedParent.last_name}`
+                        : "Parent Details"}
+                    </h2>
+
+                    {selectedParent && (
+                      <p className="mt-1 text-xs text-slate-400">
+                        Parent #{selectedParent.id}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <p className="mt-3 text-sm text-slate-500">
+                  Complete parent account and linked student information.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeViewModal}
+                className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {viewLoading ? (
+              <div className="flex min-h-64 items-center justify-center">
+                <div className="text-center">
+                  <Loader2
+                    size={30}
+                    className="mx-auto animate-spin text-rose-500"
+                  />
+                  <p className="mt-3 text-sm text-slate-500">
+                    Loading parent details...
+                  </p>
+                </div>
+              </div>
+            ) : viewError ? (
+              <div className="mt-6 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {viewError}
+              </div>
+            ) : selectedParent ? (
+              <div className="mt-7 space-y-6">
+                <section className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Email
+                    </p>
+                    <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                      <Mail size={16} className="text-slate-400" />
+                      {selectedParent.email || "—"}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Phone
+                    </p>
+                    <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                      <Phone size={16} className="text-slate-400" />
+                      {selectedParent.phone || "—"}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Account ID
+                    </p>
+                    <div className="mt-2 text-sm font-semibold text-slate-800">
+                      #{selectedParent.user_id}
+                    </div>
+                  </div>
+                </section>
+
+                <section>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900">
+                        Linked Children
+                      </h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        All students connected to this parent account.
+                      </p>
+                    </div>
+
+                    <div className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">
+                      {selectedParent.students.length}{" "}
+                      {selectedParent.students.length === 1
+                        ? "Child"
+                        : "Children"}
+                    </div>
+                  </div>
+
+                  {selectedParent.students.length === 0 ? (
+                    <div className="mt-4 rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
+                      No students are currently linked to this parent.
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-4">
+                      {selectedParent.students.map((student) => (
+                        <div
+                          key={`${student.id}-${student.school.id}`}
+                          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                        >
+                          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+                            <div>
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                                  <GraduationCap size={19} />
+                                </div>
+
+                                <div>
+                                  <h4 className="text-sm font-bold text-slate-900">
+                                    {student.first_name}{" "}
+                                    {student.middle_name
+                                      ? `${student.middle_name} `
+                                      : ""}
+                                    {student.last_name}
+                                  </h4>
+
+                                  <p className="mt-1 text-xs text-slate-400">
+                                    Admission:{" "}
+                                    {student.admission_number}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div
+                              className="rounded-xl px-3 py-2 text-right"
+                              style={{
+                                backgroundColor:
+                                  `${student.school.primary_color || "#e11d48"}12`,
+                              }}
+                            >
+                              <p
+                                className="text-xs font-bold"
+                                style={{
+                                  color:
+                                    student.school.primary_color ||
+                                    "#e11d48",
+                                }}
+                              >
+                                {student.school.name}
+                              </p>
+
+                              <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                                {student.school.school_code}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                            <div className="rounded-xl bg-slate-50 px-4 py-3">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Class
+                              </p>
+                              <p className="mt-1 text-sm font-semibold text-slate-700">
+                                {getClassName(student.classroom_id)}
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl bg-slate-50 px-4 py-3">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Relationship
+                              </p>
+                              <p className="mt-1 text-sm font-semibold text-slate-700">
+                                {student.relationship_type || "Parent/Guardian"}
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl bg-slate-50 px-4 py-3">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Student ID
+                              </p>
+                              <p className="mt-1 text-sm font-semibold text-slate-700">
+                                #{student.id}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={closeViewModal}
+                    className="rounded-xl border border-slate-200 px-6 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
       )}
 
       {/* ADD PARENT */}

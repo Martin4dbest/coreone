@@ -15,6 +15,7 @@ from app.modules.parents.schemas import (
     ParentAttendanceRecordResponse,
     ParentAttendanceResponse,
     ParentCreateRequest,
+    ParentDetailsResponse,
     ParentMeResponse,
     ParentSchoolBrandingResponse,
     ParentSchoolResponse,
@@ -61,6 +62,60 @@ class ParentService:
             )
 
         return parent
+
+    async def get_parent_details(
+        self,
+        parent_id: int,
+        current_user,
+    ):
+        # Parent records are school-visible to School Admins and
+        # globally visible to the SUPER_ADMIN.
+        school_id = None
+
+        if current_user.role.name != "SUPER_ADMIN":
+            school_id = current_user.school_id
+
+        parent = await self.repository.get_by_id(
+            parent_id,
+            school_id,
+        )
+
+        if parent is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Parent not found",
+            )
+
+        # Retrieve the account email from the linked User record.
+        result = await self.db.execute(
+            select(User.email).where(
+                User.id == parent.user_id
+            )
+        )
+
+        email = result.scalar_one_or_none()
+
+        # IMPORTANT:
+        # A parent can have children in multiple schools.
+        # The relationship table is the source of truth.
+        rows = await self.repository.get_students_for_parent(
+            parent.id
+        )
+
+        students = [
+            self._build_student_response(row)
+            for row in rows
+        ]
+
+        return ParentDetailsResponse(
+            id=parent.id,
+            user_id=parent.user_id,
+            first_name=parent.first_name,
+            last_name=parent.last_name,
+            phone=parent.phone,
+            email=email,
+            students=students,
+        )
 
     async def create_parent(
         self,
@@ -830,7 +885,7 @@ class ParentService:
 
     @staticmethod
     def _build_student_response(row):
-        parent_student, student, school, branding = row
+        parent_student, student, school, branding, class_name = row
 
         branding_response = None
 
@@ -877,6 +932,7 @@ class ParentService:
             ),
             passport=student.passport,
             classroom_id=student.classroom_id,
+            class_name=class_name,
             relationship_type=parent_student.relationship_type,
             school=school_response,
         )
