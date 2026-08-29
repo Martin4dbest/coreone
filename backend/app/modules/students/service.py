@@ -687,8 +687,22 @@ class StudentService:
                 detail="Student not found",
             )
 
-        if hasattr(student, "user") and student.user:
-            await self.db.delete(student.user)
+        # --------------------------------------------------------
+        # SAFE DELETE ORDER
+        #
+        # Student-dependent records use ON DELETE CASCADE.
+        # students.user_id also uses ON DELETE CASCADE.
+        #
+        # Delete the Student first, flush the database, then
+        # delete the associated User.
+        # --------------------------------------------------------
+
+        user = getattr(student, "user", None)
 
         await self.db.delete(student)
+        await self.db.flush()
+
+        if user is not None:
+            await self.db.delete(user)
+
         await self.db.commit()
