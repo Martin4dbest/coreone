@@ -117,7 +117,7 @@ export default function SuperAdminsPage() {
             </h1>
 
             <p className="mt-1 text-slate-500">
-              Create and manage PreSense Super Administrator accounts.
+              Create and manage CoreOne Super Administrator accounts.
             </p>
           </div>
         </div>

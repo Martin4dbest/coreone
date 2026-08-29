@@ -66,7 +66,7 @@ export default function AdminsPage() {
           </h1>
 
           <p className="mt-2 text-sm text-slate-500">
-            Manage School Admin accounts across PreSense.
+            Manage School Admin accounts across CoreOne.
           </p>
         </div>
 

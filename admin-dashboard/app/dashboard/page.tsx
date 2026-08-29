@@ -230,7 +230,7 @@ export default function DashboardPage() {
               text-rose-600
               "
             >
-              🛡️ PreSense Administration
+              🛡️ CoreOne Administration
             </p>
 
 
