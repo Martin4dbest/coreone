@@ -239,7 +239,7 @@ export default function Sidebar() {
       href: `${schoolBase}/licensing`,
       icon: FileText,
       color: "text-cyan-400",
-      schoolPrimaryOnly: true,
+      feature: "licensing",
     },
     {
       name: "Settings",
