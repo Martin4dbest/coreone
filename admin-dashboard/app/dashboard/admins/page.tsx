@@ -54,7 +54,12 @@ export default function AdminsPage() {
 
       await api.delete(`/admins/${admin.id}`);
 
-      await loadAdmins();
+      // Remove the deleted administrator immediately from the UI.
+      setAdmins((currentAdmins) =>
+        currentAdmins.filter(
+          (currentAdmin) => currentAdmin.id !== admin.id
+        )
+      );
     } catch (error) {
       console.error("Failed to delete admin:", error);
 
