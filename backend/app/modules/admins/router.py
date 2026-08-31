@@ -97,6 +97,24 @@ async def activate_school_admin(
     )
 
 
+@router.delete(
+    "/{admin_id}",
+)
+async def delete_school_admin(
+    admin_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        require_roles("SUPER_ADMIN")
+    ),
+):
+    return await SchoolAdminService(
+        db
+    ).delete_school_admin(
+        admin_id,
+        current_user,
+    )
+
+
 @router.patch(
     "/{admin_id}/deactivate",
     response_model=SchoolAdminResponse,

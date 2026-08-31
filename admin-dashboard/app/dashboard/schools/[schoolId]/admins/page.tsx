@@ -9,6 +9,7 @@ import {
   Loader2,
   Mail,
   Power,
+  Trash2,
   ShieldCheck,
   UserPlus,
   Users,
@@ -317,33 +318,54 @@ export default function SchoolAdminsPage({
     }
   }
 
-  async function toggleAdminStatus(admin: User) {
+  async function deleteAdmin(admin: User) {
+    if (currentUserRole !== "SUPER_ADMIN") {
+      setError(
+        "Only the CoreOne Super Admin can delete administrators."
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Permanently delete ${admin.email}?\n\n` +
+      "This administrator account will be permanently removed. " +
+      "This action cannot be undone."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     try {
       setActionId(admin.id);
       setError("");
       setSuccess("");
 
-      const response = await api.patch<User>(
-        `/users/${admin.id}/status`,
-        {
-          is_active: !admin.is_active,
-        }
-      );
+      await api.delete(`/admins/${admin.id}`);
 
       setAdmins((current) =>
-        current.map((item) =>
-          item.id === admin.id ? response.data : item
+        current.filter(
+          (item) => item.id !== admin.id
         )
       );
 
       setSuccess(
-        response.data.is_active
-          ? "School Admin activated successfully."
-          : "School Admin deactivated successfully."
+        "School Admin deleted successfully."
       );
-    } catch (error) {
-      console.error("Failed to update admin status:", error);
-      setError("Unable to update School Admin status.");
+    } catch (error: any) {
+      console.error(
+        "Failed to delete school admin:",
+        error
+      );
+
+      const detail =
+        error?.response?.data?.detail;
+
+      setError(
+        typeof detail === "string"
+          ? detail
+          : "Unable to delete School Admin."
+      );
     } finally {
       setActionId(null);
     }
@@ -677,18 +699,10 @@ export default function SchoolAdminsPage({
 
                     <button
                       type="button"
-                      onClick={() => toggleAdminStatus(admin)}
+                      onClick={() => deleteAdmin(admin)}
                       disabled={actionId === admin.id}
-                      className={`flex h-9 w-9 items-center justify-center rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                        admin.is_active
-                          ? "border-amber-200 text-amber-600 hover:bg-amber-50"
-                          : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"
-                      }`}
-                      title={
-                        admin.is_active
-                          ? "Deactivate School Admin"
-                          : "Activate School Admin"
-                      }
+                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      title="Delete School Admin"
                     >
                       {actionId === admin.id ? (
                         <Loader2
@@ -696,7 +710,7 @@ export default function SchoolAdminsPage({
                           className="animate-spin"
                         />
                       ) : (
-                        <Power size={16} />
+                        <Trash2 size={16} />
                       )}
                     </button>
                   </div>

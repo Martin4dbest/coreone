@@ -117,6 +117,47 @@ class SchoolAdminService:
 
         return admin
 
+
+
+    async def delete_school_admin(
+        self,
+        admin_id: int,
+        current_user: User,
+    ):
+        self._require_super_admin(current_user)
+
+        admin = await self.repository.get_by_id(admin_id)
+
+        if admin is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="School Admin not found",
+            )
+
+        # A School Administrator is represented by the User record.
+        # Existing CASCADE relationships will remove dependent
+        # profile records where the database explicitly allows it.
+        try:
+            await self.repository.delete(admin)
+
+            return {
+                "message": "School Admin deleted successfully.",
+                "admin_id": admin_id,
+            }
+
+        except HTTPException:
+            raise
+
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "This School Admin cannot be deleted yet because "
+                    "another school record still references this account. "
+                    f"Database detail: {exc}"
+                ),
+            )
+
     async def update_status(
         self,
         admin_id: int,

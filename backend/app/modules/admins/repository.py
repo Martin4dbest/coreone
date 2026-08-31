@@ -84,3 +84,10 @@ class SchoolAdminRepository:
         await self.db.refresh(admin)
 
         return admin
+
+    async def delete(
+        self,
+        admin: User,
+    ):
+        await self.db.delete(admin)
+        await self.db.commit()
