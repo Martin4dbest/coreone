@@ -82,3 +82,5 @@ from app.models.school_book_inventory import (
     SchoolBookDistribution,
     SchoolBookDistributionStudent,
 )
+
+from app.models.school_licensing import SchoolLicensing

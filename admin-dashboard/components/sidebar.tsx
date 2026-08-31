@@ -271,8 +271,12 @@ export default function Sidebar() {
   ];
 
   const featureEnabled = (featureKey: string) => {
+    // Feature visibility is fail-closed.
+    // A feature must explicitly exist and be enabled.
+    // This prevents optional modules from appearing when
+    // feature state has not loaded or the row is missing.
     if (!featuresLoaded) {
-      return true;
+      return false;
     }
 
     const feature = schoolFeatures.find(
@@ -281,7 +285,7 @@ export default function Sidebar() {
         featureKey.trim().toLowerCase()
     );
 
-    return feature?.enabled ?? true;
+    return feature?.enabled === true;
   };
 
   const filteredSchoolAdminMenu = schoolAdminMenu.filter((item) => {

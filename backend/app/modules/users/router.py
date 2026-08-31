@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 
 from app.db.database import get_db
 from app.models.user import User
+from app.models.school_licensing import SchoolLicensing
 from app.models.role import Role
 from app.models.teacher import Teacher
 from app.models.student import Student
@@ -16,6 +17,16 @@ from app.modules.users.schemas import (
     UserStatusUpdate,
 )
 from app.modules.users.service import UserService
+
+
+class SchoolLicensingPayload(BaseModel):
+    school_id: int
+    super_admin: int
+    admin: int
+    teacher: int
+    student: int
+    parent: int
+    staff: int
 
 
 router = APIRouter(
@@ -65,6 +76,131 @@ async def get_users(
         current_user
     )
 
+
+
+@router.get(
+    "/licensing-config",
+)
+async def get_licensing_config(
+    school_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
+    ),
+):
+    role = getattr(
+        current_user.role,
+        "name",
+        current_user.role,
+    )
+    role = str(role or "").upper()
+
+    if role == "SCHOOL_ADMIN":
+        if (
+            current_user.school_id is None
+            or int(current_user.school_id) != int(school_id)
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="You can only access licensing for your own school.",
+            )
+
+    result = await db.execute(
+        select(SchoolLicensing).where(
+            SchoolLicensing.school_id == school_id
+        )
+    )
+
+    licensing = result.scalar_one_or_none()
+
+    if licensing is None:
+        licensing = SchoolLicensing(
+            school_id=school_id,
+            super_admin_price=5000,
+            admin_price=5000,
+            teacher_price=2000,
+            student_price=1000,
+            parent_price=500,
+            staff_price=1000,
+        )
+
+        db.add(licensing)
+        await db.commit()
+        await db.refresh(licensing)
+
+    return {
+        "school_id": licensing.school_id,
+        "super_admin": licensing.super_admin_price,
+        "admin": licensing.admin_price,
+        "teacher": licensing.teacher_price,
+        "student": licensing.student_price,
+        "parent": licensing.parent_price,
+        "staff": licensing.staff_price,
+    }
+
+
+@router.patch(
+    "/licensing-config",
+)
+async def update_licensing_config(
+    school_id: int,
+    payload: SchoolLicensingPayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        require_roles("SUPER_ADMIN")
+    ),
+):
+    result = await db.execute(
+        select(SchoolLicensing).where(
+            SchoolLicensing.school_id == school_id
+        )
+    )
+
+    licensing = result.scalar_one_or_none()
+
+    if licensing is None:
+        licensing = SchoolLicensing(
+            school_id=school_id,
+        )
+        db.add(licensing)
+
+    licensing.super_admin_price = max(
+        0,
+        int(payload.super_admin),
+    )
+    licensing.admin_price = max(
+        0,
+        int(payload.admin),
+    )
+    licensing.teacher_price = max(
+        0,
+        int(payload.teacher),
+    )
+    licensing.student_price = max(
+        0,
+        int(payload.student),
+    )
+    licensing.parent_price = max(
+        0,
+        int(payload.parent),
+    )
+    licensing.staff_price = max(
+        0,
+        int(payload.staff),
+    )
+
+    await db.commit()
+    await db.refresh(licensing)
+
+    return {
+        "school_id": licensing.school_id,
+        "super_admin": licensing.super_admin_price,
+        "admin": licensing.admin_price,
+        "teacher": licensing.teacher_price,
+        "student": licensing.student_price,
+        "parent": licensing.parent_price,
+        "staff": licensing.staff_price,
+    }
 
 
 @router.get(
