@@ -584,7 +584,7 @@ export default function LicensingPage() {
                           type="number"
                           min="0"
                           step="100"
-                          value={row.price}
+                          value={row.price === 0 ? "" : row.price}
                           onChange={
                             currentUserRole === "SUPER_ADMIN"
                               ? (event) =>
