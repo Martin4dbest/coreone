@@ -1193,6 +1193,7 @@ export default function ParentsPage({
                       value={student.id}
                     >
                       {student.first_name}{" "}
+                      {student.middle_name ? student.middle_name + " " : ""}
                       {student.last_name} —{" "}
                       {student.admission_number} —{" "}
                       {getClassName(
@@ -1327,6 +1328,7 @@ export default function ParentsPage({
                     value={student.id}
                   >
                     {student.first_name}{" "}
+                    {student.middle_name ? student.middle_name + " " : ""}
                     {student.last_name} —{" "}
                     {student.admission_number} —{" "}
                     {getClassName(
