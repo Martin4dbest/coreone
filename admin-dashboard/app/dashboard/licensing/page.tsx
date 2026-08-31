@@ -39,8 +39,6 @@ const DEFAULT_PRICES: Record<keyof LicensingSummary, number> = {
   staff: 1000,
 };
 
-const PRICE_STORAGE_KEY = "coreone_licensing_prices_v1";
-
 const EMPTY_SUMMARY: LicensingSummary = {
   super_admin: 0,
   admin: 0,
@@ -95,31 +93,6 @@ export default function LicensingPage() {
   const [savingPrices, setSavingPrices] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(
-        PRICE_STORAGE_KEY
-      );
-
-      if (saved) {
-        const parsed = JSON.parse(saved);
-
-        if (parsed && typeof parsed === "object") {
-          setPrices({
-            ...DEFAULT_PRICES,
-            ...Object.fromEntries(
-              Object.entries(parsed).map(([key, value]) => [
-                key,
-                Number(value) || 0,
-              ])
-            ),
-          } as Record<keyof LicensingSummary, number>);
-        }
-      }
-    } catch {
-      // Keep defaults.
-    }
-  }, []);
 
   useEffect(() => {
     async function loadSchools() {
@@ -158,8 +131,43 @@ export default function LicensingPage() {
   useEffect(() => {
     if (!selectedSchoolId) {
       setSummary(EMPTY_SUMMARY);
+      setPrices(DEFAULT_PRICES);
       return;
     }
+
+    async function loadLicensingConfig() {
+      try {
+        const response = await api.get(
+          `/users/licensing-config?school_id=${selectedSchoolId}`
+        );
+
+        const data = response?.data;
+
+        setPrices({
+          super_admin: Number(data?.super_admin) || 0,
+          admin: Number(data?.admin) || 0,
+          teacher: Number(data?.teacher) || 0,
+          student: Number(data?.student) || 0,
+          parent: Number(data?.parent) || 0,
+          staff: Number(data?.staff) || 0,
+        });
+      } catch (err: any) {
+        console.error(
+          "Licensing configuration load failed:",
+          err
+        );
+
+        setPrices(DEFAULT_PRICES);
+
+        setError(
+          err?.response?.data?.detail ||
+            err?.message ||
+            "Unable to load licensing configuration."
+        );
+      }
+    }
+
+    void loadLicensingConfig();
 
     async function loadSummary() {
       setLoadingSummary(true);
@@ -288,23 +296,46 @@ export default function LicensingPage() {
     }));
   };
 
-  const savePrices = () => {
+  const savePrices = async () => {
+    if (!selectedSchoolId) {
+      setError("Please select a school.");
+      return;
+    }
+
     setSavingPrices(true);
+    setError("");
 
     try {
-      window.localStorage.setItem(
-        PRICE_STORAGE_KEY,
-        JSON.stringify(prices)
+      const response = await api.patch(
+        `/users/licensing-config?school_id=${selectedSchoolId}`,
+        {
+          school_id: selectedSchoolId,
+          ...prices,
+        }
       );
 
-      window.setTimeout(() => {
-        setSavingPrices(false);
-      }, 300);
-    } catch {
-      setSavingPrices(false);
-      setError(
-        "Unable to save the licensing prices."
+      const data = response?.data;
+
+      setPrices({
+        super_admin: Number(data?.super_admin) || 0,
+        admin: Number(data?.admin) || 0,
+        teacher: Number(data?.teacher) || 0,
+        student: Number(data?.student) || 0,
+        parent: Number(data?.parent) || 0,
+        staff: Number(data?.staff) || 0,
+      });
+    } catch (err: any) {
+      console.error(
+        "Licensing prices save failed:",
+        err
       );
+
+      setError(
+        err?.response?.data?.detail ||
+          "Unable to save the licensing prices."
+      );
+    } finally {
+      setSavingPrices(false);
     }
   };
 

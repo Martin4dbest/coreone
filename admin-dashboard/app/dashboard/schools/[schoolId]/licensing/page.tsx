@@ -345,7 +345,7 @@ export default function LicensingPage() {
 
     try {
       const response = await api.patch(
-        "/users/licensing-config",
+        `/users/licensing-config?school_id=${selectedSchoolId}`,
         {
           school_id: selectedSchoolId,
           ...prices,
