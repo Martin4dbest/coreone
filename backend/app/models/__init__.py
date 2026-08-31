@@ -71,6 +71,7 @@ from app.models.ebook_student_access import EbookStudentAccess
 
 from app.models.browser_activity import BrowserActivity
 
+from app.models.parent_school import ParentSchool
 from app.models.partner_school import PartnerSchool
 from app.models.student_partner_school import StudentPartnerSchool
 
