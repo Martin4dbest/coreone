@@ -556,13 +556,21 @@ export default function LicensingPage() {
                           min="0"
                           step="100"
                           value={row.price}
-                          onChange={(event) =>
-                            updatePrice(
-                              row.key,
-                              event.target.value
-                            )
+                          onChange={
+                            currentUserRole === "SUPER_ADMIN"
+                              ? (event) =>
+                                  updatePrice(
+                                    row.key,
+                                    event.target.value
+                                  )
+                              : undefined
                           }
-                          className="w-full bg-transparent px-2 py-3 text-slate-900 outline-none"
+                          readOnly={currentUserRole !== "SUPER_ADMIN"}
+                          className={`w-full bg-transparent px-2 py-3 text-slate-900 outline-none ${
+                            currentUserRole !== "SUPER_ADMIN"
+                              ? "cursor-not-allowed bg-slate-50 text-slate-500"
+                              : ""
+                          }`}
                         />
                       </div>
                     </td>
@@ -600,20 +608,28 @@ export default function LicensingPage() {
               </div>
 
               <div className="mt-1 text-xs text-slate-500">
-                Prices are controlled by the Super Admin.
+                {currentUserRole === "SUPER_ADMIN"
+                  ? "You can manage CoreOne licensing prices."
+                  : "Licensing prices are controlled by the CoreOne Super Admin."}
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={savePrices}
-              disabled={savingPrices}
-              className="rounded-xl bg-cyan-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {savingPrices
-                ? "Saving..."
-                : "Save Prices"}
-            </button>
+            {currentUserRole === "SUPER_ADMIN" ? (
+              <button
+                type="button"
+                onClick={savePrices}
+                disabled={savingPrices}
+                className="rounded-xl bg-cyan-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingPrices
+                  ? "Saving..."
+                  : "Save Prices"}
+              </button>
+            ) : (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-6 py-3 text-sm font-semibold text-slate-500">
+                Read Only
+              </div>
+            )}
           </div>
         </div>
 

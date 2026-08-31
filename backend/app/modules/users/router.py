@@ -98,40 +98,20 @@ async def get_licensing_summary(
     current_role = str(current_role or "").upper()
 
     if current_role == "SCHOOL_ADMIN":
-        # A school admin may only view their own school.
-        if current_user.school_id is None or int(current_user.school_id) != int(school_id):
+        # Any active School Admin may VIEW licensing for their
+        # own school. Licensing remains READ-ONLY at the UI level.
+        #
+        # School Admins must never be able to view another
+        # school's licensing information.
+        if (
+            current_user.school_id is None
+            or int(current_user.school_id) != int(school_id)
+        ):
             from fastapi import HTTPException
 
             raise HTTPException(
                 status_code=403,
                 detail="You can only access licensing for your own school.",
-            )
-
-        # The first registered admin is the only school admin allowed
-        # to use licensing.
-        primary_result = await db.execute(
-            select(User)
-            .join(Role, User.role_id == Role.id)
-            .where(
-                User.school_id == school_id,
-                User.is_active == True,
-                Role.name.in_(["SUPER_ADMIN", "SCHOOL_ADMIN"]),
-            )
-            .order_by(
-                User.created_at.asc(),
-                User.id.asc(),
-            )
-            .limit(1)
-        )
-
-        primary_admin = primary_result.scalar_one_or_none()
-
-        if not primary_admin or int(primary_admin.id) != int(current_user.id):
-            from fastapi import HTTPException
-
-            raise HTTPException(
-                status_code=403,
-                detail="Only the first registered admin of this school can access licensing.",
             )
 
     # ---------------------------------------------------------
