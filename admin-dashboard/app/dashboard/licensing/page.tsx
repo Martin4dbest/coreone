@@ -92,6 +92,7 @@ export default function LicensingPage() {
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [savingPrices, setSavingPrices] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
 
   useEffect(() => {
@@ -304,6 +305,7 @@ export default function LicensingPage() {
 
     setSavingPrices(true);
     setError("");
+    setSuccess("");
 
     try {
       const response = await api.patch(
@@ -324,6 +326,10 @@ export default function LicensingPage() {
         parent: Number(data?.parent) || 0,
         staff: Number(data?.staff) || 0,
       });
+
+      setSuccess(
+        "Licensing prices saved successfully."
+      );
     } catch (err: any) {
       console.error(
         "Licensing prices save failed:",
@@ -346,6 +352,11 @@ export default function LicensingPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-5 text-slate-900 md:p-8">
+      {success && (
+        <div className="mx-auto mb-4 max-w-7xl rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+          ✓ {success}
+        </div>
+      )}
       <div className="mx-auto max-w-7xl">
 
         {/* HEADER */}
