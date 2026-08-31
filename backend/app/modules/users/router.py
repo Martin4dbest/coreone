@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
 
@@ -151,57 +151,73 @@ async def update_licensing_config(
         require_roles("SUPER_ADMIN")
     ),
 ):
-    result = await db.execute(
-        select(SchoolLicensing).where(
-            SchoolLicensing.school_id == school_id
+    try:
+        # The selected school ID is the tenant boundary.
+        result = await db.execute(
+            select(SchoolLicensing).where(
+                SchoolLicensing.school_id == school_id
+            )
         )
-    )
 
-    licensing = result.scalar_one_or_none()
+        licensing = result.scalar_one_or_none()
 
-    if licensing is None:
-        licensing = SchoolLicensing(
-            school_id=school_id,
+        if licensing is None:
+            licensing = SchoolLicensing(
+                school_id=school_id,
+                super_admin_price=5000,
+                admin_price=5000,
+                teacher_price=2000,
+                student_price=1000,
+                parent_price=500,
+                staff_price=1000,
+            )
+            db.add(licensing)
+
+        licensing.super_admin_price = max(
+            0,
+            int(payload.super_admin),
         )
-        db.add(licensing)
+        licensing.admin_price = max(
+            0,
+            int(payload.admin),
+        )
+        licensing.teacher_price = max(
+            0,
+            int(payload.teacher),
+        )
+        licensing.student_price = max(
+            0,
+            int(payload.student),
+        )
+        licensing.parent_price = max(
+            0,
+            int(payload.parent),
+        )
+        licensing.staff_price = max(
+            0,
+            int(payload.staff),
+        )
 
-    licensing.super_admin_price = max(
-        0,
-        int(payload.super_admin),
-    )
-    licensing.admin_price = max(
-        0,
-        int(payload.admin),
-    )
-    licensing.teacher_price = max(
-        0,
-        int(payload.teacher),
-    )
-    licensing.student_price = max(
-        0,
-        int(payload.student),
-    )
-    licensing.parent_price = max(
-        0,
-        int(payload.parent),
-    )
-    licensing.staff_price = max(
-        0,
-        int(payload.staff),
-    )
+        await db.commit()
+        await db.refresh(licensing)
 
-    await db.commit()
-    await db.refresh(licensing)
+        return {
+            "school_id": licensing.school_id,
+            "super_admin": licensing.super_admin_price,
+            "admin": licensing.admin_price,
+            "teacher": licensing.teacher_price,
+            "student": licensing.student_price,
+            "parent": licensing.parent_price,
+            "staff": licensing.staff_price,
+        }
 
-    return {
-        "school_id": licensing.school_id,
-        "super_admin": licensing.super_admin_price,
-        "admin": licensing.admin_price,
-        "teacher": licensing.teacher_price,
-        "student": licensing.student_price,
-        "parent": licensing.parent_price,
-        "staff": licensing.staff_price,
-    }
+    except Exception as exc:
+        await db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Licensing save failed: {exc}",
+        )
 
 
 @router.get(
