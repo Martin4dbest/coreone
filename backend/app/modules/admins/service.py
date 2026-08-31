@@ -157,25 +157,3 @@ class SchoolAdminService:
                     f"Database detail: {exc}"
                 ),
             )
-
-    async def update_status(
-        self,
-        admin_id: int,
-        is_active: bool,
-        current_user: User,
-    ):
-        self._require_super_admin(current_user)
-
-        admin = await self.repository.get_by_id(
-            admin_id
-        )
-
-        if admin is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="School Admin not found",
-            )
-
-        admin.is_active = is_active
-
-        return await self.repository.update(admin)

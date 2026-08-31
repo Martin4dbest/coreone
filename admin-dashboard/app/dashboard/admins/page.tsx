@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, UserPlus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import api from "@/lib/api";
 import AddAdminModal from "@/components/add-admin-modal";
@@ -11,7 +11,7 @@ type Admin = {
   email: string;
   school_id: number;
   school_name?: string;
-  school_code?: string; // Added school_code property
+  school_code?: string;
   role_id: number;
   is_active: boolean;
   is_verified: boolean;
@@ -20,10 +20,14 @@ type Admin = {
 export default function AdminsPage() {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   async function loadAdmins() {
     try {
+      setLoading(true);
+
       const response = await api.get("/admins");
+
       setAdmins(response.data);
     } catch (error) {
       console.error("Failed to load admins:", error);
@@ -36,30 +40,35 @@ export default function AdminsPage() {
     loadAdmins();
   }, []);
 
-  async function toggleStatus(admin: Admin) {
-    try {
-      await api.patch(
-        `/admins/${admin.id}/${
-          admin.is_active
-            ? "deactivate"
-            : "activate"
-        }`
-      );
+  async function deleteAdmin(admin: Admin) {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the administrator "${admin.email}"?\n\nThis action cannot be undone.`
+    );
 
-      loadAdmins();
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingId(admin.id);
+
+      await api.delete(`/admins/${admin.id}`);
+
+      await loadAdmins();
     } catch (error) {
-      console.error(
-        "Failed to update admin:",
-        error
+      console.error("Failed to delete admin:", error);
+
+      window.alert(
+        "Failed to delete the administrator. Please try again."
       );
+    } finally {
+      setDeletingId(null);
     }
   }
 
   return (
     <div className="space-y-8">
-
       <div className="flex items-center justify-between">
-
         <div>
           <h1 className="text-3xl font-bold text-slate-800">
             Administrators
@@ -73,36 +82,20 @@ export default function AdminsPage() {
         <AddAdminModal
           onAdminCreated={loadAdmins}
         />
-
       </div>
 
-
-      <div className="
-        overflow-hidden
-        rounded-2xl
-        border
-        border-slate-100
-        bg-white
-        shadow-sm
-      ">
-
+      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
         {loading ? (
-
           <div className="flex justify-center p-10">
             <Loader2
               className="animate-spin text-rose-500"
               size={28}
             />
           </div>
-
         ) : (
-
           <table className="w-full">
-
             <thead className="bg-slate-50">
-
               <tr className="text-left text-sm text-slate-500">
-
                 <th className="p-5">
                   Email
                 </th>
@@ -111,7 +104,6 @@ export default function AdminsPage() {
                   School
                 </th>
 
-                {/* Added School Code Header */}
                 <th className="p-5">
                   School Code
                 </th>
@@ -127,103 +119,105 @@ export default function AdminsPage() {
                 <th className="p-5">
                   Action
                 </th>
-
               </tr>
-
             </thead>
 
-
             <tbody>
+              {admins.map((admin) => {
+                const tenantPath = admin.school_code
+                  ? `/${admin.school_code.toLowerCase()}`
+                  : "#";
 
-              {admins.map((admin)=>(
+                const isDeleting =
+                  deletingId === admin.id;
 
-                <tr
-                  key={admin.id}
-                  className="border-t"
-                >
+                return (
+                  <tr
+                    key={admin.id}
+                    className="border-t"
+                  >
+                    <td className="p-5 font-medium">
+                      {admin.email}
+                    </td>
 
-                  <td className="p-5 font-medium">
-                    {admin.email}
+                    <td className="p-5">
+                      {admin.school_name ||
+                        `School #${admin.school_id}`}
+                    </td>
+
+                    <td className="p-5">
+                      <span className="font-mono text-sm font-semibold text-slate-600">
+                        {admin.school_code || "N/A"}
+                      </span>
+                    </td>
+
+                    <td className="p-5">
+                      {admin.school_code ? (
+                        <a
+                          href={tenantPath}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="break-all text-xs text-blue-600 hover:underline"
+                        >
+                          {`${window.location.origin}${tenantPath}`}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-slate-400">
+                          N/A
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="p-5">
+                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600">
+                        Active
+                      </span>
+                    </td>
+
+                    <td className="p-5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          deleteAdmin(admin)
+                        }
+                        disabled={isDeleting}
+                        className="
+                          rounded-xl
+                          border
+                          border-red-200
+                          px-4
+                          py-2
+                          text-sm
+                          font-semibold
+                          text-red-600
+                          hover:bg-red-50
+                          disabled:cursor-not-allowed
+                          disabled:opacity-50
+                        "
+                      >
+                        {isDeleting
+                          ? "Deleting..."
+                          : "Delete"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {admins.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="p-10 text-center text-sm text-slate-500"
+                  >
+                    No School Administrators found.
                   </td>
-
-
-                  <td className="p-5">
-                    {admin.school_name ||
-                      `School #${admin.school_id}`}
-                  </td>
-
-
-                  {/* Added School Code Column */}
-                  <td className="p-5">
-                    <span className="font-mono text-sm font-semibold text-slate-600">
-                      {admin.school_code || "N/A"}
-                    </span>
-                  </td>
-
-
-                  <td className="p-5">
-                    <a
-                      href={`/${admin.school_code?.toLowerCase()}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline text-xs break-all"
-                    >
-                      {`${window.location.origin}/${admin.school_code?.toLowerCase()}`}
-                    </a>
-                  </td>
-
-                  <td className="p-5">
-
-                    <span
-                      className={
-                        admin.is_active
-                        ? "rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600"
-                        : "rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500"
-                      }
-                    >
-                      {admin.is_active
-                        ? "Active"
-                        : "Inactive"}
-                    </span>
-
-                  </td>
-
-
-                  <td className="p-5">
-
-                    <button
-                      onClick={() =>
-                        toggleStatus(admin)
-                      }
-                      className="
-                      rounded-xl
-                      border
-                      px-4
-                      py-2
-                      text-sm
-                      font-semibold
-                      hover:bg-slate-50
-                      "
-                    >
-                      {admin.is_active
-                        ? "Deactivate"
-                        : "Activate"}
-                    </button>
-
-                  </td>
-
                 </tr>
-
-              ))}
-
+              )}
             </tbody>
-
           </table>
-
         )}
-
       </div>
-
     </div>
   );
 }

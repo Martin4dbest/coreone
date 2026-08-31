@@ -76,27 +76,6 @@ async def get_school_admin(
         current_user,
     )
 
-
-@router.patch(
-    "/{admin_id}/activate",
-    response_model=SchoolAdminResponse,
-)
-async def activate_school_admin(
-    admin_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(
-        require_roles("SUPER_ADMIN")
-    ),
-):
-    return await SchoolAdminService(
-        db
-    ).update_status(
-        admin_id,
-        True,
-        current_user,
-    )
-
-
 @router.delete(
     "/{admin_id}",
 )
@@ -111,25 +90,5 @@ async def delete_school_admin(
         db
     ).delete_school_admin(
         admin_id,
-        current_user,
-    )
-
-
-@router.patch(
-    "/{admin_id}/deactivate",
-    response_model=SchoolAdminResponse,
-)
-async def deactivate_school_admin(
-    admin_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(
-        require_roles("SUPER_ADMIN")
-    ),
-):
-    return await SchoolAdminService(
-        db
-    ).update_status(
-        admin_id,
-        False,
         current_user,
     )
