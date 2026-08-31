@@ -316,6 +316,12 @@ export default function SchoolWorkspaceLayout({
       feature: "branding",
     },
     {
+      name: "Licensing",
+      href: `${basePath}/licensing`,
+      icon: ShieldCheck,
+      feature: "licensing",
+    },
+    {
       name: "Features",
       href: `${basePath}/features`,
       icon: ShieldCheck,

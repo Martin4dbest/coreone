@@ -26,6 +26,7 @@ DEFAULT_FEATURES = [
     "partner_schools",
     "school_books",
     "school_bus",
+    "licensing",
 ]
 
 

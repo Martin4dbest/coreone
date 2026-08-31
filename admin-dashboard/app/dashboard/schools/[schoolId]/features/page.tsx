@@ -125,6 +125,11 @@ const FEATURES: FeatureDefinition[] = [
     description: "Manage partner-school relationships and student partner school associations.",
   },
   {
+    key: "licensing",
+    name: "Licensing",
+    description: "View school licensing information and registered-user licensing summary.",
+  },
+  {
     key: "branding",
     name: "Branding",
     description: "School logo, colours and branding configuration.",
