@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.school_access import check_school_access
@@ -174,6 +175,91 @@ class TeacherAssignmentService:
 
         return await self.repository.create(
             assignment
+        )
+
+
+    async def get_teacher_assignments(
+        self,
+        teacher_id: int,
+        current_user,
+        school_id: int | None = None,
+    ):
+        # --------------------------------------------------------
+        # DETERMINE TARGET SCHOOL
+        # --------------------------------------------------------
+
+        if current_user.role.name == "SUPER_ADMIN":
+            if not school_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="school_id is required for SUPER_ADMIN.",
+                )
+
+            target_school_id = school_id
+
+        else:
+            target_school_id = current_user.school_id
+
+        # --------------------------------------------------------
+        # COREONE COMPATIBILITY
+        #
+        # The caller may provide either:
+        #   1. Teacher.id
+        #   2. User.id belonging to the teacher
+        #
+        # Always resolve to the canonical Teacher.id before
+        # querying TeacherSubject.
+        # --------------------------------------------------------
+
+        teacher_query = await self.db.execute(
+            select(Teacher).where(
+                Teacher.id == teacher_id,
+                Teacher.school_id == target_school_id,
+            )
+        )
+
+        teacher = teacher_query.scalar_one_or_none()
+
+        if teacher is None:
+            teacher_query = await self.db.execute(
+                select(Teacher).where(
+                    Teacher.user_id == teacher_id,
+                    Teacher.school_id == target_school_id,
+                )
+            )
+
+            teacher = teacher_query.scalar_one_or_none()
+
+        if teacher is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Teacher not found.",
+            )
+
+        # --------------------------------------------------------
+        # TEACHER ROLE SECURITY
+        # --------------------------------------------------------
+
+        if current_user.role.name == "TEACHER":
+            if current_user.teacher is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Teacher profile not found.",
+                )
+
+            if current_user.teacher.id != teacher.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only view your own assignments.",
+                )
+
+        # --------------------------------------------------------
+        # FETCH ASSIGNMENTS USING CANONICAL TEACHER ID
+        # --------------------------------------------------------
+
+        return await self.repository.get_teacher_assignments(
+            teacher.id,
+            target_school_id,
         )
 
 

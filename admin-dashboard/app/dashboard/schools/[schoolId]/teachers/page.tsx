@@ -17,6 +17,7 @@ import {
   UserX 
 } from "lucide-react";
 import api from "@/lib/api";
+import { useTenant } from "@/context/TenantContext";
 
 // Types
 interface Teacher {
@@ -71,9 +72,20 @@ const parseApiError = (err: unknown): string => {
   return "Failed to complete operation due to a validation error.";
 };
 
-export default function TeachersPage({ params }: TeacherPageProps) {
+export default function TeachersPage({
+  params,
+}: TeacherPageProps) {
   const { schoolId } = use(params);
   const router = useRouter();
+  const { tenant } = useTenant();
+
+  // Tenant-aware teacher profile navigation.
+  // School Admin / tenant users stay inside their tenant workspace.
+  // SUPER_ADMIN keeps the global dashboard route.
+  const teacherProfileHref = (teacherId: number) =>
+    tenant?.slug
+      ? `/${tenant.slug}/dashboard/schools/${schoolId}/teachers/${teacherId}`
+      : `/dashboard/schools/${schoolId}/teachers/${teacherId}`;
 
   // State
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -387,7 +399,7 @@ export default function TeachersPage({ params }: TeacherPageProps) {
                 {filteredTeachers.map((teacher) => (
                   <tr 
                     key={teacher.id} 
-                    onClick={() => router.push(`/dashboard/schools/${schoolId}/teachers/${teacher.id}`)}
+                    onClick={() => router.push(teacherProfileHref(teacher.id))}
                     className="hover:bg-slate-50/70 transition-colors cursor-pointer"
                   >
                     <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-slate-700">
@@ -407,7 +419,7 @@ export default function TeachersPage({ params }: TeacherPageProps) {
                     </td>
                     <td className="whitespace-nowrap px-6 py-4" onClick={(e) => e.stopPropagation()}>
                       <Link
-                        href={`/dashboard/schools/${schoolId}/teachers/${teacher.id}`}
+                        href={teacherProfileHref(teacher.id)}
                         className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-900 group"
                       >
                         Open Profile

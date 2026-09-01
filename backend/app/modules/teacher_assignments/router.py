@@ -83,52 +83,10 @@ async def get_teacher_assignments(
     )
 
 
-    # ---------------------------------
-    # SECURITY RULES
-    #
-    # SUPER_ADMIN:
-    #   Can view any teacher
-    #
-    # SCHOOL_ADMIN:
-    #   Can view teachers in own school
-    #
-    # TEACHER:
-    #   Can only view own assignments
-    # ---------------------------------
-
-    if current_user.role.name == "TEACHER":
-
-        if not current_user.teacher or current_user.teacher.id != teacher_id:
-            from fastapi import HTTPException, status
-
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own assignments.",
-            )
-
-
-    # Determine target school
-
-    if current_user.role.name == "SUPER_ADMIN":
-
-        if not school_id:
-            from fastapi import HTTPException, status
-
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="school_id is required for SUPER_ADMIN.",
-            )
-
-        target_school_id = school_id
-
-    else:
-
-        target_school_id = current_user.school_id
-
-
-    return await service.repository.get_teacher_assignments(
+    return await service.get_teacher_assignments(
         teacher_id,
-        target_school_id,
+        current_user,
+        school_id,
     )
 
 
