@@ -1,4 +1,5 @@
 from fastapi import HTTPException, status
+from sqlalchemy.orm import selectinload
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -138,7 +139,11 @@ class TeacherService:
         # --------------------------------------------------------
 
         teacher_query = await self.db.execute(
-            select(Teacher).where(
+            select(Teacher)
+            .options(
+                selectinload(Teacher.user),
+            )
+            .where(
                 Teacher.id == teacher_id,
                 Teacher.school_id == school_id,
             )
@@ -148,7 +153,11 @@ class TeacherService:
 
         if teacher is None:
             teacher_query = await self.db.execute(
-                select(Teacher).where(
+                select(Teacher)
+                .options(
+                    selectinload(Teacher.user),
+                )
+                .where(
                     Teacher.user_id == teacher_id,
                     Teacher.school_id == school_id,
                 )
