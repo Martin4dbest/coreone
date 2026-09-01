@@ -163,6 +163,7 @@ export default function ResultsPage({
     useState<number[]>([]);
   const [publishResultsBusy, setPublishResultsBusy] =
     useState(false);
+  const [publishStudentSearch, setPublishStudentSearch] = useState("");
 
 
   // Error / Warning Dialog State
@@ -284,6 +285,30 @@ export default function ResultsPage({
       : false
   );
 
+  const filteredPublishCandidates = publishCandidates.filter((student) => {
+    const search = publishStudentSearch.trim().toLowerCase();
+
+    if (!search) return true;
+
+    const fullName = [
+      student.first_name,
+      student.middle_name,
+      student.last_name,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    const admissionNumber = String(
+      student.admission_number || ""
+    ).toLowerCase();
+
+    return (
+      fullName.includes(search) ||
+      admissionNumber.includes(search)
+    );
+  });
+
   const publishAllSelected =
     publishCandidates.length > 0 &&
     publishCandidates.every((student) =>
@@ -325,6 +350,7 @@ export default function ResultsPage({
     setPublishSessionId(sessionId || "");
     setPublishClassId("");
     setPublishSelectedStudentIds([]);
+    setPublishStudentSearch("");
     setPublishReviewMode(false);
     setPublishResultsModalOpen(true);
   }
@@ -1347,9 +1373,21 @@ export default function ResultsPage({
                       </label>
                     </div>
 
+                    <div className="mb-3">
+                      <input
+                        type="text"
+                        value={publishStudentSearch}
+                        onChange={(event) =>
+                          setPublishStudentSearch(event.target.value)
+                        }
+                        placeholder="Search student by name or admission number..."
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                      />
+                    </div>
+
                     <div className="max-h-[320px] overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
-                      {publishCandidates.length > 0 ? (
-                        publishCandidates.map((student) => {
+                      {filteredPublishCandidates.length > 0 ? (
+                        filteredPublishCandidates.map((student) => {
                           const studentId = Number(student.id);
                           const checked =
                             publishSelectedStudentIds.includes(studentId);
