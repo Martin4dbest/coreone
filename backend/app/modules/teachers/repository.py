@@ -120,9 +120,10 @@ class TeacherRepository:
     async def get_class_teacher(
         self,
         teacher_id: int,
+        school_id: int | None = None,
     ):
 
-        result = await self.db.execute(
+        query = (
             select(Classroom)
             .options(
                 selectinload(Classroom.level)
@@ -132,7 +133,14 @@ class TeacherRepository:
             )
         )
 
-        return result.scalar_one_or_none()
+        if school_id is not None:
+            query = query.where(
+                Classroom.school_id == school_id
+            )
+
+        result = await self.db.execute(query)
+
+        return result.scalars().unique().all()
 
 
 

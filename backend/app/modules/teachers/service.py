@@ -171,8 +171,9 @@ class TeacherService:
             )
         )
 
-        class_teacher = await self.repository.get_class_teacher(
-            canonical_teacher_id
+        class_teachers = await self.repository.get_class_teacher(
+            canonical_teacher_id,
+            school_id,
         )
 
 
@@ -189,13 +190,11 @@ class TeacherService:
                 else None
             ),
 
-            "class_teacher_of": (
-                [
-                    class_teacher.name
-                ]
-                if class_teacher
-                else []
-            ),
+            "class_teacher_of": [
+                classroom.name
+                for classroom in class_teachers
+                if classroom.name
+            ],
 
             "subjects": [
                 {
