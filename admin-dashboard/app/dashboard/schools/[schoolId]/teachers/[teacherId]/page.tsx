@@ -167,32 +167,12 @@ export default function Page({ params }: TeacherPageProps) {
 
       const [
         summaryRes,
-        assignmentsRes,
         classesRes,
         subjectsRes,
         sessionsRes,
       ] = await Promise.all([
         api.get<TeacherSummary>(
-          `/teachers/${numericTeacherId}`,
-          {
-            params: {
-              school_id: numericSchoolId,
-            },
-          }
-        ),
-
-        api.get<{
-          id: number;
-          school_id: number;
-          teacher_id: number;
-          classroom_id: number;
-          subject_id: number;
-          academic_session_id: number;
-          assigned_by: number;
-          assigned_at: string;
-          is_active: boolean;
-        }[]>(
-          `/teacher-assignments/teacher/${numericTeacherId}`,
+          `/teachers/${numericTeacherId}/assignments`,
           {
             params: {
               school_id: numericSchoolId,
@@ -233,42 +213,28 @@ export default function Page({ params }: TeacherPageProps) {
       const sessionsData = sessionsRes.data;
 
       // ------------------------------------------------------------
-      // Build the subject assignment display from the actual
-      // teacher-assignment records returned by the backend.
+      // The teacher assignments summary endpoint is the canonical
+      // source for this profile page.
+      //
+      // It already returns:
+      //   teacher
+      //   email
+      //   class_teacher_of
+      //   subjects[]
+      //
+      // Do NOT rebuild these values from another assignment endpoint.
       // ------------------------------------------------------------
-      const assignmentRecords = Array.isArray(assignmentsRes.data)
-        ? assignmentsRes.data
+      const displayedSubjects = Array.isArray(summaryRes.data.subjects)
+        ? summaryRes.data.subjects
         : [];
 
-      const displayedSubjects = assignmentRecords
-        .filter((assignment) => assignment.is_active === true)
-        .map((assignment) => {
-          const classroom = classesData.find(
-            (item) => Number(item.id) === Number(assignment.classroom_id)
-          );
-
-          const subject = subjectsData.find(
-            (item) => Number(item.id) === Number(assignment.subject_id)
-          );
-
-          return {
-            id: Number(assignment.id),
-            classroom:
-              classroom?.name ||
-              `Class #${assignment.classroom_id}`,
-            subject:
-              subject?.name ||
-              `Subject #${assignment.subject_id}`,
-          };
-        });
-
       console.log(
-        "[teacher-workspace] Assignment API records:",
-        assignmentRecords
+        "[teacher-workspace] Teacher summary:",
+        summaryRes.data
       );
 
       console.log(
-        "[teacher-workspace] Resolved displayed subjects:",
+        "[teacher-workspace] Loaded subject assignments:",
         displayedSubjects
       );
 
