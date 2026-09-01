@@ -173,7 +173,7 @@ export default function Page({ params }: TeacherPageProps) {
         sessionsRes,
       ] = await Promise.all([
         api.get<TeacherSummary>(
-          `/teachers/${numericTeacherId}/assignments`,
+          `/teachers/${numericTeacherId}`,
           {
             params: {
               school_id: numericSchoolId,
