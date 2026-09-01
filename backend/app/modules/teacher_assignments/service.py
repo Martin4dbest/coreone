@@ -122,6 +122,32 @@ class TeacherAssignmentService:
 
 
         # ---------------------------------
+        # COREONE RULE:
+        # Only ONE active teacher can teach
+        # the same subject in the same class
+        # for the same academic session.
+        # ---------------------------------
+
+        conflict_query = await self.db.execute(
+            select(TeacherSubject).where(
+                TeacherSubject.school_id == target_school_id,
+                TeacherSubject.classroom_id == data.classroom_id,
+                TeacherSubject.subject_id == data.subject_id,
+                TeacherSubject.academic_session_id == data.academic_session_id,
+                TeacherSubject.is_active == True,
+            )
+        )
+
+        active_conflict = conflict_query.scalars().first()
+
+        if active_conflict and active_conflict.teacher_id != data.teacher_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This subject is already assigned to another teacher in this class for this academic session.",
+            )
+
+
+        # ---------------------------------
         # Prevent duplicates
         # ---------------------------------
 
