@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "PreSense",
+    "name": "CoreOne",
     "slug": "presense",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -27,7 +27,8 @@
     },
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/images/presense-logo.png"
+      "favicon": "./assets/images/presense-logo.png",
+      "output": "single"
     },
     "plugins": [
       "expo-router",

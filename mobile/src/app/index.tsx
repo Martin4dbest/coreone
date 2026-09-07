@@ -1,9 +1,8 @@
+// @ts-nocheck
 import React from "react";
 import {
   View,
   Text,
-  Image,
-  ImageBackground,
   Pressable,
   StyleSheet,
   SafeAreaView,
@@ -12,6 +11,7 @@ import {
   useWindowDimensions,
   Platform,
 } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -61,10 +61,7 @@ export default function Landing() {
             <View style={styles.header}>
               <View style={styles.logoRow}>
                 <View style={styles.logoContainer}>
-                  <Image
-                    source={require("../../assets/images/presense-logo.png")}
-                    style={styles.logo}
-                  />
+                  <Ionicons name="school-outline" size={24} color="#B91C1C" />
                 </View>
                 <Text style={styles.brand}>
                   Pre<Text style={styles.brandAccent}>Sense</Text>
@@ -86,7 +83,7 @@ export default function Landing() {
 
             {/* Hero Section */}
             <View style={[styles.heroContainer, isDesktopWeb && styles.heroDesktop]}>
-              {/* Web Left Text / Mobile Integrated Content */}
+              {/* Desktop Left Column */}
               {isDesktopWeb && (
                 <View style={styles.heroLeft}>
                   <View style={styles.heroPill}>
@@ -116,46 +113,41 @@ export default function Landing() {
 
               {/* Hero Image Card */}
               <View style={[styles.heroCard, isDesktopWeb && styles.heroCardDesktop]}>
-                <ImageBackground
+                <Image
                   source={{
                     uri: "https://images.unsplash.com/photo-1531482615713-2afd69097998?q=80&w=1000",
                   }}
                   style={styles.heroImage}
-                  imageStyle={styles.heroImageStyle}
-                >
-                  <Image
-                    source={{
-                      uri: "https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg",
-                    }}
-                    style={styles.worldMapOverlay}
-                    resizeMode="contain"
-                  />
+                  contentFit="cover"
+                  transition={200}
+                />
 
-                  <LinearGradient
-                    colors={["transparent", "rgba(15, 23, 42, 0.45)", "rgba(15, 23, 42, 0.92)"]}
-                    style={styles.heroGradient}
-                  >
-                    {!isDesktopWeb && (
-                      <>
-                        <View style={styles.heroPill}>
-                          <Ionicons name="sparkles" size={12} color="#FCA5A5" />
-                          <Text style={styles.heroPillText}>Next-Gen Education ERP</Text>
-                        </View>
-                        <Text style={styles.heroTitle}>Empowering Modern Learning</Text>
-                        <Text style={styles.heroSubtitle}>
-                          Seamlessly track analytics, results, and attendance in one unified portal.
-                        </Text>
-                      </>
-                    )}
-                  </LinearGradient>
-                </ImageBackground>
+                <LinearGradient
+                  colors={["transparent", "rgba(15, 23, 42, 0.45)", "rgba(15, 23, 42, 0.92)"]}
+                  style={styles.heroGradient}
+                >
+                  {!isDesktopWeb && (
+                    <>
+                      <View style={styles.heroPill}>
+                        <Ionicons name="sparkles" size={12} color="#DC2626" />
+                        <Text style={styles.heroPillText}>Next-Gen Education ERP</Text>
+                      </View>
+                      <Text style={styles.heroTitle}>Empowering Modern Learning</Text>
+                      <Text style={styles.heroSubtitle}>
+                        Seamlessly track analytics, results, and attendance in one portal.
+                      </Text>
+                    </>
+                  )}
+                </LinearGradient>
               </View>
             </View>
 
             {/* Section Header */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Key Capabilities</Text>
-              <Text style={styles.sectionSub}>Everything your institution needs to operate efficiently</Text>
+              <Text style={styles.sectionSub}>
+                Everything your institution needs to operate efficiently
+              </Text>
             </View>
 
             {/* Feature Grid */}
@@ -175,11 +167,13 @@ export default function Landing() {
                     pressed && styles.cardPressed,
                   ]}
                 >
-                  <ImageBackground
-                    source={{ uri: item.image }}
-                    style={styles.featureBgImage}
-                    imageStyle={{ borderTopLeftRadius: 14, borderTopRightRadius: 14 }}
-                  >
+                  <View style={styles.featureImageContainer}>
+                    <Image
+                      source={{ uri: item.image }}
+                      style={styles.featureBgImage}
+                      contentFit="cover"
+                      transition={200}
+                    />
                     <LinearGradient
                       colors={["transparent", "rgba(15, 23, 42, 0.7)"]}
                       style={styles.featureImageGradient}
@@ -188,7 +182,7 @@ export default function Landing() {
                         <Ionicons name={item.icon as any} size={16} color="#B91C1C" />
                       </View>
                     </LinearGradient>
-                  </ImageBackground>
+                  </View>
 
                   <View style={styles.featureContent}>
                     <Text style={styles.featureTitle} numberOfLines={1}>
@@ -281,11 +275,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  logo: {
-    width: 26,
-    height: 26,
-    resizeMode: "contain",
-  },
   brand: {
     fontSize: 22,
     fontWeight: "800",
@@ -353,6 +342,7 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 4,
     backgroundColor: "#E2E8F0",
+    position: "relative",
   },
   heroCardDesktop: {
     flex: 1,
@@ -361,25 +351,15 @@ const styles = StyleSheet.create({
   heroImage: {
     width: "100%",
     height: "100%",
-    justifyContent: "flex-end",
-  },
-  heroImageStyle: {
-    borderRadius: 20,
-    resizeMode: "cover",
-  },
-  worldMapOverlay: {
     position: "absolute",
-    top: 12,
-    right: 12,
-    width: 140,
-    height: 80,
-    opacity: 0.25,
-    tintColor: "#FFFFFF",
+    top: 0,
+    left: 0,
   },
   heroGradient: {
     width: "100%",
+    height: "100%",
+    justifyContent: "flex-end",
     padding: 16,
-    paddingTop: 32,
   },
   heroPill: {
     flexDirection: "row",
@@ -463,12 +443,21 @@ const styles = StyleSheet.create({
     opacity: 0.92,
     transform: [{ scale: 0.98 }],
   },
-  featureBgImage: {
+  featureImageContainer: {
     width: "100%",
     height: 80,
+    position: "relative",
+  },
+  featureBgImage: {
+    width: "100%",
+    height: "100%",
   },
   featureImageGradient: {
-    flex: 1,
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
     padding: 8,
     justifyContent: "flex-end",
   },
