@@ -6,6 +6,7 @@ from app.models.teacher_subject import TeacherSubject
 
 async def main():
     async with AsyncSessionLocal() as db:
+        
         result = await db.execute(
             select(TeacherSubject).where(
                 TeacherSubject.teacher_id == 3

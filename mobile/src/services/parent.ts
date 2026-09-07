@@ -44,6 +44,7 @@ export interface ParentStudent {
   passport?: string | null;
 
   classroom_id?: number | null;
+  class_name?: string | null;
 
   relationship_type: string;
 

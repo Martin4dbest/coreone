@@ -63,6 +63,11 @@ export default function ParentChildScreen() {
         const data =
           await getParentStudent(studentId);
 
+        console.log(
+          "PARENT CHILD RESPONSE:",
+          JSON.stringify(data, null, 2)
+        );
+
         setStudent(data);
       } catch (error) {
         console.log(
@@ -237,8 +242,13 @@ export default function ParentChildScreen() {
           </View>
 
           <Text style={styles.name}>
-            {student.first_name}{" "}
-            {student.last_name}
+            {[
+              student.first_name,
+              student.middle_name,
+              student.last_name,
+            ]
+              .filter(Boolean)
+              .join(" ")}
           </Text>
 
           <Text style={styles.relationship}>
@@ -259,9 +269,10 @@ export default function ParentChildScreen() {
           <Detail
             label="Class"
             value={
-              student.classroom_id
+              student.class_name ||
+              (student.classroom_id
                 ? `Class #${student.classroom_id}`
-                : "Not assigned"
+                : "Not assigned")
             }
           />
 

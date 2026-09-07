@@ -34,184 +34,102 @@ type School = {
   id: number;
   name: string;
   school_code: string;
-
   email?: string | null;
   phone?: string | null;
   address?: string | null;
   city?: string | null;
   state?: string | null;
   country?: string | null;
-
   logo?: string | null;
   primary_color?: string | null;
   secondary_color?: string | null;
-
   branding?: SchoolBranding | null;
 };
 
 type ParentStudent = {
   id: number;
   admission_number: string;
-
   first_name: string;
   last_name: string;
   middle_name?: string | null;
-
   gender: string;
   date_of_birth?: string | null;
   passport?: string | null;
-
   classroom_id?: number | null;
-
   relationship_type: string;
-
   school: School;
 };
 
 type ParentMe = {
   id: number;
   user_id: number;
-
   first_name: string;
   last_name: string;
   phone: string;
-
   students: ParentStudent[];
 };
 
 const { width: screenWidth } = Dimensions.get("window");
-const isDesktopWeb =
-  Platform.OS === "web" && screenWidth >= 900;
+const isDesktopWeb = Platform.OS === "web" && screenWidth >= 900;
+const desktopMaxWidth = Math.min(Math.max(screenWidth - 48, 320), 1200);
 
-const desktopMaxWidth = Math.min(
-  Math.max(screenWidth - 48, 320),
-  1180
-);
-
-function normalizeImageUrl(
-  value?: string | null
-): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  if (
-    value.startsWith("http://") ||
-    value.startsWith("https://") ||
-    value.startsWith("file://")
-  ) {
+function normalizeImageUrl(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("file://")) {
     return value;
   }
-
-  const base =
-    process.env.EXPO_PUBLIC_API_URL ||
-    "https://coreone.onrender.com";
-
-  if (value.startsWith("/")) {
-    return `${base}${value}`;
-  }
-
-  return `${base}/${value}`;
+  const base = process.env.EXPO_PUBLIC_API_URL || "https://coreone.onrender.com";
+  return value.startsWith("/") ? `${base}${value}` : `${base}/${value}`;
 }
 
-function getSchoolBranding(
-  school?: School
-) {
+function getSchoolBranding(school?: School) {
   return {
-    primary:
-      school?.branding?.primary_color ||
-      school?.primary_color ||
-      "#2563EB",
-
-    secondary:
-      school?.branding?.secondary_color ||
-      school?.secondary_color ||
-      "#1E293B",
-
-    accent:
-      school?.branding?.accent_color ||
-      "#F43F5E",
-
-    logo:
-      school?.branding?.logo_url ||
-      school?.logo ||
-      undefined,
-
-    motto:
-      school?.branding?.motto ||
-      undefined,
+    primary: school?.branding?.primary_color || school?.primary_color || "#2563EB",
+    secondary: school?.branding?.secondary_color || school?.secondary_color || "#0F172A",
+    accent: school?.branding?.accent_color || "#F43F5E",
+    logo: school?.branding?.logo_url || school?.logo || undefined,
+    motto: school?.branding?.motto || undefined,
   };
+}
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
 }
 
 export default function ParentDashboard() {
   const { user, logout } = useAuth();
-
-  const [parent, setParent] =
-    useState<ParentMe | null>(null);
-
-  const [selectedStudentId, setSelectedStudentId] =
-    useState<number | null>(null);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [refreshing, setRefreshing] =
-    useState(false);
+  const [parent, setParent] = useState<ParentMe | null>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const selectedStudent = useMemo(
     () =>
-      parent?.students?.find(
-        (student) =>
-          student.id === selectedStudentId
-      ) ||
+      parent?.students?.find((student) => student.id === selectedStudentId) ||
       parent?.students?.[0] ||
       null,
     [parent, selectedStudentId]
   );
 
-  const schoolBranding = getSchoolBranding(
-    selectedStudent?.school
-  );
+  const schoolBranding = getSchoolBranding(selectedStudent?.school);
 
-  async function loadParentDashboard(
-    showSpinner = true
-  ) {
+  async function loadParentDashboard(showSpinner = true) {
     try {
-      if (showSpinner) {
-        setLoading(true);
-      }
-
-      const response =
-        await api.get<ParentMe>(
-          "/parents/me"
-        );
-
+      if (showSpinner) setLoading(true);
+      const response = await api.get<ParentMe>("/parents/me");
       const data = response.data;
-
       setParent(data);
 
-      const firstStudent =
-        data?.students?.[0];
-
-      if (
-        firstStudent &&
-        selectedStudentId === null
-      ) {
-        setSelectedStudentId(
-          firstStudent.id
-        );
+      const firstStudent = data?.students?.[0];
+      if (firstStudent && selectedStudentId === null) {
+        setSelectedStudentId(firstStudent.id);
       }
     } catch (error: any) {
-      console.log(
-        "PARENT DASHBOARD ERROR:",
-        error?.response?.data ||
-          error?.message
-      );
-
-      Alert.alert(
-        "Unable to load dashboard",
-        "We could not load your children right now. Please try again."
-      );
+      console.log("PARENT DASHBOARD ERROR:", error?.response?.data || error?.message);
+      Alert.alert("Unable to load dashboard", "We could not load your children right now.");
     } finally {
       setLoading(false);
     }
@@ -238,40 +156,23 @@ export default function ParentDashboard() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator
-          size="large"
-          color="#2563EB"
-        />
-
-        <Text style={styles.loadingText}>
-          Loading parent dashboard...
-        </Text>
+        <ActivityIndicator size="large" color="#2563EB" />
+        <Text style={styles.loadingText}>Fetching profile...</Text>
       </View>
     );
   }
 
-  const parentName =
-    parent
-      ? `${parent.first_name} ${parent.last_name}`.trim()
-      : "Parent";
-
-  const students =
-    parent?.students || [];
+  const parentName = parent ? `${parent.first_name} ${parent.last_name}`.trim() : "Parent";
+  const students = parent?.students || [];
 
   return (
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          isDesktopWeb &&
-            styles.desktopScrollContent,
+          isDesktopWeb && styles.desktopScrollContent,
         ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-          />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         showsVerticalScrollIndicator={false}
       >
         <View
@@ -284,433 +185,265 @@ export default function ParentDashboard() {
             },
           ]}
         >
-          {/* ================================================= */}
-          {/* SCHOOL HEADER                                     */}
-          {/* ================================================= */}
-
-          <View
-            style={[
-              styles.schoolHeader,
-              {
-                backgroundColor:
-                  schoolBranding.primary,
-              },
-            ]}
-          >
-            <View style={styles.schoolHeaderLeft}>
-              <View style={styles.schoolLogoWrap}>
+          {/* ================= HERO HEADER ================= */}
+          <View style={[styles.heroHeader, { backgroundColor: schoolBranding.secondary }]}>
+            <View style={styles.heroTopRow}>
+              <View style={styles.brandBadge}>
                 {schoolBranding.logo ? (
                   <Image
-                    source={{
-                      uri: normalizeImageUrl(
-                        schoolBranding.logo
-                      ),
-                    }}
+                    source={{ uri: normalizeImageUrl(schoolBranding.logo) }}
                     style={styles.schoolLogo}
                   />
                 ) : (
-                  <Ionicons
-                    name="school-outline"
-                    size={30}
-                    color="#FFFFFF"
-                  />
+                  <Ionicons name="school" size={20} color="#FFFFFF" />
                 )}
-              </View>
-
-              <View style={styles.schoolTitleBlock}>
-                <Text
-                  style={styles.schoolName}
-                  numberOfLines={2}
-                >
-                  {selectedStudent?.school?.name ||
-                    "School"}
-                </Text>
-
-                <Text style={styles.schoolTagline}>
-                  Parent Portal
+                <Text style={styles.heroSchoolName} numberOfLines={1}>
+                  {selectedStudent?.school?.name || "CoreOne School"}
                 </Text>
               </View>
+
+              <Pressable
+                onPress={handleLogout}
+                style={({ pressed }) => [styles.iconButton, pressed && styles.pressedState]}
+              >
+                <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
+              </Pressable>
             </View>
 
-            <Pressable
-              onPress={handleLogout}
-              style={styles.logoutButton}
-            >
-              <Ionicons
-                name="log-out-outline"
-                size={19}
-                color="#FFFFFF"
-              />
-            </Pressable>
+            <View style={styles.heroMain}>
+              <Text style={styles.greetingText}>
+                {getGreeting()}, {parentName}
+              </Text>
+              <Text style={styles.heroSubText}>
+                {schoolBranding.motto || "Track your children's educational journey."}
+              </Text>
+            </View>
           </View>
 
-          {/* ================================================= */}
-          {/* WELCOME                                           */}
-          {/* ================================================= */}
-
-          <View style={styles.welcomeBlock}>
-            <Text style={styles.welcomeEyebrow}>
-              Welcome back
-            </Text>
-
-            <Text style={styles.welcomeTitle}>
-              {parentName}
-            </Text>
-
-            {schoolBranding.motto ? (
-              <Text style={styles.motto}>
-                {schoolBranding.motto}
-              </Text>
-            ) : (
-              <Text style={styles.welcomeSubtitle}>
-                Stay connected with your children's
-                education.
-              </Text>
-            )}
-          </View>
-
-          {/* ================================================= */}
-          {/* CHILDREN                                           */}
-          {/* ================================================= */}
-
+          {/* ================= CHILDREN SELECTION ================= */}
           <View style={styles.sectionHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>
-                My Children
-              </Text>
-
-              <Text style={styles.sectionSubtitle}>
-                {students.length === 1
-                  ? "1 child linked to your account"
-                  : `${students.length} children linked to your account`}
-              </Text>
+            <Text style={styles.sectionTitle}>Linked Students</Text>
+            <View style={styles.badgeCount}>
+              <Text style={styles.badgeCountText}>{students.length}</Text>
             </View>
           </View>
 
           {students.length === 0 ? (
             <View style={styles.emptyCard}>
-              <View style={styles.emptyIcon}>
-                <Ionicons
-                  name="people-outline"
-                  size={28}
-                  color="#64748B"
-                />
-              </View>
-
-              <Text style={styles.emptyTitle}>
-                No children linked yet
-              </Text>
-
+              <Ionicons name="people-outline" size={32} color="#94A3B8" />
+              <Text style={styles.emptyTitle}>No Children Linked</Text>
               <Text style={styles.emptyText}>
-                Your school will link your child to
-                your parent account.
+                Please reach out to your school administrator to link your account.
               </Text>
             </View>
           ) : (
-            <View style={styles.childrenList}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.childrenHorizontalList}
+            >
               {students.map((student) => {
-                const active =
-                  selectedStudent?.id === student.id;
-
-                const studentSchool =
-                  getSchoolBranding(
-                    student.school
-                  );
-
-                const initials =
-                  `${student.first_name?.[0] || ""}${
-                    student.last_name?.[0] || ""
-                  }`.toUpperCase();
+                const active = selectedStudent?.id === student.id;
+                const studentBranding = getSchoolBranding(student.school);
+                const initials = `${student.first_name?.[0] || ""}${
+                  student.last_name?.[0] || ""
+                }`.toUpperCase();
 
                 return (
                   <Pressable
                     key={student.id}
-                    onPress={() => {
-                      setSelectedStudentId(
-                        student.id
-                      );
-
-                      router.push({
-                        pathname: "/parent/child",
-                        params: {
-                          studentId: String(student.id),
-                        },
-                      });
-                    }}
+                    onPress={() => setSelectedStudentId(student.id)}
                     style={({ pressed }) => [
-                      styles.childCard,
+                      styles.childPillCard,
                       active && {
-                        borderColor:
-                          studentSchool.primary,
-                        backgroundColor:
-                          `${studentSchool.primary}0D`,
+                        borderColor: studentBranding.primary,
+                        backgroundColor: "#FFFFFF",
+                        shadowColor: studentBranding.primary,
+                        shadowOpacity: 0.15,
+                        shadowRadius: 10,
+                        elevation: 4,
                       },
-                      pressed &&
-                        styles.childCardPressed,
+                      pressed && styles.pressedState,
                     ]}
                   >
                     <View
                       style={[
-                        styles.avatar,
-                        {
-                          backgroundColor:
-                            studentSchool.primary,
-                        },
+                        styles.avatarRing,
+                        { borderColor: active ? studentBranding.primary : "#E2E8F0" },
                       ]}
                     >
                       {student.passport ? (
                         <Image
-                          source={{
-                            uri: normalizeImageUrl(
-                              student.passport
-                            ),
-                          }}
+                          source={{ uri: normalizeImageUrl(student.passport) }}
                           style={styles.avatarImage}
                         />
                       ) : (
-                        <Text style={styles.avatarText}>
-                          {initials || "ST"}
-                        </Text>
+                        <View
+                          style={[
+                            styles.avatarFallback,
+                            { backgroundColor: studentBranding.primary },
+                          ]}
+                        >
+                          <Text style={styles.avatarText}>{initials || "ST"}</Text>
+                        </View>
                       )}
                     </View>
 
-                    <View style={styles.childInfo}>
-                      <Text
-                        style={styles.childName}
-                        numberOfLines={1}
-                      >
-                        {student.first_name}{" "}
-                        {student.last_name}
+                    <View style={styles.childPillInfo}>
+                      <Text style={styles.childPillName} numberOfLines={1}>
+                        {student.first_name} {student.last_name}
                       </Text>
-
-                      <Text style={styles.childSchool}>
-                        {student.school.name}
-                      </Text>
-
-                      <Text style={styles.childMeta}>
-                        {student.admission_number}
-                      </Text>
+                      <Text style={styles.childPillMeta}>{student.admission_number}</Text>
                     </View>
 
-                    <Ionicons
-                      name={
-                        active
-                          ? "checkmark-circle"
-                          : "chevron-forward"
-                      }
-                      size={23}
-                      color={
-                        active
-                          ? studentSchool.primary
-                          : "#94A3B8"
-                      }
-                    />
+                    {active && (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={18}
+                        color={studentBranding.primary}
+                        style={styles.activeCheck}
+                      />
+                    )}
                   </Pressable>
                 );
               })}
-            </View>
+            </ScrollView>
           )}
 
-          {/* ================================================= */}
-          {/* SELECTED CHILD                                    */}
-          {/* ================================================= */}
-
+          {/* ================= STUDENT OVERVIEW CARD ================= */}
           {selectedStudent && (
             <>
-              <View style={styles.sectionHeader}>
-                <View>
-                  <Text style={styles.sectionTitle}>
-                    {selectedStudent.first_name}'s
-                    Overview
-                  </Text>
-
-                  <Text style={styles.sectionSubtitle}>
-                    {selectedStudent.school.name}
-                  </Text>
-                </View>
-              </View>
-
               <View style={styles.profileCard}>
-                <View
-                  style={[
-                    styles.profileAccent,
-                    {
-                      backgroundColor:
-                        schoolBranding.primary,
-                    },
-                  ]}
-                />
-
                 <View style={styles.profileHeader}>
                   <View
                     style={[
-                      styles.profileAvatar,
-                      {
-                        borderColor:
-                          schoolBranding.primary,
-                      },
+                      styles.profileAvatarContainer,
+                      { borderColor: schoolBranding.primary },
                     ]}
                   >
                     {selectedStudent.passport ? (
                       <Image
-                        source={{
-                          uri: normalizeImageUrl(
-                            selectedStudent.passport
-                          ),
-                        }}
+                        source={{ uri: normalizeImageUrl(selectedStudent.passport) }}
                         style={styles.profileAvatarImage}
                       />
                     ) : (
-                      <Ionicons
-                        name="person-outline"
-                        size={34}
-                        color={
-                          schoolBranding.primary
-                        }
-                      />
+                      <Ionicons name="person" size={32} color={schoolBranding.primary} />
                     )}
                   </View>
 
-                  <View style={styles.profileIdentity}>
-                    <Text
-                      style={styles.profileName}
-                      numberOfLines={1}
-                    >
-                      {selectedStudent.first_name}{" "}
-                      {selectedStudent.last_name}
+                  <View style={styles.profileBody}>
+                    <View style={styles.roleBadge}>
+                      <Text style={styles.roleBadgeText}>
+                        {selectedStudent.relationship_type.toUpperCase()}
+                      </Text>
+                    </View>
+                    <Text style={styles.profileName} numberOfLines={1}>
+                      {selectedStudent.first_name} {selectedStudent.last_name}
                     </Text>
-
-                    <Text style={styles.profileSchool}>
-                      {selectedStudent.school.name}
-                    </Text>
-
-                    <Text style={styles.profileRelationship}>
-                      {selectedStudent.relationship_type}
-                    </Text>
+                    <Text style={styles.profileSchool}>{selectedStudent.school.name}</Text>
                   </View>
+
+                  <Pressable
+                    onPress={() =>
+                      router.push({
+                        pathname: "/parent/child",
+                        params: { studentId: String(selectedStudent.id) },
+                      })
+                    }
+                    style={styles.viewDetailButton}
+                  >
+                    <Ionicons name="chevron-forward" size={18} color="#64748B" />
+                  </Pressable>
                 </View>
 
-                <View style={styles.detailGrid}>
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>
-                      Admission Number
-                    </Text>
+                <View style={styles.divider} />
 
-                    <Text style={styles.detailValue}>
-                      {selectedStudent.admission_number}
-                    </Text>
+                <View style={styles.detailGrid}>
+                  <View style={styles.detailCard}>
+                    <Ionicons name="card-outline" size={16} color="#64748B" />
+                    <View style={styles.detailTextGroup}>
+                      <Text style={styles.detailLabel}>Admission No.</Text>
+                      <Text style={styles.detailValue}>{selectedStudent.admission_number}</Text>
+                    </View>
                   </View>
 
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>
-                      Class
-                    </Text>
-
-                    <Text style={styles.detailValue}>
-                      {selectedStudent.classroom_id
-                        ? `Class #${selectedStudent.classroom_id}`
-                        : "Not assigned"}
-                    </Text>
+                  <View style={styles.detailCard}>
+                    <Ionicons name="easel-outline" size={16} color="#64748B" />
+                    <View style={styles.detailTextGroup}>
+                      <Text style={styles.detailLabel}>Class Enrolled</Text>
+                      <Text style={styles.detailValue}>
+                        {selectedStudent.classroom_id
+                          ? `Class #${selectedStudent.classroom_id}`
+                          : "Unassigned"}
+                      </Text>
+                    </View>
                   </View>
                 </View>
               </View>
 
-              {/* ============================================= */}
-              {/* QUICK ACCESS                                    */}
-              {/* ============================================= */}
-
+              {/* ================= SERVICES GRID ================= */}
               <View style={styles.sectionHeader}>
-                <View>
-                  <Text style={styles.sectionTitle}>
-                    School Services
-                  </Text>
-
-                  <Text style={styles.sectionSubtitle}>
-                    Access {selectedStudent.first_name}'s
-                    school information
-                  </Text>
-                </View>
+                <Text style={styles.sectionTitle}>Academic Services</Text>
               </View>
 
               <View style={styles.serviceGrid}>
-                <ParentServiceCard
-                  icon="document-text-outline"
+                <ServiceTile
+                  icon="analytics-outline"
                   title="Results"
-                  subtitle="Academic results"
+                  subtitle="Grade reports"
                   color={schoolBranding.primary}
-                  onPress={() => {
+                  onPress={() =>
                     router.push({
                       pathname: "/parent/results",
-                      params: {
-                        studentId: String(
-                          selectedStudent.id
-                        ),
-                      },
-                    });
-                  }}
+                      params: { studentId: String(selectedStudent.id) },
+                    })
+                  }
                 />
-
-                <ParentServiceCard
+                <ServiceTile
                   icon="calendar-outline"
                   title="Attendance"
-                  subtitle="Attendance record"
-                  color={schoolBranding.accent}
-                  onPress={() => {
+                  subtitle="Daily tracking"
+                  color="#10B981"
+                  onPress={() =>
                     router.push({
                       pathname: "/parent/attendance",
-                      params: {
-                        studentId: String(
-                          selectedStudent.id
-                        ),
-                      },
-                    });
-                  }}
+                      params: { studentId: String(selectedStudent.id) },
+                    })
+                  }
                 />
-
-                <ParentServiceCard
+                <ServiceTile
                   icon="book-outline"
                   title="Learning"
-                  subtitle="Learning activities"
-                  color="#0F766E"
+                  subtitle="Curriculum & tasks"
+                  color="#6366F1"
                 />
-
-                <ParentServiceCard
+                <ServiceTile
                   icon="notifications-outline"
-                  title="Notifications"
+                  title="Notices"
                   subtitle="School updates"
-                  color="#7C3AED"
+                  color="#8B5CF6"
                 />
-
-                <ParentServiceCard
-                  icon="calendar-number-outline"
-                  title="Events"
-                  subtitle="School events"
-                  color="#D97706"
+                <ServiceTile
+                  icon="time-outline"
+                  title="Schedule"
+                  subtitle="Timetable & events"
+                  color="#F59E0B"
                 />
-
-                <ParentServiceCard
+                <ServiceTile
                   icon="person-outline"
                   title="Profile"
-                  subtitle="Child profile"
-                  color={schoolBranding.secondary}
+                  subtitle="Bio & details"
+                  color="#64748B"
                 />
               </View>
             </>
           )}
 
-          {/* ================================================= */}
-          {/* FOOTER                                            */}
-          {/* ================================================= */}
-
+          {/* ================= FOOTER ================= */}
           <View style={styles.footer}>
-            <Text style={styles.footerSchool}>
-              {selectedStudent?.school?.name ||
-                "School"}
-            </Text>
-
-            <Text style={styles.footerText}>
-              Parent access is based on your linked
-              children.
+            <Text style={styles.footerTitle}>CoreOne Parent Experience</Text>
+            <Text style={styles.footerSubText}>
+              Empowering parents through real-time communication.
             </Text>
           </View>
         </View>
@@ -719,8 +452,7 @@ export default function ParentDashboard() {
   );
 }
 
-
-function ParentServiceCard({
+function ServiceTile({
   icon,
   title,
   subtitle,
@@ -736,440 +468,341 @@ function ParentServiceCard({
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.serviceCard,
-        pressed &&
-          styles.serviceCardPressed,
-      ]}
+      style={({ pressed }) => [styles.serviceTile, pressed && styles.pressedState]}
     >
-      <View
-        style={[
-          styles.serviceIcon,
-          {
-            backgroundColor: `${color}14`,
-          },
-        ]}
-      >
-        <Ionicons
-          name={icon}
-          size={22}
-          color={color}
-        />
+      <View style={[styles.serviceIconContainer, { backgroundColor: `${color}12` }]}>
+        <Ionicons name={icon} size={22} color={color} />
       </View>
-
-      <Text style={styles.serviceTitle}>
-        {title}
-      </Text>
-
-      <Text style={styles.serviceSubtitle}>
-        {subtitle}
-      </Text>
+      <Text style={styles.serviceTitle}>{title}</Text>
+      <Text style={styles.serviceSubtitle}>{subtitle}</Text>
     </Pressable>
   );
 }
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F1F5F9",
   },
-
   scrollContent: {
     paddingBottom: 40,
   },
-
   desktopScrollContent: {
     minHeight: "100%",
   },
-
   content: {
     paddingHorizontal: 16,
+    paddingTop: 12,
   },
-
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F1F5F9",
   },
-
   loadingText: {
     marginTop: 12,
     color: "#64748B",
     fontSize: 14,
     fontWeight: "600",
   },
-
-  schoolHeader: {
-    marginHorizontal: -16,
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 18,
+  heroHeader: {
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 3,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+  },
+  heroTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-
-  schoolHeaderLeft: {
-    flex: 1,
+  brandBadge: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
   },
-
-  schoolLogoWrap: {
-    width: 54,
-    height: 54,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.16)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.24)",
-    justifyContent: "center",
-    alignItems: "center",
-    overflow: "hidden",
-  },
-
   schoolLogo: {
-    width: 44,
-    height: 44,
-    resizeMode: "contain",
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginRight: 8,
   },
-
-  schoolTitleBlock: {
-    flex: 1,
-    marginLeft: 12,
-  },
-
-  schoolName: {
+  heroSchoolName: {
     color: "#FFFFFF",
-    fontSize: 19,
-    fontWeight: "900",
-    letterSpacing: -0.3,
-  },
-
-  schoolTagline: {
-    marginTop: 3,
-    color: "rgba(255,255,255,0.78)",
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "700",
   },
-
-  logoutButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    backgroundColor: "rgba(255,255,255,0.14)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
+  iconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 10,
   },
-
-  welcomeBlock: {
-    paddingTop: 24,
-    paddingBottom: 22,
+  heroMain: {
+    marginTop: 20,
   },
-
-  welcomeEyebrow: {
-    color: "#64748B",
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
+  greetingText: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "800",
+    letterSpacing: -0.5,
   },
-
-  welcomeTitle: {
+  heroSubText: {
+    color: "rgba(255, 255, 255, 0.75)",
+    fontSize: 13,
     marginTop: 4,
-    color: "#0F172A",
-    fontSize: 27,
-    fontWeight: "900",
-    letterSpacing: -0.6,
   },
-
-  welcomeSubtitle: {
-    marginTop: 7,
-    color: "#64748B",
-    fontSize: 13,
-    lineHeight: 19,
-  },
-
-  motto: {
-    marginTop: 7,
-    color: "#475569",
-    fontSize: 13,
-    lineHeight: 19,
-    fontStyle: "italic",
-  },
-
   sectionHeader: {
-    marginBottom: 12,
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 8,
   },
-
   sectionTitle: {
     color: "#0F172A",
-    fontSize: 18,
-    fontWeight: "900",
+    fontSize: 16,
+    fontWeight: "800",
   },
-
-  sectionSubtitle: {
-    marginTop: 3,
-    color: "#64748B",
+  badgeCount: {
+    backgroundColor: "#E2E8F0",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  badgeCountText: {
+    color: "#475569",
     fontSize: 12,
+    fontWeight: "700",
   },
-
-  childrenList: {
-    gap: 10,
-    marginBottom: 26,
+  childrenHorizontalList: {
+    gap: 12,
+    paddingBottom: 8,
+    marginBottom: 12,
   },
-
-  childCard: {
-    minHeight: 82,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  childPillCard: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 16,
+    padding: 10,
+    minWidth: 180,
   },
-
-  childCardPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.99 }],
+  avatarRing: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 2,
+    padding: 2,
   },
-
-  avatar: {
-    width: 54,
-    height: 54,
-    borderRadius: 17,
-    justifyContent: "center",
-    alignItems: "center",
-    overflow: "hidden",
-  },
-
   avatarImage: {
     width: "100%",
     height: "100%",
+    borderRadius: 20,
   },
-
-  avatarText: {
-    color: "#FFFFFF",
-    fontWeight: "900",
-    fontSize: 16,
-  },
-
-  childInfo: {
-    flex: 1,
-    marginHorizontal: 12,
-  },
-
-  childName: {
-    color: "#0F172A",
-    fontSize: 15,
-    fontWeight: "800",
-  },
-
-  childSchool: {
-    marginTop: 3,
-    color: "#475569",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
-  childMeta: {
-    marginTop: 3,
-    color: "#94A3B8",
-    fontSize: 11,
-  },
-
-  emptyCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    padding: 24,
-    alignItems: "center",
-    marginBottom: 26,
-  },
-
-  emptyIcon: {
-    width: 58,
-    height: 58,
-    borderRadius: 18,
-    backgroundColor: "#F1F5F9",
+  avatarFallback: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
   },
-
-  emptyTitle: {
-    color: "#0F172A",
-    fontSize: 16,
+  avatarText: {
+    color: "#FFFFFF",
     fontWeight: "800",
+    fontSize: 13,
   },
-
-  emptyText: {
+  childPillInfo: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  childPillName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  childPillMeta: {
+    fontSize: 11,
     color: "#64748B",
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: "center",
-    marginTop: 6,
-    maxWidth: 300,
+    marginTop: 2,
   },
-
+  activeCheck: {
+    marginLeft: 6,
+  },
   profileCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
+    padding: 16,
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    overflow: "hidden",
-    marginBottom: 26,
+    marginBottom: 20,
   },
-
-  profileAccent: {
-    height: 5,
-  },
-
   profileHeader: {
-    padding: 18,
     flexDirection: "row",
     alignItems: "center",
   },
-
-  profileAvatar: {
-    width: 74,
-    height: 74,
-    borderRadius: 22,
-    borderWidth: 3,
-    backgroundColor: "#F8FAFC",
+  profileAvatarContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+    overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
-    overflow: "hidden",
+    backgroundColor: "#F8FAFC",
   },
-
   profileAvatarImage: {
     width: "100%",
     height: "100%",
   },
-
-  profileIdentity: {
+  profileBody: {
     flex: 1,
-    marginLeft: 14,
+    marginLeft: 12,
   },
-
-  profileName: {
-    color: "#0F172A",
-    fontSize: 20,
-    fontWeight: "900",
+  roleBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 4,
   },
-
-  profileSchool: {
-    marginTop: 4,
-    color: "#475569",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
-  profileRelationship: {
-    marginTop: 4,
-    color: "#94A3B8",
-    fontSize: 11,
-  },
-
-  detailGrid: {
-    paddingHorizontal: 18,
-    paddingBottom: 18,
-    flexDirection: "row",
-    gap: 10,
-  },
-
-  detailItem: {
-    flex: 1,
-    padding: 13,
-    backgroundColor: "#F8FAFC",
-    borderRadius: 14,
-  },
-
-  detailLabel: {
-    color: "#94A3B8",
+  roleBadgeText: {
     fontSize: 9,
     fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    color: "#64748B",
   },
-
-  detailValue: {
-    marginTop: 5,
-    color: "#0F172A",
-    fontSize: 12,
+  profileName: {
+    fontSize: 16,
     fontWeight: "800",
+    color: "#0F172A",
   },
-
+  profileSchool: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2,
+  },
+  viewDetailButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F8FAFC",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#F1F5F9",
+    marginVertical: 14,
+  },
+  detailGrid: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  detailCard: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 10,
+    gap: 8,
+  },
+  detailTextGroup: {
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 10,
+    color: "#94A3B8",
+    fontWeight: "700",
+  },
+  detailValue: {
+    fontSize: 12,
+    color: "#0F172A",
+    fontWeight: "700",
+    marginTop: 1,
+  },
   serviceGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 12,
     marginBottom: 28,
   },
-
-  serviceCard: {
-    width: "31.8%",
+  serviceTile: {
+    width: "31%",
     minWidth: 100,
     flexGrow: 1,
     backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    borderRadius: 17,
-    padding: 14,
   },
-
-  serviceCardPressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.98 }],
-  },
-
-  serviceIcon: {
+  serviceIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 13,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 11,
+    marginBottom: 10,
   },
-
   serviceTitle: {
-    color: "#0F172A",
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "700",
+    color: "#0F172A",
   },
-
   serviceSubtitle: {
-    color: "#94A3B8",
     fontSize: 10,
-    lineHeight: 14,
-    marginTop: 3,
+    color: "#94A3B8",
+    marginTop: 2,
   },
-
-  footer: {
-    paddingTop: 8,
+  pressedState: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+  },
+  emptyCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 24,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 20,
   },
-
-  footerSchool: {
-    color: "#475569",
-    fontSize: 12,
+  emptyTitle: {
+    fontSize: 15,
     fontWeight: "800",
+    color: "#0F172A",
+    marginTop: 8,
   },
-
-  footerText: {
-    color: "#94A3B8",
-    fontSize: 10,
-    marginTop: 4,
+  emptyText: {
+    fontSize: 12,
+    color: "#64748B",
     textAlign: "center",
+    marginTop: 4,
+  },
+  footer: {
+    alignItems: "center",
+    paddingVertical: 16,
+  },
+  footerTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#64748B",
+  },
+  footerSubText: {
+    fontSize: 10,
+    color: "#94A3B8",
+    marginTop: 2,
   },
 });
