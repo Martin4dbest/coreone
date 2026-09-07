@@ -70,11 +70,14 @@ class ParentService:
         current_user,
         school_id: int | None = None,
     ):
-        # Parent records are school-visible to School Admins and
-        # globally visible to the SUPER_ADMIN.
-        school_id = None
-
-        if current_user.role.name != "SUPER_ADMIN":
+        # --------------------------------------------------------
+        # PARENT VISIBILITY
+        # --------------------------------------------------------
+        # SUPER_ADMIN can view parents globally.
+        # SCHOOL_ADMIN is restricted to their own school.
+        if current_user.role.name == "SUPER_ADMIN":
+            school_id = None
+        else:
             school_id = current_user.school_id
 
         parent = await self.repository.get_by_id(
@@ -88,7 +91,9 @@ class ParentService:
                 detail="Parent not found",
             )
 
-        # Retrieve the account email from the linked User record.
+        # --------------------------------------------------------
+        # GET PARENT ACCOUNT EMAIL
+        # --------------------------------------------------------
         result = await self.db.execute(
             select(User.email).where(
                 User.id == parent.user_id
@@ -97,21 +102,24 @@ class ParentService:
 
         email = result.scalar_one_or_none()
 
-        # IMPORTANT:
-        # A parent can have children in multiple schools.
-        # The relationship table is the source of truth.
-        if school_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="School context is required.",
+        # --------------------------------------------------------
+        # GET LINKED STUDENTS
+        # --------------------------------------------------------
+        if current_user.role.name == "SUPER_ADMIN":
+            # SUPER_ADMIN can see all students linked to this parent,
+            # including students belonging to different schools.
+            rows = await self.repository.get_students_for_parent(
+                parent.id
             )
-
-        rows = (
-            await self.repository.get_students_for_parent_in_school(
-                parent.id,
-                school_id,
+        else:
+            # SCHOOL_ADMIN can only see students belonging to
+            # their own school.
+            rows = (
+                await self.repository.get_students_for_parent_in_school(
+                    parent.id,
+                    school_id,
+                )
             )
-        )
 
         students = [
             self._build_student_response(row)
