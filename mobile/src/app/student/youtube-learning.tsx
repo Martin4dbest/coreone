@@ -59,17 +59,30 @@ function getYoutubeThumbnailUrl(url: string): string | null {
   return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
 }
 
-function getYoutubeEmbedUrl(url: string) {
+function getYoutubeEmbedUrl(url: string, forWeb = false) {
   const id = getYoutubeId(url);
-  if (id) {
+
+  if (!id) return url;
+
+  if (forWeb) {
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "";
+
     return (
-      `https://www.youtube-nocookie.com/embed/${id}` +
+      `https://www.youtube.com/embed/${id}` +
       `?rel=0` +
       `&playsinline=1` +
-      `&enablejsapi=1`
+      `&enablejsapi=1` +
+      (origin ? `&origin=${encodeURIComponent(origin)}` : "")
     );
   }
-  return url;
+
+  return (
+    `https://www.youtube-nocookie.com/embed/${id}` +
+    `?rel=0` +
+    `&playsinline=1` +
+    `&enablejsapi=1`
+  );
 }
 
 export default function YoutubeLearningPage() {
@@ -180,11 +193,12 @@ const router = useRouter();
 
           {Platform.OS === "web" ? (
             <iframe
-              src={getYoutubeEmbedUrl(selectedVideo.video_url)}
+              src={getYoutubeEmbedUrl(selectedVideo.video_url, true)}
               style={styles.webIframe as React.CSSProperties}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
               title={selectedVideo.title || "YouTube Learning"}
+              referrerPolicy="strict-origin-when-cross-origin"
             />
           ) : (
             <WebView
@@ -756,10 +770,13 @@ const styles = StyleSheet.create({
   },
 
   webIframe: {
+    flex: 1,
     width: "100%",
     height: "100%",
+    minHeight: 360,
     border: "none",
     display: "block",
+    backgroundColor: "#000000",
   },
 
   webView: {
