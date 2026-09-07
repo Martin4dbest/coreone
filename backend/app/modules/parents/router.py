@@ -95,6 +95,37 @@ async def get_my_students(
 
 
 @router.get(
+    "/me/students/{student_id}/results/pdf",
+)
+async def get_my_student_results_pdf(
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        require_roles("PARENT")
+    ),
+):
+    from fastapi.responses import StreamingResponse
+
+    pdf = await ParentService(
+        db
+    ).generate_my_student_report_pdf(
+        student_id,
+        current_user,
+    )
+
+    return StreamingResponse(
+        pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                "attachment; "
+                "filename=student_report_card.pdf"
+            )
+        },
+    )
+
+
+@router.get(
     "/me/students/{student_id}/attendance",
 )
 async def get_my_student_attendance(

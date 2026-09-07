@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Alert } from "react-native";
 import {
   ActivityIndicator,
   Pressable,
@@ -15,6 +16,7 @@ import {
 
 import {
   getParentStudentResults,
+  downloadParentStudentResultsPdf,
   ParentResultsReport,
 } from "@/services/parent";
 
@@ -31,6 +33,9 @@ export default function ParentResultsScreen() {
 
   const [loading, setLoading] =
     useState(true);
+
+  const [downloadingPdf, setDownloadingPdf] =
+    useState(false);
 
   const [errorMessage, setErrorMessage] =
     useState("");
@@ -335,6 +340,45 @@ export default function ParentResultsScreen() {
             ) : null}
           </View>
         ) : null}
+
+        <Pressable
+          disabled={downloadingPdf}
+          onPress={async () => {
+            try {
+              setDownloadingPdf(true);
+
+              await downloadParentStudentResultsPdf(
+                id
+              );
+            } catch (error: any) {
+              console.error(
+                "PARENT REPORT PDF ERROR:",
+                error
+              );
+
+              Alert.alert(
+                "Report Card",
+                error?.message ||
+                  "Unable to download the report card PDF."
+              );
+            } finally {
+              setDownloadingPdf(false);
+            }
+          }}
+          style={[
+            styles.downloadButton,
+            {
+              backgroundColor:
+                primaryColor,
+            },
+          ]}
+        >
+          <Text style={styles.downloadButtonText}>
+            {downloadingPdf
+              ? "PREPARING REPORT CARD PDF..."
+              : "PRINT / DOWNLOAD REPORT CARD"}
+          </Text>
+        </Pressable>
 
         <View style={styles.footer}>
           <Text style={styles.footerSchool}>
@@ -684,6 +728,23 @@ const styles = StyleSheet.create({
     color: "#64748B",
     fontSize: 11,
     lineHeight: 17,
+  },
+
+  downloadButton: {
+    marginTop: 24,
+    marginHorizontal: 18,
+    paddingVertical: 15,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  downloadButtonText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0.5,
   },
 
   footer: {
