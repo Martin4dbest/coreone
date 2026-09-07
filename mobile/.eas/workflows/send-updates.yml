@@ -1,0 +1,12 @@
+name: Send CoreOne Updates
+
+on:
+  push:
+    branches: ['main']
+
+jobs:
+  send_updates:
+    name: Publish CoreOne OTA Update
+    type: update
+    params:
+      channel: production
