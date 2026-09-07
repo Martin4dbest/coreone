@@ -199,8 +199,7 @@ const router = useRouter();
                 width: "100%",
                 height: "100%",
                 minHeight: 420,
-                border: "none",
-                display: "block",
+                              display: "flex",
                 backgroundColor: "#000000",
               }}
             />
@@ -313,7 +312,7 @@ const router = useRouter();
                   {thumbnailUrl ? (
                     <Image
                       source={{ uri: thumbnailUrl }}
-                      style={styles.thumbnailImage}
+                      style={styles.thumbnailImage as import("react-native").ImageStyle}
                       resizeMode="cover"
                     />
                   ) : (
@@ -778,8 +777,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     minHeight: 360,
-    border: "none",
-    display: "block",
+      display: "flex",
     backgroundColor: "#000000",
   },
 
