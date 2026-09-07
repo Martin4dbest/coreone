@@ -166,29 +166,51 @@ const router = useRouter();
             </View>
           )}
 
-          <WebView
-            source={{
-              uri: getYoutubeEmbedUrl(selectedVideo.video_url),
-              headers: {
-                Referer: "https://www.youtube-nocookie.com/",
-              },
-            }}
-            style={styles.webView}
-            javaScriptEnabled
-            domStorageEnabled
-            allowsFullscreenVideo
-            mediaPlaybackRequiresUserAction
-            thirdPartyCookiesEnabled
-            sharedCookiesEnabled
-            onLoadStart={() => setWebLoading(true)}
-            onLoadEnd={() => setWebLoading(false)}
-            setSupportMultipleWindows={false}
-            javaScriptCanOpenWindowsAutomatically={false}
-            onShouldStartLoadWithRequest={(request) =>
-              request.url.startsWith("http://") ||
-              request.url.startsWith("https://")
-            }
-          />
+          {webLoading && Platform.OS !== "web" && (
+            <View style={styles.webLoading}>
+              <ActivityIndicator size="large" color="#FF0000" />
+
+              <Text style={styles.webLoadingTitle}>Loading video...</Text>
+
+              <Text style={styles.webLoadingText}>
+                Please wait while the lesson video opens.
+              </Text>
+            </View>
+          )}
+
+          {Platform.OS === "web" ? (
+            <iframe
+              src={getYoutubeEmbedUrl(selectedVideo.video_url)}
+              style={styles.webIframe as React.CSSProperties}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              title={selectedVideo.title || "YouTube Learning"}
+            />
+          ) : (
+            <WebView
+              source={{
+                uri: getYoutubeEmbedUrl(selectedVideo.video_url),
+                headers: {
+                  Referer: "https://www.youtube-nocookie.com/",
+                },
+              }}
+              style={styles.webView}
+              javaScriptEnabled
+              domStorageEnabled
+              allowsFullscreenVideo
+              mediaPlaybackRequiresUserAction
+              thirdPartyCookiesEnabled
+              sharedCookiesEnabled
+              onLoadStart={() => setWebLoading(true)}
+              onLoadEnd={() => setWebLoading(false)}
+              setSupportMultipleWindows={false}
+              javaScriptCanOpenWindowsAutomatically={false}
+              onShouldStartLoadWithRequest={(request) =>
+                request.url.startsWith("http://") ||
+                request.url.startsWith("https://")
+              }
+            />
+          )}
         </View>
       </SafeAreaView>
     );
@@ -731,6 +753,13 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     position: "relative",
     backgroundColor: "#000000",
+  },
+
+  webIframe: {
+    width: "100%",
+    height: "100%",
+    border: "none",
+    display: "block",
   },
 
   webView: {

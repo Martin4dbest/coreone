@@ -1,15 +1,16 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback } from "react";
-import { AppState,
+import {
+  AppState,
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
   RefreshControl,
-  Dimensions,
   ActivityIndicator,
   Platform,
+  useWindowDimensions,
 } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -25,10 +26,6 @@ import {
   TimetableClass,
   Announcement,
 } from "../../types/student";
-
-const { width } = Dimensions.get("window");
-
-const isDesktopWeb = Platform.OS === "web" && width >= 900;
 
 // DYNAMIC API BASE URL RESOLUTION
 const API_BASE_URL = api.defaults?.baseURL || "https://coreone.onrender.com/api/v1";
@@ -85,6 +82,10 @@ const KNOWN_SCHOOL_BRANDS: Record<
 };
 
 export default function StudentDashboard() {
+  const { width } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === "web" && width >= 900;
+  const isTablet = width >= 600 && width < 900;
+
   const router = useRouter();
   const auth = useAuth();
   const user = auth?.user;
@@ -108,12 +109,6 @@ export default function StudentDashboard() {
   const [unreadNotificationCount, setUnreadNotificationCount] =
     useState(0);
 
-  /*
-   * Load the real unread count from the backend.
-   *
-   * The backend already returns is_read for every notification.
-   * We therefore count ONLY notifications where is_read === false.
-   */
   const loadUnreadNotificationCount = useCallback(async () => {
     try {
       const response = await api.get("/notifications");
@@ -131,32 +126,13 @@ export default function StudentDashboard() {
         0
       );
 
-      console.log(
-        "UNREAD NOTIFICATION COUNT:",
-        unreadCount
-      );
-
       setUnreadNotificationCount(unreadCount);
     } catch (error) {
-      console.error(
-        "Error loading notification unread count:",
-        error
-      );
-
-      /*
-       * Do not leave an old badge visible when the request fails.
-       */
+      console.error("Error loading notification unread count:", error);
       setUnreadNotificationCount(0);
     }
   }, []);
 
-  /*
-   * Load immediately when the dashboard mounts.
-   *
-   * Also refresh periodically so a notification created by the
-   * School Admin appears on the dashboard without requiring a
-   * manual reload.
-   */
   useEffect(() => {
     loadUnreadNotificationCount();
 
@@ -164,14 +140,11 @@ export default function StudentDashboard() {
       loadUnreadNotificationCount();
     }, 5000);
 
-    const subscription = AppState.addEventListener(
-      "change",
-      (nextState) => {
-        if (nextState === "active") {
-          loadUnreadNotificationCount();
-        }
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        loadUnreadNotificationCount();
       }
-    );
+    });
 
     return () => {
       clearInterval(interval);
@@ -182,7 +155,6 @@ export default function StudentDashboard() {
   const [activeTab, setActiveTab] = useState("Home");
   const [logoError, setLogoError] = useState(false);
 
-  // Fetch student dashboard data
   const fetchDashboardData = async () => {
     try {
       const { data } = await api.get("/mobile/student/dashboard");
@@ -262,8 +234,7 @@ export default function StudentDashboard() {
   };
 
   useEffect(() => {
-      loadUnreadNotificationCount();
-
+    loadUnreadNotificationCount();
     fetchDashboardData();
   }, []);
 
@@ -342,61 +313,55 @@ export default function StudentDashboard() {
     );
   };
 
-  // Explicit distinct tab colors for active state
   const HOME_COLOR = school.primaryColor || "#1E293B";
-  const RESULTS_COLOR = "#059669"; // Emerald Green
-  const CBT_COLOR = "#D4AF37";     // Gold
+  const RESULTS_COLOR = "#059669";
+  const CBT_COLOR = "#D4AF37";
 
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
         {/* TOP HEADER */}
         <View style={styles.topHeader}>
-          <View style={styles.brandRow}>
-            {renderSchoolLogo()}
+          <View style={[styles.topHeaderInner, isDesktopWeb && styles.desktopHeaderInner]}>
+            <View style={styles.brandRow}>
+              {renderSchoolLogo()}
 
-            <View style={styles.brandTextContainer}>
-              <Text
-                style={[styles.brandName, { color: school.primaryColor }]}
-                numberOfLines={1}
-              >
-                {school.name}
-              </Text>
-              <Text style={styles.brandTagline}>Student Portal</Text>
-            </View>
-          </View>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.notificationButton,
-              unreadNotificationCount > 0 &&
-                styles.notificationButtonUnread,
-              pressed && styles.pressedState,
-            ]}
-            onPress={() => {
-              router.push("/student/notifications");
-            }}
-          >
-            <Ionicons
-              name="notifications-outline"
-              size={25}
-              color={
-                unreadNotificationCount > 0
-                  ? "#16A34A"
-                  : "#1E293B"
-              }
-            />
-
-            {unreadNotificationCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {unreadNotificationCount > 99
-                    ? "99+"
-                    : String(unreadNotificationCount)}
+              <View style={styles.brandTextContainer}>
+                <Text
+                  style={[styles.brandName, { color: school.primaryColor }]}
+                  numberOfLines={1}
+                >
+                  {school.name || "Student Portal"}
                 </Text>
+                <Text style={styles.brandTagline}>Academic Portal</Text>
               </View>
-            )}
-          </Pressable>
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.notificationButton,
+                unreadNotificationCount > 0 && styles.notificationButtonUnread,
+                pressed && styles.pressedState,
+              ]}
+              onPress={() => router.push("/student/notifications")}
+            >
+              <Ionicons
+                name="notifications-outline"
+                size={22}
+                color={unreadNotificationCount > 0 ? "#16A34A" : "#1E293B"}
+              />
+
+              {unreadNotificationCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadNotificationCount > 99
+                      ? "99+"
+                      : String(unreadNotificationCount)}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
         </View>
 
         {loading ? (
@@ -417,326 +382,345 @@ export default function StudentDashboard() {
               />
             }
           >
-            {/* GREETING */}
-            <View style={styles.greetingContainer}>
-              <Text style={styles.greetingTitle}>
-                {getGreeting()}
-                {student.first_name ? `, ${student.first_name}` : ""} 👋
-              </Text>
-              <Text style={styles.greetingSubtitle}>
-                Welcome back to your academic portal.
-              </Text>
-            </View>
+            <View style={[styles.contentWrapper, isDesktopWeb && styles.desktopContentWrapper]}>
+              {/* GREETING */}
+              <View style={styles.greetingContainer}>
+                <Text style={styles.greetingTitle}>
+                  {getGreeting()}
+                  {student.first_name ? `, ${student.first_name}` : ""} 👋
+                </Text>
+                <Text style={styles.greetingSubtitle}>
+                  Welcome back to your academic portal.
+                </Text>
+              </View>
 
-            {/* STUDENT PROFILE CARD */}
-            <LinearGradient
-              colors={[school.primaryColor || "#1E293B", school.secondaryColor || "#0F172A"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.profileCard}
-            >
-              <View style={styles.cardGoldAccentBorder} />
+              {/* STUDENT PROFILE CARD */}
+              <LinearGradient
+                colors={[school.primaryColor || "#1E293B", school.secondaryColor || "#0F172A"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.profileCard}
+              >
+                <View style={styles.cardGoldAccentBorder} />
 
-              <View style={styles.profileHeader}>
-                {student.profile_image ? (
-                  <Image
-                    source={{ uri: normalizeImageUrl(student.profile_image) }}
-                    style={styles.profileAvatar}
-                    contentFit="cover"
-                    transition={200}
-                  />
-                ) : (
-                  <View style={styles.defaultAvatar}>
-                    <Text style={styles.avatarText}>{studentInitials}</Text>
+                <View style={styles.profileHeader}>
+                  {student.profile_image ? (
+                    <Image
+                      source={{ uri: normalizeImageUrl(student.profile_image) }}
+                      style={styles.profileAvatar}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  ) : (
+                    <View style={styles.defaultAvatar}>
+                      <Text style={styles.avatarText}>{studentInitials}</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.profileMainInfo}>
+                    <Text style={styles.studentName} numberOfLines={1}>
+                      {student.first_name} {student.last_name}
+                    </Text>
+
+                    <Text style={styles.schoolNameText} numberOfLines={1}>
+                      {school.name}
+                    </Text>
+
+                    {classBadgeText ? (
+                      <View style={styles.badgeRow}>
+                        <View style={styles.classBadge}>
+                          <Text style={styles.classBadgeText}>{classBadgeText}</Text>
+                        </View>
+                      </View>
+                    ) : null}
                   </View>
-                )}
+                </View>
 
-                <View style={styles.profileMainInfo}>
-                  <Text style={styles.studentName} numberOfLines={1}>
-                    {student.first_name} {student.last_name}
-                  </Text>
+                <View style={styles.profileDivider} />
 
-                  <Text style={styles.schoolNameText} numberOfLines={1}>
-                    {school.name}
-                  </Text>
-
-                  {classBadgeText ? (
-                    <View style={styles.badgeRow}>
-                      <View style={styles.classBadge}>
-                        <Text style={styles.classBadgeText}>{classBadgeText}</Text>
+                <View style={styles.profileDetailsGrid}>
+                  {student.admission_number && (
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>Admission No.</Text>
+                      <Text style={styles.detailValue}>{student.admission_number}</Text>
+                    </View>
+                  )}
+                  {school.code ? (
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>School Code</Text>
+                      <View style={styles.schoolCodeBadge}>
+                        <Text style={styles.schoolCodeBadgeText}>{school.code}</Text>
                       </View>
                     </View>
                   ) : null}
-                </View>
-              </View>
 
-              <View style={styles.profileDivider} />
-
-              <View style={styles.profileDetailsGrid}>
-                {student.admission_number && (
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Admission No.</Text>
-                    <Text style={styles.detailValue}>{student.admission_number}</Text>
-                  </View>
-                )}
-                {school.code ? (
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>School Code</Text>
-                    <View style={styles.schoolCodeBadge}>
-                      <Text style={styles.schoolCodeBadgeText}>{school.code}</Text>
+                  {partnerSchools.length > 0 && (
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>Partner School</Text>
+                      <Text style={styles.detailValue} numberOfLines={2}>
+                        {partnerSchools.map((partner: any) => partner.name).join(", ")}
+                      </Text>
                     </View>
-                  </View>
-                ) : null}
+                  )}
 
-                {partnerSchools.length > 0 && (
-                  <View style={styles.detailItem}>
-                    <Text
-                      style={styles.detailValue}
-                      numberOfLines={2}
+                  {student.email && (
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>Email Address</Text>
+                      <Text style={styles.detailValue} numberOfLines={1}>
+                        {student.email}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </LinearGradient>
+
+              {/* Desktop 2-Column Split View for Sections */}
+              <View style={[styles.mainGridSection, isDesktopWeb && styles.desktopGridSection]}>
+                
+                {/* Left Column (Academic Overview & Timetable) */}
+                <View style={isDesktopWeb ? styles.leftColumnDesktop : { width: "100%" }}>
+                  {/* ACADEMIC OVERVIEW GRID */}
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Academic Overview</Text>
+                  </View>
+
+                  <View style={[styles.overviewGrid, isDesktopWeb && styles.gridRowDesktop]}>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.overviewCard,
+                        isDesktopWeb && styles.cardHalfDesktop,
+                        { borderColor: "#E0F2FE" },
+                        pressed && styles.pressedState,
+                      ]}
+                      onPress={() => router.push("/student/attendance")}
                     >
-                      {partnerSchools.map((partner: any) => partner.name).join(", ")}
-                    </Text>
+                      <View style={[styles.iconContainer, { backgroundColor: "#E0F2FE" }]}>
+                        <Ionicons name="calendar" size={22} color="#0284C7" />
+                      </View>
+                      <Text style={styles.overviewCardTitle}>Attendance Record</Text>
+                      <View style={styles.cardActionButton}>
+                        <Text style={[styles.cardActionText, { color: "#0284C7" }]}>Check Log</Text>
+                        <Ionicons name="chevron-forward" size={14} color="#0284C7" />
+                      </View>
+                    </Pressable>
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.overviewCard,
+                        isDesktopWeb && styles.cardHalfDesktop,
+                        { borderColor: "#D1FAE5" },
+                        pressed && styles.pressedState,
+                      ]}
+                      onPress={() => {
+                        setActiveTab("Results");
+                        router.push("/student/results");
+                      }}
+                    >
+                      <View style={[styles.iconContainer, { backgroundColor: "#D1FAE5" }]}>
+                        <Ionicons name="trophy" size={22} color="#059669" />
+                      </View>
+                      <Text style={styles.overviewCardTitle}>Report Cards</Text>
+                      <View style={styles.cardActionButton}>
+                        <Text style={[styles.cardActionText, { color: "#059669" }]}>View Results</Text>
+                        <Ionicons name="chevron-forward" size={14} color="#059669" />
+                      </View>
+                    </Pressable>
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.overviewCard,
+                        styles.fullWidthCard,
+                        { borderColor: "#FEF3C7" },
+                        pressed && styles.pressedState,
+                      ]}
+                      onPress={() => {
+                        setActiveTab("CBT");
+                        router.push("/student/cbt");
+                      }}
+                    >
+                      <View style={styles.fullWidthCardRow}>
+                        <View style={[styles.iconContainer, { backgroundColor: "#FEF3C7", marginBottom: 0 }]}>
+                          <Ionicons name="hardware-chip" size={22} color="#D4AF37" />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 14 }}>
+                          <Text style={styles.overviewCardTitle}>CBT Portal (Tests & Exams)</Text>
+                          <Text style={styles.overviewLabel}>Take online assessments & review results</Text>
+                        </View>
+                        <View style={[styles.cardActionButton, { marginTop: 0 }]}>
+                          <Text style={[styles.cardActionText, { color: "#D4AF37" }]}>Open</Text>
+                          <Ionicons name="chevron-forward" size={14} color="#D4AF37" />
+                        </View>
+                      </View>
+                    </Pressable>
                   </View>
-                )}
 
-                {student.email && (
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Email Address</Text>
-                    <Text style={styles.detailValue} numberOfLines={1}>
-                      {student.email}
-                    </Text>
+                  {/* TIMETABLE SCHEDULE */}
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Today's Schedule</Text>
+                    <Pressable onPress={() => router.push("/student/timetable")}>
+                      <Text style={styles.viewAllText}>Full Timetable</Text>
+                    </Pressable>
                   </View>
-                )}
-              </View>
-            </LinearGradient>
 
-            {/* ACADEMIC OVERVIEW GRID */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Academic Overview</Text>
-            </View>
+                  <View style={styles.timetableCard}>
+                    {todaySchedule.length === 0 ? (
+                      <Text style={styles.emptyText}>No scheduled classes for today.</Text>
+                    ) : (
+                      todaySchedule.map((item, index) => (
+                        <View key={item.id || index}>
+                          <View style={styles.scheduleRow}>
+                            <View style={styles.timeColumn}>
+                              <Text style={styles.timeText}>{item.time}</Text>
+                              {item.is_current && (
+                                <View style={styles.liveIndicator}>
+                                  <Text style={styles.liveIndicatorText}>NOW</Text>
+                                </View>
+                              )}
+                            </View>
 
-            <View style={styles.overviewGrid}>
-              {/* Attendance Card */}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.overviewCard,
-                  { borderColor: "#E0F2FE" },
-                  pressed && styles.pressedState,
-                ]}
-                onPress={() => router.push("/student/attendance")}
-              >
-                <View style={[styles.iconContainer, { backgroundColor: "#E0F2FE" }]}>
-                  <Ionicons name="calendar" size={24} color="#0284C7" />
-                </View>
-                <Text style={styles.overviewCardTitle}>Attendance Record</Text>
-                <View style={styles.cardActionButton}>
-                  <Text style={[styles.cardActionText, { color: "#0284C7" }]}>Check Attendance</Text>
-                  <Ionicons name="chevron-forward" size={14} color="#0284C7" />
-                </View>
-              </Pressable>
+                            <View
+                              style={[
+                                styles.scheduleBar,
+                                item.is_current && { backgroundColor: school.primaryColor },
+                              ]}
+                            />
 
-              {/* Termly Report Card / Result */}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.overviewCard,
-                  { borderColor: "#D1FAE5" },
-                  pressed && styles.pressedState,
-                ]}
-                onPress={() => {
-                  setActiveTab("Results");
-                  router.push("/student/results");
-                }}
-              >
-                <View style={[styles.iconContainer, { backgroundColor: "#D1FAE5" }]}>
-                  <Ionicons name="trophy" size={24} color="#059669" />
-                </View>
-                <Text style={styles.overviewCardTitle}>Termly Report Card / Result</Text>
-                <View style={styles.cardActionButton}>
-                  <Text style={[styles.cardActionText, { color: "#059669" }]}>View Report Card</Text>
-                  <Ionicons name="chevron-forward" size={14} color="#059669" />
-                </View>
-              </Pressable>
-
-              {/* CBT (Tests & Exams) Card */}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.overviewCard,
-                  { width: "100%", borderColor: "#FEF3C7" },
-                  pressed && styles.pressedState,
-                ]}
-                onPress={() => {
-                  setActiveTab("CBT");
-                  router.push("/student/cbt");
-                }}
-              >
-                <View style={styles.fullWidthCardRow}>
-                  <View style={[styles.iconContainer, { backgroundColor: "#FEF3C7", marginBottom: 0 }]}>
-                    <Ionicons name="hardware-chip" size={24} color="#D4AF37" />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 14 }}>
-                    <Text style={styles.overviewCardTitle}>CBT (Tests & Exams)</Text>
-                    <Text style={styles.overviewLabel}>Take online tests & review past exams</Text>
-                  </View>
-                  <View style={[styles.cardActionButton, { marginTop: 0 }]}>
-                    <Text style={[styles.cardActionText, { color: "#D4AF37" }]}>Open Portal</Text>
-                    <Ionicons name="chevron-forward" size={14} color="#D4AF37" />
-                  </View>
-                </View>
-              </Pressable>
-            </View>
-
-            {/* LEARNING HUB */}
-            <View style={styles.sectionHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sectionTitle}>Learning Hub</Text>
-                <Text style={styles.sectionSubtext}>Academic resources & portal tools</Text>
-              </View>
-            </View>
-
-            <View style={styles.learningHubGrid}>
-              {/* E-Books */}
-              <Pressable
-                style={({ pressed }) => [styles.hubCard, pressed && styles.pressedState]}
-                onPress={() => router.push("/student/ebooks")}
-              >
-                <LinearGradient colors={["#FFFFFF", "#F8FAFC"]} style={[styles.hubGradient, { borderColor: "#E0E7FF" }]}>
-                  <View style={[styles.hubIconBadge, { backgroundColor: "#EEF2FF" }]}>
-                    <Ionicons name="book" size={26} color="#4F46E5" />
-                  </View>
-                  <Text style={styles.hubTitle}>E-Books</Text>
-                  <Text style={styles.hubDescription}>Digital textbooks & reading materials.</Text>
-                  <View style={styles.hubMetaRow}>
-                    <Text style={[styles.hubMetaText, { color: "#4F46E5" }]}>Access Library</Text>
-                    <Ionicons name="arrow-forward" size={14} color="#4F46E5" />
-                  </View>
-                </LinearGradient>
-              </Pressable>
-
-              {/* Browser */}
-              <Pressable
-                style={({ pressed }) => [styles.hubCard, pressed && styles.pressedState]}
-                onPress={() => router.push("/student/browser")}
-              >
-                <LinearGradient colors={["#FFFFFF", "#F8FAFC"]} style={[styles.hubGradient, { borderColor: "#CCFBF1" }]}>
-                  <View style={[styles.hubIconBadge, { backgroundColor: "#E6FFFA" }]}>
-                    <Ionicons name="globe" size={26} color="#0D9488" />
-                  </View>
-                  <Text style={styles.hubTitle}>Browser</Text>
-                  <Text style={styles.hubDescription}>Controlled portal research search.</Text>
-                  <View style={styles.hubMetaRow}>
-                    <Text style={[styles.hubMetaText, { color: "#0D9488" }]}>Browse Safely</Text>
-                    <Ionicons name="arrow-forward" size={14} color="#0D9488" />
-                  </View>
-                </LinearGradient>
-              </Pressable>
-
-              {/* Video Learning */}
-              <Pressable
-                style={({ pressed }) => [styles.hubCard, { width: "100%" }, pressed && styles.pressedState]}
-                onPress={() => router.push("/student/youtube-learning")}
-              >
-                <LinearGradient colors={["#FFFFFF", "#FFF5F5"]} style={[styles.hubGradient, { borderColor: "#FECDD3", height: "auto" }]}>
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <View style={[styles.hubIconBadge, { backgroundColor: "#FEF2F2" }]}>
-                      <Ionicons name="logo-youtube" size={28} color="#DC2626" />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 14 }}>
-                      <Text style={styles.hubTitle}>Video Learning</Text>
-                      <Text style={styles.hubDescription}>Watch approved video lessons & tutorials.</Text>
-                    </View>
-                    <View style={styles.hubMetaRow}>
-                      <Text style={[styles.hubMetaText, { color: "#DC2626" }]}>Watch</Text>
-                      <Ionicons name="arrow-forward" size={14} color="#DC2626" />
-                    </View>
-                  </View>
-                </LinearGradient>
-              </Pressable>
-            </View>
-
-            {/* TIMETABLE SCHEDULE */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Today's Schedule</Text>
-              <Pressable onPress={() => router.push("/student/timetable")}>
-                <Text style={styles.viewAllText}>Full Schedule</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.timetableCard}>
-              {todaySchedule.length === 0 ? (
-                <Text style={styles.emptyText}>No scheduled classes for today.</Text>
-              ) : (
-                todaySchedule.map((item, index) => (
-                  <View key={item.id || index}>
-                    <View style={styles.scheduleRow}>
-                      <View style={styles.timeColumn}>
-                        <Text style={styles.timeText}>{item.time}</Text>
-                        {item.is_current && (
-                          <View style={styles.liveIndicator}>
-                            <Text style={styles.liveIndicatorText}>NOW</Text>
+                            <View style={styles.scheduleInfo}>
+                              <Text style={styles.subjectText}>{item.subject}</Text>
+                              <Text style={styles.roomText}>{item.room || "Main Class"}</Text>
+                            </View>
                           </View>
-                        )}
-                      </View>
-
-                      <View
-                        style={[
-                          styles.scheduleBar,
-                          item.is_current && { backgroundColor: school.primaryColor },
-                        ]}
-                      />
-
-                      <View style={styles.scheduleInfo}>
-                        <Text style={styles.subjectText}>{item.subject}</Text>
-                        <Text style={styles.roomText}>{item.room || "Main Class"}</Text>
-                      </View>
-                    </View>
-                    {index < todaySchedule.length - 1 && (
-                      <View style={styles.scheduleDivider} />
+                          {index < todaySchedule.length - 1 && (
+                            <View style={styles.scheduleDivider} />
+                          )}
+                        </View>
+                      ))
                     )}
                   </View>
-                ))
-              )}
-            </View>
+                </View>
 
-            {/* ANNOUNCEMENTS */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Announcements</Text>
-              <Pressable onPress={() => router.push("/student/announcements")}>
-                <Text style={styles.viewAllText}>View All</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.announcementsContainer}>
-              {announcements.length === 0 ? (
-                <Text style={styles.emptyText}>No recent announcements.</Text>
-              ) : (
-                announcements.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    style={({ pressed }) => [
-                      styles.announcementCard,
-                      pressed && styles.pressedState,
-                    ]}
-                  >
-                    <View style={styles.announcementHeader}>
-                      <View style={styles.categoryBadge}>
-                        <Text style={styles.categoryBadgeText}>{item.category}</Text>
-                      </View>
-                      <Text style={styles.announcementDate}>{item.date}</Text>
+                {/* Right Column (Learning Hub & Announcements) */}
+                <View style={isDesktopWeb ? styles.rightColumnDesktop : { width: "100%" }}>
+                  {/* LEARNING HUB */}
+                  <View style={styles.sectionHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sectionTitle}>Learning Hub</Text>
+                      <Text style={styles.sectionSubtext}>Academic resources & tools</Text>
                     </View>
-                    <Text style={styles.announcementTitle}>{item.title}</Text>
-                  </Pressable>
-                ))
-              )}
-            </View>
+                  </View>
 
-            <View style={{ height: 40 }} />
+                  <View style={[styles.learningHubGrid, isDesktopWeb && styles.gridRowDesktop]}>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.hubCard,
+                        isDesktopWeb && styles.cardHalfDesktop,
+                        pressed && styles.pressedState,
+                      ]}
+                      onPress={() => router.push("/student/ebooks")}
+                    >
+                      <LinearGradient colors={["#FFFFFF", "#F8FAFC"]} style={[styles.hubGradient, { borderColor: "#E0E7FF" }]}>
+                        <View style={[styles.hubIconBadge, { backgroundColor: "#EEF2FF" }]}>
+                          <Ionicons name="book" size={24} color="#4F46E5" />
+                        </View>
+                        <Text style={styles.hubTitle}>E-Books</Text>
+                        <Text style={styles.hubDescription}>Digital textbooks & reading modules.</Text>
+                        <View style={styles.hubMetaRow}>
+                          <Text style={[styles.hubMetaText, { color: "#4F46E5" }]}>Library</Text>
+                          <Ionicons name="arrow-forward" size={14} color="#4F46E5" />
+                        </View>
+                      </LinearGradient>
+                    </Pressable>
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.hubCard,
+                        isDesktopWeb && styles.cardHalfDesktop,
+                        pressed && styles.pressedState,
+                      ]}
+                      onPress={() => router.push("/student/browser")}
+                    >
+                      <LinearGradient colors={["#FFFFFF", "#F8FAFC"]} style={[styles.hubGradient, { borderColor: "#CCFBF1" }]}>
+                        <View style={[styles.hubIconBadge, { backgroundColor: "#E6FFFA" }]}>
+                          <Ionicons name="globe" size={24} color="#0D9488" />
+                        </View>
+                        <Text style={styles.hubTitle}>Browser</Text>
+                        <Text style={styles.hubDescription}>Controlled search & research tools.</Text>
+                        <View style={styles.hubMetaRow}>
+                          <Text style={[styles.hubMetaText, { color: "#0D9488" }]}>Browse</Text>
+                          <Ionicons name="arrow-forward" size={14} color="#0D9488" />
+                        </View>
+                      </LinearGradient>
+                    </Pressable>
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.hubCard,
+                        styles.fullWidthCard,
+                        pressed && styles.pressedState,
+                      ]}
+                      onPress={() => router.push("/student/youtube-learning")}
+                    >
+                      <LinearGradient colors={["#FFFFFF", "#FFF5F5"]} style={[styles.hubGradient, { borderColor: "#FECDD3", height: "auto" }]}>
+                        <View style={{ flexDirection: "row", alignItems: "center" }}>
+                          <View style={[styles.hubIconBadge, { backgroundColor: "#FEF2F2" }]}>
+                            <Ionicons name="logo-youtube" size={26} color="#DC2626" />
+                          </View>
+                          <View style={{ flex: 1, marginLeft: 14 }}>
+                            <Text style={styles.hubTitle}>Video Learning</Text>
+                            <Text style={styles.hubDescription}>Watch approved video lessons.</Text>
+                          </View>
+                          <View style={styles.hubMetaRow}>
+                            <Text style={[styles.hubMetaText, { color: "#DC2626" }]}>Watch</Text>
+                            <Ionicons name="arrow-forward" size={14} color="#DC2626" />
+                          </View>
+                        </View>
+                      </LinearGradient>
+                    </Pressable>
+                  </View>
+
+                  {/* ANNOUNCEMENTS */}
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Announcements</Text>
+                    <Pressable onPress={() => router.push("/student/announcements")}>
+                      <Text style={styles.viewAllText}>View All</Text>
+                    </Pressable>
+                  </View>
+
+                  <View style={styles.announcementsContainer}>
+                    {announcements.length === 0 ? (
+                      <Text style={styles.emptyText}>No recent announcements.</Text>
+                    ) : (
+                      announcements.map((item) => (
+                        <Pressable
+                          key={item.id}
+                          style={({ pressed }) => [
+                            styles.announcementCard,
+                            pressed && styles.pressedState,
+                          ]}
+                        >
+                          <View style={styles.announcementHeader}>
+                            <View style={styles.categoryBadge}>
+                              <Text style={styles.categoryBadgeText}>{item.category}</Text>
+                            </View>
+                            <Text style={styles.announcementDate}>{item.date}</Text>
+                          </View>
+                          <Text style={styles.announcementTitle}>{item.title}</Text>
+                        </Pressable>
+                      ))
+                    )}
+                  </View>
+                </View>
+
+              </View>
+
+              <View style={{ height: 40 }} />
+            </View>
           </ScrollView>
         )}
 
         {/* BOTTOM NAVIGATION */}
         <SafeAreaView edges={["bottom"]} style={styles.bottomNavSafeArea}>
-          <View style={styles.bottomNavContainer}>
-            {/* Home Tab */}
+          <View style={[styles.bottomNavContainer, isDesktopWeb && styles.desktopBottomNav]}>
             <Pressable
               style={styles.navItem}
               onPress={() => {
@@ -746,7 +730,7 @@ export default function StudentDashboard() {
             >
               <Ionicons
                 name={activeTab === "Home" ? "grid" : "grid-outline"}
-                size={24}
+                size={22}
                 color={activeTab === "Home" ? HOME_COLOR : "#64748B"}
               />
               <Text
@@ -760,7 +744,6 @@ export default function StudentDashboard() {
               </Text>
             </Pressable>
 
-            {/* Results Tab */}
             <Pressable
               style={styles.navItem}
               onPress={() => {
@@ -772,7 +755,7 @@ export default function StudentDashboard() {
                 name={
                   activeTab === "Results" ? "stats-chart" : "stats-chart-outline"
                 }
-                size={24}
+                size={22}
                 color={activeTab === "Results" ? RESULTS_COLOR : "#64748B"}
               />
               <Text
@@ -786,7 +769,6 @@ export default function StudentDashboard() {
               </Text>
             </Pressable>
 
-            {/* CBT Tab */}
             <Pressable
               style={styles.navItem}
               onPress={() => {
@@ -798,7 +780,7 @@ export default function StudentDashboard() {
                 name={
                   activeTab === "CBT" ? "hardware-chip" : "hardware-chip-outline"
                 }
-                size={24}
+                size={22}
                 color={activeTab === "CBT" ? CBT_COLOR : "#64748B"}
               />
               <Text
@@ -822,23 +804,31 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8FAFC" },
   safeArea: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loadingText: { marginTop: 12, color: "#64748B", fontSize: 15, fontWeight: "500" },
+  loadingText: { marginTop: 12, color: "#64748B", fontSize: 14, fontWeight: "500" },
   emptyText: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#94A3B8",
     textAlign: "center",
     marginVertical: 14,
   },
-  pressedState: { opacity: 0.85 },
+  pressedState: { opacity: 0.88, transform: [{ scale: 0.98 }] },
   topHeader: {
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  topHeaderInner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingVertical: 14,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
+    paddingVertical: 12,
+  },
+  desktopHeaderInner: {
+    maxWidth: 1120,
+    width: "100%",
+    alignSelf: "center",
+    paddingHorizontal: 32,
   },
   brandRow: {
     flexDirection: "row",
@@ -847,28 +837,28 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 10,
   },
-  schoolLogoImage: { width: 44, height: 44, borderRadius: 10 },
+  schoolLogoImage: { width: 40, height: 40, borderRadius: 10 },
   schoolLogoBadge: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
-  schoolBadgeText: { fontWeight: "800", fontSize: 16 },
+  schoolBadgeText: { fontWeight: "800", fontSize: 15 },
   brandTextContainer: { flex: 1 },
-  brandName: { fontSize: 16, fontWeight: "800", letterSpacing: -0.2 },
+  brandName: { fontSize: 16, fontWeight: "800", letterSpacing: -0.3 },
   brandTagline: {
     fontSize: 11,
     fontWeight: "700",
     color: "#94A3B8",
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginTop: 2,
+    marginTop: 1,
   },
   notificationButton: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     backgroundColor: "#F8FAFC",
     alignItems: "center",
@@ -877,7 +867,6 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     position: "relative",
   },
-
   notificationButtonUnread: {
     borderColor: "#22C55E",
     backgroundColor: "#F0FDF4",
@@ -886,60 +875,61 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 10,
     fontWeight: "800",
-    lineHeight: 13,
     textAlign: "center",
   },
-
   notificationBadge: {
     position: "absolute",
-    top: -6,
-    right: -6,
-    minWidth: 22,
-    height: 22,
-    paddingHorizontal: 5,
-    borderRadius: 11,
+    top: -4,
+    right: -4,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 4,
+    borderRadius: 10,
     backgroundColor: "#16A34A",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
     borderColor: "#FFFFFF",
-    zIndex: 20,
-    elevation: 6,
   },
   scrollContent: {
-    paddingHorizontal: isDesktopWeb ? 28 : 20,
-    paddingTop: 18,
+    paddingTop: 16,
     width: "100%",
-    maxWidth: isDesktopWeb ? 1180 : undefined,
-    alignSelf: isDesktopWeb ? "center" : "stretch",
+  },
+  contentWrapper: {
+    width: "100%",
+    paddingHorizontal: 20,
+    alignSelf: "center",
+  },
+  desktopContentWrapper: {
+    maxWidth: 1120,
+    paddingHorizontal: 32,
   },
   greetingContainer: {
-    marginBottom: 20,
-    maxWidth: isDesktopWeb ? 900 : undefined,
+    marginBottom: 18,
   },
   greetingTitle: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "800",
     color: "#0F172A",
     letterSpacing: -0.4,
   },
   greetingSubtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#64748B",
-    marginTop: 4,
+    marginTop: 2,
     fontWeight: "500",
   },
   profileCard: {
     borderRadius: 20,
-    padding: isDesktopWeb ? 26 : 22,
-    marginBottom: 26,
+    padding: 22,
+    marginBottom: 24,
     borderWidth: 1,
     borderColor: "rgba(212, 175, 55, 0.3)",
     shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.14,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 5,
     position: "relative",
   },
   cardGoldAccentBorder: {
@@ -958,62 +948,62 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   profileAvatar: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     borderWidth: 2,
     borderColor: "rgba(212, 175, 55, 0.6)",
   },
   defaultAvatar: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: "rgba(255, 255, 255, 0.12)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
     borderColor: "rgba(212, 175, 55, 0.6)",
   },
-  avatarText: { color: "#FFFFFF", fontSize: 24, fontWeight: "700" },
+  avatarText: { color: "#FFFFFF", fontSize: 22, fontWeight: "700" },
   profileMainInfo: { flex: 1 },
-  studentName: { color: "#FFFFFF", fontSize: 20, fontWeight: "800", letterSpacing: -0.2 },
+  studentName: { color: "#FFFFFF", fontSize: 19, fontWeight: "800", letterSpacing: -0.2 },
   schoolNameText: {
-    fontSize: 14,
-    marginTop: 4,
+    fontSize: 13,
+    marginTop: 3,
     fontWeight: "700",
     color: "#FDE68A",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  badgeRow: { flexDirection: "row", marginTop: 8 },
+  badgeRow: { flexDirection: "row", marginTop: 6 },
   classBadge: {
     backgroundColor: "rgba(255, 255, 255, 0.14)",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.25)",
   },
-  classBadgeText: { color: "#F8FAFC", fontSize: 13, fontWeight: "600" },
+  classBadgeText: { color: "#F8FAFC", fontSize: 12, fontWeight: "600" },
   profileDivider: {
     height: 1,
     backgroundColor: "rgba(255, 255, 255, 0.12)",
-    marginVertical: 16,
+    marginVertical: 14,
   },
-  profileDetailsGrid: { flexDirection: "row", justifyContent: "space-between", gap: 14 },
-  detailItem: { flex: 1 },
+  profileDetailsGrid: { flexDirection: "row", justifyContent: "space-between", gap: 12, flexWrap: "wrap" },
+  detailItem: { minWidth: "45%", flex: 1 },
   detailLabel: {
     color: "rgba(255, 255, 255, 0.65)",
-    fontSize: 12,
+    fontSize: 11,
     textTransform: "uppercase",
     fontWeight: "700",
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
   },
-  detailValue: { color: "#FFFFFF", fontSize: 14, fontWeight: "600", marginTop: 3 },
+  detailValue: { color: "#FFFFFF", fontSize: 13, fontWeight: "600", marginTop: 2 },
   schoolCodeBadge: {
     backgroundColor: "rgba(212, 175, 55, 0.25)",
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
     borderRadius: 6,
     alignSelf: "flex-start",
     marginTop: 4,
@@ -1022,139 +1012,169 @@ const styles = StyleSheet.create({
   },
   schoolCodeBadgeText: {
     color: "#FDE68A",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0.5,
   },
+
+  /* Split Layout Grid for Desktop */
+  mainGridSection: {
+    width: "100%",
+  },
+  desktopGridSection: {
+    flexDirection: "row",
+    gap: 28,
+  },
+  leftColumnDesktop: {
+    flex: 1,
+  },
+  rightColumnDesktop: {
+    flex: 1,
+  },
+
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 14,
+    marginBottom: 12,
   },
   sectionTitle: { fontSize: 18, fontWeight: "800", color: "#0F172A", letterSpacing: -0.2 },
-  sectionSubtext: { fontSize: 13, color: "#64748B", marginTop: 2 },
-  viewAllText: { fontSize: 14, fontWeight: "700", color: "#1E293B" },
+  sectionSubtext: { fontSize: 12, color: "#64748B", marginTop: 1 },
+  viewAllText: { fontSize: 13, fontWeight: "700", color: "#1E293B" },
+
   overviewGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    marginBottom: 26,
-    gap: 14,
+    marginBottom: 22,
+    gap: 12,
     width: "100%",
   },
+  gridRowDesktop: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
   overviewCard: {
-    width: isDesktopWeb ? "48.8%" : (width - 54) / 2,
+    width: "48%",
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
     shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
-    shadowRadius: 8,
+    shadowRadius: 6,
     elevation: 2,
     justifyContent: "space-between",
+  },
+  cardHalfDesktop: {
+    width: "48.5%",
+  },
+  fullWidthCard: {
+    width: "100%",
   },
   fullWidthCardRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  overviewCardTitle: { fontSize: 16, fontWeight: "800", color: "#0F172A" },
+  overviewCardTitle: { fontSize: 15, fontWeight: "800", color: "#0F172A" },
   iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   overviewLabel: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#64748B",
-    marginTop: 3,
+    marginTop: 2,
     fontWeight: "500",
   },
   cardActionButton: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 14,
-    gap: 4,
+    marginTop: 12,
+    gap: 2,
   },
-  cardActionText: { fontSize: 13, fontWeight: "800" },
+  cardActionText: { fontSize: 12, fontWeight: "800" },
+
   learningHubGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    marginBottom: 26,
-    gap: 14,
+    marginBottom: 22,
+    gap: 12,
     width: "100%",
   },
   hubCard: {
-    width: isDesktopWeb ? "48.8%" : (width - 54) / 2,
-    borderRadius: 18,
+    width: "48%",
+    borderRadius: 16,
     overflow: "hidden",
   },
   hubGradient: {
-    padding: isDesktopWeb ? 20 : 18,
-    borderRadius: 18,
+    padding: 16,
+    borderRadius: 16,
     borderWidth: 1,
-    minHeight: isDesktopWeb ? 175 : 165,
+    minHeight: 150,
     justifyContent: "space-between",
   },
   hubIconBadge: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
-  hubTitle: { fontSize: 16, fontWeight: "800", color: "#0F172A", marginTop: 6 },
+  hubTitle: { fontSize: 15, fontWeight: "800", color: "#0F172A", marginTop: 4 },
   hubDescription: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#64748B",
-    marginTop: 4,
-    lineHeight: 18,
+    marginTop: 3,
+    lineHeight: 16,
   },
-  hubMetaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 },
-  hubMetaText: { fontSize: 13, fontWeight: "800" },
+  hubMetaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
+  hubMetaText: { fontSize: 12, fontWeight: "800" },
+
   timetableCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: isDesktopWeb ? 22 : 18,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    marginBottom: 26,
+    marginBottom: 22,
   },
   scheduleRow: { flexDirection: "row", alignItems: "center" },
-  timeColumn: { width: 85 },
-  timeText: { fontSize: 13, fontWeight: "700", color: "#0F172A" },
+  timeColumn: { width: 80 },
+  timeText: { fontSize: 12, fontWeight: "700", color: "#0F172A" },
   liveIndicator: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
     backgroundColor: "rgba(30, 41, 59, 0.1)",
     alignSelf: "flex-start",
-    marginTop: 3,
+    marginTop: 2,
   },
-  liveIndicatorText: { fontSize: 10, fontWeight: "800", color: "#1E293B" },
+  liveIndicatorText: { fontSize: 9, fontWeight: "800", color: "#1E293B" },
   scheduleBar: {
-    width: 4,
-    height: 42,
+    width: 3,
+    height: 38,
     backgroundColor: "#E2E8F0",
     borderRadius: 2,
-    marginHorizontal: 14,
+    marginHorizontal: 12,
   },
   scheduleInfo: { flex: 1 },
-  subjectText: { fontSize: 16, fontWeight: "700", color: "#0F172A" },
-  roomText: { fontSize: 13, color: "#64748B", marginTop: 2 },
-  scheduleDivider: { height: 1, backgroundColor: "#F1F5F9", marginVertical: 14 },
-  announcementsContainer: { gap: 12, marginBottom: 12 },
+  subjectText: { fontSize: 15, fontWeight: "700", color: "#0F172A" },
+  roomText: { fontSize: 12, color: "#64748B", marginTop: 1 },
+  scheduleDivider: { height: 1, backgroundColor: "#F1F5F9", marginVertical: 12 },
+
+  announcementsContainer: { gap: 10, marginBottom: 12 },
   announcementCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: isDesktopWeb ? 18 : 16,
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
@@ -1162,33 +1182,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   categoryBadge: {
     backgroundColor: "#F1F5F9",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   categoryBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
     color: "#475569",
     textTransform: "uppercase",
   },
-  announcementDate: { fontSize: 12, color: "#94A3B8" },
-  announcementTitle: { fontSize: 15, fontWeight: "700", color: "#0F172A" },
+  announcementDate: { fontSize: 11, color: "#94A3B8" },
+  announcementTitle: { fontSize: 14, fontWeight: "700", color: "#0F172A" },
+
   bottomNavSafeArea: { backgroundColor: "#FFFFFF" },
   bottomNavContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 10,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#F1F5F9",
   },
+  desktopBottomNav: {
+    maxWidth: 600,
+    alignSelf: "center",
+    width: "100%",
+    borderRadius: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
   navItem: { alignItems: "center", justifyContent: "center" },
-  navLabel: { fontSize: 12, marginTop: 5, fontWeight: "500" },
+  navLabel: { fontSize: 11, marginTop: 4, fontWeight: "500" },
   activeNavText: { fontWeight: "700" },
 });
