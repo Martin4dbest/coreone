@@ -270,9 +270,11 @@ export default function ParentChildScreen() {
             label="Class"
             value={
               student.class_name ||
-              (student.classroom_id
-                ? `Class #${student.classroom_id}`
-                : "Not assigned")
+              (student.class_name ||
+                (student.class_name ||
+                (student.classroom_id
+                  ? `Class #${student.classroom_id}`
+                  : "Not assigned")))
             }
           />
 

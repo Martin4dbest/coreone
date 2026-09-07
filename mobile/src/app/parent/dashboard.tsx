@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
@@ -56,6 +56,7 @@ type ParentStudent = {
   date_of_birth?: string | null;
   passport?: string | null;
   classroom_id?: number | null;
+  class_name?: string | null;
   relationship_type: string;
   school: School;
 };
@@ -105,6 +106,7 @@ export default function ParentDashboard() {
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   const selectedStudent = useMemo(
     () =>
@@ -139,10 +141,35 @@ export default function ParentDashboard() {
     loadParentDashboard();
   }, []);
 
+  const loadUnreadNotificationCount = useCallback(async () => {
+    try {
+      const response = await api.get("/notifications");
+      const items = response.data || [];
+
+      setUnreadNotificationCount(
+        items.filter((notification: any) => !notification.is_read).length
+      );
+    } catch (error: any) {
+      console.log(
+        "PARENT NOTIFICATION COUNT ERROR:",
+        error?.response?.data || error?.message
+      );
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadUnreadNotificationCount();
+    }, [loadUnreadNotificationCount])
+  );
+
   async function handleRefresh() {
     try {
       setRefreshing(true);
-      await loadParentDashboard(false);
+      await Promise.all([
+        loadParentDashboard(false),
+        loadUnreadNotificationCount(),
+      ]);
     } finally {
       setRefreshing(false);
     }
@@ -202,12 +229,45 @@ export default function ParentDashboard() {
                 </Text>
               </View>
 
-              <Pressable
-                onPress={handleLogout}
-                style={({ pressed }) => [styles.iconButton, pressed && styles.pressedState]}
-              >
-                <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
-              </Pressable>
+              <View style={styles.heroActions}>
+                <Pressable
+                  onPress={() => router.push("/parent/notifications")}
+                  style={({ pressed }) => [
+                    styles.iconButton,
+                    pressed && styles.pressedState,
+                  ]}
+                >
+                  <Ionicons
+                    name="notifications-outline"
+                    size={20}
+                    color="#FFFFFF"
+                  />
+
+                  {unreadNotificationCount > 0 && (
+                    <View style={styles.notificationBadge}>
+                      <Text style={styles.notificationBadgeText}>
+                        {unreadNotificationCount > 99
+                          ? "99+"
+                          : unreadNotificationCount}
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
+
+                <Pressable
+                  onPress={handleLogout}
+                  style={({ pressed }) => [
+                    styles.iconButton,
+                    pressed && styles.pressedState,
+                  ]}
+                >
+                  <Ionicons
+                    name="log-out-outline"
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                </Pressable>
+              </View>
             </View>
 
             <View style={styles.heroMain}>
@@ -372,9 +432,10 @@ export default function ParentDashboard() {
                     <View style={styles.detailTextGroup}>
                       <Text style={styles.detailLabel}>Class Enrolled</Text>
                       <Text style={styles.detailValue}>
-                        {selectedStudent.classroom_id
+                        {selectedStudent.class_name ||
+                        (selectedStudent.classroom_id
                           ? `Class #${selectedStudent.classroom_id}`
-                          : "Unassigned"}
+                          : "Unassigned")}
                       </Text>
                     </View>
                   </View>
@@ -420,8 +481,13 @@ export default function ParentDashboard() {
                 <ServiceTile
                   icon="notifications-outline"
                   title="Notices"
-                  subtitle="School updates"
+                  subtitle={
+                    unreadNotificationCount > 0
+                      ? `${unreadNotificationCount} unread`
+                      : "School updates"
+                  }
                   color="#8B5CF6"
+                  onPress={() => router.push("/parent/notifications")}
                 />
                 <ServiceTile
                   icon="time-outline"
@@ -520,6 +586,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  heroActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   brandBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -546,6 +617,26 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.12)",
     justifyContent: "center",
     alignItems: "center",
+    position: "relative",
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: "#EF4444",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.9)",
+  },
+  notificationBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "800",
   },
   heroMain: {
     marginTop: 20,
