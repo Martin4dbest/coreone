@@ -1,11 +1,10 @@
-from sqlalchemy import or_, select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification
 
 
 class NotificationRepository:
-
     def __init__(self, db: AsyncSession):
         self.db = db
 
@@ -28,13 +27,11 @@ class NotificationRepository:
         if recipient_type == "STUDENT":
             conditions = [
                 Notification.recipient_type.is_(None),
-                Notification.recipient_type == "STUDENT",
             ]
 
             if student_id is not None:
                 conditions.append(
-                    Notification.recipient_type
-                    == f"STUDENT:{student_id}"
+                    Notification.recipient_type == f"STUDENT:{student_id}"
                 )
 
             query = query.where(or_(*conditions))
@@ -47,8 +44,7 @@ class NotificationRepository:
 
             if student_ids:
                 conditions.extend(
-                    Notification.recipient_type
-                    == f"STUDENT:{student_id}"
+                    Notification.recipient_type == f"STUDENT:{student_id}"
                     for student_id in student_ids
                 )
 
@@ -88,31 +84,6 @@ class NotificationRepository:
 
         return result.scalar_one_or_none()
 
-    async def mark_as_read(
-        self,
-        notification_id: int,
-        school_id: int,
-    ):
-        result = await self.db.execute(
-            select(Notification).where(
-                Notification.id == notification_id,
-                Notification.school_id == school_id,
-                Notification.is_active.is_(True),
-            )
-        )
-
-        notification = result.scalar_one_or_none()
-
-        if notification is None:
-            return None
-
-        if not notification.is_read:
-            notification.is_read = True
-            await self.db.commit()
-            await self.db.refresh(notification)
-
-        return notification
-
     async def clear_all(
         self,
         school_id: int,
@@ -128,13 +99,11 @@ class NotificationRepository:
         if recipient_type == "STUDENT":
             conditions = [
                 Notification.recipient_type.is_(None),
-                Notification.recipient_type == "STUDENT",
             ]
 
             if student_id is not None:
                 conditions.append(
-                    Notification.recipient_type
-                    == f"STUDENT:{student_id}"
+                    Notification.recipient_type == f"STUDENT:{student_id}"
                 )
 
             query = query.where(or_(*conditions))
@@ -147,8 +116,7 @@ class NotificationRepository:
 
             if student_ids:
                 conditions.extend(
-                    Notification.recipient_type
-                    == f"STUDENT:{student_id}"
+                    Notification.recipient_type == f"STUDENT:{student_id}"
                     for student_id in student_ids
                 )
 
@@ -179,9 +147,3 @@ class NotificationRepository:
         await self.db.commit()
 
         return len(notifications)
-
-    async def create(self, notification: Notification):
-        self.db.add(notification)
-        await self.db.commit()
-        await self.db.refresh(notification)
-        return notification
