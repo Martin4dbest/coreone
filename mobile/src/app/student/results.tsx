@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
 import {
   ActivityIndicator,
   Dimensions,
@@ -15,6 +16,11 @@ import {
   getStudentResults,
   downloadStudentResultsPdf,
 } from "@/services/student";
+
+import {
+  getParentStudentResults,
+  downloadParentStudentResultsPdf,
+} from "@/services/parent";
 
 type Subject = {
   name: string;
@@ -90,6 +96,21 @@ function normalizeImageUrl(value?: string | null) {
 }
 
 export default function StudentResults() {
+  const {
+    studentId: parentStudentId,
+    viewer,
+  } = useLocalSearchParams<{
+    studentId?: string;
+    viewer?: string;
+  }>();
+
+  const isParentView =
+    viewer === "parent" &&
+    !!parentStudentId;
+
+  const selectedParentStudentId =
+    Number(parentStudentId);
+
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState("");
@@ -97,14 +118,21 @@ export default function StudentResults() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [
+    isParentView,
+    selectedParentStudentId,
+  ]);
 
   async function load() {
     try {
       setLoading(true);
       setError("");
 
-      const data = await getStudentResults();
+      const data = isParentView
+        ? await getParentStudentResults(
+            selectedParentStudentId
+          )
+        : await getStudentResults();
 
       if (!data) {
         throw new Error(
@@ -719,7 +747,13 @@ export default function StudentResults() {
           onPress={async () => {
             try {
               setDownloadingPdf(true);
-              await downloadStudentResultsPdf();
+              if (isParentView) {
+                await downloadParentStudentResultsPdf(
+                  selectedParentStudentId
+                );
+              } else {
+                await downloadStudentResultsPdf();
+              }
             } catch (error: any) {
               console.error(
                 "STUDENT REPORT PDF ERROR:",

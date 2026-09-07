@@ -455,8 +455,11 @@ export default function ParentDashboard() {
                   color={schoolBranding.primary}
                   onPress={() =>
                     router.push({
-                      pathname: "/parent/results",
-                      params: { studentId: String(selectedStudent.id) },
+                      pathname: "/student/results",
+params: {
+  studentId: String(selectedStudent.id),
+  viewer: "parent",
+},
                     })
                   }
                 />
