@@ -43,6 +43,7 @@ __all__ = [
 "Result",
     "Ebook",
     "EbookStudentAccess",
+    "YoutubeLearningStudent",
 ]
 
 from app.models.attendance import Attendance
@@ -85,3 +86,5 @@ from app.models.school_book_inventory import (
 )
 
 from app.models.school_licensing import SchoolLicensing
+
+from app.models.youtube_learning_student import YoutubeLearningStudent

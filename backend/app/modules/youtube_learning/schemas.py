@@ -2,11 +2,27 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class YoutubeLearningCreateRequest(BaseModel):
-    title: str = Field(..., min_length=1, max_length=200)
-    video_url: str = Field(..., min_length=1, max_length=500)
+    title: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+    )
+
+    video_url: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+    )
+
     description: str | None = None
     subject: str | None = None
+
     class_id: int | None = None
+
+    student_ids: list[int] = Field(
+        default_factory=list
+    )
+
     published: bool = True
     is_active: bool = True
 
@@ -23,7 +39,9 @@ class YoutubeLearningResponse(BaseModel):
     is_active: bool
     published: bool
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
 
 class YoutubeLearningActivityResponse(BaseModel):

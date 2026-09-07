@@ -54,3 +54,9 @@ class YoutubeLearning(Base, BaseModel, SchoolMixin, ActiveMixin):
     )
 
     school = relationship("School")
+
+    student_targets = relationship(
+        "YoutubeLearningStudent",
+        back_populates="youtube_learning",
+        cascade="all, delete-orphan",
+    )

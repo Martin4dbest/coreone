@@ -9,6 +9,24 @@ type Subject = {
   name: string;
 };
 
+type Classroom = {
+  id: number;
+  school_id: number;
+  level_id: number;
+  name: string;
+};
+
+type Student = {
+  id: number;
+  school_id: number;
+  classroom_id?: number | null;
+  admission_number: string;
+  first_name: string;
+  last_name: string;
+  middle_name?: string | null;
+  class_name?: string | null;
+};
+
 type YoutubeVideo = {
   id: number;
   title: string;
@@ -63,6 +81,16 @@ export default function YoutubeLearningPage() {
 
   const [videos, setVideos] = useState<YoutubeVideo[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+
+  const [targetType, setTargetType] = useState<
+    "SCHOOL" | "CLASS" | "STUDENTS"
+  >("SCHOOL");
+
+  const [classId, setClassId] = useState("");
+  const [selectedStudentIds, setSelectedStudentIds] =
+    useState<number[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -121,6 +149,8 @@ export default function YoutubeLearningPage() {
         await Promise.all([
           loadVideos(),
           loadSubjects(),
+          loadClassrooms(),
+          loadStudents(),
         ]);
       } finally {
         setLoading(false);
@@ -130,6 +160,61 @@ export default function YoutubeLearningPage() {
     load();
   }, [schoolId]);
 
+  const loadClassrooms = async () => {
+    try {
+      const response = await api.get(
+        "/classes",
+        {
+          params: {
+            school_id: schoolId,
+          },
+        }
+      );
+
+      const data = Array.isArray(response.data)
+        ? response.data
+        : [];
+
+      setClassrooms(
+        data.filter(
+          (item: Classroom) =>
+            Number(item.school_id) === Number(schoolId)
+        )
+      );
+    } catch (error) {
+      console.error(
+        "Failed to load classrooms:",
+        error
+      );
+      setClassrooms([]);
+    }
+  };
+
+  const loadStudents = async () => {
+    try {
+      const response = await api.get(
+        "/students/"
+      );
+
+      const data = Array.isArray(response.data)
+        ? response.data
+        : [];
+
+      setStudents(
+        data.filter(
+          (item: Student) =>
+            Number(item.school_id) === Number(schoolId)
+        )
+      );
+    } catch (error) {
+      console.error(
+        "Failed to load students:",
+        error
+      );
+      setStudents([]);
+    }
+  };
+
   const resetForm = () => {
     setTitle("");
     setVideoUrl("");
@@ -137,6 +222,9 @@ export default function YoutubeLearningPage() {
     setSubjectId("");
     setIsActive(true);
     setPublished(true);
+    setTargetType("SCHOOL");
+    setClassId("");
+    setSelectedStudentIds([]);
   };
 
   const handleSubmit = async (event: FormEvent) => {
@@ -163,19 +251,50 @@ export default function YoutubeLearningPage() {
 
     setSaving(true);
 
+    if (
+      targetType === "CLASS" &&
+      !classId
+    ) {
+      alert("Please select a class.");
+      setSaving(false);
+      return;
+    }
+
+    if (
+      targetType === "STUDENTS" &&
+      selectedStudentIds.length === 0
+    ) {
+      alert(
+        "Please select at least one student."
+      );
+      setSaving(false);
+      return;
+    }
+
     try {
       const selectedSubject = subjects.find(
-      (item) => item.id === Number(subjectId)
-    );
+        (item) =>
+          item.id === Number(subjectId)
+      );
 
-    await api.post("/youtube-learning", {
-      title: title.trim(),
-      video_url: videoUrl.trim(),
-      description: description.trim() || null,
-      subject: selectedSubject?.name || null,
-      published,
-      is_active: isActive,
-    });
+      await api.post("/youtube-learning", {
+        title: title.trim(),
+        video_url: videoUrl.trim(),
+        description:
+          description.trim() || null,
+        subject:
+          selectedSubject?.name || null,
+        class_id:
+          targetType === "CLASS"
+            ? Number(classId)
+            : null,
+        student_ids:
+          targetType === "STUDENTS"
+            ? selectedStudentIds
+            : [],
+        published,
+        is_active: isActive,
+      });
 
       alert(
         "YouTube learning video added successfully."
@@ -455,6 +574,178 @@ export default function YoutubeLearningPage() {
                   ))}
                 </select>
               </div>
+
+              {/* TARGET AUDIENCE */}
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Send Video To
+                </label>
+
+                <div className="space-y-3">
+                  {[
+                    {
+                      value: "SCHOOL",
+                      label: "Entire School",
+                      description:
+                        "All active students in this school.",
+                    },
+                    {
+                      value: "CLASS",
+                      label: "Specific Class",
+                      description:
+                        "Only students enrolled in the selected class.",
+                    },
+                    {
+                      value: "STUDENTS",
+                      label: "Specific Students",
+                      description:
+                        "Only the students you select.",
+                    },
+                  ].map((option) => (
+                    <label
+                      key={option.value}
+                      className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3"
+                    >
+                      <input
+                        type="radio"
+                        name="youtube-target"
+                        value={option.value}
+                        checked={
+                          targetType === option.value
+                        }
+                        onChange={() =>
+                          setTargetType(
+                            option.value as
+                              | "SCHOOL"
+                              | "CLASS"
+                              | "STUDENTS"
+                          )
+                        }
+                        className="mt-1 h-4 w-4 accent-red-600"
+                      />
+
+                      <span>
+                        <span className="block text-sm font-semibold text-slate-800">
+                          {option.label}
+                        </span>
+
+                        <span className="mt-0.5 block text-xs leading-5 text-slate-500">
+                          {option.description}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {targetType === "CLASS" && (
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    Select Class
+                  </label>
+
+                  <select
+                    value={classId}
+                    onChange={(e) =>
+                      setClassId(e.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50"
+                  >
+                    <option value="">
+                      Select a class
+                    </option>
+
+                    {classrooms.map((classroom) => (
+                      <option
+                        key={classroom.id}
+                        value={classroom.id}
+                      >
+                        {classroom.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {targetType === "STUDENTS" && (
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <label className="block text-sm font-semibold text-slate-700">
+                      Select Students
+                    </label>
+
+                    <span className="text-xs font-semibold text-slate-500">
+                      {selectedStudentIds.length} selected
+                    </span>
+                  </div>
+
+                  <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    {students.length === 0 ? (
+                      <p className="p-3 text-sm text-slate-500">
+                        No students found in this school.
+                      </p>
+                    ) : (
+                      students.map((student) => {
+                        const fullName = [
+                          student.first_name,
+                          student.middle_name,
+                          student.last_name,
+                        ]
+                          .filter(Boolean)
+                          .join(" ");
+
+                        const selected =
+                          selectedStudentIds.includes(
+                            student.id
+                          );
+
+                        return (
+                          <label
+                            key={student.id}
+                            className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white p-3"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => {
+                                setSelectedStudentIds(
+                                  (current) =>
+                                    current.includes(
+                                      student.id
+                                    )
+                                      ? current.filter(
+                                          (id) =>
+                                            id !==
+                                            student.id
+                                        )
+                                      : [
+                                          ...current,
+                                          student.id,
+                                        ]
+                                );
+                              }}
+                              className="h-4 w-4 accent-red-600"
+                            />
+
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-slate-800">
+                                {fullName}
+                              </p>
+
+                              <p className="text-xs text-slate-500">
+                                {student.admission_number}
+                                {student.class_name
+                                  ? ` • ${student.class_name}`
+                                  : ""}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* STATUS */}
               <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
