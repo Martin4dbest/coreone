@@ -29,17 +29,15 @@ class NotificationService:
 
     async def _get_current_parent(self, current_user):
         result = await self.db.execute(
-            select(Parent)
-            .join(User, Parent.user_id == User.id)
-            .where(
+            select(Parent).where(
                 Parent.user_id == current_user.id,
-                User.school_id == current_user.school_id,
             )
         )
+
         return result.scalar_one_or_none()
 
     async def _get_current_parent_student_ids(self, current_user):
-        parent = await self._get_current_parent()
+        parent = await self._get_current_parent(current_user)
 
         if not parent:
             return []
