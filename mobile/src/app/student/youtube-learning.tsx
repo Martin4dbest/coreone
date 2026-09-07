@@ -65,24 +65,10 @@ function getYoutubeEmbedUrl(url: string, forWeb = false) {
   if (!id) return url;
 
   if (forWeb) {
-    const origin =
-      typeof window !== "undefined" ? window.location.origin : "";
-
-    return (
-      `https://www.youtube.com/embed/${id}` +
-      `?rel=0` +
-      `&playsinline=1` +
-      `&enablejsapi=1` +
-      (origin ? `&origin=${encodeURIComponent(origin)}` : "")
-    );
+    return `https://www.youtube.com/embed/${id}?autoplay=0&rel=0&playsinline=1`;
   }
 
-  return (
-    `https://www.youtube-nocookie.com/embed/${id}` +
-    `?rel=0` +
-    `&playsinline=1` +
-    `&enablejsapi=1`
-  );
+  return `https://www.youtube-nocookie.com/embed/${id}?rel=0&playsinline=1&enablejsapi=1`;
 }
 
 export default function YoutubeLearningPage() {
@@ -121,15 +107,23 @@ const router = useRouter();
   );
 
   const openVideo = async (video: YoutubeVideo) => {
-    setWebLoading(true);
+    // IMPORTANT:
+    // Opening the video must NEVER depend on activity tracking.
+    // If activity tracking fails, the student should still be able
+    // to watch the lesson.
 
+    setSelectedVideo(video);
+
+    // Record activity in the background.
+    // Do not await this before opening the video.
     try {
       await api.post(`/youtube-learning/${video.id}/activity`);
     } catch (error) {
-      console.warn("Could not record YouTube activity:", video.id, error);
+      console.warn(
+        `Could not record YouTube activity for video ${video.id}:`,
+        error
+      );
     }
-
-    setSelectedVideo(video);
   };
 
   const closeVideo = () => {
@@ -193,12 +187,22 @@ const router = useRouter();
 
           {Platform.OS === "web" ? (
             <iframe
+              key={selectedVideo.id}
               src={getYoutubeEmbedUrl(selectedVideo.video_url, true)}
-              style={styles.webIframe as React.CSSProperties}
+              title={selectedVideo.title || "YouTube Learning"}
+              width="100%"
+              height="100%"
+              frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
-              title={selectedVideo.title || "YouTube Learning"}
-              referrerPolicy="strict-origin-when-cross-origin"
+              style={{
+                width: "100%",
+                height: "100%",
+                minHeight: 420,
+                border: "none",
+                display: "block",
+                backgroundColor: "#000000",
+              }}
             />
           ) : (
             <WebView
