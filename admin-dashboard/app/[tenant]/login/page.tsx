@@ -278,6 +278,15 @@ export default function TenantLoginPage() {
             </div>
           </div>
 
+          <div className="flex justify-end -mt-2">
+            <a
+              href="/forgot-password"
+              className="text-sm font-medium text-slate-700 hover:text-slate-900 hover:underline"
+            >
+              Forgot password?
+            </a>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
