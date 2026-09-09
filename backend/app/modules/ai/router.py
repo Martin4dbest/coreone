@@ -186,6 +186,21 @@ async def generate_cbt_questions(
         ) from exc
 
 
+@router.get("/config-status")
+async def ai_config_status(
+    current_user: User = Depends(get_current_user),
+):
+    return {
+        "mock_mode": settings.AI_MOCK_MODE,
+        "primary_provider": settings.AI_PRIMARY_PROVIDER,
+        "gemini_configured": bool(settings.GEMINI_API_KEY),
+        "gemini_model": settings.GEMINI_AI_MODEL,
+        "gemini_fallback_models": settings.GEMINI_AI_FALLBACK_MODELS,
+        "openai_configured": bool(settings.OPENAI_API_KEY),
+        "openai_fallback_enabled": settings.AI_ENABLE_OPENAI_FALLBACK,
+    }
+
+
 # =========================================================
 # PERFORMANCE INTELLIGENCE AI
 # =========================================================
