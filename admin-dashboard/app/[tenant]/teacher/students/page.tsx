@@ -9,6 +9,9 @@ import {
   Users,
   BookOpen,
   RefreshCw,
+  KeyRound,
+  Copy,
+  CheckCircle2,
 } from "lucide-react";
 import api from "@/lib/api";
 
@@ -82,6 +85,31 @@ export default function TeacherStudentsPage() {
   const [loadingReport, setLoadingReport] = useState(false);
   const [error, setError] = useState("");
 
+  const [classTeachers, setClassTeachers] = useState<
+    {
+      id: number;
+      name: string;
+    }[]
+  >([]);
+
+  const [selectedAccessTeacherId, setSelectedAccessTeacherId] =
+    useState("");
+
+  const [generatingAccessCode, setGeneratingAccessCode] =
+    useState(false);
+
+  const [generatedAccessCode, setGeneratedAccessCode] =
+    useState("");
+
+  const [accessCodeExpiresAt, setAccessCodeExpiresAt] =
+    useState("");
+
+  const [accessCodeMessage, setAccessCodeMessage] =
+    useState("");
+
+  const [copiedAccessCode, setCopiedAccessCode] =
+    useState(false);
+
   async function loadOptions() {
     try {
       setLoadingOptions(true);
@@ -92,20 +120,48 @@ export default function TeacherStudentsPage() {
         api.get("/academic-sessions"),
       ]);
 
-      const normalize = (value: any): Option[] => {
-        const data =
-          Array.isArray(value?.data)
-            ? value.data
-            : Array.isArray(value?.data?.data)
-              ? value.data.data
-              : Array.isArray(value?.data?.items)
-                ? value.data.items
-                : [];
+      type ApiResponse = {
+        data?: unknown;
+      };
 
-        return data.map((item: any) => ({
-          id: Number(item.id),
-          name: item.name ?? `Option ${item.id}`,
-        }));
+      const normalize = (value: ApiResponse): Option[] => {
+        const root = value?.data;
+
+        let data: unknown[] = [];
+
+        if (Array.isArray(root)) {
+          data = root;
+        } else if (
+          typeof root === "object" &&
+          root !== null &&
+          Array.isArray((root as { data?: unknown }).data)
+        ) {
+          data = (root as { data: unknown[] }).data;
+        } else if (
+          typeof root === "object" &&
+          root !== null &&
+          Array.isArray((root as { items?: unknown }).items)
+        ) {
+          data = (root as { items: unknown[] }).items;
+        }
+
+        return data.map((item) => {
+          const record =
+            typeof item === "object" &&
+            item !== null
+              ? (item as {
+                  id?: number | string;
+                  name?: string | null;
+                })
+              : {};
+
+          return {
+            id: Number(record.id),
+            name:
+              record.name ??
+              `Option ${record.id ?? ""}`,
+          };
+        });
       };
 
       const fetchedTerms = normalize(termsRes);
@@ -123,11 +179,27 @@ export default function TeacherStudentsPage() {
           String(fetchedSessions[fetchedSessions.length - 1].id)
         );
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("BROADSHEET OPTIONS ERROR:", err);
+
+      const detail =
+        typeof err === "object" &&
+        err !== null &&
+        "response" in err
+          ? (
+              err as {
+                response?: {
+                  data?: {
+                    detail?: unknown;
+                  };
+                };
+              }
+            ).response?.data?.detail
+          : undefined;
+
       setError(
         String(
-          err?.response?.data?.detail ||
+          detail ||
           "Unable to load academic sessions and terms."
         )
       );
@@ -154,19 +226,187 @@ export default function TeacherStudentsPage() {
       );
 
       setReport(response.data);
-    } catch (err: any) {
+      setSelectedAccessTeacherId("");
+      setGeneratedAccessCode("");
+      setAccessCodeExpiresAt("");
+      setAccessCodeMessage("");
+      setCopiedAccessCode(false);
+
+      await loadClassTeachers(
+        Number(response.data?.classroom?.id)
+      );
+    } catch (err: unknown) {
       console.error("BROADSHEET ERROR:", err);
 
       setReport(null);
 
+      const detail =
+        typeof err === "object" &&
+        err !== null &&
+        "response" in err
+          ? (
+              err as {
+                response?: {
+                  data?: {
+                    detail?: unknown;
+                  };
+                };
+              }
+            ).response?.data?.detail
+          : undefined;
+
       setError(
         String(
-          err?.response?.data?.detail ||
+          detail ||
           "Unable to load your class broadsheet."
         )
       );
     } finally {
       setLoadingReport(false);
+    }
+  }
+
+  async function loadClassTeachers(classroomId: number) {
+    try {
+      const response = await api.get(
+        `/classes/${classroomId}/teachers`
+      );
+
+      const subjectTeachers = Array.isArray(
+        response.data?.subject_teachers
+      )
+        ? response.data.subject_teachers
+        : [];
+
+      const uniqueTeachers: { id: number; name: string }[] =
+        Array.from(
+          new Map<number, { id: number; name: string }>(
+            subjectTeachers
+              .filter(
+                (teacher: {
+                  teacher_id?: number | string | null;
+                  teacher_name?: string | null;
+                }) => Number(teacher?.teacher_id) > 0
+              )
+              .map(
+                (teacher: {
+                  teacher_id?: number | string | null;
+                  teacher_name?: string | null;
+                }) => [
+                  Number(teacher.teacher_id),
+                  {
+                    id: Number(teacher.teacher_id),
+                    name:
+                      teacher.teacher_name ||
+                      `Teacher ${teacher.teacher_id}`,
+                  },
+                ] as [
+                  number,
+                  { id: number; name: string }
+                ]
+              )
+          ).values()
+        );
+
+      setClassTeachers(uniqueTeachers);
+    } catch (err) {
+      console.error(
+        "Failed to load class teachers for AI CBT access:",
+        err
+      );
+      setClassTeachers([]);
+    }
+  }
+
+  async function generateAICBTAccessCode() {
+    if (!report?.classroom?.id) {
+      setAccessCodeMessage(
+        "Load your class broadsheet before generating an access code."
+      );
+      return;
+    }
+
+    if (!selectedAccessTeacherId) {
+      setAccessCodeMessage(
+        "Please select the teacher who should receive AI CBT access."
+      );
+      return;
+    }
+
+    setGeneratingAccessCode(true);
+    setGeneratedAccessCode("");
+    setAccessCodeExpiresAt("");
+    setAccessCodeMessage("");
+    setCopiedAccessCode(false);
+
+    try {
+      const response = await api.post(
+        "/ai/cbt/access/generate",
+        {
+          classroom_id: report.classroom.id,
+          target_teacher_id: Number(
+            selectedAccessTeacherId
+          ),
+        }
+      );
+
+      setGeneratedAccessCode(
+        String(response.data?.code || "")
+      );
+
+      setAccessCodeExpiresAt(
+        String(response.data?.expires_at || "")
+      );
+
+      setAccessCodeMessage(
+        "Passcode generated successfully. Give this code to the selected teacher."
+      );
+    } catch (err: unknown) {
+      const detail =
+        typeof err === "object" &&
+        err !== null &&
+        "response" in err
+          ? (
+              err as {
+                response?: {
+                  data?: {
+                    detail?: unknown;
+                  };
+                };
+              }
+            ).response?.data?.detail
+          : undefined;
+
+      setAccessCodeMessage(
+        String(
+          detail ||
+          "Unable to generate the AI CBT passcode."
+        )
+      );
+    } finally {
+      setGeneratingAccessCode(false);
+    }
+  }
+
+  async function copyAICBTAccessCode() {
+    if (!generatedAccessCode) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(
+        generatedAccessCode
+      );
+
+      setCopiedAccessCode(true);
+
+      window.setTimeout(() => {
+        setCopiedAccessCode(false);
+      }, 2000);
+    } catch {
+      setAccessCodeMessage(
+        "Unable to copy the passcode."
+      );
     }
   }
 
@@ -388,6 +628,158 @@ export default function TeacherStudentsPage() {
                 </p>
               </div>
             </div>
+
+            <section
+              className="rounded-2xl border bg-white p-5 shadow-sm"
+              style={{
+                borderColor: `${primaryColor}35`,
+              }}
+            >
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-2xl">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex h-11 w-11 items-center justify-center rounded-xl text-white shadow-sm"
+                      style={{
+                        background:
+                          `linear-gradient(135deg, ${primaryColor}, ${accentColor})`,
+                      }}
+                    >
+                      <KeyRound size={21} />
+                    </div>
+
+                    <div>
+                      <h2
+                        className="font-bold"
+                        style={{ color: secondaryColor }}
+                      >
+                        AI CBT Teacher Access
+                      </h2>
+
+                      <p className="mt-1 text-sm text-slate-500">
+                        Generate a secure, teacher-specific passcode for another
+                        teacher assigned to this class.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="w-full lg:max-w-xl">
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <select
+                      value={selectedAccessTeacherId}
+                      onChange={(event) =>
+                        setSelectedAccessTeacherId(
+                          event.target.value
+                        )
+                      }
+                      className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                    >
+                      <option value="">
+                        Select Teacher
+                      </option>
+
+                      {classTeachers.map((teacher) => (
+                        <option
+                          key={teacher.id}
+                          value={teacher.id}
+                        >
+                          {teacher.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={generateAICBTAccessCode}
+                      disabled={
+                        generatingAccessCode ||
+                        !selectedAccessTeacherId ||
+                        classTeachers.length === 0
+                      }
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {generatingAccessCode ? (
+                        <>
+                          <Loader2
+                            size={16}
+                            className="animate-spin"
+                          />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <KeyRound size={16} />
+                          Generate Passcode
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {generatedAccessCode && (
+                    <div className="mt-4 rounded-2xl border border-violet-200 bg-violet-50 p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wider text-violet-700">
+                            Generated Passcode
+                          </p>
+
+                          <p className="mt-1 text-2xl font-black tracking-[0.14em] text-slate-900">
+                            {generatedAccessCode}
+                          </p>
+
+                          {accessCodeExpiresAt && (
+                            <p className="mt-1 text-xs text-slate-500">
+                              Expires:{" "}
+                              {new Date(
+                                accessCodeExpiresAt
+                              ).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={copyAICBTAccessCode}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-white px-4 py-2.5 text-sm font-bold text-violet-700 transition hover:bg-violet-100"
+                        >
+                          {copiedAccessCode ? (
+                            <>
+                              <CheckCircle2 size={16} />
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={16} />
+                              Copy Code
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {accessCodeMessage && (
+                    <p
+                      className={`mt-3 text-sm font-semibold ${
+                        generatedAccessCode
+                          ? "text-emerald-700"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {accessCodeMessage}
+                    </p>
+                  )}
+
+                  {classTeachers.length === 0 && (
+                    <p className="mt-3 text-xs text-slate-400">
+                      No other subject teacher is currently assigned to this
+                      class.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </section>
 
             <div
               className="bg-white rounded-2xl shadow-sm overflow-hidden border"

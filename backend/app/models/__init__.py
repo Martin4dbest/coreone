@@ -19,6 +19,7 @@ from app.models.term import Term
 from app.models.user import User
 
 __all__ = [
+    "AICBTTeacherAccess",
     "AcademicSession",
     "Arm",
     "Classroom",
@@ -88,3 +89,5 @@ from app.models.school_book_inventory import (
 from app.models.school_licensing import SchoolLicensing
 
 from app.models.youtube_learning_student import YoutubeLearningStudent
+
+from app.models.ai_cbt_teacher_access import AICBTTeacherAccess

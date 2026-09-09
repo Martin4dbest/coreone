@@ -9,7 +9,15 @@ from app.models.user import User
 from app.models.school_feature import SchoolFeature
 from app.modules.auth.dependencies.current_user import get_current_user
 
-from .schemas import CBTQuestionRequest, CBTQuestionResponse
+from .schemas import (
+    AICBTAccessGenerateRequest,
+    AICBTAccessGenerateResponse,
+    AICBTAccessRedeemRequest,
+    AICBTAccessRedeemResponse,
+    AICBTAccessStatusResponse,
+    CBTQuestionRequest,
+    CBTQuestionResponse,
+)
 from .service import ai_service
 
 
@@ -75,7 +83,10 @@ async def check_ai_access(
         return
 
     # ---------------------------------------------------------
-    # CLASS TEACHER ONLY
+    # TEACHER
+    #
+    # Class Teachers have direct access.
+    # Other teachers require a redeemed AI CBT access grant.
     # ---------------------------------------------------------
     if role_name == "TEACHER":
         teacher_result = await db.execute(
@@ -97,17 +108,23 @@ async def check_ai_access(
             select(Classroom.id).where(
                 Classroom.school_id == school_id,
                 Classroom.class_teacher_id == teacher.id,
+                Classroom.is_active.is_(True),
             ).limit(1)
         )
 
-        class_teacher_class = class_result.scalar_one_or_none()
+        if class_result.scalar_one_or_none() is not None:
+            return
 
-        if class_teacher_class is not None:
+        access_service = AICBTTeacherAccessService(db)
+
+        if await access_service.has_granted_access(
+            current_user
+        ):
             return
 
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="AI Studio is available only to Class Teachers.",
+            detail="AI_CBT_PASSCODE_REQUIRED",
         )
 
     raise HTTPException(
@@ -184,6 +201,7 @@ from app.modules.performance_intelligence.service import (
 
 from .performance_service import performance_ai_service
 from .schemas import PerformanceAIInsightResponse
+from .cbt_access_service import AICBTTeacherAccessService
 
 
 async def check_performance_ai_access(
@@ -445,3 +463,166 @@ async def generate_school_performance_ai(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
+
+
+# =========================================================
+# AI CBT TEACHER ACCESS
+# =========================================================
+
+@router.get(
+    "/cbt/access/status/{school_id}",
+    response_model=AICBTAccessStatusResponse,
+)
+async def ai_cbt_access_status(
+    school_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    role_name = (
+        current_user.role.name
+        if current_user.role
+        else ""
+    )
+    role_name = str(role_name).upper()
+
+    if role_name == "SUPER_ADMIN":
+        return {
+            "allowed": True,
+            "reason": "super_admin",
+        }
+
+    if current_user.school_id != school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this school.",
+        )
+
+    # AI feature must still be enabled.
+    feature_result = await db.execute(
+        select(SchoolFeature).where(
+            SchoolFeature.school_id == school_id,
+            SchoolFeature.feature_key == "ai",
+        )
+    )
+
+    feature = feature_result.scalar_one_or_none()
+
+    if not feature or feature.enabled is not True:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="AI Studio is disabled for this school.",
+        )
+
+    if role_name == "SCHOOL_ADMIN":
+        return {
+            "allowed": True,
+            "reason": "school_admin",
+        }
+
+    if role_name != "TEACHER":
+        return {
+            "allowed": False,
+            "reason": "role_not_allowed",
+        }
+
+    teacher_result = await db.execute(
+        select(Teacher).where(
+            Teacher.user_id == current_user.id,
+            Teacher.school_id == school_id,
+        )
+    )
+
+    teacher = teacher_result.scalar_one_or_none()
+
+    if not teacher:
+        return {
+            "allowed": False,
+            "reason": "teacher_profile_missing",
+        }
+
+    class_teacher_result = await db.execute(
+        select(Classroom.id).where(
+            Classroom.school_id == school_id,
+            Classroom.class_teacher_id == teacher.id,
+            Classroom.is_active.is_(True),
+        ).limit(1)
+    )
+
+    if class_teacher_result.scalar_one_or_none() is not None:
+        return {
+            "allowed": True,
+            "reason": "class_teacher",
+        }
+
+    access_service = AICBTTeacherAccessService(db)
+
+    if await access_service.has_granted_access(current_user):
+        return {
+            "allowed": True,
+            "reason": "delegated_access",
+        }
+
+    return {
+        "allowed": False,
+        "reason": "passcode_required",
+    }
+
+
+@router.post(
+    "/cbt/access/generate",
+    response_model=AICBTAccessGenerateResponse,
+)
+async def generate_ai_cbt_teacher_access(
+    request: AICBTAccessGenerateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    role_name = (
+        current_user.role.name
+        if current_user.role
+        else ""
+    )
+    role_name = str(role_name).upper()
+
+    if role_name != "TEACHER":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Only a class teacher can generate "
+                "AI CBT teacher access codes."
+            ),
+        )
+
+    return await AICBTTeacherAccessService(db).generate_code(
+        classroom_id=request.classroom_id,
+        target_teacher_id=request.target_teacher_id,
+        current_user=current_user,
+    )
+
+
+@router.post(
+    "/cbt/access/redeem",
+    response_model=AICBTAccessRedeemResponse,
+)
+async def redeem_ai_cbt_teacher_access(
+    request: AICBTAccessRedeemRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    role_name = (
+        current_user.role.name
+        if current_user.role
+        else ""
+    )
+    role_name = str(role_name).upper()
+
+    if role_name != "TEACHER":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Teacher access only.",
+        )
+
+    return await AICBTTeacherAccessService(db).redeem_code(
+        code=request.code,
+        current_user=current_user,
+    )

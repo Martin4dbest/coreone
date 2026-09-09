@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -65,3 +66,34 @@ class PerformanceAIInsightResponse(BaseModel):
         "moderate",
         "high",
     ] = "low"
+
+
+# =========================================================
+# AI CBT TEACHER ACCESS
+# =========================================================
+
+class AICBTAccessGenerateRequest(BaseModel):
+    classroom_id: int
+    target_teacher_id: int
+
+
+class AICBTAccessGenerateResponse(BaseModel):
+    classroom_id: int
+    target_teacher_id: int
+    target_teacher_name: str
+    code: str
+    expires_at: datetime
+
+
+class AICBTAccessRedeemRequest(BaseModel):
+    code: str
+
+
+class AICBTAccessRedeemResponse(BaseModel):
+    allowed: bool
+    message: str
+
+
+class AICBTAccessStatusResponse(BaseModel):
+    allowed: bool
+    reason: str
