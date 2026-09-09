@@ -577,27 +577,52 @@ async def generate_ai_cbt_teacher_access(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    role_name = (
-        current_user.role.name
-        if current_user.role
-        else ""
-    )
-    role_name = str(role_name).upper()
+    try:
+        role_name = ""
 
-    if role_name != "TEACHER":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "Only a class teacher can generate "
-                "AI CBT teacher access codes."
-            ),
+        if getattr(current_user, "role_id", None):
+            from app.models.role import Role
+
+            role_result = await db.execute(
+                select(Role.name).where(
+                    Role.id == current_user.role_id
+                )
+            )
+            role_name = str(
+                role_result.scalar_one_or_none() or ""
+            ).upper()
+
+        if role_name != "TEACHER":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Only a class teacher can generate "
+                    "AI CBT teacher access codes."
+                ),
+            )
+
+        service = AICBTTeacherAccessService(db)
+
+        return await service.generate_code(
+            classroom_id=request.classroom_id,
+            target_teacher_id=request.target_teacher_id,
+            current_user=current_user,
         )
 
-    return await AICBTTeacherAccessService(db).generate_code(
-        classroom_id=request.classroom_id,
-        target_teacher_id=request.target_teacher_id,
-        current_user=current_user,
-    )
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        print(
+            "AI CBT access code generation error:",
+            repr(exc),
+        )
+        await db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to generate the AI CBT passcode.",
+        ) from exc
 
 
 @router.post(
