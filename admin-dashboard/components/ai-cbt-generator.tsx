@@ -22,6 +22,17 @@ type Question = {
   explanation: string;
 };
 
+type LooseRecord = Record<string, unknown>;
+
+type AxiosLikeError = {
+  response?: {
+    data?: {
+      detail?: unknown;
+    };
+  };
+  message?: unknown;
+};
+
 type AIResponse = {
   subject: string;
   topic: string;
@@ -175,10 +186,11 @@ export default function AICBTGenerator({
       });
 
       setResult(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("AI CBT generation failed:", err);
 
-      const detail = err?.response?.data?.detail;
+      const error = err as AxiosLikeError;
+      const detail = error.response?.data?.detail;
 
       setError(
         typeof detail === "string"
@@ -238,13 +250,15 @@ export default function AICBTGenerator({
       const normalizedSubject = normalizeName(subject);
 
       const matchedSubject = rawSubjects.find(
-        (item: any) =>
+        (item: LooseRecord) =>
           normalizeName(
-            item?.name ||
-              item?.title ||
-              item?.subject_name ||
-              item?.label ||
-              ""
+            String(
+              item.name ||
+                item.title ||
+                item.subject_name ||
+                item.label ||
+                ""
+            )
           ) === normalizedSubject
       );
 
@@ -257,14 +271,16 @@ export default function AICBTGenerator({
       const normalizedClass = normalizeName(className);
 
       const matchedClass = rawClasses.find(
-        (item: any) =>
+        (item: LooseRecord) =>
           normalizeName(
-            item?.name ||
-              item?.class_name ||
-              item?.className ||
-              item?.title ||
-              item?.label ||
-              ""
+            String(
+              item.name ||
+                item.class_name ||
+                item.className ||
+                item.title ||
+                item.label ||
+                ""
+            )
           ) === normalizedClass
       );
 
@@ -281,8 +297,7 @@ export default function AICBTGenerator({
       const examResponse = await api.post("/cbt/exams", {
         school_id: Number(schoolId),
         title: `${result.subject} - ${result.topic} CBT`,
-        description:
-          `AI-generated CBT for ${result.class_name} on ${result.topic}.`,
+        description: "",
         subject_id: Number(matchedSubject.id),
         class_id: Number(matchedClass.id),
         duration_minutes: 60,
@@ -316,6 +331,19 @@ export default function AICBTGenerator({
           );
         }
 
+        // AI models may return options with their own A./B./C./D.
+        // prefixes. The CBT interface already adds those labels,
+        // so remove any leading option label before saving.
+        const cleanOption = (value: string) =>
+          String(value || "")
+            .trim()
+            .replace(/^[A-D]\s*[\.:)\-]\s*/i, "")
+            .trim();
+
+        const cleanedOptions = options
+          .slice(0, 4)
+          .map(cleanOption);
+
         const correct = (
           generatedQuestion.correct_answer || ""
         )
@@ -326,10 +354,10 @@ export default function AICBTGenerator({
         await api.post("/cbt/questions", {
           exam_id: examId,
           question: generatedQuestion.question,
-          option_a: options[0],
-          option_b: options[1],
-          option_c: options[2],
-          option_d: options[3],
+          option_a: cleanedOptions[0],
+          option_b: cleanedOptions[1],
+          option_c: cleanedOptions[2],
+          option_d: cleanedOptions[3],
           correct_answer: correct,
           explanation: generatedQuestion.explanation || "",
           marks: 1,
@@ -337,19 +365,21 @@ export default function AICBTGenerator({
       }
 
       setCreatedExamId(examId);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(
         "Failed to create CBT from AI questions:",
         err
       );
 
-      const detail = err?.response?.data?.detail;
+      const error = err as AxiosLikeError;
+      const detail = error.response?.data?.detail;
 
       setError(
         typeof detail === "string"
           ? detail
-          : err?.message ||
-            "Unable to create the CBT exam."
+          : typeof error.message === "string"
+            ? error.message
+            : "Unable to create the CBT exam."
       );
     } finally {
       setCreatingExam(false);
