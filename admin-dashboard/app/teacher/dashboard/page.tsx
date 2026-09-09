@@ -101,16 +101,43 @@ const tenant = params.tenant as string;
           }
 
           try {
-            await api.get(`/ai/access/${schoolData.id}`);
-            setCanUseAI(true);
+            const aiStatus = await api.get(
+              `/ai/cbt/access/status/${schoolData.id}`
+            );
+
+            const status = aiStatus.data;
+
+            setCanUseAI(
+              Boolean(
+                status?.allowed ||
+                status?.reason === "passcode_required"
+              )
+            );
           } catch {
             setCanUseAI(false);
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const detail =
+          typeof err === "object" &&
+          err !== null &&
+          "response" in err
+            ? (
+                err as {
+                  response?: {
+                    data?: {
+                      detail?: unknown;
+                    };
+                  };
+                }
+              ).response?.data?.detail
+            : undefined;
+
         setError(
-          err?.response?.data?.detail ||
-          "Unable to load teacher dashboard workspace."
+          String(
+            detail ||
+            "Unable to load teacher dashboard workspace."
+          )
         );
       } finally {
         setLoading(false);
@@ -187,7 +214,7 @@ const tenant = params.tenant as string;
             </h2>
             {school?.motto ? (
               <p className="text-xs font-medium italic text-slate-500 mt-0.5">
-                "{school.motto}"
+                &quot;{school.motto}&quot;
               </p>
             ) : (
               <p className="text-xs text-slate-400 mt-0.5">Academic Staff Portal</p>
