@@ -19,11 +19,22 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
 
     # CoreOne AI
+    GEMINI_API_KEY: str = ""
+    GEMINI_AI_MODEL: str = "gemini-3.8-flash"
+    GEMINI_AI_FALLBACK_MODELS: str = (
+        "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash-lite"
+    )
+
     OPENAI_API_KEY: str = ""
     OPENAI_AI_MODEL: str = "gpt-5.6-luna"
 
+    # Gemini is preferred. OpenAI is used as fallback when Gemini
+    # is unavailable or returns an error.
+    AI_PRIMARY_PROVIDER: str = "gemini"
+    AI_ENABLE_OPENAI_FALLBACK: bool = True
+
     # Local development only. When enabled, CoreOne uses
-    # a local mock generator instead of the OpenAI API.
+    # a local mock generator instead of external AI APIs.
     AI_MOCK_MODE: bool = False
 
     model_config = SettingsConfigDict(
