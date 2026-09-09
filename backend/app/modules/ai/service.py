@@ -464,4 +464,180 @@ Return ONLY valid JSON in this exact structure:
         )
 
 
+    async def _generate_json_with_gemini_model(
+        self,
+        prompt: str,
+        model: str,
+    ) -> str:
+        client = self._get_gemini_client()
+
+        interaction = await client.aio.interactions.create(
+            model=model,
+            input=prompt,
+            response_format={
+                "type": "text",
+                "mime_type": "application/json",
+            },
+        )
+
+        raw_text = getattr(
+            interaction,
+            "output_text",
+            None,
+        )
+
+        if not raw_text:
+            raise RuntimeError(
+                f"Gemini returned an empty response from {model}."
+            )
+
+        return raw_text.strip()
+
+    async def _generate_json_with_gemini(
+        self,
+        prompt: str,
+    ) -> str:
+        models = [self.gemini_model]
+
+        for model in self.gemini_fallback_models:
+            if model and model not in models:
+                models.append(model)
+
+        errors: list[str] = []
+
+        for model in models:
+            for attempt in range(
+                self.GEMINI_MAX_RETRIES
+            ):
+                try:
+                    print(
+                        f"CoreOne Gemini JSON attempt "
+                        f"{attempt + 1}/{self.GEMINI_MAX_RETRIES} "
+                        f"using {model}"
+                    )
+
+                    return await self._generate_json_with_gemini_model(
+                        prompt,
+                        model,
+                    )
+
+                except Exception as exc:
+                    print(
+                        f"CoreOne Gemini JSON error "
+                        f"[{model}, attempt {attempt + 1}]:",
+                        repr(exc),
+                    )
+
+                    errors.append(
+                        f"{model}: {exc}"
+                    )
+
+                    if not self._is_retryable_gemini_error(
+                        exc
+                    ):
+                        break
+
+                    if attempt < self.GEMINI_MAX_RETRIES - 1:
+                        await asyncio.sleep(
+                            self.GEMINI_RETRY_DELAYS[attempt]
+                        )
+
+        raise RuntimeError(
+            "Gemini could not generate the requested AI response."
+        )
+
+    async def _generate_json_with_openai(
+        self,
+        prompt: str,
+    ) -> str:
+        client = self._get_openai_client()
+
+        response = await client.responses.create(
+            model=self.openai_model,
+            input=prompt,
+        )
+
+        raw_text = response.output_text.strip()
+
+        if not raw_text:
+            raise RuntimeError(
+                "OpenAI returned an empty response."
+            )
+
+        return raw_text
+
+    async def generate_json_response(
+        self,
+        prompt: str,
+    ) -> str:
+        """
+        Generate a JSON response using the same provider priority
+        and fallback configuration used by CoreOne CBT AI.
+        """
+
+        if settings.AI_MOCK_MODE:
+            raise RuntimeError(
+                "Generic JSON AI generation is unavailable in mock mode."
+            )
+
+        primary = (
+            settings.AI_PRIMARY_PROVIDER.strip().lower()
+        )
+
+        if primary not in {
+            "gemini",
+            "openai",
+        }:
+            primary = "gemini"
+
+        providers = (
+            ["gemini", "openai"]
+            if primary == "gemini"
+            else ["openai", "gemini"]
+        )
+
+        if not settings.AI_ENABLE_OPENAI_FALLBACK:
+            providers = [primary]
+
+        errors: list[str] = []
+
+        for provider in providers:
+            try:
+                if provider == "gemini":
+                    if not settings.GEMINI_API_KEY:
+                        errors.append(
+                            "Gemini API key is not configured."
+                        )
+                        continue
+
+                    return await self._generate_json_with_gemini(
+                        prompt
+                    )
+
+                if not settings.OPENAI_API_KEY:
+                    errors.append(
+                        "OpenAI API key is not configured."
+                    )
+                    continue
+
+                return await self._generate_json_with_openai(
+                    prompt
+                )
+
+            except Exception as exc:
+                print(
+                    f"CoreOne AI JSON provider error "
+                    f"[{provider}]:",
+                    repr(exc),
+                )
+
+                errors.append(
+                    f"{provider}: {exc}"
+                )
+
+        raise RuntimeError(
+            "CoreOne AI could not generate the requested response."
+        )
+
+
 ai_service = AIService()

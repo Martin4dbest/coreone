@@ -8,11 +8,11 @@ from fastapi import HTTPException, status
 from app.modules.performance_intelligence.schemas import (
     ClassPerformanceIntelligenceResponse,
     SchoolPerformanceIntelligenceResponse,
-    StudentPerformanceIntelligenceResponse,
 )
 
 from .schemas import PerformanceAIInsightResponse
 from .service import ai_service
+from app.core.config import settings
 
 
 class PerformanceAIService:
@@ -30,9 +30,7 @@ class PerformanceAIService:
 
         if isinstance(value, dict):
             return {
-                str(key): PerformanceAIService._clean_payload(
-                    item
-                )
+                str(key): PerformanceAIService._clean_payload(item)
                 for key, item in value.items()
             }
 
@@ -49,13 +47,13 @@ class PerformanceAIService:
         scope: str,
         data: Any,
     ) -> str:
-
         payload = PerformanceAIService._clean_payload(data)
 
         serialized = json.dumps(
             payload,
             ensure_ascii=False,
             separators=(",", ":"),
+            default=str,
         )
 
         return f"""
@@ -75,6 +73,7 @@ DATA:
 {serialized}
 
 Your responsibilities:
+
 1. Explain the most important performance patterns.
 2. Identify meaningful academic and attendance concerns.
 3. Highlight strengths where appropriate.
@@ -114,7 +113,7 @@ The priority must be exactly one of:
 "low", "moderate", "high".
 
 Do not include markdown.
-"""
+""".strip()
 
     @staticmethod
     def _mock_response(
@@ -130,6 +129,7 @@ Do not include markdown.
                 "the student's wider academic context."
             )
             title = "Student Performance Insight"
+
         elif scope == "class":
             summary = (
                 "CoreOne identified the main academic and "
@@ -138,6 +138,7 @@ Do not include markdown.
                 "support and monitoring."
             )
             title = "Class Performance Insight"
+
         else:
             summary = (
                 "CoreOne identified the main academic and "
@@ -164,83 +165,56 @@ Do not include markdown.
             priority="moderate",
         )
 
-    async def generate_insight(
-        self,
+    @staticmethod
+    def _parse_json_response(
+        raw_text: str,
         scope: str,
-        data: Any,
     ) -> PerformanceAIInsightResponse:
+        text = raw_text.strip()
 
-        if scope not in {
-            "student",
-            "class",
-            "school",
-        }:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid Performance AI scope.",
-            )
+        if text.startswith("```"):
+            lines = text.splitlines()
 
-        if getattr(data, "academic_result_count", None) == 0:
-            # Student-specific safeguard. We still allow the AI
-            # to explain the lack of published results.
-            pass
+            if lines and lines[0].strip().startswith("```"):
+                lines = lines[1:]
 
-        if (
-            scope == "class"
-            and isinstance(
-                data,
-                ClassPerformanceIntelligenceResponse,
-            )
-            and data.students_with_results == 0
-        ):
-            pass
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
 
-        if (
-            scope == "school"
-            and isinstance(
-                data,
-                SchoolPerformanceIntelligenceResponse,
-            )
-            and data.students_with_results == 0
-        ):
-            pass
-
-        if __import__(
-            "app.core.config",
-            fromlist=["settings"],
-        ).settings.AI_MOCK_MODE:
-            return self._mock_response(
-                scope,
-                data,
-            )
-
-        prompt = self._build_prompt(
-            scope,
-            data,
-        )
-
-        # Use the same AI client/configuration already used by
-        # CoreOne's CBT AI service.
-        client = ai_service._get_client()
+            text = "\n".join(lines).strip()
 
         try:
-            response = await client.responses.create(
-                model=ai_service.model,
-                input=prompt,
-            )
-        except Exception as exc:
-            raise RuntimeError(
-                "CoreOne Performance AI could not reach the AI service."
-            ) from exc
-
-        raw_text = response.output_text.strip()
-
-        try:
-            payload = json.loads(raw_text)
+            payload = json.loads(text)
         except json.JSONDecodeError as exc:
             raise RuntimeError(
                 "Performance AI returned an invalid insight format."
             ) from exc
+
+        if not isinstance(payload, dict):
+            raise RuntimeError(
+                "Performance AI returned an invalid insight payload."
+            )
+
+        findings = payload.get("key_findings", [])
+        recommendations = payload.get("recommendations", [])
+
+        if not isinstance(findings, list):
+            findings = []
+
+        if not isinstance(recommendations, list):
+            recommendations = []
+
+        priority = payload.get(
+            "priority",
+            "moderate",
+        )
+
+        if priority not in {
+            "low",
+            "moderate",
+            "high",
+        }:
+            priority = "moderate"
 
         return PerformanceAIInsightResponse(
             scope=scope,
@@ -258,37 +232,62 @@ Do not include markdown.
             ),
             key_findings=[
                 str(item)
-                for item in payload.get(
-                    "key_findings",
-                    [],
-                )
+                for item in findings
                 if item is not None
             ],
             recommendations=[
                 str(item)
-                for item in payload.get(
-                    "recommendations",
-                    [],
-                )
+                for item in recommendations
                 if item is not None
             ],
-            priority=(
-                payload.get(
-                    "priority",
-                    "moderate",
-                )
-                if payload.get(
-                    "priority",
-                    "moderate",
-                )
-                in {
-                    "low",
-                    "moderate",
-                    "high",
-                }
-                else "moderate"
-            ),
+            priority=priority,
         )
+
+    async def generate_insight(
+        self,
+        scope: str,
+        data: Any,
+    ) -> PerformanceAIInsightResponse:
+
+        if scope not in {
+            "student",
+            "class",
+            "school",
+        }:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid Performance AI scope.",
+            )
+
+        if settings.AI_MOCK_MODE:
+            return self._mock_response(
+                scope,
+                data,
+            )
+
+        prompt = self._build_prompt(
+            scope,
+            data,
+        )
+
+        try:
+            raw_text = await ai_service.generate_json_response(
+                prompt
+            )
+
+            return self._parse_json_response(
+                raw_text,
+                scope,
+            )
+
+        except RuntimeError:
+            raise
+
+        except Exception as exc:
+            raise RuntimeError(
+                "CoreOne Performance AI could not generate "
+                "the requested insight."
+            ) from exc
 
 
 performance_ai_service = PerformanceAIService()
