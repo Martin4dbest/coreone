@@ -115,6 +115,17 @@ const FEATURES: FeatureDefinition[] = [
     description: "Manage school-wide and individual student notifications.",
   },
   {
+    key: "ai",
+    name: "AI Studio",
+    description: "AI-powered academic assistance and assessment generation.",
+  },
+  {
+    key: "performance_intelligence",
+    name: "Performance Intelligence",
+    description:
+      "Advanced academic, attendance, trend and student-risk intelligence.",
+  },
+  {
     key: "settings",
     name: "Settings",
     description: "School configuration and settings.",
@@ -196,9 +207,22 @@ export default function SchoolFeaturesPage({
     );
 
     /*
-     * Missing records remain ON for safety.
-     * A missing database record must never hide
-     * an existing working module.
+     * AI is an optional, cost-bearing feature.
+     * A missing AI record means AI is OFF.
+     *
+     * Existing CoreOne modules retain their
+     * original missing-record behavior.
+     */
+    if (
+      featureKey === "ai" ||
+      featureKey === "performance_intelligence"
+    ) {
+      return feature?.enabled === true;
+    }
+
+    /*
+     * Existing modules remain ON when their
+     * feature record is missing.
      */
     return feature?.enabled ?? true;
   }

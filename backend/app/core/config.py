@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     EMAIL_FROM: str = "PreSense <onboarding@resend.dev>"
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # CoreOne AI
+    OPENAI_API_KEY: str = ""
+    OPENAI_AI_MODEL: str = "gpt-5.6-luna"
+
+    # Local development only. When enabled, CoreOne uses
+    # a local mock generator instead of the OpenAI API.
+    AI_MOCK_MODE: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,

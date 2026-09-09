@@ -1,61 +1,114 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import api from "@/lib/api";
+import { AlertCircle, Loader2 } from "lucide-react";
 
-export default function TeacherLearningEntryPage() {
+import api from "@/lib/api";
+import LearningHub from "@/components/learning-hub";
+
+export default function TeacherLearningPage() {
   const params = useParams();
   const tenant = String(params.tenant || "");
 
-  useEffect(() => {
-    let cancelled = false;
+  const [schoolId, setSchoolId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-    async function openExistingLearningCentre() {
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSchool() {
       try {
-        const response = await api.get(
-          `/schools/by-slug/${encodeURIComponent(tenant)}`
+        const cachedSchoolId = sessionStorage.getItem(
+          "teacher_workspace_school_id"
         );
 
-        const schoolId = response.data?.id;
+        if (cachedSchoolId) {
+          const cachedId = Number(cachedSchoolId);
 
-        if (!schoolId || cancelled) {
-          return;
+          if (cachedId > 0) {
+            if (mounted) {
+              setSchoolId(cachedId);
+              setLoading(false);
+            }
+
+            return;
+          }
         }
 
-        window.location.replace(
-          `/dashboard/schools/${schoolId}/learning?teacherLearning=1`
+        const response = await api.get("/schools/me");
+        const id = Number(response.data?.id);
+
+        if (!id) {
+          throw new Error("Unable to determine your school.");
+        }
+
+        sessionStorage.setItem(
+          "teacher_workspace_school_id",
+          String(id)
         );
-      } catch (error) {
-        console.error(
-          "Failed to open existing Learning Centre:",
-          error
-        );
+
+        if (mounted) {
+          setSchoolId(id);
+        }
+      } catch (err: any) {
+        if (mounted) {
+          setError(
+            err?.response?.data?.detail ||
+              "Unable to load your Learning Centre."
+          );
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
 
-    if (tenant) {
-      openExistingLearningCentre();
-    }
+    loadSchool();
 
     return () => {
-      cancelled = true;
+      mounted = false;
     };
-  }, [tenant]);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-7 w-7 animate-spin text-indigo-600" />
+          <p className="mt-2 text-sm font-semibold text-slate-500">
+            Loading Learning Centre...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!schoolId) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center p-6">
+        <div className="max-w-xl rounded-3xl border border-red-200 bg-red-50 p-8 text-center">
+          <AlertCircle className="mx-auto h-8 w-8 text-red-600" />
+
+          <h1 className="mt-4 text-xl font-bold text-slate-900">
+            Learning Centre unavailable
+          </h1>
+
+          <p className="mt-2 text-sm text-slate-600">
+            {error}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
-      <div className="text-center">
-        <div className="text-4xl">Learning</div>
-
-        <h1 className="mt-4 text-xl font-bold">
-          Opening Learning Centre...
-        </h1>
-
-        <p className="mt-2 text-sm text-slate-400">
-          Please wait...
-        </p>
-      </div>
-    </div>
+    <LearningHub
+      schoolId={String(schoolId)}
+      teacherLearning
+      tenant={tenant}
+    />
   );
 }

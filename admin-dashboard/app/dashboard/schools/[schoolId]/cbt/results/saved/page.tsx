@@ -18,10 +18,19 @@ interface SavedResult {
   saved_at?: string;
 }
 
-export default function SavedResultsPage() {
+type SavedResultsPageProps = {
+  schoolIdOverride?: string;
+  teacherBackHref?: string;
+};
+
+export default function SavedResultsPage({
+  schoolIdOverride,
+  teacherBackHref,
+}: SavedResultsPageProps) {
   const params = useParams();
   const router = useRouter();
-  const schoolId = params?.schoolId as string;
+  const schoolId =
+    schoolIdOverride || String(params?.schoolId || "");
 
   const [loading, setLoading] = useState(true);
   const [savedResults, setSavedResults] = useState<SavedResult[]>([]);
@@ -128,7 +137,7 @@ export default function SavedResultsPage() {
         </div>
 
         <button
-          onClick={() => router.push(`/dashboard/schools/${schoolId}/cbt/results`)}
+          onClick={() => router.push(teacherBackHref || `/dashboard/schools/${schoolId}/cbt/results`)}
           className="inline-flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition-colors border border-gray-200"
         >
           Main Results Page

@@ -43,10 +43,19 @@ interface Dashboard {
   lowest_score: number;
 }
 
-export default function CBTResultsPage() {
+type CBTResultsPageProps = {
+  schoolIdOverride?: string;
+  teacherBackHref?: string;
+};
+
+export default function CBTResultsPage({
+  schoolIdOverride,
+  teacherBackHref,
+}: CBTResultsPageProps) {
   const params = useParams();
   const router = useRouter();
-  const schoolId = params?.schoolId as string;
+  const schoolId =
+    schoolIdOverride || String(params?.schoolId || "");
 
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<ResultRow[]>([]);
@@ -134,7 +143,7 @@ export default function CBTResultsPage() {
       }
 
       // Redirect user to the saved results page!
-      router.push(`/dashboard/schools/${schoolId}/cbt/results/saved`);
+      router.push(teacherBackHref ? `${teacherBackHref}/saved` : `/dashboard/schools/${schoolId}/cbt/results/saved`);
     } catch (err) {
       console.error("Failed to save results:", err);
     } finally {
@@ -345,7 +354,7 @@ export default function CBTResultsPage() {
         <div className="flex items-center gap-3">
           {/* Back Button */}
           <button
-            onClick={() => router.back()}
+            onClick={() => teacherBackHref ? router.push(teacherBackHref) : router.back()}
             className="inline-flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg transition-colors border border-gray-200"
             title="Go to previous page"
           >
@@ -367,7 +376,7 @@ export default function CBTResultsPage() {
           {/* View Saved Page Link */}
           <button
             onClick={() =>
-              router.push(`/dashboard/schools/${schoolId}/cbt/results/saved`)
+              router.push(teacherBackHref ? `${teacherBackHref}/saved` : `/dashboard/schools/${schoolId}/cbt/results/saved`)
             }
             className="inline-flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg transition-colors border border-gray-300"
           >

@@ -1,0 +1,1 @@
+"""CoreOne AI module."""

@@ -21,8 +21,27 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-export default function CBTExamViewPage() {
-  const { schoolId, examId } = useParams();
+type CBTExamViewPageProps = {
+  schoolIdOverride?: string;
+  examIdOverride?: string;
+  teacherBase?: string;
+  teacherBackHref?: string;
+};
+
+export default function CBTExamViewPage({
+  schoolIdOverride,
+  examIdOverride,
+  teacherBase = "",
+  teacherBackHref,
+}: CBTExamViewPageProps) {
+  const params = useParams();
+
+  const schoolId =
+    schoolIdOverride || String(params?.schoolId || "");
+
+  const examId =
+    examIdOverride || String(params?.examId || "");
+
   const router = useRouter();
   const [exam, setExam] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -123,7 +142,7 @@ export default function CBTExamViewPage() {
 
   const handleBack = () => {
     if (schoolId) {
-      router.push(`/dashboard/schools/${schoolId}/cbt/exams`);
+      router.push(teacherBackHref || `/dashboard/schools/${schoolId}/cbt/exams`);
     } else {
       router.back();
     }
@@ -274,14 +293,14 @@ export default function CBTExamViewPage() {
         {/* Navigation Breadcrumb */}
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
           <Link
-            href={`/dashboard/schools/${schoolId}/cbt`}
+            href={teacherBackHref ? teacherBackHref.replace(/\/exams$/, "") : `/dashboard/schools/${schoolId}/cbt`}
             className="hover:text-indigo-600 transition"
           >
             CBT Hub
           </Link>
           <ChevronRight size={12} className="text-slate-400" />
           <Link
-            href={`/dashboard/schools/${schoolId}/cbt/exams`}
+            href={teacherBackHref || `/dashboard/schools/${schoolId}/cbt/exams`}
             className="hover:text-indigo-600 transition"
           >
             Exams
@@ -314,7 +333,7 @@ export default function CBTExamViewPage() {
 
           <div className="flex flex-wrap items-center gap-3 shrink-0 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100">
             <Link
-              href={`/dashboard/schools/${schoolId}/cbt/exams/${
+              href={`${teacherBase ? `${teacherBase}/exams/` : `/dashboard/schools/${schoolId}/cbt/exams/`}${
                 exam.id || examId
               }/edit`}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold transition shadow-sm"
@@ -324,7 +343,7 @@ export default function CBTExamViewPage() {
             </Link>
 
             <Link
-              href={`/dashboard/schools/${schoolId}/cbt/questions?examId=${
+              href={`${teacherBase ? `${teacherBase}/questions?examId=` : `/dashboard/schools/${schoolId}/cbt/questions?examId=`}${
                 exam.id || examId
               }`}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition shadow-sm"

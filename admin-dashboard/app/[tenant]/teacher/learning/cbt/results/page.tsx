@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 
 import api from "@/lib/api";
-import YoutubeLearningPage from "@/app/dashboard/schools/[schoolId]/youtube-learning/page";
+import CBTResultsPage from "@/app/dashboard/schools/[schoolId]/cbt/results/page";
 
 type School = {
   id: number;
 };
 
-export default function TeacherYoutubePage() {
+export default function TeacherCBTResultsPage() {
   const [schoolId, setSchoolId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -18,33 +18,27 @@ export default function TeacherYoutubePage() {
   useEffect(() => {
     let mounted = true;
 
-    async function loadSchool() {
-      try {
-        const response = await api.get<School>("/schools/me");
+    api.get<School>("/schools/me")
+      .then((response) => {
         const id = Number(response.data?.id);
 
         if (!id) {
           throw new Error("Unable to determine your school.");
         }
 
-        if (mounted) {
-          setSchoolId(id);
-        }
-      } catch (err: any) {
+        if (mounted) setSchoolId(id);
+      })
+      .catch((err: any) => {
         if (mounted) {
           setError(
             err?.response?.data?.detail ||
-              "Unable to load YouTube Learning."
+            "Unable to load CBT Results."
           );
         }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadSchool();
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
 
     return () => {
       mounted = false;
@@ -57,7 +51,7 @@ export default function TeacherYoutubePage() {
         <div className="text-center">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-red-600" />
           <p className="mt-3 text-sm font-semibold text-slate-500">
-            Loading YouTube Learning...
+            Loading CBT Results...
           </p>
         </div>
       </div>
@@ -71,7 +65,7 @@ export default function TeacherYoutubePage() {
           <AlertCircle className="mx-auto h-8 w-8 text-red-600" />
 
           <h1 className="mt-4 text-xl font-bold text-slate-900">
-            YouTube Learning unavailable
+            CBT Results unavailable
           </h1>
 
           <p className="mt-2 text-sm text-slate-600">
@@ -83,8 +77,9 @@ export default function TeacherYoutubePage() {
   }
 
   return (
-    <YoutubeLearningPage
+    <CBTResultsPage
       schoolIdOverride={String(schoolId)}
+      teacherBackHref="/teko/teacher/learning/cbt"
     />
   );
 }

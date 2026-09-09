@@ -1,6 +1,7 @@
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -61,12 +62,17 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+type AttendancePageProps = {
+  params?: Promise<{ schoolId: string }>;
+  backHref?: string;
+};
+
 export default function AttendancePage({
   params,
-}: {
-  params: Promise<{ schoolId: string }>;
-}) {
-  const { schoolId } = use(params);
+  backHref,
+}: AttendancePageProps) {
+  const routeParams = useParams();
+  const schoolId = String(routeParams?.schoolId || "");
 
   const numericSchoolId = Number(schoolId);
 
@@ -336,7 +342,7 @@ export default function AttendancePage({
   return (
     <div className="space-y-6">
       <Link
-        href={`/dashboard/schools/${schoolId}`}
+        href={backHref || `/dashboard/schools/${schoolId}`}
         className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-rose-500"
       >
         <ArrowLeft size={16} />

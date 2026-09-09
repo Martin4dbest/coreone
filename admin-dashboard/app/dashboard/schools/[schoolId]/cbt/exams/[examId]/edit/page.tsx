@@ -24,8 +24,25 @@ interface ExamFormState {
   [key: string]: any;
 }
 
-export default function EditCBTExamPage() {
-  const { examId, schoolId } = useParams();
+type EditCBTExamPageProps = {
+  schoolIdOverride?: string;
+  examIdOverride?: string;
+  teacherBackHref?: string;
+};
+
+export default function EditCBTExamPage({
+  schoolIdOverride,
+  examIdOverride,
+  teacherBackHref,
+}: EditCBTExamPageProps) {
+  const params = useParams();
+
+  const examId =
+    examIdOverride || String(params?.examId || "");
+
+  const schoolId =
+    schoolIdOverride || String(params?.schoolId || "");
+
   const router = useRouter();
 
   const [form, setForm] = useState<ExamFormState | null>(null);
@@ -62,7 +79,7 @@ export default function EditCBTExamPage() {
 
   const handleBack = () => {
     if (schoolId) {
-      router.push(`/dashboard/schools/${schoolId}/cbt/exams`);
+      router.push(teacherBackHref || `/dashboard/schools/${schoolId}/cbt/exams`);
     } else {
       router.back();
     }

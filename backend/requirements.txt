@@ -51,3 +51,4 @@ tzdata==2026.3
 urllib3==2.7.0
 uvicorn==0.51.0
 cloudinary==1.45.0
+openai

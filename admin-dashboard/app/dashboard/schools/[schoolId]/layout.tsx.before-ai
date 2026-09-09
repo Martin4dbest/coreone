@@ -24,7 +24,6 @@ import {
   FileQuestion,
   Bell,
   Bus,
-  BrainCircuit,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -273,18 +272,6 @@ export default function SchoolWorkspaceLayout({
       href: `${basePath}/academics`,
       icon: BookOpen,
       feature: "academics",
-    },
-    {
-      name: "AI Studio",
-      href: `${basePath}/ai`,
-      icon: BrainCircuit,
-      feature: "ai",
-    },
-    {
-      name: "Performance Intelligence",
-      href: `${basePath}/performance-intelligence`,
-      icon: BrainCircuit,
-      feature: "performance_intelligence",
     },
     {
       name: "Learning",

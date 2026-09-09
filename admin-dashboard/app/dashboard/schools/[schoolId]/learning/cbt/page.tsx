@@ -2,11 +2,18 @@
 
 import { useParams } from "next/navigation";
 
-export default function SchoolCBTPage(){
+type SchoolCBTPageProps = {
+  schoolIdOverride?: string;
+};
+
+export default function SchoolCBTPage({
+  schoolIdOverride,
+}: SchoolCBTPageProps) {
 
 const params = useParams();
 
-const schoolId = params.schoolId as string;
+const schoolId =
+  schoolIdOverride || String(params.schoolId || "");
 
 
 return (

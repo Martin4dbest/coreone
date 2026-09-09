@@ -75,9 +75,17 @@ function getYoutubeThumbnail(url: string) {
     : null;
 }
 
-export default function YoutubeLearningPage() {
+type YoutubeLearningPageProps = {
+  schoolIdOverride?: string;
+};
+
+export default function YoutubeLearningPage({
+  schoolIdOverride,
+}: YoutubeLearningPageProps) {
   const params = useParams();
-  const schoolId = String(params.schoolId);
+
+  const schoolId =
+    schoolIdOverride || String(params.schoolId || "");
 
   const [videos, setVideos] = useState<YoutubeVideo[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);

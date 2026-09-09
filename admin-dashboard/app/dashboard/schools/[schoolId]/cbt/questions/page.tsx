@@ -240,10 +240,19 @@ const AudioVideoDisplay = ({
   );
 };
 
-export default function CBTQuestionsPage() {
+type CBTQuestionsPageProps = {
+  schoolIdOverride?: string;
+  teacherBackHref?: string;
+};
+
+export default function CBTQuestionsPage({
+  schoolIdOverride,
+  teacherBackHref,
+}: CBTQuestionsPageProps) {
   const params = useParams();
   const router = useRouter();
-  const schoolId = params?.schoolId as string | undefined;
+  const schoolId =
+    schoolIdOverride || String(params?.schoolId || "");
 
   const [exams, setExams] = useState<Exam[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -719,7 +728,7 @@ export default function CBTQuestionsPage() {
           <div>
             {/* Redirect / Go Back Button */}
             <button
-              onClick={() => router.back()}
+              onClick={() => teacherBackHref ? router.push(teacherBackHref) : router.back()}
               className="inline-flex items-center gap-2 mb-3 text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors group"
             >
               <svg

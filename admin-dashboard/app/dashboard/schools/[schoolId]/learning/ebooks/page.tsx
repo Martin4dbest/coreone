@@ -54,9 +54,16 @@ type Ebook = {
   created_at?: string | null;
 };
 
-export default function AdminEbooksPage() {
+type AdminEbooksPageProps = {
+  schoolIdOverride?: string;
+};
+
+export default function AdminEbooksPage({
+  schoolIdOverride,
+}: AdminEbooksPageProps) {
   const params = useParams();
-  const schoolId = String(params.schoolId);
+  const schoolId =
+    schoolIdOverride || String(params.schoolId || "");
 
   const [ebooks, setEbooks] = useState<Ebook[]>([]);
   const [loading, setLoading] = useState(true);

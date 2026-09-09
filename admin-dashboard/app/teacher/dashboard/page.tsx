@@ -17,7 +17,8 @@ import {
   AlertCircle,
   Sparkles,
   Building2,
-  FileQuestion
+  FileQuestion,
+  BrainCircuit
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -66,6 +67,7 @@ const params = useParams();
 const tenant = params.tenant as string;
   const [data, setData] = useState<TeacherDashboard | null>(null);
   const [school, setSchool] = useState<SchoolBranding | null>(null);
+  const [canUseAI, setCanUseAI] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -88,7 +90,22 @@ const tenant = params.tenant as string;
         }
 
         if (schoolRes.status === "fulfilled") {
-          setSchool(schoolRes.value.data);
+          const schoolData = schoolRes.value.data;
+          setSchool(schoolData);
+
+          if (schoolData?.id) {
+            sessionStorage.setItem(
+              "teacher_workspace_school_id",
+              String(schoolData.id)
+            );
+          }
+
+          try {
+            await api.get(`/ai/access/${schoolData.id}`);
+            setCanUseAI(true);
+          } catch {
+            setCanUseAI(false);
+          }
         }
       } catch (err: any) {
         setError(
@@ -325,6 +342,18 @@ const tenant = params.tenant as string;
             <span className="text-xs text-slate-400 mt-0.5">Digital Learning Centre</span>
           </Link>
 
+          {canUseAI ? (
+            <Link
+              href={`/${tenant}/teacher/ai`}
+              className="group flex flex-col items-center justify-center rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80 hover:border-violet-300 hover:shadow-md transition-all text-center"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-50 text-violet-600 group-hover:scale-110 transition-transform">
+                <BrainCircuit className="h-6 w-6" />
+              </div>
+              <span className="mt-3 text-sm font-bold text-slate-800">AI Studio</span>
+              <span className="text-xs text-slate-400 mt-0.5">AI CBT Question Generator</span>
+            </Link>
+          ) : null}
 
         </div>
       </div>

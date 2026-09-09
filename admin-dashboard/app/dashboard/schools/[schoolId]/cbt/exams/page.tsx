@@ -137,10 +137,21 @@ const initialFormState: CreateExamFormData = {
   isActive: true,
 };
 
-export default function CBTExamsPage() {
+type CBTExamsPageProps = {
+  schoolIdOverride?: string;
+  teacherBackHref?: string;
+  teacherBase?: string;
+};
+
+export default function CBTExamsPage({
+  schoolIdOverride,
+  teacherBackHref,
+  teacherBase = "",
+}: CBTExamsPageProps) {
   const params = useParams();
   const router = useRouter();
-  const schoolId = params?.schoolId as string;
+  const schoolId =
+    schoolIdOverride || String(params?.schoolId || "");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [exams, setExams] = useState<RawExamData[]>([]);
@@ -173,7 +184,7 @@ export default function CBTExamsPage() {
   const handleBack = () => {
     setActionLoading("back");
     if (schoolId) {
-      router.push(`/dashboard/schools/${schoolId}/cbt`);
+      router.push(teacherBackHref || `/dashboard/schools/${schoolId}/cbt`);
     } else {
       router.back();
     }
@@ -1263,7 +1274,7 @@ export default function CBTExamsPage() {
                               disabled={Boolean(actionLoading)}
                               onClick={() =>
                                 handleNavigate(
-                                  `/dashboard/schools/${schoolId}/cbt/exams/${examId}`,
+                                  teacherBase ? `${teacherBase}/exams/${examId}` : teacherBase ? `${teacherBase}/exams/${examId}` : `/dashboard/schools/${schoolId}/cbt/exams/${examId}`,
                                   `view-${examId}`
                                 )
                               }
@@ -1278,7 +1289,7 @@ export default function CBTExamsPage() {
                               disabled={Boolean(actionLoading)}
                               onClick={() =>
                                 handleNavigate(
-                                  `/dashboard/schools/${schoolId}/cbt/questions?examId=${examId}`,
+                                  teacherBase ? `${teacherBase}/questions?examId=${examId}` : `/dashboard/schools/${schoolId}/cbt/questions?examId=${examId}`,
                                   `questions-${examId}`
                                 )
                               }
@@ -1293,7 +1304,7 @@ export default function CBTExamsPage() {
                               disabled={Boolean(actionLoading)}
                               onClick={() =>
                                 handleNavigate(
-                                  `/dashboard/schools/${schoolId}/cbt/exams/${examId}/edit`,
+                                  teacherBase ? `${teacherBase}/exams/${examId}/edit` : `/dashboard/schools/${schoolId}/cbt/exams/${examId}/edit`,
                                   `edit-${examId}`
                                 )
                               }
@@ -1339,7 +1350,7 @@ export default function CBTExamsPage() {
                               disabled={Boolean(actionLoading)}
                               onClick={() =>
                                 handleNavigate(
-                                  `/dashboard/schools/${schoolId}/cbt/results?examId=${examId}`,
+                                  teacherBase ? `${teacherBase}/results?examId=${examId}` : `/dashboard/schools/${schoolId}/cbt/results?examId=${examId}`,
                                   `results-${examId}`
                                 )
                               }

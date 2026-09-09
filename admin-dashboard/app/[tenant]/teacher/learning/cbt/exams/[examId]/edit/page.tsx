@@ -1,16 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
 
 import api from "@/lib/api";
-import YoutubeLearningPage from "@/app/dashboard/schools/[schoolId]/youtube-learning/page";
+import EditCBTExamPage from "@/app/dashboard/schools/[schoolId]/cbt/exams/[examId]/edit/page";
 
 type School = {
   id: number;
 };
 
-export default function TeacherYoutubePage() {
+export default function TeacherEditCBTExamPage() {
+  const params = useParams();
+
+  const examId = String(params?.examId || "");
+
   const [schoolId, setSchoolId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -18,33 +23,36 @@ export default function TeacherYoutubePage() {
   useEffect(() => {
     let mounted = true;
 
-    async function loadSchool() {
-      try {
-        const response = await api.get<School>("/schools/me");
+    api.get<School>("/schools/me")
+      .then((response) => {
         const id = Number(response.data?.id);
 
         if (!id) {
           throw new Error("Unable to determine your school.");
         }
 
+        sessionStorage.setItem(
+          "teacher_school_id",
+          String(id)
+        );
+
         if (mounted) {
           setSchoolId(id);
         }
-      } catch (err: any) {
+      })
+      .catch((err: any) => {
         if (mounted) {
           setError(
             err?.response?.data?.detail ||
-              "Unable to load YouTube Learning."
+            "Unable to load exam editor."
           );
         }
-      } finally {
+      })
+      .finally(() => {
         if (mounted) {
           setLoading(false);
         }
-      }
-    }
-
-    loadSchool();
+      });
 
     return () => {
       mounted = false;
@@ -57,7 +65,7 @@ export default function TeacherYoutubePage() {
         <div className="text-center">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-red-600" />
           <p className="mt-3 text-sm font-semibold text-slate-500">
-            Loading YouTube Learning...
+            Loading Exam Editor...
           </p>
         </div>
       </div>
@@ -71,7 +79,7 @@ export default function TeacherYoutubePage() {
           <AlertCircle className="mx-auto h-8 w-8 text-red-600" />
 
           <h1 className="mt-4 text-xl font-bold text-slate-900">
-            YouTube Learning unavailable
+            Exam Editor unavailable
           </h1>
 
           <p className="mt-2 text-sm text-slate-600">
@@ -83,8 +91,10 @@ export default function TeacherYoutubePage() {
   }
 
   return (
-    <YoutubeLearningPage
+    <EditCBTExamPage
       schoolIdOverride={String(schoolId)}
+      examIdOverride={examId}
+      teacherBackHref="/teko/teacher/learning/cbt/exams"
     />
   );
 }

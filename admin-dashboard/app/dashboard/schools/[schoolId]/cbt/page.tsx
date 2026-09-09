@@ -13,16 +13,25 @@ import {
   Layers,
 } from "lucide-react";
 
-export default function CBTPage() {
+type CBTPageProps = {
+  schoolIdOverride?: string;
+  teacherBase?: string;
+};
+
+export default function CBTPage({
+  schoolIdOverride,
+  teacherBase = "",
+}: CBTPageProps) {
   const params = useParams();
-  const schoolId = params?.schoolId as string;
+  const schoolId =
+    schoolIdOverride || String(params?.schoolId || "");
 
   const navigationCards = [
     {
       title: "Exams Management",
       description:
         "Draft, schedule, publish, and manage all CBT assessments across departments and classes.",
-      href: `/dashboard/schools/${schoolId}/cbt/exams`,
+      href: teacherBase ? `${teacherBase}/exams` : `/dashboard/schools/${schoolId}/cbt/exams`,
       icon: FileText,
       badge: "Core",
       color: "from-indigo-500 to-indigo-600",
@@ -32,7 +41,7 @@ export default function CBTPage() {
       title: "Question Bank",
       description:
         "Build and organize multi-choice, theory, and true/false questions tagged by subject and topic.",
-      href: `/dashboard/schools/${schoolId}/cbt/questions`,
+      href: teacherBase ? `${teacherBase}/questions` : `/dashboard/schools/${schoolId}/cbt/questions`,
       icon: HelpCircle,
       badge: "Repository",
       color: "from-blue-500 to-cyan-600",
@@ -42,7 +51,7 @@ export default function CBTPage() {
       title: "Results & Analytics",
       description:
         "Track student performance, score distributions, pass rates, and export assessment reports.",
-      href: `/dashboard/schools/${schoolId}/cbt/results`,
+      href: teacherBase ? `${teacherBase}/results` : `/dashboard/schools/${schoolId}/cbt/results`,
       icon: BarChart3,
       badge: "Insights",
       color: "from-emerald-500 to-teal-600",
@@ -51,8 +60,8 @@ export default function CBTPage() {
     {
       title: "CBT Portal Settings",
       description:
-        "Configure default test durations, pass thresholds, anti-cheating proctoring controls, and instructions.",
-      href: `/dashboard/schools/${schoolId}/cbt/settings`,
+        "CBT portal settings are managed from the school administration workspace.",
+      href: "#cbt-settings-unavailable",
       icon: Settings,
       badge: "Config",
       color: "from-slate-700 to-slate-800",

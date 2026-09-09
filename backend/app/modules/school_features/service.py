@@ -29,6 +29,12 @@ DEFAULT_FEATURES = [
     "licensing",
 ]
 
+# Optional/cost-bearing features are not created automatically.
+OPTIONAL_FEATURES = {
+    "ai",
+    "performance_intelligence",
+}
+
 
 class SchoolFeatureService:
 
@@ -86,7 +92,10 @@ class SchoolFeatureService:
         # Unknown feature keys are still rejected so callers
         # cannot create arbitrary feature records.
         if not feature:
-            if feature_key not in DEFAULT_FEATURES:
+            if (
+                feature_key not in DEFAULT_FEATURES
+                and feature_key not in OPTIONAL_FEATURES
+            ):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=(

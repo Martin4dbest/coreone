@@ -14,6 +14,7 @@ class SchoolFeatureRepository:
         feature: SchoolFeature,
     ):
         self.db.add(feature)
+        return feature
 
     async def get_all(
         self,
