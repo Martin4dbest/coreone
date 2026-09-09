@@ -340,6 +340,19 @@ export default function TeacherStudentsPage() {
     setCopiedAccessCode(false);
 
     try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("access_token") ||
+            localStorage.getItem("token")
+          : null;
+
+      if (!token) {
+        setAccessCodeMessage(
+          "Your login session has expired. Please log in again."
+        );
+        return;
+      }
+
       const response = await api.post(
         "/ai/cbt/access/generate",
         {
@@ -347,6 +360,11 @@ export default function TeacherStudentsPage() {
           target_teacher_id: Number(
             selectedAccessTeacherId
           ),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
 
