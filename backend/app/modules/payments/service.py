@@ -880,7 +880,7 @@ class PaymentService:
 
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Unable to initialize payment with the school's payment provider",
+                detail=f"Paystack initialization failed: {exc}",
             ) from exc
         except Exception:
             payment.status = "FAILED"
