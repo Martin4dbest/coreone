@@ -861,7 +861,7 @@ class PaymentService:
         try:
             gateway_result = await gateway.initialize_transaction(
                 email=user.email,
-                amount_kobo=self._naira_to_kobo(amount),
+                amount=self._naira_to_kobo(amount),
                 reference=reference,
                 currency=settings.currency,
                 metadata={
