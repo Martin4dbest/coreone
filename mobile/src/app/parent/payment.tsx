@@ -9,9 +9,9 @@ import {
   TouchableOpacity,
   View,
   Platform,
+  Linking,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 
 import api from "@/services/api";
 
@@ -147,9 +147,49 @@ export default function ParentPaymentScreen() {
         );
       }
 
-      await WebBrowser.openBrowserAsync(payment.authorization_url);
+      if (Platform.OS === "web") {
+        const opened = window.open(
+          payment.authorization_url,
+          "_blank",
+          "noopener,noreferrer"
+        );
 
-      const verified = await verifyPayment(payment.reference);
+        if (!opened) {
+          window.location.href = payment.authorization_url;
+          return;
+        }
+
+        Alert.alert(
+          "Paystack opened",
+          "Complete your payment in the Paystack tab, then return here to continue."
+        );
+      } else {
+        const supported = await Linking.canOpenURL(
+          payment.authorization_url
+        );
+
+        if (!supported) {
+          throw new Error(
+            "Your device cannot open the Paystack payment page."
+          );
+        }
+
+        await Linking.openURL(payment.authorization_url);
+      }
+
+      let verified = false;
+
+      if (Platform.OS !== "web") {
+        verified = await verifyPayment(payment.reference);
+
+        if (verified) {
+          Alert.alert(
+            "Payment successful",
+            "Your payment has been verified successfully."
+          );
+          return;
+        }
+      }
 
       if (verified) {
         Alert.alert(
