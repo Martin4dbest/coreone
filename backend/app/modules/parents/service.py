@@ -4,6 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.parent import Parent
+from app.models.classroom import Classroom
+from app.models.school import School
 from app.models.parent_student import ParentStudent
 from app.models.parent_school import ParentSchool
 from app.models.role import Role
