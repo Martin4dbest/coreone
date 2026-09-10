@@ -141,87 +141,35 @@ export default function ParentPaymentScreen() {
 
       const payment = response.data;
 
-      if (!payment.authorization_url || !payment.reference) {
+      if (!payment?.authorization_url) {
         throw new Error(
-          "The payment gateway did not return a valid checkout session."
+          "The payment gateway did not return a checkout URL."
         );
       }
+
+      const checkoutUrl = payment.authorization_url.trim();
+
+      if (!checkoutUrl.startsWith("https://")) {
+        throw new Error("Invalid Paystack checkout URL.");
+      }
+
+      console.log("PAYSTACK CHECKOUT URL:", checkoutUrl);
 
       if (Platform.OS === "web") {
-        const opened = window.open(
-          payment.authorization_url,
-          "_blank",
-          "noopener,noreferrer"
-        );
-
-        if (!opened) {
-          window.location.href = payment.authorization_url;
-          return;
-        }
-
-        Alert.alert(
-          "Paystack opened",
-          "Complete your payment in the Paystack tab, then return here to continue."
-        );
-      } else {
-        const supported = await Linking.canOpenURL(
-          payment.authorization_url
-        );
-
-        if (!supported) {
-          throw new Error(
-            "Your device cannot open the Paystack payment page."
-          );
-        }
-
-        await Linking.openURL(payment.authorization_url);
+        window.location.href = checkoutUrl;
+        return;
       }
 
-      let verified = false;
-
-      if (Platform.OS !== "web") {
-        verified = await verifyPayment(payment.reference);
-
-        if (verified) {
-          Alert.alert(
-            "Payment successful",
-            "Your payment has been verified successfully."
-          );
-          return;
-        }
-      }
-
-      if (verified) {
-        Alert.alert(
-          "Payment successful",
-          "Your payment has been verified successfully.",
-          [
-            {
-              text: "View Fees",
-              onPress: () =>
-                router.replace({
-                  pathname: "/parent/fees",
-                  params: {
-                    studentId: String(params.studentFeeId),
-                  },
-                }),
-            },
-          ]
-        );
-      } else {
-        Alert.alert(
-          "Payment not yet confirmed",
-          "We could not confirm this payment yet. If you completed the payment, please check your payment history again."
-        );
-      }
+      await Linking.openURL(checkoutUrl);
     } catch (error: any) {
       console.log(
         "Payment initialization error:",
-        error?.response?.data || error?.message
+        error?.response?.data || error?.message || error
       );
 
       const detail =
         error?.response?.data?.detail ||
+        error?.response?.data?.message ||
         error?.message ||
         "Unable to start the payment.";
 
