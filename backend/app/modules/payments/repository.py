@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.parent import Parent
 from app.models.parent_student import ParentStudent
@@ -80,6 +81,30 @@ class PaymentRepository:
         )
 
         return result.scalar_one_or_none()
+
+    async def get_payment_by_reference(
+        self,
+        reference: str,
+        *,
+        for_update: bool = False,
+    ) -> Payment | None:
+        query = (
+            select(Payment)
+            .options(
+                selectinload(Payment.student_fee),
+            )
+            .where(
+                Payment.transaction_reference == reference
+            )
+        )
+
+        if for_update:
+            query = query.with_for_update()
+
+        result = await self.db.execute(query)
+
+        return result.scalar_one_or_none()
+
 
     async def create_payment(
         self,

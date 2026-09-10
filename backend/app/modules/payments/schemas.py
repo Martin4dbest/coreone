@@ -50,3 +50,20 @@ class PaymentInitializeResponse(BaseModel):
     provider: str
     authorization_url: str
     access_code: str | None = None
+
+
+class PaymentVerifyRequest(BaseModel):
+    reference: str = Field(min_length=1, max_length=150)
+
+
+class PaymentVerifyResponse(BaseModel):
+    payment_id: int
+    reference: str
+    status: str
+    amount: Decimal
+    currency: str
+    payment_idempotent: bool = False
+    student_fee_id: int
+    amount_paid: Decimal
+    outstanding_balance: Decimal
+    fee_status: str
