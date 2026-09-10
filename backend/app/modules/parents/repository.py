@@ -2,6 +2,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attendance import Attendance
+from app.models.academic_session import AcademicSession
+from app.models.fee_structure import FeeStructure, FeeStructureItem
+from app.models.payment import Payment
+from app.models.student_fee import StudentFee
+from app.models.term import Term
 from app.models.parent import Parent
 from app.models.parent_student import ParentStudent
 from app.models.parent_school import ParentSchool
@@ -267,6 +272,105 @@ class ParentRepository:
     ):
         await self.db.delete(parent_student)
         await self.db.commit()
+
+    async def get_student_fees_for_parent(
+        self,
+        parent_id: int,
+        student_id: int,
+    ):
+        """
+        Return the existing StudentFee invoices for a student,
+        but only when the student is linked to the parent.
+        """
+
+        link_result = await self.db.execute(
+            select(ParentStudent).where(
+                ParentStudent.parent_id == parent_id,
+                ParentStudent.student_id == student_id,
+            )
+        )
+
+        parent_link = link_result.scalar_one_or_none()
+
+        if parent_link is None:
+            return None, []
+
+        student_result = await self.db.execute(
+            select(Student).where(
+                Student.id == student_id
+            )
+        )
+
+        student = student_result.scalar_one_or_none()
+
+        if student is None:
+            return None, []
+
+        invoice_result = await self.db.execute(
+            select(StudentFee)
+            .where(
+                StudentFee.student_id == student_id,
+                StudentFee.school_id == student.school_id,
+            )
+            .order_by(StudentFee.id.desc())
+        )
+
+        invoices = invoice_result.scalars().all()
+
+        return student, invoices
+
+    async def get_fee_structure_items(
+        self,
+        fee_structure_id: int,
+    ):
+        result = await self.db.execute(
+            select(FeeStructureItem)
+            .where(
+                FeeStructureItem.fee_structure_id == fee_structure_id
+            )
+            .order_by(FeeStructureItem.id.asc())
+        )
+
+        return result.scalars().all()
+
+    async def get_fee_structure_academic_info(
+        self,
+        fee_structure_id: int,
+    ):
+        result = await self.db.execute(
+            select(
+                FeeStructure,
+                AcademicSession,
+                Term,
+            )
+            .join(
+                AcademicSession,
+                AcademicSession.id == FeeStructure.academic_session_id,
+            )
+            .join(
+                Term,
+                Term.id == FeeStructure.term_id,
+            )
+            .where(
+                FeeStructure.id == fee_structure_id
+            )
+        )
+
+        return result.first()
+
+    async def get_payments_for_student_fee(
+        self,
+        student_fee_id: int,
+    ):
+        result = await self.db.execute(
+            select(Payment)
+            .where(
+                Payment.student_fee_id == student_fee_id
+            )
+            .order_by(Payment.id.desc())
+        )
+
+        return result.scalars().all()
 
     async def create(
         self,

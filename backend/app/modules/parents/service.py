@@ -1,3 +1,4 @@
+from decimal import Decimal
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +22,12 @@ from app.modules.parents.schemas import (
     ParentSchoolBrandingResponse,
     ParentSchoolResponse,
     ParentStudentResponse,
+    ParentFeeItemResponse,
+    ParentPaymentHistoryResponse,
+    ParentInvoiceResponse,
+    ParentFeesStudentResponse,
+    ParentFeesTotalsResponse,
+    ParentFeesResponse,
 )
 
 
@@ -660,6 +667,208 @@ class ParentService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Unable to unlink student from parent.",
             )
+
+
+    async def get_my_student_fees(
+        self,
+        student_id: int,
+        current_user,
+    ):
+        if current_user.role.name != "PARENT":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Parent access required",
+            )
+
+        # Resolve the actual parent account from the
+        # authenticated CoreOne user.
+        parent = await self.repository.get_by_user_id(
+            current_user.id
+        )
+
+        if parent is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Parent profile not found",
+            )
+
+        # The repository verifies that this student is
+        # explicitly linked to this parent.
+        student, invoices = (
+            await self.repository.get_student_fees_for_parent(
+                parent.id,
+                student_id,
+            )
+        )
+
+        if student is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student is not linked to this parent",
+            )
+
+        # -----------------------------------------------------
+        # Resolve the student's actual school.
+        # The student's school_id is authoritative.
+        # -----------------------------------------------------
+
+        school = await self.db.get(
+            School,
+            student.school_id,
+        )
+
+        if school is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student school not found",
+            )
+
+        # -----------------------------------------------------
+        # Resolve classroom.
+        # -----------------------------------------------------
+
+        classroom_name = None
+
+        if student.classroom_id is not None:
+            classroom = await self.db.get(
+                Classroom,
+                student.classroom_id,
+            )
+
+            if classroom is not None:
+                classroom_name = classroom.name
+
+        # -----------------------------------------------------
+        # Build invoice response and calculate totals.
+        #
+        # IMPORTANT:
+        # These are the SAME StudentFee invoices created
+        # by School Admin. We are not creating another
+        # parent invoice.
+        # -----------------------------------------------------
+
+        total_due = Decimal("0.00")
+        total_paid = Decimal("0.00")
+
+        invoice_responses = []
+
+        for invoice in invoices:
+            academic_info = (
+                await self.repository.get_fee_structure_academic_info(
+                    invoice.fee_structure_id
+                )
+            )
+
+            if academic_info is None:
+                # Do not expose an incomplete invoice.
+                continue
+
+            fee_structure, academic_session, term = academic_info
+
+            items = await self.repository.get_fee_structure_items(
+                invoice.fee_structure_id
+            )
+
+            payments = await self.repository.get_payments_for_student_fee(
+                invoice.id
+            )
+
+            amount_due = Decimal(
+                invoice.amount_due or 0
+            )
+
+            amount_paid = Decimal(
+                invoice.amount_paid or 0
+            )
+
+            outstanding_balance = max(
+                amount_due - amount_paid,
+                Decimal("0.00"),
+            )
+
+            total_due += amount_due
+            total_paid += amount_paid
+
+            invoice_responses.append(
+                ParentInvoiceResponse(
+                    id=invoice.id,
+                    invoice_number=invoice.invoice_number,
+                    fee_structure_id=fee_structure.id,
+                    fee_structure_name=fee_structure.name,
+                    academic_session_id=academic_session.id,
+                    academic_session_name=academic_session.name,
+                    term_id=term.id,
+                    term_name=term.name,
+                    amount_due=float(amount_due),
+                    amount_paid=float(amount_paid),
+                    outstanding_balance=float(
+                        outstanding_balance
+                    ),
+                    adjustment_amount=float(
+                        Decimal(
+                            invoice.adjustment_amount or 0
+                        )
+                    ),
+                    adjustment_reason=invoice.adjustment_reason,
+                    status=invoice.status,
+                    items=[
+                        ParentFeeItemResponse(
+                            id=item.id,
+                            name=item.name,
+                            description=item.description,
+                            amount=float(
+                                Decimal(item.amount or 0)
+                            ),
+                        )
+                        for item in items
+                    ],
+                    payments=[
+                        ParentPaymentHistoryResponse(
+                            id=payment.id,
+                            amount=float(
+                                Decimal(payment.amount or 0)
+                            ),
+                            currency=payment.currency,
+                            provider=payment.provider,
+                            transaction_reference=(
+                                payment.transaction_reference
+                            ),
+                            status=payment.status,
+                            paid_at=(
+                                payment.paid_at.isoformat()
+                                if payment.paid_at is not None
+                                else None
+                            ),
+                        )
+                        for payment in payments
+                    ],
+                )
+            )
+
+        outstanding_balance = max(
+            total_due - total_paid,
+            Decimal("0.00"),
+        )
+
+        return ParentFeesResponse(
+            student=ParentFeesStudentResponse(
+                id=student.id,
+                admission_number=student.admission_number,
+                first_name=student.first_name,
+                last_name=student.last_name,
+                middle_name=student.middle_name,
+                class_name=classroom_name,
+                school_name=school.name,
+            ),
+            totals=ParentFeesTotalsResponse(
+                total_due=float(total_due),
+                total_paid=float(total_paid),
+                outstanding_balance=float(
+                    outstanding_balance
+                ),
+            ),
+            invoices=invoice_responses,
+        )
 
     async def get_current_parent(
         self,

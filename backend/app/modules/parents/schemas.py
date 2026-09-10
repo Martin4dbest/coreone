@@ -145,3 +145,61 @@ class ParentAttendanceResponse(BaseModel):
     records: list[ParentAttendanceRecordResponse] = Field(
         default_factory=list
     )
+
+class ParentFeeItemResponse(BaseModel):
+    id: int
+    name: str
+    description: str | None = None
+    amount: float
+
+
+class ParentPaymentHistoryResponse(BaseModel):
+    id: int
+    amount: float
+    currency: str
+    provider: str
+    transaction_reference: str
+    status: str
+    paid_at: str | None = None
+
+
+class ParentInvoiceResponse(BaseModel):
+    id: int
+    invoice_number: str
+    fee_structure_id: int
+    fee_structure_name: str
+    academic_session_id: int
+    academic_session_name: str
+    term_id: int
+    term_name: str
+    amount_due: float
+    amount_paid: float
+    outstanding_balance: float
+    adjustment_amount: float
+    adjustment_reason: str | None = None
+    status: str
+    items: list[ParentFeeItemResponse] = Field(default_factory=list)
+    payments: list[ParentPaymentHistoryResponse] = Field(default_factory=list)
+
+
+class ParentFeesStudentResponse(BaseModel):
+    id: int
+    admission_number: str
+    first_name: str
+    last_name: str
+    middle_name: str | None = None
+    class_name: str | None = None
+    school_name: str
+
+
+class ParentFeesTotalsResponse(BaseModel):
+    total_due: float
+    total_paid: float
+    outstanding_balance: float
+
+
+class ParentFeesResponse(BaseModel):
+    student: ParentFeesStudentResponse
+    totals: ParentFeesTotalsResponse
+    invoices: list[ParentInvoiceResponse] = Field(default_factory=list)
+
