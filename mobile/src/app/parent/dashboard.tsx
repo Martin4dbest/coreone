@@ -476,6 +476,19 @@ params: {
                   }
                 />
                 <ServiceTile
+                  icon="wallet-outline"
+                  title="School Fees"
+                  subtitle="Fees & payments"
+                  color="#0F766E"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/parent/fees",
+                      params: { studentId: String(selectedStudent.id) },
+                    })
+                  }
+                />
+
+                <ServiceTile
                   icon="book-outline"
                   title="Learning"
                   subtitle="Curriculum & tasks"

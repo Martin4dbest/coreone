@@ -72,6 +72,7 @@ from app.models.ebook import Ebook
 from app.models.ebook_student_access import EbookStudentAccess
 
 from app.models.browser_activity import BrowserActivity
+from app.models.browser_link import BrowserLink
 
 from app.models.parent_school import ParentSchool
 from app.models.partner_school import PartnerSchool
@@ -88,6 +89,15 @@ from app.models.school_book_inventory import (
 
 from app.models.school_licensing import SchoolLicensing
 
+from app.models.youtube_learning import YoutubeLearning
 from app.models.youtube_learning_student import YoutubeLearningStudent
 
 from app.models.ai_cbt_teacher_access import AICBTTeacherAccess
+
+# School Fees & Payments
+from app.models.fee_structure import FeeStructure, FeeStructureItem
+from app.models.student_fee import StudentFee
+from app.models.payment import Payment
+
+# School payment configuration
+from app.models.school_payment_setting import SchoolPaymentSetting

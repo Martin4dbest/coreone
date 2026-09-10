@@ -25,6 +25,7 @@ import {
   Bell,
   Bus,
   BrainCircuit,
+  WalletCards,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -273,6 +274,11 @@ export default function SchoolWorkspaceLayout({
       href: `${basePath}/academics`,
       icon: BookOpen,
       feature: "academics",
+    },
+    {
+      name: "School Fees",
+      href: `${basePath}/school-fees`,
+      icon: WalletCards,
     },
     {
       name: "AI Studio",

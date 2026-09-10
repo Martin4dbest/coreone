@@ -24,6 +24,8 @@ from app.modules.teachers.router import router as teachers_router
 from app.modules.students.router import router as students_router
 from app.modules.staff.router import router as staff_router
 from app.modules.academic_sessions.router import router as academic_sessions_router
+from app.modules.fees.router import router as fees_router
+from app.modules.payments.router import router as payments_router
 from app.modules.terms.router import router as terms_router
 from app.modules.levels.router import router as levels_router
 from app.modules.classes.router import router as classes_router
@@ -214,6 +216,17 @@ app.include_router(
 
 app.include_router(
     academic_sessions_router,
+    prefix=settings.API_V1_STR,
+)
+
+app.include_router(
+    fees_router,
+    prefix=settings.API_V1_STR,
+)
+
+
+app.include_router(
+    payments_router,
     prefix=settings.API_V1_STR,
 )
 
