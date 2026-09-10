@@ -1,25 +1,27 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Pressable,
   RefreshControl,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
+  Platform,
 } from "react-native";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-
+import { useLocalSearchParams, useRouter } from "expo-router";
 import api from "@/services/api";
 
-type ParentFeeItem = {
+type FeeItem = {
   id: number;
   name: string;
   description?: string | null;
   amount: number;
 };
 
-type ParentPayment = {
+type PaymentHistory = {
   id: number;
   amount: number;
   currency: string;
@@ -29,7 +31,7 @@ type ParentPayment = {
   paid_at?: string | null;
 };
 
-type ParentInvoice = {
+type Invoice = {
   id: number;
   invoice_number: string;
   fee_structure_id: number;
@@ -44,11 +46,11 @@ type ParentInvoice = {
   adjustment_amount: number;
   adjustment_reason?: string | null;
   status: string;
-  items: ParentFeeItem[];
-  payments: ParentPayment[];
+  items: FeeItem[];
+  payments: PaymentHistory[];
 };
 
-type ParentFeesResponse = {
+type FeesResponse = {
   student: {
     id: number;
     admission_number: string;
@@ -63,358 +65,840 @@ type ParentFeesResponse = {
     total_paid: number;
     outstanding_balance: number;
   };
-  invoices: ParentInvoice[];
+  invoices: Invoice[];
 };
 
-function formatMoney(amount: number, currency = "NGN") {
-  return new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency,
+const money = (value: number | string | null | undefined) => {
+  const amount = Number(value || 0);
+  return `₦${amount.toLocaleString("en-NG", {
     minimumFractionDigits: 2,
-  }).format(amount || 0);
-}
+    maximumFractionDigits: 2,
+  })}`;
+};
 
-function formatDate(value?: string | null) {
-  if (!value) return "—";
-
+const formatDate = (value?: string | null) => {
+  if (!value) return "";
   const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
+  if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("en-NG", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
-}
+};
 
 export default function ParentFeesScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ studentId?: string }>();
+  const studentId = Number(params.studentId);
 
-  const [data, setData] = useState<ParentFeesResponse | null>(null);
+  const [data, setData] = useState<FeesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
   const loadFees = useCallback(async () => {
+    if (!studentId) {
+      setError("Student information is missing.");
+      setLoading(false);
+      return;
+    }
+
     try {
       setError("");
-
-      let studentId = params.studentId
-        ? Number(params.studentId)
-        : null;
-
-      if (!studentId) {
-        const studentsResponse = await api.get("/parents/me/students");
-        const students = studentsResponse.data;
-
-        if (!Array.isArray(students) || students.length === 0) {
-          throw new Error("No student is linked to this parent account.");
-        }
-
-        studentId = Number(students[0].id);
-      }
-
-      if (!studentId) {
-        throw new Error("Unable to determine the student.");
-      }
-
-      const response = await api.get<ParentFeesResponse>(
+      const response = await api.get<FeesResponse>(
         `/parents/me/students/${studentId}/fees`
       );
-
       setData(response.data);
     } catch (err: any) {
-      console.error("Parent fees load error:", err);
-
-      const message =
+      console.log("FEES ERROR:", err?.response?.data || err);
+      setError(
         err?.response?.data?.detail ||
-        err?.message ||
-        "Unable to load school fees.";
-
-      setError(String(message));
+          "Unable to load school fees. Please try again."
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [params.studentId]);
+  }, [studentId]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadFees();
-    }, [loadFees])
-  );
+  useEffect(() => {
+    loadFees();
+  }, [loadFees]);
 
-  const refresh = () => {
+  const onRefresh = () => {
     setRefreshing(true);
     loadFees();
   };
 
+  const handlePay = (invoice: Invoice) => {
+    if (invoice.outstanding_balance <= 0) {
+      Alert.alert("Payment complete", "This invoice has already been fully paid.");
+      return;
+    }
+
+    router.push({
+      pathname: "/parent/payment",
+      params: {
+        studentFeeId: String(invoice.id),
+        amount: String(invoice.outstanding_balance),
+      },
+    });
+  };
+
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-        <Text style={styles.loadingText}>Loading school fees...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#4F46E5" />
+          <Text style={styles.loadingText}>Loading fee breakdown...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  if (error) {
+  if (error && !data) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorTitle}>Unable to load fees</Text>
-        <Text style={styles.errorText}>{error}</Text>
-
-        <TouchableOpacity style={styles.retryButton} onPress={refresh}>
-          <Text style={styles.retryText}>Try Again</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.center}>
+          <View style={styles.errorIconWrapper}>
+            <Text style={styles.errorIcon}>!</Text>
+          </View>
+          <Text style={styles.errorTitle}>Unable to load fees</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable style={styles.retryButton} onPress={loadFees}>
+            <Text style={styles.retryText}>Try Again</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  if (!data) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorTitle}>No fee information found</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={refresh}>
-          <Text style={styles.retryText}>Refresh</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  if (!data) return null;
 
-  const studentName = [
-    data.student.first_name,
-    data.student.middle_name,
-    data.student.last_name,
-  ]
+  const { student, totals, invoices } = data;
+  const studentName = [student.first_name, student.middle_name, student.last_name]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} />
-        }
-      >
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <Text style={styles.backText}>‹</Text>
-          </TouchableOpacity>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.viewportContainer}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4F46E5" />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Pressable style={styles.backButton} onPress={() => router.back()}>
+              <Text style={styles.backText}>‹</Text>
+            </Pressable>
 
-          <View style={styles.headerText}>
-            <Text style={styles.title}>School Fees</Text>
-            <Text style={styles.subtitle}>{data.student.school_name}</Text>
-          </View>
-        </View>
-
-        <View style={styles.studentCard}>
-          <Text style={styles.studentName}>{studentName}</Text>
-
-          <Text style={styles.studentMeta}>
-            Admission No: {data.student.admission_number}
-          </Text>
-
-          <Text style={styles.studentMeta}>
-            Class: {data.student.class_name || "Unassigned"}
-          </Text>
-        </View>
-
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <View>
-              <Text style={styles.summaryLabel}>Total Fees</Text>
-              <Text style={styles.summaryValue}>
-                {formatMoney(data.totals.total_due)}
-              </Text>
-            </View>
-
-            <View>
-              <Text style={styles.summaryLabel}>Paid</Text>
-              <Text style={[styles.summaryValue, styles.paidValue]}>
-                {formatMoney(data.totals.total_paid)}
-              </Text>
+            <View style={styles.headerInfo}>
+              <Text style={styles.headerText}>School Fees</Text>
+              <Text style={styles.subtitle}>{student.school_name}</Text>
             </View>
           </View>
 
-          <View style={styles.balanceBox}>
-            <Text style={styles.balanceLabel}>Outstanding Balance</Text>
-            <Text style={styles.balanceValue}>
-              {formatMoney(data.totals.outstanding_balance)}
-            </Text>
-          </View>
-
-          {data.totals.outstanding_balance > 0 && (
-            <TouchableOpacity
-              style={styles.payButton}
-              onPress={() => {
-                const firstOutstanding = data.invoices.find(
-                  (invoice) => invoice.outstanding_balance > 0
-                );
-
-                if (firstOutstanding) {
-                  router.push({
-                    pathname: "/parent/payment",
-                    params: {
-                      studentFeeId: String(firstOutstanding.id),
-                      amount: String(firstOutstanding.outstanding_balance),
-                    },
-                  });
-                }
-              }}
-            >
-              <Text style={styles.payButtonText}>Pay Now</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <Text style={styles.sectionTitle}>Invoices</Text>
-
-        {data.invoices.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>
-              No school fee invoice has been created for this student.
-            </Text>
-          </View>
-        ) : (
-          data.invoices.map((invoice) => (
-            <View key={invoice.id} style={styles.invoiceCard}>
-              <View style={styles.invoiceHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.invoiceTitle}>
-                    {invoice.fee_structure_name}
-                  </Text>
-                  <Text style={styles.invoiceNumber}>
-                    {invoice.invoice_number}
-                  </Text>
-                </View>
-
-                <View
-                  style={[
-                    styles.statusBadge,
-                    invoice.status === "PAID"
-                      ? styles.statusPaid
-                      : styles.statusUnpaid,
-                  ]}
-                >
-                  <Text style={styles.statusText}>{invoice.status}</Text>
-                </View>
-              </View>
-
-              <Text style={styles.sessionText}>
-                {invoice.academic_session_name} • {invoice.term_name}
+          {/* Student Banner */}
+          <View style={styles.studentCard}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {student.first_name?.[0] || "S"}
               </Text>
-
-              <View style={styles.amountRow}>
-                <Text style={styles.amountLabel}>Amount Due</Text>
-                <Text style={styles.amountValue}>
-                  {formatMoney(invoice.amount_due)}
-                </Text>
-              </View>
-
-              <View style={styles.amountRow}>
-                <Text style={styles.amountLabel}>Amount Paid</Text>
-                <Text style={styles.amountValue}>
-                  {formatMoney(invoice.amount_paid)}
-                </Text>
-              </View>
-
-              <View style={styles.amountRow}>
-                <Text style={styles.amountLabel}>Outstanding</Text>
-                <Text style={styles.outstandingValue}>
-                  {formatMoney(invoice.outstanding_balance)}
-                </Text>
-              </View>
-
-              <Text style={styles.breakdownTitle}>Fee Breakdown</Text>
-
-              {invoice.items.map((item) => (
-                <View key={item.id} style={styles.itemRow}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemAmount}>
-                    {formatMoney(item.amount)}
-                  </Text>
+            </View>
+            <View style={styles.studentDetails}>
+              <Text style={styles.studentName}>{studentName}</Text>
+              <View style={styles.studentMeta}>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{student.class_name || "Unassigned"}</Text>
                 </View>
-              ))}
+                <Text style={styles.metaText}>ID: {student.admission_number}</Text>
+              </View>
+            </View>
+          </View>
 
-              {invoice.payments.length > 0 && (
-                <>
-                  <Text style={styles.breakdownTitle}>
-                    Payment History
-                  </Text>
+          {/* Account Overview Summary */}
+          <View style={styles.summaryCard}>
+            <Text style={styles.cardHeaderTitle}>Account Overview</Text>
+            
+            <View style={styles.summaryGrid}>
+              <View style={styles.summaryBox}>
+                <Text style={styles.summaryLabel}>Total Due</Text>
+                <Text style={styles.summaryValue}>{money(totals.total_due)}</Text>
+              </View>
 
-                  {invoice.payments.map((payment) => (
-                    <View key={payment.id} style={styles.paymentCard}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.paymentAmount}>
-                          {formatMoney(payment.amount, payment.currency)}
-                        </Text>
+              <View style={styles.summaryBox}>
+                <Text style={styles.summaryLabel}>Total Paid</Text>
+                <Text style={styles.paidValue}>{money(totals.total_paid)}</Text>
+              </View>
+            </View>
 
-                        <Text style={styles.paymentReference}>
-                          {payment.transaction_reference}
-                        </Text>
+            <View style={styles.balanceBox}>
+              <View>
+                <Text style={styles.balanceLabel}>Outstanding Balance</Text>
+                <Text style={styles.balanceSubtext}>Amount pending payment</Text>
+              </View>
+              <Text style={styles.balanceValue}>
+                {money(totals.outstanding_balance)}
+              </Text>
+            </View>
+          </View>
 
-                        <Text style={styles.paymentDate}>
-                          {formatDate(payment.paid_at)}
-                        </Text>
-                      </View>
+          {/* Invoices List */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Invoices</Text>
+            <Text style={styles.invoiceCount}>{invoices.length} total</Text>
+          </View>
 
-                      <Text style={styles.paymentStatus}>
-                        {payment.status}
+          {invoices.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>
+                No fee invoices have been assigned to this student yet.
+              </Text>
+            </View>
+          ) : (
+            invoices.map((invoice) => {
+              const isPaid = invoice.outstanding_balance <= 0;
+              const status = isPaid ? "PAID" : invoice.status || "UNPAID";
+
+              return (
+                <View key={invoice.id} style={styles.invoiceCard}>
+                  {/* Invoice Header */}
+                  <View style={styles.invoiceHeader}>
+                    <View style={styles.invoiceHeaderLeft}>
+                      <Text style={styles.invoiceTitle}>
+                        {invoice.fee_structure_name}
+                      </Text>
+                      <Text style={styles.invoiceNumber}>
+                        {invoice.invoice_number} • {invoice.academic_session_name} ({invoice.term_name})
                       </Text>
                     </View>
-                  ))}
-                </>
-              )}
-            </View>
-          ))
-        )}
-      </ScrollView>
-    </View>
+
+                    <View style={[styles.statusBadge, isPaid ? styles.statusPaid : styles.statusUnpaid]}>
+                      <Text style={[styles.statusText, isPaid ? styles.statusTextPaid : styles.statusTextUnpaid]}>
+                        {status}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Stat Metrics */}
+                  <View style={styles.amountRow}>
+                    <View style={styles.amountBox}>
+                      <Text style={styles.amountLabel}>Due</Text>
+                      <Text style={styles.amountValue}>{money(invoice.amount_due)}</Text>
+                    </View>
+
+                    <View style={styles.amountBox}>
+                      <Text style={styles.amountLabel}>Paid</Text>
+                      <Text style={styles.amountValue}>{money(invoice.amount_paid)}</Text>
+                    </View>
+
+                    <View style={[styles.amountBox, !isPaid && styles.amountBoxPending]}>
+                      <Text style={styles.amountLabel}>Balance</Text>
+                      <Text style={[styles.amountValue, !isPaid && styles.balanceAmount]}>
+                        {money(invoice.outstanding_balance)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Fee Breakdown */}
+                  {invoice.items.length > 0 && (
+                    <View style={styles.breakdownSection}>
+                      <Text style={styles.breakdownTitle}>Fee Breakdown</Text>
+                      <View style={styles.breakdownContainer}>
+                        {invoice.items.map((item) => (
+                          <View key={item.id} style={styles.itemRow}>
+                            <Text style={styles.itemName}>{item.name}</Text>
+                            <Text style={styles.itemAmount}>{money(item.amount)}</Text>
+                          </View>
+                        ))}
+
+                        {/* Adjustments */}
+                        {Number(invoice.adjustment_amount || 0) !== 0 && (
+                          <View style={styles.adjustmentRow}>
+                            <Text style={styles.adjustmentName}>
+                              Adjustment {invoice.adjustment_reason ? `(${invoice.adjustment_reason})` : ""}
+                            </Text>
+                            <Text style={styles.adjustmentAmount}>
+                              {money(invoice.adjustment_amount)}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Action Button */}
+                  {!isPaid && (
+                    <Pressable
+                      style={({ pressed }) => [styles.payButton, pressed && styles.buttonPressed]}
+                      onPress={() => handlePay(invoice)}
+                    >
+                      <Text style={styles.payButtonText}>Pay Outstanding Balance</Text>
+                    </Pressable>
+                  )}
+
+                  {/* History Accordion/List */}
+                  {invoice.payments.length > 0 && (
+                    <View style={styles.historyCard}>
+                      <Text style={styles.historyTitle}>Payment History</Text>
+                      {invoice.payments.map((payment) => (
+                        <View key={payment.id} style={styles.paymentRow}>
+                          <View style={styles.paymentLeft}>
+                            <Text style={styles.paymentReference}>
+                              {payment.transaction_reference}
+                            </Text>
+                            <Text style={styles.paymentDate}>
+                              {formatDate(payment.paid_at)} • {payment.provider}
+                            </Text>
+                          </View>
+
+                          <View style={styles.paymentRight}>
+                            <Text style={styles.paymentAmount}>
+                              {money(payment.amount)}
+                            </Text>
+                            <Text style={styles.paymentStatus}>
+                              {payment.status}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              );
+            })
+          )}
+
+          <View style={styles.bottomSpace} />
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#F1F5F9",
+  },
+
+  viewportContainer: {
+    flex: 1,
+    width: "100%",
+    maxWidth: 680,
+    alignSelf: "center",
+  },
+
+  scroll: {
+    flex: 1,
+  },
+
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+
+  /* Header Styles */
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    ...Platform.select({
+      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2 },
+      android: { elevation: 2 },
+      web: { boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)" },
+    }),
+  },
+
+  backText: {
+    fontSize: 28,
+    lineHeight: 30,
+    color: "#0F172A",
+    marginTop: -2,
+  },
+
+  headerInfo: {
+    flex: 1,
+  },
+
+  headerText: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#0F172A",
+    letterSpacing: -0.3,
+  },
+
+  subtitle: {
+    fontSize: 13,
+    color: "#64748B",
+    marginTop: 2,
+  },
+
+  /* Student Card */
+  studentCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
+
+  avatarText: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#4F46E5",
+  },
+
+  studentDetails: {
+    flex: 1,
+  },
+
+  studentName: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+
+  studentMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+    gap: 8,
+  },
+
+  badge: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+
+  badgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#475569",
+  },
+
+  metaText: {
+    fontSize: 12,
+    color: "#64748B",
+  },
+
+  /* Account Overview Card */
+  summaryCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+
+  cardHeaderTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#64748B",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+
+  summaryGrid: {
+    flexDirection: "row",
+    gap: 12,
+  },
+
+  summaryBox: {
     flex: 1,
     backgroundColor: "#F8FAFC",
+    padding: 12,
+    borderRadius: 12,
   },
-  content: {
+
+  summaryLabel: {
+    fontSize: 12,
+    color: "#64748B",
+    marginBottom: 4,
+  },
+
+  summaryValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+
+  paidValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#16A34A",
+  },
+
+  balanceBox: {
+    backgroundColor: "#FEF2F2",
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  balanceLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#991B1B",
+  },
+
+  balanceSubtext: {
+    fontSize: 11,
+    color: "#B91C1C",
+    marginTop: 1,
+  },
+
+  balanceValue: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#DC2626",
+  },
+
+  /* Section Title */
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+
+  invoiceCount: {
+    fontSize: 12,
+    color: "#64748B",
+  },
+
+  /* Invoice Card */
+  invoiceCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
     padding: 16,
-    paddingBottom: 40,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
+
+  invoiceHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+  },
+
+  invoiceHeaderLeft: {
+    flex: 1,
+    paddingRight: 8,
+  },
+
+  invoiceTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+
+  invoiceNumber: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2,
+  },
+
+  statusBadge: {
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+
+  statusPaid: {
+    backgroundColor: "#DCFCE7",
+  },
+
+  statusUnpaid: {
+    backgroundColor: "#FEE2E2",
+  },
+
+  statusText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+
+  statusTextPaid: {
+    color: "#15803D",
+  },
+
+  statusTextUnpaid: {
+    color: "#B91C1C",
+  },
+
+  amountRow: {
+    flexDirection: "row",
+    marginTop: 14,
+    gap: 8,
+  },
+
+  amountBox: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 10,
+    padding: 10,
+  },
+
+  amountBoxPending: {
+    backgroundColor: "#FEF2F2",
+  },
+
+  amountLabel: {
+    fontSize: 10,
+    color: "#64748B",
+    marginBottom: 2,
+    textTransform: "uppercase",
+  },
+
+  amountValue: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+
+  balanceAmount: {
+    color: "#DC2626",
+  },
+
+  /* Item breakdown */
+  breakdownSection: {
+    marginTop: 14,
+  },
+
+  breakdownTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
+    marginBottom: 6,
+  },
+
+  breakdownContainer: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 10,
+    padding: 10,
+  },
+
+  itemRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+
+  itemName: {
+    flex: 1,
+    fontSize: 12,
+    color: "#475569",
+    paddingRight: 10,
+  },
+
+  itemAmount: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#1E293B",
+  },
+
+  adjustmentRow: {
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+    marginTop: 4,
+    paddingTop: 6,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+
+  adjustmentName: {
+    fontSize: 12,
+    color: "#D97706",
+  },
+
+  adjustmentAmount: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#D97706",
+  },
+
+  /* Buttons */
+  payButton: {
+    marginTop: 14,
+    height: 44,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#4F46E5",
+  },
+
+  buttonPressed: {
+    opacity: 0.85,
+  },
+
+  payButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  /* Payment History */
+  historyCard: {
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+    marginTop: 14,
+    paddingTop: 10,
+  },
+
+  historyTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
+    marginBottom: 6,
+  },
+
+  paymentRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+
+  paymentLeft: {
+    flex: 1,
+    paddingRight: 10,
+  },
+
+  paymentReference: {
+    fontSize: 11,
+    color: "#334155",
+    fontWeight: "600",
+  },
+
+  paymentDate: {
+    fontSize: 10,
+    color: "#94A3B8",
+    marginTop: 1,
+  },
+
+  paymentRight: {
+    alignItems: "flex-end",
+  },
+
+  paymentAmount: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+
+  paymentStatus: {
+    fontSize: 10,
+    color: "#16A34A",
+    fontWeight: "600",
+  },
+
+  /* States */
+  emptyCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+
+  emptyText: {
+    textAlign: "center",
+    fontSize: 13,
+    color: "#64748B",
+  },
+
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
-    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 24,
   },
+
   loadingText: {
     marginTop: 12,
-    fontSize: 15,
+    fontSize: 13,
     color: "#64748B",
+    fontWeight: "500",
   },
-  errorTitle: {
+
+  errorIconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#FEE2E2",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+
+  errorIcon: {
     fontSize: 20,
+    fontWeight: "800",
+    color: "#DC2626",
+  },
+
+  errorTitle: {
+    fontSize: 18,
     fontWeight: "700",
     color: "#0F172A",
-    textAlign: "center",
+    marginBottom: 6,
   },
+
   errorText: {
-    marginTop: 8,
-    fontSize: 15,
+    fontSize: 13,
     color: "#64748B",
     textAlign: "center",
+    lineHeight: 20,
   },
+
   retryButton: {
     marginTop: 20,
     paddingHorizontal: 24,
@@ -422,235 +906,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: "#0F172A",
   },
+
   retryText: {
     color: "#FFFFFF",
+    fontSize: 13,
     fontWeight: "700",
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  backButton: {
-    width: 42,
-    height: 42,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 21,
-    backgroundColor: "#E2E8F0",
-  },
-  backText: {
-    fontSize: 32,
-    lineHeight: 34,
-    color: "#0F172A",
-  },
-  headerText: {
-    marginLeft: 12,
-  },
-  title: {
-    fontSize: 25,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  subtitle: {
-    marginTop: 2,
-    fontSize: 14,
-    color: "#64748B",
-  },
-  studentCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 14,
-  },
-  studentName: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  studentMeta: {
-    marginTop: 5,
-    fontSize: 14,
-    color: "#64748B",
-  },
-  summaryCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 22,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  summaryLabel: {
-    fontSize: 13,
-    color: "#64748B",
-  },
-  summaryValue: {
-    marginTop: 5,
-    fontSize: 19,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  paidValue: {
-    color: "#15803D",
-  },
-  balanceBox: {
-    marginTop: 18,
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: "#FEF2F2",
-  },
-  balanceLabel: {
-    fontSize: 13,
-    color: "#991B1B",
-  },
-  balanceValue: {
-    marginTop: 5,
-    fontSize: 25,
-    fontWeight: "900",
-    color: "#B91C1C",
-  },
-  payButton: {
-    marginTop: 16,
-    paddingVertical: 14,
-    borderRadius: 11,
-    alignItems: "center",
-    backgroundColor: "#0F172A",
-  },
-  payButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  sectionTitle: {
-    marginBottom: 10,
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  invoiceCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 14,
-  },
-  invoiceHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  invoiceTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  invoiceNumber: {
-    marginTop: 4,
-    fontSize: 12,
-    color: "#64748B",
-  },
-  statusBadge: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  statusPaid: {
-    backgroundColor: "#DCFCE7",
-  },
-  statusUnpaid: {
-    backgroundColor: "#FEF3C7",
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#334155",
-  },
-  sessionText: {
-    marginTop: 12,
-    marginBottom: 12,
-    fontSize: 13,
-    color: "#64748B",
-  },
-  amountRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-  },
-  amountLabel: {
-    fontSize: 14,
-    color: "#64748B",
-  },
-  amountValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-  outstandingValue: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#B91C1C",
-  },
-  breakdownTitle: {
-    marginTop: 16,
-    marginBottom: 8,
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  itemRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 6,
-  },
-  itemName: {
-    flex: 1,
-    fontSize: 14,
-    color: "#475569",
-  },
-  itemAmount: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-  paymentCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    marginTop: 7,
-    borderRadius: 10,
-    backgroundColor: "#F8FAFC",
-  },
-  paymentAmount: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  paymentReference: {
-    marginTop: 3,
-    fontSize: 11,
-    color: "#64748B",
-  },
-  paymentDate: {
-    marginTop: 3,
-    fontSize: 11,
-    color: "#94A3B8",
-  },
-  paymentStatus: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#15803D",
-  },
-  emptyCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: "#64748B",
-    textAlign: "center",
+
+  bottomSpace: {
+    height: 24,
   },
 });
