@@ -102,9 +102,7 @@ async def get_my_students(
 async def get_my_student_fees(
     student_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(
-        require_roles("PARENT")
-    ),
+    current_user=Depends(get_current_user),
 ):
     return await ParentService(db).get_my_student_fees(
         student_id,
