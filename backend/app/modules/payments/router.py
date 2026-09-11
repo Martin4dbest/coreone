@@ -88,19 +88,30 @@ async def verify_parent_payment(
     "/callback",
 )
 async def paystack_callback(
-    reference: str,
+    reference: str | None = None,
+    trxref: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    result = await PaymentService(db).verify_payment_from_callback(
-        reference=reference,
+    payment_reference = (reference or trxref or "").strip()
+
+    if not payment_reference:
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Paystack payment reference is missing",
+        )
+
+    await PaymentService(db).verify_payment_from_callback(
+        reference=payment_reference,
     )
 
     from fastapi.responses import RedirectResponse
 
     return RedirectResponse(
         url=(
-            "https://presense.expo.app/parent/payment-success"
-            f"?reference={reference}"
+            "presense://parent/payment-success"
+            f"?reference={payment_reference}"
         ),
         status_code=303,
     )
