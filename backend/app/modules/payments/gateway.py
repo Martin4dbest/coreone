@@ -70,7 +70,14 @@ class PaystackGateway:
                     f"Paystack initialization rejected the request: {data}"
                 )
 
-            return data
+            result = data.get("data")
+
+            if not isinstance(result, dict):
+                raise PaystackGatewayError(
+                    f"Paystack returned an invalid initialization response: {data}"
+                )
+
+            return result
 
         except httpx.HTTPError as exc:
             raise PaystackGatewayError(
