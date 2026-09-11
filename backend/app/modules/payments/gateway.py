@@ -32,6 +32,7 @@ class PaystackGateway:
         amount: int,
         reference: str,
         currency: str = "NGN",
+        callback_url: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -40,6 +41,9 @@ class PaystackGateway:
             "reference": reference,
             "currency": currency,
         }
+
+        if callback_url:
+            payload["callback_url"] = callback_url
 
         if metadata:
             payload["metadata"] = metadata

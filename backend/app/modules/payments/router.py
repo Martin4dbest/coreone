@@ -68,6 +68,28 @@ async def verify_parent_payment(
     )
 
 
+@router.get(
+    "/callback",
+)
+async def paystack_callback(
+    reference: str,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await PaymentService(db).verify_payment_from_callback(
+        reference=reference,
+    )
+
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(
+        url=(
+            "https://presense.expo.app/parent/payment-success"
+            f"?reference={reference}"
+        ),
+        status_code=303,
+    )
+
+
 @router.post(
     "/webhook",
 )

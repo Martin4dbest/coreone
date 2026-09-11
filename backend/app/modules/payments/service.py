@@ -4,6 +4,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from uuid import uuid4
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.payment import Payment
@@ -271,6 +272,148 @@ class PaymentService:
         )
 
         return self._response(settings)
+
+
+    async def verify_payment_from_callback(
+        self,
+        *,
+        reference: str,
+    ):
+        payment = await self.repository.get_payment_by_reference(
+            reference,
+            for_update=True,
+        )
+
+        if not payment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Payment not found",
+            )
+
+        if payment.status == "SUCCESS":
+            return {
+                "status": "SUCCESS",
+                "reference": payment.transaction_reference,
+            }
+
+        result = await self.repository.db.execute(
+            select(SchoolPaymentSetting).where(
+                SchoolPaymentSetting.school_id == payment.school_id
+            )
+        )
+
+        settings = result.scalar_one_or_none()
+
+        if not settings or not settings.encrypted_secret_key:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The school's Paystack account is not configured",
+            )
+
+        secret_key = PaymentCredentialCrypto.decrypt(
+            settings.encrypted_secret_key
+        )
+
+        gateway = PaystackGateway(secret_key)
+
+        try:
+            gateway_result = await gateway.verify_transaction(
+                reference
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Unable to verify the payment with Paystack",
+            ) from exc
+
+        gateway_status = str(
+            gateway_result.get("status", "")
+        ).strip().lower()
+
+        gateway_reference = str(
+            gateway_result.get("reference", "")
+        ).strip()
+
+        if gateway_reference != payment.transaction_reference:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Payment reference verification failed",
+            )
+
+        if gateway_status != "success":
+            payment.status = "FAILED"
+            payment.gateway_response = (
+                f"Paystack verification status: "
+                f"{gateway_status or 'unknown'}"
+            )
+
+            await self.repository.save_payment(payment)
+            await self.repository.db.commit()
+
+            return {
+                "status": payment.status,
+                "reference": payment.transaction_reference,
+            }
+
+        gateway_amount = gateway_result.get("amount")
+        gateway_currency = str(
+            gateway_result.get("currency", "")
+        ).strip().upper()
+
+        expected_kobo = self._naira_to_kobo(payment.amount)
+
+        if int(gateway_amount or 0) != expected_kobo:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Payment amount verification failed",
+            )
+
+        if gateway_currency != payment.currency.upper():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Payment currency verification failed",
+            )
+
+        student_fee = payment.student_fee
+
+        student_fee.amount_paid = (
+            student_fee.amount_paid + payment.amount
+        )
+
+        adjusted_total = (
+            student_fee.amount_due
+            + (student_fee.adjustment_amount or Decimal("0"))
+        )
+
+        if student_fee.amount_paid >= adjusted_total:
+            student_fee.status = "PAID"
+        elif student_fee.amount_paid > 0:
+            student_fee.status = "PARTIALLY_PAID"
+        else:
+            student_fee.status = "UNPAID"
+
+        payment.status = "SUCCESS"
+        payment.gateway_transaction_id = (
+            str(gateway_result.get("id"))
+            if gateway_result.get("id") is not None
+            else None
+        )
+        payment.gateway_response = (
+            "Paystack payment verified successfully"
+        )
+
+        from datetime import datetime, timezone
+
+        payment.paid_at = datetime.now(timezone.utc)
+        payment.verified_at = datetime.now(timezone.utc)
+
+        await self.repository.save_payment(payment)
+        await self.repository.db.commit()
+
+        return {
+            "status": "SUCCESS",
+            "reference": payment.transaction_reference,
+        }
 
 
     async def verify_parent_payment(
@@ -864,6 +1007,9 @@ class PaymentService:
                 amount=self._naira_to_kobo(amount),
                 reference=reference,
                 currency=settings.currency,
+                callback_url=(
+                    "https://coreone.onrender.com/api/v1/payments/callback"
+                ),
                 metadata={
                     "payment_id": payment.id,
                     "student_fee_id": student_fee.id,
