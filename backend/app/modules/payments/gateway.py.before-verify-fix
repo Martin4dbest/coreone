@@ -107,24 +107,12 @@ class PaystackGateway:
                 data = {"raw_response": response.text}
 
             if response.status_code >= 400:
-                raise PaystackGatewayError(
+                raise RuntimeError(
                     f"Paystack verification failed "
                     f"(HTTP {response.status_code}): {data}"
                 )
 
-            if not data.get("status"):
-                raise PaystackGatewayError(
-                    f"Paystack verification rejected the request: {data}"
-                )
-
-            result = data.get("data")
-
-            if not isinstance(result, dict):
-                raise PaystackGatewayError(
-                    f"Paystack returned an invalid verification response: {data}"
-                )
-
-            return result
+            return data
 
         except httpx.HTTPError as exc:
             raise RuntimeError(

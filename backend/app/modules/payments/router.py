@@ -12,6 +12,7 @@ from app.modules.payments.schemas import (
     PaymentSettingsResponse,
     PaymentSettingsStatusResponse,
     PaymentSettingsUpdateRequest,
+    PaymentHistoryResponse,
 )
 from app.modules.payments.service import PaymentService
 
@@ -34,6 +35,21 @@ async def get_payment_settings(
     return await PaymentService(db).get_settings(
         current_user,
         school_id,
+    )
+
+
+@router.get(
+    "/history",
+    response_model=PaymentHistoryResponse,
+)
+async def get_school_payment_history(
+    school_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await PaymentService(db).get_school_payment_history(
+        current_user=current_user,
+        school_id=school_id,
     )
 
 

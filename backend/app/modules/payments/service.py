@@ -678,6 +678,69 @@ class PaymentService:
             "fee_status": student_fee.status,
         }
 
+    async def get_school_payment_history(
+        self,
+        *,
+        current_user,
+        school_id: int,
+    ):
+        school_id = self._resolve_school_id(
+            current_user,
+            school_id,
+        )
+
+        rows = await self.repository.get_school_payment_history(
+            school_id,
+        )
+
+        items = []
+        total_paid = Decimal("0.00")
+
+        for payment, student_fee, student in rows:
+            if payment.status == "SUCCESS":
+                total_paid += payment.amount
+
+            items.append(
+                {
+                    "id": payment.id,
+                    "student_id": student.id,
+                    "student_name": " ".join(
+                        part
+                        for part in (
+                            student.first_name,
+                            student.middle_name,
+                            student.last_name,
+                        )
+                        if part
+                    ),
+                    "admission_number": student.admission_number,
+                    "invoice_number": student_fee.invoice_number,
+                    "amount": payment.amount,
+                    "currency": payment.currency,
+                    "provider": payment.provider,
+                    "reference": payment.transaction_reference,
+                    "status": payment.status,
+                    "fee_status": student_fee.status,
+                    "paid_at": (
+                        payment.paid_at.isoformat()
+                        if payment.paid_at
+                        else None
+                    ),
+                    "verified_at": (
+                        payment.verified_at.isoformat()
+                        if payment.verified_at
+                        else None
+                    ),
+                }
+            )
+
+        return {
+            "school_id": school_id,
+            "total_transactions": len(items),
+            "total_paid": total_paid,
+            "items": items,
+        }
+
     async def process_paystack_webhook(
         self,
         *,
@@ -1008,7 +1071,7 @@ class PaymentService:
                 reference=reference,
                 currency=settings.currency,
                 callback_url=(
-                    "https://coreone.onrender.com/api/v1/payments/callback"
+                    "https://presense.expo.app/parent/payment-success"
                 ),
                 metadata={
                     "payment_id": payment.id,

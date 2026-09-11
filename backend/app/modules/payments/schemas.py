@@ -67,3 +67,26 @@ class PaymentVerifyResponse(BaseModel):
     amount_paid: Decimal
     outstanding_balance: Decimal
     fee_status: str
+
+
+class PaymentHistoryItem(BaseModel):
+    id: int
+    student_id: int
+    student_name: str
+    admission_number: str
+    invoice_number: str
+    amount: Decimal
+    currency: str
+    provider: str
+    reference: str
+    status: str
+    fee_status: str
+    paid_at: str | None = None
+    verified_at: str | None = None
+
+
+class PaymentHistoryResponse(BaseModel):
+    school_id: int
+    total_transactions: int
+    total_paid: Decimal
+    items: list[PaymentHistoryItem] = Field(default_factory=list)

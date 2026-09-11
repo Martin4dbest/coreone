@@ -25,6 +25,7 @@ type Tab =
   | "structures"
   | "invoices"
   | "balances"
+  | "history"
   | "settings";
 
 type AcademicSession = {
@@ -99,6 +100,22 @@ type PaymentSettings = {
   provider?: string | null;
   currency?: string | null;
 };
+type PaymentHistoryItem = {
+  id: number;
+  student_id: number;
+  student_name: string;
+  admission_number: string;
+  invoice_number: string;
+  amount: string | number;
+  currency: string;
+  provider: string;
+  reference: string;
+  status: string;
+  fee_status: string;
+  paid_at?: string | null;
+  verified_at?: string | null;
+};
+
 
 type FeeItemDraft = {
   name: string;
@@ -144,6 +161,10 @@ export default function SchoolFeesPage({
   const [students, setStudents] = useState<Student[]>([]);
   const [structures, setStructures] = useState<FeeStructure[]>([]);
   const [studentFees, setStudentFees] = useState<StudentFee[]>([]);
+  const [paymentHistory, setPaymentHistory] =
+    useState<PaymentHistoryItem[]>([]);
+  const [loadingPaymentHistory, setLoadingPaymentHistory] =
+    useState(false);
   const [paymentSettings, setPaymentSettings] =
     useState<PaymentSettings | null>(null);
 
@@ -337,6 +358,37 @@ export default function SchoolFeesPage({
       void loadBalances();
     }
   }, [schoolId, activeTab, loadBalances]);
+
+  const loadPaymentHistory = useCallback(async () => {
+    if (!schoolId) return;
+
+    setLoadingPaymentHistory(true);
+
+    try {
+      const response = await api.get("/payments/history", {
+        params: { school_id: schoolId },
+      });
+
+      const data = response.data;
+
+      setPaymentHistory(
+        Array.isArray(data?.items) ? data.items : [],
+      );
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.detail ||
+          "Unable to load payment history.",
+      );
+    } finally {
+      setLoadingPaymentHistory(false);
+    }
+  }, [schoolId]);
+
+  useEffect(() => {
+    if (schoolId && activeTab === "history") {
+      void loadPaymentHistory();
+    }
+  }, [schoolId, activeTab, loadPaymentHistory]);
 
   const loadStudents = useCallback(async () => {
     if (!schoolId) return;
@@ -649,6 +701,7 @@ export default function SchoolFeesPage({
     { key: "structures", label: "Fee Structures", icon: FileText },
     { key: "invoices", label: "Generate Invoices", icon: Receipt },
     { key: "balances", label: "Student Balances", icon: Users },
+    { key: "history", label: "Payment History", icon: Banknote },
     { key: "settings", label: "Payment Settings", icon: Settings2 },
   ];
 

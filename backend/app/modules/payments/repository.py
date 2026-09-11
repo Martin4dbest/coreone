@@ -106,6 +106,35 @@ class PaymentRepository:
         return result.scalar_one_or_none()
 
 
+    async def get_school_payment_history(
+        self,
+        school_id: int,
+    ):
+        result = await self.db.execute(
+            select(
+                Payment,
+                StudentFee,
+                Student,
+            )
+            .join(
+                StudentFee,
+                StudentFee.id == Payment.student_fee_id,
+            )
+            .join(
+                Student,
+                Student.id == StudentFee.student_id,
+            )
+            .where(
+                Payment.school_id == school_id,
+            )
+            .order_by(
+                Payment.paid_at.desc().nullslast(),
+                Payment.id.desc(),
+            )
+        )
+
+        return result.all()
+
     async def create_payment(
         self,
         payment: Payment,
