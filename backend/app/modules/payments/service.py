@@ -404,8 +404,8 @@ class PaymentService:
 
         from datetime import datetime, timezone
 
-        payment.paid_at = datetime.now(timezone.utc)
-        payment.verified_at = datetime.now(timezone.utc)
+        payment.paid_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        payment.verified_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
         await self.repository.save_payment(payment)
         await self.repository.db.commit()
@@ -640,7 +640,7 @@ class PaymentService:
 
         from datetime import datetime, timezone
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
 
         payment.status = "SUCCESS"
         payment.gateway_transaction_id = (
@@ -898,7 +898,7 @@ class PaymentService:
 
         from datetime import datetime, timezone
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
 
         student_fee.amount_paid = new_amount_paid
 
