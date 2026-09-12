@@ -1549,6 +1549,122 @@ export default function SchoolFeesPage({
         </section>
       )}
 
+      {activeTab === "history" && (
+        <div className="space-y-6">
+          <section className="rounded-xl border border-slate-200 bg-white">
+            <div className="flex flex-col gap-3 border-b border-slate-200 p-5 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="font-semibold text-slate-900">
+                  Payment History
+                </h2>
+                <p className="text-sm text-slate-500">
+                  View successful and pending fee payment transactions for this school.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void loadPaymentHistory()}
+                disabled={loadingPaymentHistory}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${
+                    loadingPaymentHistory ? "animate-spin" : ""
+                  }`}
+                />
+                Refresh
+              </button>
+            </div>
+
+            {loadingPaymentHistory ? (
+              <div className="flex min-h-[240px] items-center justify-center">
+                <div className="flex items-center gap-3 text-sm text-slate-500">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Loading payment history...
+                </div>
+              </div>
+            ) : paymentHistory.length === 0 ? (
+              <div className="flex min-h-[240px] items-center justify-center px-5 text-center">
+                <div>
+                  <Banknote className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                  <h3 className="font-medium text-slate-900">
+                    No payment transactions yet
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Completed payments will appear here automatically.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1050px] text-left text-sm">
+                  <thead className="border-b border-slate-200 bg-slate-50">
+                    <tr>
+                      <th className="px-5 py-3 font-semibold text-slate-600">Student</th>
+                      <th className="px-5 py-3 font-semibold text-slate-600">Admission No.</th>
+                      <th className="px-5 py-3 font-semibold text-slate-600">Invoice</th>
+                      <th className="px-5 py-3 font-semibold text-slate-600">Amount</th>
+                      <th className="px-5 py-3 font-semibold text-slate-600">Provider</th>
+                      <th className="px-5 py-3 font-semibold text-slate-600">Reference</th>
+                      <th className="px-5 py-3 font-semibold text-slate-600">Status</th>
+                      <th className="px-5 py-3 font-semibold text-slate-600">Date</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100">
+                    {paymentHistory.map((payment) => (
+                      <tr key={payment.id} className="hover:bg-slate-50">
+                        <td className="px-5 py-4 font-medium text-slate-900">
+                          {payment.student_name}
+                        </td>
+                        <td className="px-5 py-4 text-slate-600">
+                          {payment.admission_number}
+                        </td>
+                        <td className="px-5 py-4 text-slate-600">
+                          {payment.invoice_number}
+                        </td>
+                        <td className="px-5 py-4 font-semibold text-slate-900">
+                          {money(Number(payment.amount))}
+                        </td>
+                        <td className="px-5 py-4 uppercase text-slate-600">
+                          {payment.provider}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="font-mono text-xs text-slate-600">
+                            {payment.reference}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              payment.status === "SUCCESS"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : payment.status === "PENDING"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-red-100 text-red-700"
+                            }`}
+                          >
+                            {payment.status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-slate-600">
+                          {payment.paid_at
+                            ? new Date(payment.paid_at).toLocaleString()
+                            : payment.verified_at
+                              ? new Date(payment.verified_at).toLocaleString()
+                              : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
       {activeTab === "settings" && (
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <section className="rounded-xl border border-slate-200 bg-white p-5">
