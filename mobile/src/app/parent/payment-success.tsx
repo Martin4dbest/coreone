@@ -27,6 +27,36 @@ type PaymentVerifyResponse = {
 };
 
 export default function PaymentSuccessScreen() {
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const userAgent = window.navigator.userAgent || "";
+    const isMobileBrowser = /Android|iPhone|iPad|iPod/i.test(userAgent);
+
+    if (!isMobileBrowser) {
+      return;
+    }
+
+    const reference = new URLSearchParams(
+      window.location.search,
+    ).get("reference");
+
+    if (!reference) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      window.location.href =
+        `presense:///parent/payment-success?reference=${encodeURIComponent(
+          reference,
+        )}`;
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const router = useRouter();
 
   const params = useLocalSearchParams<{

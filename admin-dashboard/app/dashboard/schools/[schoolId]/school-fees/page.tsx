@@ -354,10 +354,10 @@ export default function SchoolFeesPage({
   }, [schoolId]);
 
   useEffect(() => {
-    if (schoolId && activeTab === "balances") {
+    if (schoolId) {
       void loadBalances();
     }
-  }, [schoolId, activeTab, loadBalances]);
+  }, [schoolId, loadBalances]);
 
   const loadPaymentHistory = useCallback(async () => {
     if (!schoolId) return;
