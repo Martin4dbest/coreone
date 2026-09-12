@@ -1071,7 +1071,7 @@ class PaymentService:
                 reference=reference,
                 currency=settings.currency,
                 callback_url=(
-                    "https://presense.expo.app/parent/payment-success"
+                    "https://coreone.onrender.com/api/v1/payments/callback"
                 ),
                 metadata={
                     "payment_id": payment.id,
