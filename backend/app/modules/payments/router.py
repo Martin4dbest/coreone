@@ -110,8 +110,8 @@ async def paystack_callback(
 
     return RedirectResponse(
         url=(
-            "https://presense.expo.app/parent/payment-success"
-            f"?reference={payment_reference}"
+            "https://presense.expo.app/parent/fees"
+            f"?payment_reference={payment_reference}"
         ),
         status_code=303,
     )
