@@ -102,14 +102,40 @@ async def paystack_callback(
             detail="Paystack payment reference is missing",
         )
 
-    await PaymentService(db).verify_payment_from_callback(
+    payment_service = PaymentService(db)
+
+    payment = await payment_service.repository.get_payment_by_reference(
+        payment_reference,
+        for_update=False,
+    )
+
+    if not payment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Payment not found",
+        )
+
+    student_fee = payment.student_fee
+
+    if student_fee is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Payment is missing its student fee",
+        )
+
+    student_id = student_fee.student_id
+
+    await payment_service.verify_payment_from_callback(
         reference=payment_reference,
     )
 
     from fastapi.responses import RedirectResponse
 
     return RedirectResponse(
-        url="https://presense.expo.app/parent/fees",
+        url=(
+            "http://10.199.253.196:8081/parent/fees"
+            f"?studentId={student_id}"
+        ),
         status_code=303,
     )
 
