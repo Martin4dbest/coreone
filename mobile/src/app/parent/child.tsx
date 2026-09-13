@@ -225,13 +225,9 @@ export default function ParentChildScreen() {
 
             <Text style={styles.name}>{fullName}</Text>
 
-            {student.relationship_type ? (
-              <View style={styles.relationshipBadge}>
-                <Text style={styles.relationshipText}>
-                  {student.relationship_type}
-                </Text>
-              </View>
-            ) : null}
+            <View style={styles.relationshipBadge}>
+              <Text style={styles.relationshipText}>Student</Text>
+            </View>
           </View>
 
           {/* Details Card */}
@@ -371,12 +367,12 @@ const styles = StyleSheet.create({
   },
 
   schoolHeader: {
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingTop: Platform.OS === "ios" ? 18 : 32,
+    paddingBottom: 40,
     paddingHorizontal: 18,
     alignItems: "center",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
 
   headerBack: {
@@ -426,7 +422,7 @@ const styles = StyleSheet.create({
 
   hero: {
     alignItems: "center",
-    marginTop: -32,
+    marginTop: -20,
     paddingHorizontal: 16,
   },
 
@@ -512,7 +508,7 @@ const styles = StyleSheet.create({
   detailValue: {
     marginTop: 4,
     color: "#0F172A",
-    fontSize: 14,
+    fontSize: `14px` as any,
     fontWeight: "700",
   },
 

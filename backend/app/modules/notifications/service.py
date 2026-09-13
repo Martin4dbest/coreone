@@ -71,6 +71,106 @@ class NotificationService:
         )
         return result.scalar_one_or_none()
 
+    async def _get_recipient_name(
+        self,
+        notification,
+        current_student=None,
+    ):
+        recipient_type = notification.recipient_type
+
+        if not recipient_type:
+            return None
+
+        if recipient_type.startswith("STUDENT:"):
+            # For a logged-in student, the notification has already
+            # been filtered to that student. Use the current student's
+            # actual name instead of exposing the internal recipient ID.
+            if current_student is not None:
+                parts = [
+                    current_student.first_name,
+                    current_student.middle_name,
+                    current_student.last_name,
+                ]
+
+                return " ".join(
+                    part.strip()
+                    for part in parts
+                    if part and part.strip()
+                )
+
+            # Fallback for parent/admin notification views.
+            student_id_text = recipient_type.split(":", 1)[1].strip()
+
+            if student_id_text.isdigit():
+                target_id = int(student_id_text)
+
+                result = await self.db.execute(
+                    select(Student).where(
+                        Student.id == target_id,
+                        Student.school_id == notification.school_id,
+                    )
+                )
+                student = result.scalar_one_or_none()
+
+                if not student:
+                    result = await self.db.execute(
+                        select(Student).where(
+                            Student.user_id == target_id,
+                            Student.school_id == notification.school_id,
+                        )
+                    )
+                    student = result.scalar_one_or_none()
+
+                if student:
+                    parts = [
+                        student.first_name,
+                        student.middle_name,
+                        student.last_name,
+                    ]
+
+                    return " ".join(
+                        part.strip()
+                        for part in parts
+                        if part and part.strip()
+                    )
+
+        return None
+
+    async def _serialize_notification(
+        self,
+        notification,
+        current_student=None,
+    ):
+        recipient_name = await self._get_recipient_name(
+            notification,
+            current_student=current_student,
+        )
+
+        return {
+            "id": notification.id,
+            "school_id": notification.school_id,
+            "title": notification.title,
+            "message": notification.message,
+            "recipient_type": notification.recipient_type,
+            "recipient_name": recipient_name,
+            "is_read": notification.is_read,
+            "sent_at": notification.sent_at,
+            "is_active": notification.is_active,
+        }
+
+    async def _serialize_notifications(
+        self,
+        notifications,
+        current_student=None,
+    ):
+        return [
+            await self._serialize_notification(
+                notification,
+                current_student=current_student,
+            )
+            for notification in notifications
+        ]
+
     async def create_notification(
         self,
         payload: NotificationCreateRequest,
@@ -157,10 +257,15 @@ class NotificationService:
             if not student:
                 return []
 
-            return await self.repository.get_all(
+            notifications = await self.repository.get_all(
                 school_id=school_id,
                 recipient_type="STUDENT",
                 student_id=student.id,
+            )
+
+            return await self._serialize_notifications(
+                notifications,
+                current_student=student,
             )
 
         if role == "PARENT":
@@ -168,20 +273,32 @@ class NotificationService:
                 current_user
             )
 
-            return await self.repository.get_all(
+            notifications = await self.repository.get_all(
                 school_id=school_id,
                 recipient_type="PARENT",
                 student_ids=student_ids,
             )
 
+            return await self._serialize_notifications(
+                notifications
+            )
+
         if role == "TEACHER":
-            return await self.repository.get_all(
+            notifications = await self.repository.get_all(
                 school_id=school_id,
                 recipient_type="TEACHER",
             )
 
-        return await self.repository.get_all(
+            return await self._serialize_notifications(
+                notifications
+            )
+
+        notifications = await self.repository.get_all(
             school_id=school_id,
+        )
+
+        return await self._serialize_notifications(
+            notifications
         )
 
     async def clear_all_notifications(self, current_user):

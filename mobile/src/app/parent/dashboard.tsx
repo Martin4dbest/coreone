@@ -100,6 +100,17 @@ function getGreeting() {
   return "Good evening";
 }
 
+function formatCurrentDateTime() {
+  const now = new Date();
+  const dayName = now.toLocaleDateString("en-US", { weekday: "long" });
+  const dateStr = now.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  return { dayName, dateStr };
+}
+
 export default function ParentDashboard() {
   const { user, logout } = useAuth();
   const [parent, setParent] = useState<ParentMe | null>(null);
@@ -107,6 +118,14 @@ export default function ParentDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [dateTimeInfo, setDateTimeInfo] = useState(formatCurrentDateTime());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setDateTimeInfo(formatCurrentDateTime());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const selectedStudent = useMemo(
     () =>
@@ -117,6 +136,13 @@ export default function ParentDashboard() {
   );
 
   const schoolBranding = getSchoolBranding(selectedStudent?.school);
+
+  const openStudentProfile = useCallback((studentId: number) => {
+    router.push({
+      pathname: "/parent/child",
+      params: { studentId: String(studentId) },
+    });
+  }, []);
 
   async function loadParentDashboard(showSpinner = true) {
     try {
@@ -228,9 +254,16 @@ export default function ParentDashboard() {
                 ) : (
                   <Ionicons name="school" size={20} color="#FFFFFF" />
                 )}
-                <Text style={styles.heroSchoolName} numberOfLines={1}>
-                  {selectedStudent?.school?.name || "CoreOne School"}
-                </Text>
+                <View style={styles.brandTitleColumn}>
+                  <Text style={styles.heroSchoolName} numberOfLines={1}>
+                    {selectedStudent?.school?.name || "CoreOne School"}
+                  </Text>
+                  {schoolBranding.motto ? (
+                    <Text style={styles.heroMotto} numberOfLines={1}>
+                      {schoolBranding.motto}
+                    </Text>
+                  ) : null}
+                </View>
               </View>
 
               <View style={styles.heroActions}>
@@ -275,11 +308,19 @@ export default function ParentDashboard() {
             </View>
 
             <View style={styles.heroMain}>
+              <View style={styles.heroMetaRow}>
+                <View style={styles.datePill}>
+                  <Ionicons name="calendar" size={13} color="#FBBF24" />
+                  <Text style={styles.datePillText}>
+                    {dateTimeInfo.dayName}, {dateTimeInfo.dateStr}
+                  </Text>
+                </View>
+              </View>
+
               <Text style={styles.greetingText}>
-                {getGreeting()}, {parentName} ({relationshipRole})
-              </Text>
-              <Text style={styles.heroSubText}>
-                {schoolBranding.motto || "Track your children's educational journey."}
+                {getGreeting()},{" "}
+                <Text style={styles.parentNameHighlight}>{parentName}</Text>{" "}
+                <Text style={styles.roleHighlight}>({relationshipRole})</Text>
               </Text>
             </View>
           </View>
@@ -377,7 +418,13 @@ export default function ParentDashboard() {
           {/* ================= STUDENT OVERVIEW CARD ================= */}
           {selectedStudent && (
             <>
-              <View style={styles.profileCard}>
+              <Pressable
+                onPress={() => openStudentProfile(selectedStudent.id)}
+                style={({ pressed }) => [
+                  styles.profileCard,
+                  pressed && styles.pressedState,
+                ]}
+              >
                 <View style={styles.profileHeader}>
                   <View
                     style={[
@@ -397,9 +444,7 @@ export default function ParentDashboard() {
 
                   <View style={styles.profileBody}>
                     <View style={styles.roleBadge}>
-                      <Text style={styles.roleBadgeText}>
-                        {selectedStudent.relationship_type.toUpperCase()}
-                      </Text>
+                      <Text style={styles.roleBadgeText}>STUDENT</Text>
                     </View>
                     <Text style={styles.profileName} numberOfLines={1}>
                       {selectedStudent.first_name} {selectedStudent.last_name}
@@ -407,17 +452,9 @@ export default function ParentDashboard() {
                     <Text style={styles.profileSchool}>{selectedStudent.school.name}</Text>
                   </View>
 
-                  <Pressable
-                    onPress={() =>
-                      router.push({
-                        pathname: "/parent/child",
-                        params: { studentId: String(selectedStudent.id) },
-                      })
-                    }
-                    style={styles.viewDetailButton}
-                  >
+                  <View style={styles.viewDetailButton}>
                     <Ionicons name="chevron-forward" size={18} color="#64748B" />
-                  </Pressable>
+                  </View>
                 </View>
 
                 <View style={styles.divider} />
@@ -444,7 +481,7 @@ export default function ParentDashboard() {
                     </View>
                   </View>
                 </View>
-              </View>
+              </Pressable>
 
               {/* ================= SERVICES GRID ================= */}
               <View style={styles.sectionHeader}>
@@ -520,6 +557,7 @@ export default function ParentDashboard() {
                   title="Profile"
                   subtitle="Bio & details"
                   color="#64748B"
+                  onPress={() => openStudentProfile(selectedStudent.id)}
                 />
               </View>
             </>
@@ -604,7 +642,7 @@ const styles = StyleSheet.create({
   heroTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
   },
   heroActions: {
     flexDirection: "row",
@@ -613,22 +651,33 @@ const styles = StyleSheet.create({
   },
   brandBadge: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     backgroundColor: "rgba(255, 255, 255, 0.12)",
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 100,
+    paddingVertical: 8,
+    borderRadius: 16,
+    flex: 1,
+    marginRight: 12,
   },
   schoolLogo: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    marginRight: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 10,
+    marginTop: 2,
+  },
+  brandTitleColumn: {
+    flex: 1,
   },
   heroSchoolName: {
     color: "#FFFFFF",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
+  },
+  heroMotto: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 11,
+    marginTop: 2,
   },
   iconButton: {
     width: 38,
@@ -659,18 +708,44 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   heroMain: {
-    marginTop: 20,
+    marginTop: 16,
+  },
+  heroMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  datePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(251, 191, 36, 0.3)",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 100,
+    gap: 6,
+  },
+  datePillText: {
+    color: "#F8FAFC",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
   greetingText: {
     color: "#FFFFFF",
-    fontSize: 24,
-    fontWeight: "800",
-    letterSpacing: -0.5,
+    fontSize: 17,
+    fontWeight: "600",
+    letterSpacing: -0.3,
+    lineHeight: 25,
   },
-  heroSubText: {
-    color: "rgba(255, 255, 255, 0.75)",
-    fontSize: 13,
-    marginTop: 4,
+  parentNameHighlight: {
+    color: "#FBBF24",
+    fontWeight: "800",
+  },
+  roleHighlight: {
+    color: "#34D399",
+    fontWeight: "700",
   },
   sectionHeader: {
     flexDirection: "row",
@@ -716,7 +791,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     padding: 2,
   },
-  avatarImage: {
+    avatarImage: {
     width: "100%",
     height: "100%",
     borderRadius: 20,

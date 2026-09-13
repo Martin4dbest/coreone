@@ -17,6 +17,7 @@ type NotificationItem = {
   title: string;
   message: string;
   recipient_type?: string | null;
+  recipient_name?: string | null;
   is_read: boolean;
   sent_at: string;
   is_active: boolean;
@@ -157,9 +158,15 @@ export default function StudentNotificationsScreen() {
 
               <Text style={styles.message}>{item.message}</Text>
 
-              {item.recipient_type && (
+              {item.recipient_name ? (
                 <Text style={styles.recipient}>
-                  For {item.recipient_type.toLowerCase()}s
+                  For student: {item.recipient_name}
+                </Text>
+              ) : item.recipient_type && (
+                <Text style={styles.recipient}>
+                  {item.recipient_type.startsWith("STUDENT:")
+                    ? "For student"
+                    : `For ${item.recipient_type.toLowerCase()}s`}
                 </Text>
               )}
             </View>

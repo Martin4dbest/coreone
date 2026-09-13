@@ -16,6 +16,7 @@ class NotificationResponse(BaseModel):
     title: str
     message: str
     recipient_type: str | None = None
+    recipient_name: str | None = None
     is_read: bool
     sent_at: datetime
     is_active: bool
