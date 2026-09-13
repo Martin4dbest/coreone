@@ -1,4 +1,5 @@
 from __future__ import annotations
+from urllib.parse import quote
 
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import uuid4
@@ -936,6 +937,7 @@ class PaymentService:
         current_user,
         student_fee_id: int,
         requested_amount: Decimal | None,
+        return_url: str | None,
     ):
         """
         Initialize a payment for an authenticated parent.
@@ -1072,6 +1074,11 @@ class PaymentService:
                 currency=settings.currency,
                 callback_url=(
                     "https://coreone.onrender.com/api/v1/payments/callback"
+                    + (
+                        f"?return_url={quote(return_url, safe='')}"
+                        if return_url
+                        else ""
+                    )
                 ),
                 metadata={
                     "payment_id": payment.id,

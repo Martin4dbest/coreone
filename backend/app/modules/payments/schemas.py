@@ -41,6 +41,11 @@ class PaymentInitializeRequest(BaseModel):
         gt=0,
     )
 
+    return_url: str | None = Field(
+        default=None,
+        max_length=2000,
+    )
+
 
 class PaymentInitializeResponse(BaseModel):
     payment_id: int

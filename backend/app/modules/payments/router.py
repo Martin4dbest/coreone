@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Request, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
@@ -66,6 +66,7 @@ async def initialize_parent_payment(
         current_user=current_user,
         student_fee_id=payload.student_fee_id,
         requested_amount=payload.amount,
+        return_url=payload.return_url,
     )
 
 
@@ -90,13 +91,12 @@ async def verify_parent_payment(
 async def paystack_callback(
     reference: str | None = None,
     trxref: str | None = None,
+    return_url: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     payment_reference = (reference or trxref or "").strip()
 
     if not payment_reference:
-        from fastapi import HTTPException
-
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Paystack payment reference is missing",
@@ -129,13 +129,65 @@ async def paystack_callback(
         reference=payment_reference,
     )
 
+    # The frontend supplied the exact /parent/fees URL it wants
+    # to return to. Preserve its origin so localhost, LAN,
+    # Expo Web, staging, and production all work.
+    from urllib.parse import (
+        parse_qsl,
+        urlencode,
+        urlsplit,
+        urlunsplit,
+    )
+
+    target = (
+        return_url.strip()
+        if return_url and return_url.strip()
+        else "https://presense.expo.app/parent/fees"
+    )
+
+    parsed = urlsplit(target)
+
+    if parsed.scheme not in {"http", "https"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid payment return URL",
+        )
+
+    if not parsed.netloc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid payment return URL",
+        )
+
+    if parsed.path.rstrip("/") != "/parent/fees":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payment return URL must point to the Parent School Fees page",
+        )
+
+    query = dict(
+        parse_qsl(
+            parsed.query,
+            keep_blank_values=True,
+        )
+    )
+
+    query["studentId"] = str(student_id)
+
+    redirect_url = urlunsplit(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            urlencode(query),
+            parsed.fragment,
+        )
+    )
+
     from fastapi.responses import RedirectResponse
 
     return RedirectResponse(
-        url=(
-            "http://10.199.253.196:8081/parent/fees"
-            f"?studentId={student_id}"
-        ),
+        url=redirect_url,
         status_code=303,
     )
 

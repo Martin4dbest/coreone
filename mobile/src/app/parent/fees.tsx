@@ -140,6 +140,7 @@ export default function ParentFeesScreen() {
     router.push({
       pathname: "/parent/payment",
       params: {
+        studentId: String(studentId),
         studentFeeId: String(invoice.id),
         amount: String(invoice.outstanding_balance),
       },

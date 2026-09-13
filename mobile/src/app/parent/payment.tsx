@@ -42,10 +42,12 @@ export default function ParentPaymentScreen() {
   const router = useRouter();
 
   const params = useLocalSearchParams<{
+    studentId?: string;
     studentFeeId?: string;
     amount?: string;
   }>();
 
+  const studentId = Number(params.studentId);
   const studentFeeId = Number(params.studentFeeId);
   const amount = Number(params.amount);
 
@@ -136,6 +138,10 @@ export default function ParentPaymentScreen() {
         {
           student_fee_id: studentFeeId,
           amount,
+          return_url:
+            Platform.OS === "web"
+              ? `${window.location.origin}/parent/fees`
+              : undefined,
         }
       );
 
@@ -204,7 +210,7 @@ export default function ParentPaymentScreen() {
                 router.replace({
                   pathname: "/parent/fees",
                   params: {
-                    studentId: String(params.studentFeeId),
+                    studentId: String(studentId),
                   },
                 })
               }
@@ -250,7 +256,7 @@ export default function ParentPaymentScreen() {
                   router.replace({
                     pathname: "/parent/fees",
                     params: {
-                      studentId: String(params.studentFeeId),
+                      studentId: String(studentId),
                     },
                   })
                 }
