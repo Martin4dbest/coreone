@@ -109,10 +109,7 @@ async def paystack_callback(
     from fastapi.responses import RedirectResponse
 
     return RedirectResponse(
-        url=(
-            "https://presense.expo.app/parent/fees"
-            f"?payment_reference={payment_reference}"
-        ),
+        url="https://presense.expo.app/parent/fees",
         status_code=303,
     )
 
