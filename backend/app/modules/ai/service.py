@@ -13,8 +13,11 @@ from .schemas import CBTQuestionRequest, CBTQuestionResponse
 
 
 class AIService:
-    GEMINI_MAX_RETRIES = 3
-    GEMINI_RETRY_DELAYS = (1, 2, 4)
+    # CBT uses one Gemini request for fast, predictable generation.
+    # Gemini keeps its normal reasoning quality.
+    GEMINI_MAX_RETRIES = 1
+    GEMINI_RETRY_DELAYS = ()
+    GEMINI_CBT_TIMEOUT_SECONDS = 30
 
     def __init__(self) -> None:
         self.openai_client: Optional[AsyncOpenAI] = None
@@ -297,14 +300,23 @@ Return ONLY valid JSON in this exact structure:
     ) -> CBTQuestionResponse:
         client = self._get_gemini_client()
 
-        interaction = await client.aio.interactions.create(
-            model=model,
-            input=self._build_prompt(request),
-            response_format={
-                "type": "text",
-                "mime_type": "application/json",
-            },
-        )
+        try:
+            interaction = await asyncio.wait_for(
+                client.aio.interactions.create(
+                    model=model,
+                    input=self._build_prompt(request),
+                    response_format={
+                        "type": "text",
+                        "mime_type": "application/json",
+                    },
+                ),
+                timeout=self.GEMINI_CBT_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError as exc:
+            raise RuntimeError(
+                "Gemini CBT generation timed out after "
+                f"{self.GEMINI_CBT_TIMEOUT_SECONDS} seconds."
+            ) from exc
 
         raw_text = getattr(
             interaction,
@@ -326,54 +338,29 @@ Return ONLY valid JSON in this exact structure:
         self,
         request: CBTQuestionRequest,
     ) -> CBTQuestionResponse:
-        models = [self.gemini_model]
+        # Use only the configured primary Gemini model.
+        # Do not wait through multiple Gemini models/retries.
+        model = self.gemini_model
 
-        for model in self.gemini_fallback_models:
-            if model and model not in models:
-                models.append(model)
-
-        errors: list[str] = []
-
-        for model in models:
-            for attempt in range(
-                self.GEMINI_MAX_RETRIES
-            ):
-                try:
-                    print(
-                        f"CoreOne Gemini attempt "
-                        f"{attempt + 1}/{self.GEMINI_MAX_RETRIES} "
-                        f"using {model}"
-                    )
-
-                    return await self._generate_with_gemini_model(
-                        request,
-                        model,
-                    )
-
-                except Exception as exc:
-                    print(
-                        f"CoreOne Gemini error "
-                        f"[{model}, attempt {attempt + 1}]:",
-                        repr(exc),
-                    )
-
-                    errors.append(
-                        f"{model}: {exc}"
-                    )
-
-                    if not self._is_retryable_gemini_error(
-                        exc
-                    ):
-                        break
-
-                    if attempt < self.GEMINI_MAX_RETRIES - 1:
-                        await asyncio.sleep(
-                            self.GEMINI_RETRY_DELAYS[attempt]
-                        )
-
-        raise RuntimeError(
-            "Gemini could not generate the requested questions."
+        print(
+            f"CoreOne CBT Gemini request using {model}"
         )
+
+        try:
+            return await self._generate_with_gemini_model(
+                request,
+                model,
+            )
+
+        except Exception as exc:
+            print(
+                "CoreOne CBT Gemini failed:",
+                repr(exc),
+            )
+
+            raise RuntimeError(
+                "Gemini could not generate the requested questions."
+            ) from exc
 
     async def _generate_with_openai(
         self,
