@@ -110,8 +110,6 @@ export default function Login() {
               </View>
               {/* Customized PreSense text styling */}
               <Text style={styles.brand}>
-                <Text style={styles.brandPre}>Pre</Text>
-                <Text style={styles.brandSense}>Sense</Text>
               </Text>
               <Text style={styles.title}>Portal Sign In</Text>
               <Text style={styles.subtitle}>Enter your institutional credentials</Text>
@@ -226,7 +224,7 @@ export default function Login() {
 
             {/* Footer with PreSense text color customization */}
             <Text style={styles.footer}>
-              Powered by <Text style={styles.brandPre}>Pre</Text><Text style={styles.brandSense}>Sense</Text> Technologies
+              Powered by <Text style={styles.brandPre}>Core</Text><Text style={styles.brandSense}>One</Text> Technologies
             </Text>
 
           </ScrollView>

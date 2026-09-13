@@ -190,6 +190,10 @@ export default function ParentDashboard() {
   }
 
   const parentName = parent ? `${parent.first_name} ${parent.last_name}`.trim() : "Parent";
+  const relationshipRole = selectedStudent?.relationship_type 
+    ? selectedStudent.relationship_type.charAt(0).toUpperCase() + selectedStudent.relationship_type.slice(1).toLowerCase() 
+    : "Parent";
+    
   const students = parent?.students || [];
 
   return (
@@ -272,7 +276,7 @@ export default function ParentDashboard() {
 
             <View style={styles.heroMain}>
               <Text style={styles.greetingText}>
-                {getGreeting()}, {parentName}
+                {getGreeting()}, {parentName} ({relationshipRole})
               </Text>
               <Text style={styles.heroSubText}>
                 {schoolBranding.motto || "Track your children's educational journey."}
@@ -282,7 +286,7 @@ export default function ParentDashboard() {
 
           {/* ================= CHILDREN SELECTION ================= */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Linked Students</Text>
+            <Text style={styles.sectionTitle}>Student</Text>
             <View style={styles.badgeCount}>
               <Text style={styles.badgeCountText}>{students.length}</Text>
             </View>
@@ -456,10 +460,10 @@ export default function ParentDashboard() {
                   onPress={() =>
                     router.push({
                       pathname: "/student/results",
-params: {
-  studentId: String(selectedStudent.id),
-  viewer: "parent",
-},
+                      params: {
+                        studentId: String(selectedStudent.id),
+                        viewer: "parent",
+                      },
                     })
                   }
                 />

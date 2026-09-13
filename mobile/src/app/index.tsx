@@ -64,7 +64,7 @@ export default function Landing() {
                   <Ionicons name="school-outline" size={24} color="#B91C1C" />
                 </View>
                 <Text style={styles.brand}>
-                  Pre<Text style={styles.brandAccent}>Sense</Text>
+                  Core<Text style={styles.brandAccent}>One</Text>
                 </Text>
               </View>
 
@@ -214,7 +214,7 @@ export default function Landing() {
 
             {/* Footer */}
             <View style={styles.footerContainer}>
-              <Text style={styles.footer}>Powered by PreSense Technologies</Text>
+              <Text style={styles.footer}>Powered by CoreOne Technologies</Text>
             </View>
           </View>
         </ScrollView>
