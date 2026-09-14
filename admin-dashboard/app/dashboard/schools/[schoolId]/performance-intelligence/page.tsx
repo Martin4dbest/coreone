@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   GraduationCap,
   RefreshCw,
+  Filter,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -140,6 +141,8 @@ export default function PerformanceIntelligencePage({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
 
+  // State for selected class dropdown filter ("all" or classroom_id string)
+  const [selectedClassId, setSelectedClassId] = useState<string>("all");
 
   async function loadIntelligence(showRefresh = false) {
     try {
@@ -293,7 +296,19 @@ export default function PerformanceIntelligencePage({
 
   const classes = data.classes || [];
   const subjects = data.subjects || [];
-  const attention = data.students_needing_attention || [];
+  const allAttentionStudents = data.students_needing_attention || [];
+
+  // Filter students based on dropdown selection
+  const attention = selectedClassId === "all"
+    ? allAttentionStudents
+    : allAttentionStudents.filter(
+        (student) => String(student.classroom_id) === selectedClassId
+      );
+
+  // Find info of the currently selected class object if applicable
+  const selectedClassDetails = classes.find(
+    (c) => String(c.classroom_id) === selectedClassId
+  );
 
   const strongestClass = classes.length
     ? [...classes].sort(
@@ -346,26 +361,67 @@ export default function PerformanceIntelligencePage({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => loadIntelligence(true)}
-            disabled={refreshing}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <RefreshCw
-              className="h-4 w-4"
-            />
-            {refreshing ? "Refreshing..." : "Refresh Intelligence"}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Class Selection Dropdown Filter */}
+            <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 border border-slate-200 shadow-sm">
+              <Filter className="h-4 w-4 text-violet-600" />
+              <select
+                value={selectedClassId}
+                onChange={(e) => setSelectedClassId(e.target.value)}
+                className="bg-transparent text-sm font-bold text-slate-700 focus:outline-none cursor-pointer"
+              >
+                <option value="all">All Classes ({classes.length})</option>
+                {classes.map((cls) => (
+                  <option key={cls.classroom_id} value={String(cls.classroom_id)}>
+                    {cls.classroom_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => loadIntelligence(true)}
+              disabled={refreshing}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
+            >
+              <RefreshCw className="h-4 w-4" />
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
         </div>
       </section>
+
+      {/* Dynamic Summary Notice if a Specific Class is Selected */}
+      {selectedClassDetails && (
+        <div className="flex items-center justify-between rounded-2xl border border-violet-200 bg-violet-50/60 p-4 px-6 text-sm">
+          <div>
+            <span className="font-bold text-violet-900">Active View: </span>
+            <span className="text-violet-700 font-semibold">{selectedClassDetails.classroom_name}</span>
+            <span className="mx-2 text-violet-300">•</span>
+            <span className="text-slate-600">Students: <strong className="text-slate-900">{selectedClassDetails.student_count}</strong></span>
+            <span className="mx-2 text-violet-300">•</span>
+            <span className="text-slate-600">Academic Avg: <strong className="text-slate-900">{scoreLabel(selectedClassDetails.academic_average)}</strong></span>
+            <span className="mx-2 text-violet-300">•</span>
+            <span className="text-slate-600">Attendance: <strong className="text-slate-900">{scoreLabel(selectedClassDetails.attendance_percentage)}</strong></span>
+          </div>
+          <button
+            onClick={() => setSelectedClassId("all")}
+            className="text-xs font-bold text-violet-600 hover:underline"
+          >
+            Reset filter
+          </button>
+        </div>
+      )}
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           icon={<BarChart3 className="h-5 w-5" />}
           title="Academic Average"
-          value={scoreLabel(data.academic_average)}
-          description={`${data.students_with_results} students with published results`}
+          value={scoreLabel(
+            selectedClassDetails ? selectedClassDetails.academic_average : data.academic_average
+          )}
+          description={selectedClassDetails ? `Filtered for ${selectedClassDetails.classroom_name}` : `${data.students_with_results} students with published results`}
           tone="violet"
         />
 
@@ -373,17 +429,19 @@ export default function PerformanceIntelligencePage({
           icon={<Activity className="h-5 w-5" />}
           title="Attendance Rate"
           value={scoreLabel(
-            data.attendance.attendance_percentage
+            selectedClassDetails ? selectedClassDetails.attendance_percentage : data.attendance.attendance_percentage
           )}
-          description={`${data.attendance.absent_days} absences recorded`}
+          description={selectedClassDetails ? `Class attendance metric` : `${data.attendance.absent_days} absences recorded`}
           tone="emerald"
         />
 
         <MetricCard
           icon={<GraduationCap className="h-5 w-5" />}
           title="Students"
-          value={String(data.student_count)}
-          description={`${data.classroom_count} active classes`}
+          value={String(
+            selectedClassDetails ? selectedClassDetails.student_count : data.student_count
+          )}
+          description={selectedClassDetails ? `Enrolled in class` : `${data.classroom_count} active classes`}
           tone="amber"
         />
 
@@ -391,7 +449,7 @@ export default function PerformanceIntelligencePage({
           icon={<AlertTriangle className="h-5 w-5" />}
           title="Needs Attention"
           value={String(attention.length)}
-          description="Moderate or high risk indicators"
+          description="Risk indicators in view"
           tone="red"
         />
       </div>
@@ -423,7 +481,12 @@ export default function PerformanceIntelligencePage({
               {classes.slice(0, 8).map((item) => (
                 <div
                   key={item.classroom_id}
-                  className="rounded-xl border border-slate-100 p-4"
+                  onClick={() => setSelectedClassId(String(item.classroom_id))}
+                  className={`cursor-pointer rounded-xl border p-4 transition-all ${
+                    selectedClassId === String(item.classroom_id)
+                      ? "border-violet-500 bg-violet-50/40 shadow-sm"
+                      : "border-slate-100 hover:border-slate-200"
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div>
@@ -732,26 +795,37 @@ export default function PerformanceIntelligencePage({
       </section>
 
       <section className="rounded-2xl border border-red-100 bg-white p-6 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600">
-            <AlertTriangle className="h-5 w-5" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+
+            <div>
+              <h2 className="text-lg font-black text-slate-900">
+                Students Needing Attention {selectedClassDetails ? `(${selectedClassDetails.classroom_name})` : ""}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Students with moderate or high academic and/or
+                attendance risk indicators.
+              </p>
+            </div>
           </div>
 
-          <div>
-            <h2 className="text-lg font-black text-slate-900">
-              Students Needing Attention
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Students with moderate or high academic and/or
-              attendance risk indicators.
-            </p>
-          </div>
+          {selectedClassId !== "all" && (
+            <button
+              onClick={() => setSelectedClassId("all")}
+              className="text-xs font-bold text-violet-600 hover:underline"
+            >
+              Show all classes
+            </button>
+          )}
         </div>
 
         {attention.length === 0 ? (
           <div className="mt-5 rounded-xl border border-emerald-100 bg-emerald-50 p-5 text-sm text-emerald-700">
-            No moderate or high-risk students were detected from
-            the available published results and attendance records.
+            No moderate or high-risk students were detected
+            {selectedClassDetails ? ` for ${selectedClassDetails.classroom_name}` : ""} from the available records.
           </div>
         ) : (
           <div className="mt-5 overflow-x-auto">
