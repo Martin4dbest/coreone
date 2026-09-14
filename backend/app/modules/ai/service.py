@@ -17,7 +17,7 @@ class AIService:
     # Gemini keeps its normal reasoning quality.
     GEMINI_MAX_RETRIES = 1
     GEMINI_RETRY_DELAYS = ()
-    GEMINI_CBT_TIMEOUT_SECONDS = 60
+    GEMINI_CBT_TIMEOUT_SECONDS = 300
 
     def __init__(self) -> None:
         self.openai_client: Optional[AsyncOpenAI] = None
