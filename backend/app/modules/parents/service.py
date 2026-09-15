@@ -1,6 +1,7 @@
 from decimal import Decimal
 from fastapi import HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.parent import Parent
@@ -12,6 +13,11 @@ from app.models.role import Role
 from app.models.school_branding import SchoolBranding
 from app.models.student import Student
 from app.models.user import User
+from app.models.school_book import SchoolBook
+from app.models.school_book_inventory import (
+    SchoolBookDistribution,
+    SchoolBookDistributionStudent,
+)
 
 from app.modules.auth.security import hash_password
 from app.modules.parents.repository import ParentRepository
@@ -30,6 +36,8 @@ from app.modules.parents.schemas import (
     ParentFeesStudentResponse,
     ParentFeesTotalsResponse,
     ParentFeesResponse,
+    ParentBookHistoryResponse,
+    ParentBookHistoryListResponse,
 )
 
 
@@ -1124,6 +1132,433 @@ class ParentService:
             excused_days=excused_days,
             records=response_records,
         )
+
+    async def get_my_student_books(
+        self,
+        student_id: int,
+        current_user,
+    ):
+        if current_user.role.name != "PARENT":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Parent access required",
+            )
+
+        parent = await self.repository.get_by_user_id(
+            current_user.id
+        )
+
+        if parent is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Parent profile not found",
+            )
+
+        # The student must be explicitly linked to this parent.
+        link = await self.repository.get_student_link(
+            parent.id,
+            student_id,
+        )
+
+        if link is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student is not linked to this parent",
+            )
+
+        student_result = await self.db.execute(
+            select(Student).where(
+                Student.id == student_id
+            )
+        )
+
+        student = student_result.scalar_one_or_none()
+
+        if student is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student not found",
+            )
+
+        school = await self.db.get(
+            School,
+            student.school_id,
+        )
+
+        if school is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student school not found",
+            )
+
+        result = await self.db.execute(
+            select(
+                SchoolBookDistributionStudent,
+                SchoolBookDistribution,
+                SchoolBook,
+                User,
+            )
+            .join(
+                SchoolBookDistribution,
+                SchoolBookDistribution.id
+                == SchoolBookDistributionStudent.distribution_id,
+            )
+            .join(
+                SchoolBook,
+                SchoolBook.id
+                == SchoolBookDistribution.school_book_id,
+            )
+            .outerjoin(
+                User,
+                User.id
+                == SchoolBookDistribution.issued_by,
+            )
+            .options(
+                selectinload(User.staff),
+                selectinload(User.role),
+            )
+            .where(
+                SchoolBookDistributionStudent.student_id
+                == student_id,
+                SchoolBookDistributionStudent.school_id
+                == student.school_id,
+                SchoolBookDistribution.school_id
+                == student.school_id,
+                SchoolBook.school_id
+                == student.school_id,
+            )
+            .order_by(
+                SchoolBookDistributionStudent.issued_at.desc(),
+                SchoolBookDistributionStudent.id.desc(),
+            )
+        )
+
+        rows = result.all()
+
+        books = []
+
+        # Resolve returner users separately so a deleted user does
+        # not prevent the original issue record from being shown.
+        returner_ids = {
+            record.returned_by
+            for record, _, _, _ in rows
+            if record.returned_by is not None
+        }
+
+        returners = {}
+
+        if returner_ids:
+            returner_result = await self.db.execute(
+                select(User)
+                .options(
+                    selectinload(User.staff),
+                    selectinload(User.role),
+                )
+                .where(
+                    User.id.in_(returner_ids)
+                )
+            )
+            returners = {
+                user.id: user
+                for user in returner_result.scalars().all()
+            }
+
+        for record, distribution, book, issuer in rows:
+            issuer_name = None
+            issuer_role = None
+
+            if issuer is not None:
+                issuer_name = (
+                    f"{issuer.staff.first_name} "
+                    f"{issuer.staff.last_name}"
+                    if issuer.staff is not None
+                    else issuer.email
+                )
+                issuer_name = issuer_name.strip()
+                issuer_role = (
+                    issuer.role.name
+                    if issuer.role is not None
+                    else None
+                )
+
+            returner = (
+                returners.get(record.returned_by)
+                if record.returned_by is not None
+                else None
+            )
+
+            returner_name = None
+            returner_role = None
+
+            if returner is not None:
+                returner_name = (
+                    f"{returner.staff.first_name} "
+                    f"{returner.staff.last_name}"
+                    if returner.staff is not None
+                    else returner.email
+                )
+                returner_name = returner_name.strip()
+                returner_role = (
+                    returner.role.name
+                    if returner.role is not None
+                    else None
+                )
+
+            books.append(
+                ParentBookHistoryResponse(
+                    id=record.id,
+                    transaction_id=str(record.uuid),
+                    distribution_id=distribution.id,
+                    student_id=student.id,
+                    student_name=(
+                        f"{student.first_name} "
+                        f"{student.last_name}"
+                    ).strip(),
+                    admission_number=student.admission_number,
+                    school_id=school.id,
+                    school_name=school.name,
+                    book_id=book.id,
+                    book_title=book.title,
+                    book_reference=book.uuid
+                    and str(book.uuid),
+                    isbn=book.isbn,
+                    issued_at=(
+                        record.issued_at.isoformat()
+                        if record.issued_at
+                        else None
+                    ),
+                    issued_by=issuer_name,
+                    issued_by_role=issuer_role,
+                    condition_at_issue=(
+                        record.condition_at_issue
+                    ),
+                    status=record.status,
+                    returned_at=(
+                        record.returned_at.isoformat()
+                        if record.returned_at
+                        else None
+                    ),
+                    returned_by=returner_name,
+                    returned_by_role=returner_role,
+                    return_condition=record.return_condition,
+                    return_remarks=record.return_remarks,
+                    inventory_status=(
+                        "RETURNED TO INVENTORY"
+                        if record.status == "RETURNED"
+                        else "ISSUED / OUT"
+                    ),
+                    notes=distribution.notes,
+                )
+            )
+
+        return ParentBookHistoryListResponse(
+            student=ParentFeesStudentResponse(
+                id=student.id,
+                admission_number=student.admission_number,
+                first_name=student.first_name,
+                last_name=student.last_name,
+                middle_name=student.middle_name,
+                class_name=None,
+                school_name=school.name,
+            ),
+            books=books,
+        )
+
+
+    async def get_my_student_book(
+        self,
+        student_id: int,
+        distribution_student_id: int,
+        current_user,
+    ):
+        if current_user.role.name != "PARENT":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Parent access required",
+            )
+
+        parent = await self.repository.get_by_user_id(
+            current_user.id
+        )
+
+        if parent is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Parent profile not found",
+            )
+
+        # Strict parent-child authorization.
+        link = await self.repository.get_student_link(
+            parent.id,
+            student_id,
+        )
+
+        if link is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student is not linked to this parent",
+            )
+
+        result = await self.db.execute(
+            select(
+                SchoolBookDistributionStudent,
+                SchoolBookDistribution,
+                SchoolBook,
+                Student,
+                School,
+                User,
+            )
+            .join(
+                SchoolBookDistribution,
+                SchoolBookDistribution.id
+                == SchoolBookDistributionStudent.distribution_id,
+            )
+            .join(
+                SchoolBook,
+                SchoolBook.id
+                == SchoolBookDistribution.school_book_id,
+            )
+            .join(
+                Student,
+                Student.id
+                == SchoolBookDistributionStudent.student_id,
+            )
+            .join(
+                School,
+                School.id == Student.school_id,
+            )
+            .outerjoin(
+                User,
+                User.id == SchoolBookDistribution.issued_by,
+            )
+            .options(
+                selectinload(User.staff),
+                selectinload(User.role),
+            )
+            .where(
+                SchoolBookDistributionStudent.id
+                == distribution_student_id,
+                SchoolBookDistributionStudent.student_id
+                == student_id,
+                SchoolBookDistributionStudent.school_id
+                == Student.school_id,
+                SchoolBookDistribution.school_id
+                == Student.school_id,
+                SchoolBook.school_id
+                == Student.school_id,
+            )
+        )
+
+        row = result.one_or_none()
+
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Book transaction not found",
+            )
+
+        (
+            record,
+            distribution,
+            book,
+            student,
+            school,
+            issuer,
+        ) = row
+
+        issuer_name = None
+        issuer_role = None
+
+        if issuer is not None:
+            issuer_name = (
+                f"{issuer.staff.first_name} "
+                f"{issuer.staff.last_name}"
+                if issuer.staff is not None
+                else issuer.email
+            )
+            issuer_name = issuer_name.strip()
+            issuer_role = (
+                issuer.role.name
+                if issuer.role is not None
+                else None
+            )
+
+        returner = None
+
+        if record.returned_by is not None:
+            returner_result = await self.db.execute(
+                select(User)
+                .options(
+                    selectinload(User.staff),
+                    selectinload(User.role),
+                )
+                .where(User.id == record.returned_by)
+            )
+            returner = returner_result.scalar_one_or_none()
+
+        returner_name = None
+        returner_role = None
+
+        if returner is not None:
+            returner_name = (
+                f"{returner.staff.first_name} "
+                f"{returner.staff.last_name}"
+                if returner.staff is not None
+                else returner.email
+            )
+            returner_name = returner_name.strip()
+            returner_role = (
+                returner.role.name
+                if returner.role is not None
+                else None
+            )
+
+        return ParentBookHistoryResponse(
+            id=record.id,
+            transaction_id=str(record.uuid),
+            distribution_id=distribution.id,
+            student_id=student.id,
+            student_name=(
+                f"{student.first_name} "
+                f"{student.last_name}"
+            ).strip(),
+            admission_number=student.admission_number,
+            school_id=school.id,
+            school_name=school.name,
+            book_id=book.id,
+            book_title=book.title,
+            book_reference=(
+                str(book.uuid)
+                if book.uuid
+                else None
+            ),
+            isbn=book.isbn,
+            issued_at=(
+                record.issued_at.isoformat()
+                if record.issued_at
+                else None
+            ),
+            issued_by=issuer_name,
+            issued_by_role=issuer_role,
+            condition_at_issue=record.condition_at_issue,
+            status=record.status,
+            returned_at=(
+                record.returned_at.isoformat()
+                if record.returned_at
+                else None
+            ),
+            returned_by=returner_name,
+            returned_by_role=returner_role,
+            return_condition=record.return_condition,
+            return_remarks=record.return_remarks,
+            inventory_status=(
+                "RETURNED TO INVENTORY"
+                if record.status == "RETURNED"
+                else "ISSUED / OUT"
+            ),
+            notes=distribution.notes,
+        )
+
 
     async def get_my_student(
         self,

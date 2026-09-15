@@ -98,6 +98,47 @@ class ParentStudentResponse(BaseModel):
     school: ParentSchoolResponse
 
 
+class ParentBookHistoryResponse(BaseModel):
+    id: int
+    transaction_id: str
+    distribution_id: int
+
+    student_id: int
+    student_name: str
+    admission_number: str
+
+    school_id: int
+    school_name: str
+
+    book_id: int
+    book_title: str
+    book_reference: str | None = None
+    isbn: str | None = None
+
+    issued_at: str | None = None
+    issued_by: str | None = None
+    issued_by_role: str | None = None
+    condition_at_issue: str | None = None
+
+    status: str
+
+    returned_at: str | None = None
+    returned_by: str | None = None
+    returned_by_role: str | None = None
+    return_condition: str | None = None
+    return_remarks: str | None = None
+
+    inventory_status: str
+    notes: str | None = None
+
+
+class ParentBookHistoryListResponse(BaseModel):
+    student: ParentFeesStudentResponse
+    books: list[ParentBookHistoryResponse] = Field(
+        default_factory=list
+    )
+
+
 class ParentDetailsResponse(BaseModel):
     id: int
     user_id: int

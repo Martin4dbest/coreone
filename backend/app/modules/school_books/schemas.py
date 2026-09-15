@@ -22,6 +22,11 @@ class SchoolBookUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class SchoolBookReturnRequest(BaseModel):
+    return_condition: str | None = Field(None, max_length=100)
+    return_remarks: str | None = Field(None, max_length=2000)
+
+
 class SchoolBookResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -44,4 +49,5 @@ class SchoolBookDistributionCreate(BaseModel):
     student_count: int = Field(..., gt=0)
     date_issued: date
     student_ids: list[int] = Field(..., min_length=1)
+    condition_at_issue: str | None = Field(None, max_length=100)
     notes: str | None = Field(None, max_length=2000)

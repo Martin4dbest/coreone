@@ -16,6 +16,8 @@ from app.modules.parents.schemas import (
     ParentStudentLinkRequest,
     ParentStudentResponse,
     ParentFeesResponse,
+    ParentBookHistoryResponse,
+    ParentBookHistoryListResponse,
 )
 from app.modules.parents.service import ParentService
 
@@ -139,6 +141,42 @@ async def get_my_student_results(
 ):
     return await ParentService(db).get_my_student_results(
         student_id,
+        current_user,
+    )
+
+
+@router.get(
+    "/me/students/{student_id}/books",
+    response_model=ParentBookHistoryListResponse,
+)
+async def get_my_student_books(
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        require_roles("PARENT")
+    ),
+):
+    return await ParentService(db).get_my_student_books(
+        student_id,
+        current_user,
+    )
+
+
+@router.get(
+    "/me/students/{student_id}/books/{distribution_student_id}",
+    response_model=ParentBookHistoryResponse,
+)
+async def get_my_student_book(
+    student_id: int,
+    distribution_student_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        require_roles("PARENT")
+    ),
+):
+    return await ParentService(db).get_my_student_book(
+        student_id,
+        distribution_student_id,
         current_user,
     )
 

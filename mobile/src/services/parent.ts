@@ -92,6 +92,76 @@ export async function getParentStudent(
   return response.data;
 }
 
+export interface ParentBookHistory {
+  id: number;
+  transaction_id: string;
+  distribution_id: number;
+
+  student_id: number;
+  student_name: string;
+  admission_number: string;
+
+  school_id: number;
+  school_name: string;
+
+  book_id: number;
+  book_title: string;
+  book_reference?: string | null;
+  isbn?: string | null;
+
+  issued_at?: string | null;
+  issued_by?: string | null;
+  issued_by_role?: string | null;
+  condition_at_issue?: string | null;
+
+  status: string;
+
+  returned_at?: string | null;
+  returned_by?: string | null;
+  returned_by_role?: string | null;
+  return_condition?: string | null;
+  return_remarks?: string | null;
+
+  inventory_status: string;
+  notes?: string | null;
+}
+
+export interface ParentBookHistoryResponse {
+  student: {
+    id: number;
+    admission_number: string;
+    first_name: string;
+    last_name: string;
+    middle_name?: string | null;
+    class_name?: string | null;
+    school_name: string;
+  };
+  books: ParentBookHistory[];
+}
+
+export async function getParentStudentBooks(
+  studentId: number
+): Promise<ParentBookHistoryResponse> {
+  const response =
+    await api.get<ParentBookHistoryResponse>(
+      `/parents/me/students/${studentId}/books`
+    );
+
+  return response.data;
+}
+
+export async function getParentStudentBook(
+  studentId: number,
+  distributionStudentId: number
+): Promise<ParentBookHistory> {
+  const response =
+    await api.get<ParentBookHistory>(
+      `/parents/me/students/${studentId}/books/${distributionStudentId}`
+    );
+
+  return response.data;
+}
+
 export interface ParentAttendanceRecord {
   attendance_date: string;
   status: string;

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,10 +14,14 @@ from app.models.school_book_inventory import (
     SchoolBookDistribution,
     SchoolBookDistributionStudent,
 )
+from app.modules.notifications.schemas import NotificationCreateRequest
+from app.modules.notifications.service import NotificationService
+
 from app.modules.school_books.schemas import (
     SchoolBookCreate,
     SchoolBookDistributionCreate,
     SchoolBookResponse,
+    SchoolBookReturnRequest,
     SchoolBookUpdate,
 )
 
@@ -299,6 +303,7 @@ async def distribute_school_books(
             "SCHOOL_ADMIN",
             "ACCOUNTANT",
             "BOOK_STOREKEEPER",
+            "TEACHER",
         )
     ),
 ):
@@ -309,6 +314,11 @@ async def distribute_school_books(
     student_count = payload.student_count
     date_issued = payload.date_issued
     student_ids = list(payload.student_ids)
+    condition_at_issue = (
+        payload.condition_at_issue.strip()
+        if payload.condition_at_issue
+        else None
+    )
     notes = payload.notes
 
     if not student_ids:
@@ -438,6 +448,8 @@ async def distribute_school_books(
     await db.flush()
 
     # Record each individual student who received a book.
+    issued_at = datetime.utcnow()
+
     if student_ids:
         for student_id in student_ids:
             db.add(
@@ -446,8 +458,32 @@ async def distribute_school_books(
                     distribution_id=distribution.id,
                     student_id=student_id,
                     quantity_issued=1,
+                    issued_at=issued_at,
+                    status="ISSUED",
+                    condition_at_issue=condition_at_issue,
                 )
             )
+
+    # Create parent-visible notifications through the existing
+    # notification system. Notifications target the student so
+    # linked parents automatically receive them.
+    notification_service = NotificationService(db)
+
+    for student in students:
+        await notification_service.create_notification(
+            NotificationCreateRequest(
+                school_id=school_id,
+                title="School Book Issued",
+                message=(
+                    f"{book.title} has been issued to your child, "
+                    f"{student.first_name} {student.last_name}, "
+                    f"on {issued_at.strftime('%d %B %Y')} "
+                    f"at {issued_at.strftime('%I:%M %p')}."
+                ),
+                recipient_type=f"STUDENT:{student.id}",
+            ),
+            current_user=current_user,
+        )
 
     await db.commit()
     await db.refresh(distribution)
@@ -458,6 +494,118 @@ async def distribute_school_books(
         "school_book_id": book.id,
         "quantity_issued": quantity_issued,
         "remaining_quantity": book.quantity,
+    }
+
+
+# ============================================================
+# RETURN AN ISSUED BOOK
+# ============================================================
+
+@router.post(
+    "/{school_id}/distribution-records/{distribution_student_id}/return",
+)
+async def return_school_book(
+    school_id: int,
+    distribution_student_id: int,
+    payload: SchoolBookReturnRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        require_roles(
+            "SUPER_ADMIN",
+            "SCHOOL_ADMIN",
+            "ACCOUNTANT",
+            "BOOK_STOREKEEPER",
+            "TEACHER",
+        )
+    ),
+):
+    verify_school_access(current_user, school_id)
+
+    result = await db.execute(
+        select(
+            SchoolBookDistributionStudent,
+            SchoolBookDistribution,
+            SchoolBook,
+            Student,
+        )
+        .join(
+            SchoolBookDistribution,
+            SchoolBookDistribution.id
+            == SchoolBookDistributionStudent.distribution_id,
+        )
+        .join(
+            SchoolBook,
+            SchoolBook.id
+            == SchoolBookDistribution.school_book_id,
+        )
+        .join(
+            Student,
+            Student.id
+            == SchoolBookDistributionStudent.student_id,
+        )
+        .where(
+            SchoolBookDistributionStudent.id
+            == distribution_student_id,
+            SchoolBookDistributionStudent.school_id == school_id,
+            SchoolBookDistribution.school_id == school_id,
+            SchoolBook.school_id == school_id,
+            Student.school_id == school_id,
+        )
+    )
+
+    row = result.one_or_none()
+
+    if row is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Book distribution record not found.",
+        )
+
+    (
+        distribution_student,
+        distribution,
+        book,
+        student,
+    ) = row
+
+    if distribution_student.status == "RETURNED":
+        raise HTTPException(
+            status_code=400,
+            detail="This book has already been returned.",
+        )
+
+    returned_at = datetime.utcnow()
+
+    distribution_student.status = "RETURNED"
+    distribution_student.returned_at = returned_at
+    distribution_student.returned_by = current_user.id
+    distribution_student.return_condition = (
+        payload.return_condition.strip()
+        if payload.return_condition
+        else None
+    )
+    distribution_student.return_remarks = (
+        payload.return_remarks.strip()
+        if payload.return_remarks
+        else None
+    )
+
+    book.quantity += distribution_student.quantity_issued
+
+    await db.commit()
+
+    return {
+        "message": "Book returned successfully.",
+        "distribution_student_id": distribution_student.id,
+        "distribution_id": distribution.id,
+        "student_id": student.id,
+        "school_book_id": book.id,
+        "status": distribution_student.status,
+        "returned_at": returned_at,
+        "returned_by": current_user.id,
+        "return_condition": distribution_student.return_condition,
+        "return_remarks": distribution_student.return_remarks,
+        "new_quantity": book.quantity,
     }
 
 

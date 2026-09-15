@@ -1,6 +1,6 @@
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import Date, ForeignKey, Integer, Text, String
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Text, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_model import BaseModel
@@ -135,6 +135,43 @@ class SchoolBookDistributionStudent(Base, BaseModel, SchoolMixin):
         Integer,
         nullable=False,
         server_default="1",
+    )
+
+    issued_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="ISSUED",
+        server_default="ISSUED",
+    )
+
+    condition_at_issue: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    returned_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+    returned_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    return_condition: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    return_remarks: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
     )
 
     distribution = relationship(
