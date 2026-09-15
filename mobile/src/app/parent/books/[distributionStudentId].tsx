@@ -172,9 +172,6 @@ export default function ParentBookDetailScreen() {
     );
   }
 
-  const returned =
-    book.status.toUpperCase() === "RETURNED";
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.viewport}>
@@ -225,24 +222,16 @@ export default function ParentBookDetailScreen() {
             <View
               style={[
                 styles.mainStatus,
-                returned
-                  ? styles.mainStatusReturned
-                  : styles.mainStatusIssued,
+                styles.mainStatusIssued,
               ]}
             >
               <Ionicons
-                name={
-                  returned
-                    ? "checkmark-circle"
-                    : "book"
-                }
+                name="checkmark-circle"
                 size={15}
-                color={
-                  returned ? "#166534" : "#166534"
-                }
+                color="#166534"
               />
               <Text style={styles.mainStatusText}>
-                {returned ? "RETURNED" : "ISSUED"}
+                {book.status || "ISSUED"}
               </Text>
             </View>
           </View>
@@ -268,6 +257,42 @@ export default function ParentBookDetailScreen() {
               icon="barcode-outline"
               label="ISBN"
               value={book.isbn}
+            />
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>
+              Book Charges
+            </Text>
+
+            <DetailRow
+              icon="pricetag-outline"
+              label="Selling Price"
+              value={
+                book.unit_selling_price != null
+                  ? `₦${Number(
+                      book.unit_selling_price
+                    ).toLocaleString("en-NG", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}`
+                  : null
+              }
+            />
+
+            <DetailRow
+              icon="receipt-outline"
+              label="Total Amount"
+              value={
+                book.total_selling_amount != null
+                  ? `₦${Number(
+                      book.total_selling_amount
+                    ).toLocaleString("en-NG", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}`
+                  : null
+              }
             />
           </View>
 

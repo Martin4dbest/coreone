@@ -109,18 +109,15 @@ export interface ParentBookHistory {
   book_reference?: string | null;
   isbn?: string | null;
 
+  unit_selling_price?: number | null;
+  total_selling_amount?: number | null;
+
   issued_at?: string | null;
   issued_by?: string | null;
   issued_by_role?: string | null;
   condition_at_issue?: string | null;
 
   status: string;
-
-  returned_at?: string | null;
-  returned_by?: string | null;
-  returned_by_role?: string | null;
-  return_condition?: string | null;
-  return_remarks?: string | null;
 
   inventory_status: string;
   notes?: string | null;

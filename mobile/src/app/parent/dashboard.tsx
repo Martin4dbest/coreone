@@ -532,7 +532,7 @@ export default function ParentDashboard() {
                 <ServiceTile
                   icon="library-outline"
                   title="Books"
-                  subtitle="Issued & returned books"
+                  subtitle="Books issued to child"
                   color="#4F46E5"
                   onPress={() =>
                     router.push({
