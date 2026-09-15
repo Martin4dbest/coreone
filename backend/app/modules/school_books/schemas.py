@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -10,6 +11,11 @@ class SchoolBookCreate(BaseModel):
     category: str | None = Field(None, max_length=100)
     subject_id: int | None = None
     quantity: int = Field(1, ge=0)
+    selling_price: Decimal = Field(
+        Decimal("0.00"),
+        ge=0,
+        decimal_places=2,
+    )
 
 
 class SchoolBookUpdate(BaseModel):
@@ -19,12 +25,13 @@ class SchoolBookUpdate(BaseModel):
     category: str | None = Field(None, max_length=100)
     subject_id: int | None = None
     quantity: int | None = Field(None, ge=0)
+    selling_price: Decimal | None = Field(
+        None,
+        ge=0,
+        decimal_places=2,
+    )
     is_active: bool | None = None
 
-
-class SchoolBookReturnRequest(BaseModel):
-    return_condition: str | None = Field(None, max_length=100)
-    return_remarks: str | None = Field(None, max_length=2000)
 
 
 class SchoolBookResponse(BaseModel):
@@ -38,6 +45,7 @@ class SchoolBookResponse(BaseModel):
     category: str | None = None
     subject_id: int | None = None
     quantity: int
+    selling_price: Decimal
     is_active: bool
     created_at: datetime | None = None
     updated_at: datetime | None = None

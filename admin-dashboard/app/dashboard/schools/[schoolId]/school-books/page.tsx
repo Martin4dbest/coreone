@@ -35,6 +35,7 @@ interface SchoolBook {
   category?: string | null;
   subject_id?: number | null;
   quantity: number;
+  selling_price?: number | null;
   is_active: boolean;
   created_at?: string | null;
   updated_at?: string | null;
@@ -68,6 +69,8 @@ interface Receipt {
   id: number;
   school_book_id: number;
   quantity_received: number;
+  unit_purchase_cost: number;
+  total_purchase_cost: number;
   date_received: string;
   supplier?: string | null;
   reference_number?: string | null;
@@ -141,10 +144,12 @@ export default function SchoolBooksPage() {
     category: "",
     subject_id: "",
     quantity: "1",
+    selling_price: "0",
   });
 
   const [receiveForm, setReceiveForm] = useState({
     quantity: "1",
+    unit_purchase_cost: "0",
     date_received: today(),
     supplier: "",
     reference_number: "",
@@ -409,6 +414,7 @@ export default function SchoolBooksPage() {
       category: "",
       subject_id: "",
       quantity: "1",
+      selling_price: "0",
     });
 
     setModal("book");
@@ -427,6 +433,7 @@ export default function SchoolBooksPage() {
         ? String(book.subject_id)
         : "",
       quantity: String(book.quantity ?? 0),
+      selling_price: String(book.selling_price ?? 0),
     });
 
     setModal("book");
@@ -438,6 +445,7 @@ export default function SchoolBooksPage() {
 
     setReceiveForm({
       quantity: "1",
+      unit_purchase_cost: "0",
       date_received: today(),
       supplier: "",
       reference_number: "",
@@ -542,6 +550,7 @@ export default function SchoolBooksPage() {
           0,
           Number(bookForm.quantity) || 0
         ),
+        selling_price: Number(bookForm.selling_price || 0),
       };
 
       if (selectedBook) {
@@ -610,6 +619,8 @@ export default function SchoolBooksPage() {
         {
           params: {
             quantity,
+            unit_purchase_cost:
+              Number(receiveForm.unit_purchase_cost || 0),
             date_received:
               receiveForm.date_received,
             supplier:
@@ -1044,6 +1055,7 @@ export default function SchoolBooksPage() {
                     <th className="px-5 py-4">Subject</th>
                     <th className="px-5 py-4">Category</th>
                     <th className="px-5 py-4">Stock</th>
+                    <th className="px-5 py-4">Selling Price</th>
                     <th className="px-5 py-4">Status</th>
                     <th className="px-5 py-4 text-right">Actions</th>
                   </tr>
@@ -1115,6 +1127,17 @@ export default function SchoolBooksPage() {
                               ? "copy"
                               : "copies"}
                           </span>
+                        </td>
+
+                        <td className="px-5 py-4 text-sm font-semibold text-slate-700">
+                          ₦
+                          {Number(book.selling_price || 0).toLocaleString(
+                            "en-NG",
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }
+                          )}
                         </td>
 
                         <td className="px-5 py-4">
@@ -1294,6 +1317,20 @@ export default function SchoolBooksPage() {
               </SelectField>
 
               <Field
+                label="Selling Price to Student"
+                type="number"
+                min="0"
+                value={bookForm.selling_price}
+                onChange={(value) =>
+                  setBookForm((f) => ({
+                    ...f,
+                    selling_price: value,
+                  }))
+                }
+                placeholder="0.00"
+              />
+
+              <Field
                 label="Category"
                 value={bookForm.category}
                 onChange={(value) =>
@@ -1382,6 +1419,36 @@ export default function SchoolBooksPage() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Unit Purchase Cost"
+                type="number"
+                min="0"
+                value={receiveForm.unit_purchase_cost}
+                onChange={(value) =>
+                  setReceiveForm((f) => ({
+                    ...f,
+                    unit_purchase_cost: value,
+                  }))
+                }
+                placeholder="0.00"
+              />
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Total Purchase Cost
+                </p>
+                <p className="mt-1 text-lg font-bold text-slate-900">
+                  ₦
+                  {(
+                    Number(receiveForm.quantity || 0) *
+                    Number(receiveForm.unit_purchase_cost || 0)
+                  ).toLocaleString("en-NG", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+              </div>
+
               <Field
                 label="Supplier"
                 value={receiveForm.supplier}

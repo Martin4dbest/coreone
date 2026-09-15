@@ -29,10 +29,16 @@ interface DistributionRecord {
   classroom_id?: number | null;
   class_name: string;
   quantity_issued: number;
+  unit_selling_price?: number | null;
+  total_selling_amount?: number | null;
   student_count?: number | null;
   date_received: string;
+  issued_at?: string | null;
   issued_by?: number | null;
   issued_by_name: string;
+  issued_by_role?: string | null;
+  condition_at_issue?: string | null;
+  status?: string | null;
   notes?: string | null;
 }
 
@@ -242,8 +248,14 @@ export default function SchoolBookDistributionRecordsPage() {
       "Book",
       "Class",
       "Quantity",
-      "Date Received",
+      "Unit Selling Price",
+      "Total Amount",
+      "Date",
+      "Time",
       "Issued By",
+      "Role",
+      "Condition",
+      "Status",
     ];
 
     const rows = filteredRecords.map(
@@ -253,8 +265,18 @@ export default function SchoolBookDistributionRecordsPage() {
         record.book_name,
         record.class_name,
         String(record.quantity_issued),
-        formatDateTime(record.date_received),
+        String(record.unit_selling_price ?? 0),
+        String(record.total_selling_amount ?? 0),
+        record.date_received
+          ? formatDate(record.date_received)
+          : "",
+        record.issued_at
+          ? formatDateTime(record.issued_at)
+          : formatDateTime(record.date_received),
         record.issued_by_name,
+        record.issued_by_role || "",
+        record.condition_at_issue || "",
+        record.status || "",
       ]
     );
 
@@ -340,10 +362,9 @@ export default function SchoolBookDistributionRecordsPage() {
               </h1>
 
               <p className="mt-2 max-w-3xl text-sm leading-6 text-white/75">
-                Complete history of physical school books
-                distributed to students, including the
-                student, class, date received and account
-                that issued the book.
+                Complete history of school books issued to
+                students, including quantity, selling amount,
+                date, time, issuing staff, condition and status.
               </p>
             </div>
 
@@ -603,11 +624,35 @@ export default function SchoolBookDistributionRecordsPage() {
                     </th>
 
                     <th className="px-5 py-4">
-                      Date Received
+                      Unit Selling Price
+                    </th>
+
+                    <th className="px-5 py-4">
+                      Total Amount
+                    </th>
+
+                    <th className="px-5 py-4">
+                      Date
+                    </th>
+
+                    <th className="px-5 py-4">
+                      Time
                     </th>
 
                     <th className="px-5 py-4">
                       Issued By
+                    </th>
+
+                    <th className="px-5 py-4">
+                      Role
+                    </th>
+
+                    <th className="px-5 py-4">
+                      Condition
+                    </th>
+
+                    <th className="px-5 py-4">
+                      Status
                     </th>
                   </tr>
                 </thead>
@@ -691,6 +736,26 @@ export default function SchoolBookDistributionRecordsPage() {
                         </span>
                       </td>
 
+                      <td className="px-5 py-4 text-sm font-semibold text-slate-700">
+                        ₦
+                        {Number(
+                          record.unit_selling_price || 0
+                        ).toLocaleString("en-NG", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </td>
+
+                      <td className="px-5 py-4 text-sm font-bold text-slate-900">
+                        ₦
+                        {Number(
+                          record.total_selling_amount || 0
+                        ).toLocaleString("en-NG", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </td>
+
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2 text-sm text-slate-600">
                           <CalendarDays
@@ -699,17 +764,23 @@ export default function SchoolBookDistributionRecordsPage() {
                           />
 
                           <span>
-                            {formatDate(
-                              record.date_received
-                            )}
+                            {formatDate(record.date_received)}
                           </span>
                         </div>
+                      </td>
 
-                        <p className="mt-1 text-xs text-slate-400">
-                          {formatDateTime(
-                            record.date_received
-                          )}
-                        </p>
+                      <td className="px-5 py-4 text-sm text-slate-600">
+                        {record.issued_at
+                          ? new Date(
+                              record.issued_at
+                            ).toLocaleTimeString(
+                              "en-NG",
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )
+                          : "—"}
                       </td>
 
                       <td className="px-5 py-4">
@@ -722,6 +793,20 @@ export default function SchoolBookDistributionRecordsPage() {
                             Account #{record.issued_by}
                           </p>
                         )}
+                      </td>
+
+                      <td className="px-5 py-4 text-sm text-slate-600">
+                        {record.issued_by_role || "—"}
+                      </td>
+
+                      <td className="px-5 py-4 text-sm text-slate-600">
+                        {record.condition_at_issue || "—"}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                          {record.status || "ISSUED"}
+                        </span>
                       </td>
                     </tr>
                   ))}

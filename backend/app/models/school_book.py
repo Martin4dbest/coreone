@@ -1,4 +1,6 @@
-from sqlalchemy import ForeignKey, Integer, String
+from decimal import Decimal
+
+from sqlalchemy import ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -39,6 +41,13 @@ class SchoolBook(Base, BaseModel, SchoolMixin):
         Integer,
         nullable=False,
         default=1,
+    )
+
+    selling_price: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+        server_default="0",
     )
 
     is_active: Mapped[bool] = mapped_column(

@@ -115,18 +115,15 @@ class ParentBookHistoryResponse(BaseModel):
     book_reference: str | None = None
     isbn: str | None = None
 
+    unit_selling_price: Decimal | None = None
+    total_selling_amount: Decimal | None = None
+
     issued_at: str | None = None
     issued_by: str | None = None
     issued_by_role: str | None = None
     condition_at_issue: str | None = None
 
     status: str
-
-    returned_at: str | None = None
-    returned_by: str | None = None
-    returned_by_role: str | None = None
-    return_condition: str | None = None
-    return_remarks: str | None = None
 
     inventory_status: str
     notes: str | None = None

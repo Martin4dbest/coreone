@@ -1,6 +1,7 @@
 from datetime import date, datetime
+from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, Text, String
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, Text, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_model import BaseModel
@@ -26,6 +27,20 @@ class SchoolBookReceipt(Base, BaseModel, SchoolMixin):
     quantity_received: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
+    )
+
+    unit_purchase_cost: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+        server_default="0",
+    )
+
+    total_purchase_cost: Mapped[Decimal] = mapped_column(
+        Numeric(14, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+        server_default="0",
     )
 
     date_received: Mapped[date] = mapped_column(
@@ -135,6 +150,20 @@ class SchoolBookDistributionStudent(Base, BaseModel, SchoolMixin):
         Integer,
         nullable=False,
         server_default="1",
+    )
+
+    unit_selling_price: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+        server_default="0",
+    )
+
+    total_selling_amount: Mapped[Decimal] = mapped_column(
+        Numeric(14, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+        server_default="0",
     )
 
     issued_at: Mapped[datetime | None] = mapped_column(

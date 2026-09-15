@@ -1237,32 +1237,6 @@ class ParentService:
 
         books = []
 
-        # Resolve returner users separately so a deleted user does
-        # not prevent the original issue record from being shown.
-        returner_ids = {
-            record.returned_by
-            for record, _, _, _ in rows
-            if record.returned_by is not None
-        }
-
-        returners = {}
-
-        if returner_ids:
-            returner_result = await self.db.execute(
-                select(User)
-                .options(
-                    selectinload(User.staff),
-                    selectinload(User.role),
-                )
-                .where(
-                    User.id.in_(returner_ids)
-                )
-            )
-            returners = {
-                user.id: user
-                for user in returner_result.scalars().all()
-            }
-
         for record, distribution, book, issuer in rows:
             issuer_name = None
             issuer_role = None
@@ -1278,29 +1252,6 @@ class ParentService:
                 issuer_role = (
                     issuer.role.name
                     if issuer.role is not None
-                    else None
-                )
-
-            returner = (
-                returners.get(record.returned_by)
-                if record.returned_by is not None
-                else None
-            )
-
-            returner_name = None
-            returner_role = None
-
-            if returner is not None:
-                returner_name = (
-                    f"{returner.staff.first_name} "
-                    f"{returner.staff.last_name}"
-                    if returner.staff is not None
-                    else returner.email
-                )
-                returner_name = returner_name.strip()
-                returner_role = (
-                    returner.role.name
-                    if returner.role is not None
                     else None
                 )
 
@@ -1322,6 +1273,8 @@ class ParentService:
                     book_reference=book.uuid
                     and str(book.uuid),
                     isbn=book.isbn,
+                    unit_selling_price=record.unit_selling_price,
+                    total_selling_amount=record.total_selling_amount,
                     issued_at=(
                         record.issued_at.isoformat()
                         if record.issued_at
@@ -1333,15 +1286,6 @@ class ParentService:
                         record.condition_at_issue
                     ),
                     status=record.status,
-                    returned_at=(
-                        record.returned_at.isoformat()
-                        if record.returned_at
-                        else None
-                    ),
-                    returned_by=returner_name,
-                    returned_by_role=returner_role,
-                    return_condition=record.return_condition,
-                    return_remarks=record.return_remarks,
                     inventory_status=(
                         "RETURNED TO INVENTORY"
                         if record.status == "RETURNED"
@@ -1483,36 +1427,6 @@ class ParentService:
                 else None
             )
 
-        returner = None
-
-        if record.returned_by is not None:
-            returner_result = await self.db.execute(
-                select(User)
-                .options(
-                    selectinload(User.staff),
-                    selectinload(User.role),
-                )
-                .where(User.id == record.returned_by)
-            )
-            returner = returner_result.scalar_one_or_none()
-
-        returner_name = None
-        returner_role = None
-
-        if returner is not None:
-            returner_name = (
-                f"{returner.staff.first_name} "
-                f"{returner.staff.last_name}"
-                if returner.staff is not None
-                else returner.email
-            )
-            returner_name = returner_name.strip()
-            returner_role = (
-                returner.role.name
-                if returner.role is not None
-                else None
-            )
-
         return ParentBookHistoryResponse(
             id=record.id,
             transaction_id=str(record.uuid),
@@ -1533,6 +1447,8 @@ class ParentService:
                 else None
             ),
             isbn=book.isbn,
+            unit_selling_price=record.unit_selling_price,
+            total_selling_amount=record.total_selling_amount,
             issued_at=(
                 record.issued_at.isoformat()
                 if record.issued_at
@@ -1542,15 +1458,6 @@ class ParentService:
             issued_by_role=issuer_role,
             condition_at_issue=record.condition_at_issue,
             status=record.status,
-            returned_at=(
-                record.returned_at.isoformat()
-                if record.returned_at
-                else None
-            ),
-            returned_by=returner_name,
-            returned_by_role=returner_role,
-            return_condition=record.return_condition,
-            return_remarks=record.return_remarks,
             inventory_status=(
                 "RETURNED TO INVENTORY"
                 if record.status == "RETURNED"
