@@ -327,60 +327,6 @@ export default function ParentBookDetailScreen() {
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>
-              Return Details
-            </Text>
-
-            <DetailRow
-              icon="calendar-outline"
-              label="Return Date"
-              value={
-                book.returned_at
-                  ? formatDate(book.returned_at)
-                  : returned
-                    ? "Not recorded"
-                    : "Not yet returned"
-              }
-            />
-
-            <DetailRow
-              icon="time-outline"
-              label="Return Time"
-              value={
-                book.returned_at
-                  ? formatTime(book.returned_at)
-                  : returned
-                    ? "Not recorded"
-                    : "Not yet returned"
-              }
-            />
-
-            <DetailRow
-              icon="person-circle-outline"
-              label="Received By"
-              value={book.returned_by}
-            />
-
-            <DetailRow
-              icon="briefcase-outline"
-              label="Receiver Role"
-              value={book.returned_by_role}
-            />
-
-            <DetailRow
-              icon="shield-checkmark-outline"
-              label="Return Condition"
-              value={book.return_condition}
-            />
-
-            <DetailRow
-              icon="chatbubble-ellipses-outline"
-              label="Return Remarks"
-              value={book.return_remarks}
-            />
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>
               Inventory & Records
             </Text>
 
