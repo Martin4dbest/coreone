@@ -1213,10 +1213,7 @@ class ParentService:
                 User.id
                 == SchoolBookDistribution.issued_by,
             )
-            .options(
-                selectinload(User.staff),
-                selectinload(User.role),
-            )
+            .options()
             .where(
                 SchoolBookDistributionStudent.student_id
                 == student_id,
@@ -1242,18 +1239,7 @@ class ParentService:
             issuer_role = None
 
             if issuer is not None:
-                issuer_name = (
-                    f"{issuer.staff.first_name} "
-                    f"{issuer.staff.last_name}"
-                    if issuer.staff is not None
-                    else issuer.email
-                )
-                issuer_name = issuer_name.strip()
-                issuer_role = (
-                    issuer.role.name
-                    if issuer.role is not None
-                    else None
-                )
+                issuer_name = issuer.email
 
             books.append(
                 ParentBookHistoryResponse(
@@ -1375,10 +1361,7 @@ class ParentService:
                 User,
                 User.id == SchoolBookDistribution.issued_by,
             )
-            .options(
-                selectinload(User.staff),
-                selectinload(User.role),
-            )
+            .options()
             .where(
                 SchoolBookDistributionStudent.id
                 == distribution_student_id,
