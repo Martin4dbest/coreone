@@ -80,17 +80,29 @@ interface Receipt {
 
 interface Distribution {
   id: number;
-  school_book_id: number;
-  classroom_id: number;
+  distribution_id?: number | null;
+  record_type?: string | null;
+  school_book_id?: number | null;
+  book_id?: number | null;
+  book_name?: string | null;
+  student_id?: number | null;
+  student_name?: string | null;
+  admission_number?: string | null;
+  classroom_id?: number | null;
+  class_name?: string | null;
   quantity_issued: number;
-  student_count: number;
-  date_issued: string;
+  student_count?: number | null;
+  date_issued?: string | null;
+  date_received?: string | null;
+  issued_at?: string | null;
   issued_by?: number | null;
+  issued_by_name?: string | null;
+  issued_by_role?: string | null;
+  unit_selling_price?: number | null;
+  total_selling_amount?: number | null;
+  condition_at_issue?: string | null;
+  status?: string | null;
   notes?: string | null;
-  students?: Array<{
-    student_id: number;
-    quantity_issued: number;
-  }>;
 }
 
 type ModalType =
@@ -506,13 +518,22 @@ export default function SchoolBooksPage() {
         );
       } else {
         const response = await api.get(
-          `/school-books/${schoolId}/${book.id}/distributions/history`
+          `/school-books/${schoolId}/distribution-records`
         );
 
+        const records = Array.isArray(response.data)
+          ? response.data
+          : Array.isArray(response.data?.items)
+            ? response.data.items
+            : [];
+
         setDistributions(
-          Array.isArray(response.data)
-            ? response.data
-            : []
+          records.filter(
+            (record: Distribution) =>
+              record.record_type === "student" &&
+              Number(record.book_id ?? record.school_book_id) ===
+                Number(book.id)
+          )
         );
       }
     } catch (err: any) {
@@ -1795,7 +1816,6 @@ export default function SchoolBooksPage() {
           ) : (
             <DistributionHistory
               distributions={distributions}
-              classroomName={classroomName}
             />
           )}
         </Modal>
@@ -2215,70 +2235,97 @@ function ReceiptHistory({
 
 function DistributionHistory({
   distributions,
-  classroomName,
 }: {
   distributions: Distribution[];
-  classroomName: (id?: number | null) => string;
 }) {
   if (!distributions.length) {
     return (
       <HistoryEmpty
         icon={<ArrowUpFromLine size={26} />}
-        title="No distribution history"
-        text="Book issues to classrooms will appear here."
+        title="No students have received this book"
+        text="Students who receive this book will appear here."
       />
     );
   }
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200">
-      <table className="w-full min-w-[800px]">
+      <table className="w-full min-w-[1400px]">
         <thead className="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
           <tr>
+            <th className="px-4 py-3">Student</th>
+            <th className="px-4 py-3">Admission No.</th>
+            <th className="px-4 py-3">Class</th>
+            <th className="px-4 py-3">Qty</th>
             <th className="px-4 py-3">Date</th>
-            <th className="px-4 py-3">Classroom</th>
-            <th className="px-4 py-3">Copies</th>
-            <th className="px-4 py-3">Students</th>
-            <th className="px-4 py-3">Notes</th>
+            <th className="px-4 py-3">Time</th>
+            <th className="px-4 py-3">Issued By</th>
+            <th className="px-4 py-3">Role</th>
+            <th className="px-4 py-3">Selling Price</th>
+            <th className="px-4 py-3">Condition</th>
+            <th className="px-4 py-3">Status</th>
           </tr>
         </thead>
 
         <tbody className="divide-y divide-slate-100">
-          {distributions.map((distribution) => (
-            <tr key={distribution.id}>
-              <td className="px-4 py-4 text-sm text-slate-600">
-                <span className="inline-flex items-center gap-2">
-                  <Clock3
-                    size={15}
-                    className="text-slate-400"
-                  />
-                  {formatDate(distribution.date_issued)}
-                </span>
-              </td>
+          {distributions.map((distribution) => {
+            const issuedAt =
+              distribution.issued_at ||
+              distribution.date_received ||
+              distribution.date_issued;
 
-              <td className="px-4 py-4 text-sm font-semibold text-slate-700">
-                {classroomName(
-                  distribution.classroom_id
-                )}
-              </td>
+            return (
+              <tr key={distribution.id} className="hover:bg-slate-50">
+                <td className="px-4 py-4 text-sm font-semibold text-slate-800">
+                  {distribution.student_name || "—"}
+                </td>
 
-              <td className="px-4 py-4">
-                <span className="rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-700">
-                  -{distribution.quantity_issued}
-                </span>
-              </td>
+                <td className="px-4 py-4 text-sm text-slate-600">
+                  {distribution.admission_number || "—"}
+                </td>
 
-              <td className="px-4 py-4">
-                <span className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-600">
-                  {distribution.student_count}
-                </span>
-              </td>
+                <td className="px-4 py-4 text-sm text-slate-600">
+                  {distribution.class_name || "Unassigned"}
+                </td>
 
-              <td className="max-w-xs px-4 py-4 text-sm text-slate-500">
-                {distribution.notes || "—"}
-              </td>
-            </tr>
-          ))}
+                <td className="px-4 py-4">
+                  <span className="rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-700">
+                    {distribution.quantity_issued}
+                  </span>
+                </td>
+
+                <td className="px-4 py-4 text-sm text-slate-600">
+                  {formatDate(issuedAt)}
+                </td>
+
+                <td className="px-4 py-4 text-sm text-slate-600">
+                  {formatTime(issuedAt)}
+                </td>
+
+                <td className="px-4 py-4 text-sm font-medium text-slate-700">
+                  {distribution.issued_by_name || "—"}
+                </td>
+
+                <td className="px-4 py-4 text-sm text-slate-500">
+                  {distribution.issued_by_role || "—"}
+                </td>
+
+                <td className="px-4 py-4 text-sm font-semibold text-slate-700">
+                  {formatMoney(distribution.unit_selling_price)}
+                </td>
+
+                <td className="px-4 py-4 text-sm text-slate-600">
+                  {distribution.condition_at_issue || "—"}
+                </td>
+
+                <td className="px-4 py-4">
+                  <span className="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700">
+                    {distribution.status || "ISSUED"}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -2321,4 +2368,27 @@ function formatDate(value?: string | null) {
     month: "short",
     year: "numeric",
   });
+}
+
+function formatTime(value?: string | null) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return date.toLocaleTimeString("en-NG", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function formatMoney(value?: number | null) {
+  if (value === null || value === undefined) return "—";
+
+  return `NGN ${Number(value).toLocaleString("en-NG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
