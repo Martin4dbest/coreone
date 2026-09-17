@@ -1191,6 +1191,13 @@ class ParentService:
                 detail="Student school not found",
             )
 
+        classroom = None
+        if student.classroom_id:
+            classroom = await self.db.get(
+                Classroom,
+                student.classroom_id,
+            )
+
         result = await self.db.execute(
             select(
                 SchoolBookDistributionStudent,
@@ -1288,7 +1295,7 @@ class ParentService:
                 first_name=student.first_name,
                 last_name=student.last_name,
                 middle_name=student.middle_name,
-                class_name=None,
+                class_name=classroom.name if classroom else None,
                 school_name=school.name,
             ),
             books=books,
