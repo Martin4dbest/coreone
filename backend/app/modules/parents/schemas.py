@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -129,6 +130,15 @@ class ParentBookHistoryResponse(BaseModel):
     notes: str | None = None
 
 
+class ParentFeesStudentResponse(BaseModel):
+    id: int
+    admission_number: str
+    first_name: str
+    last_name: str
+    middle_name: str | None = None
+    class_name: str | None = None
+    school_name: str
+
 class ParentBookHistoryListResponse(BaseModel):
     student: ParentFeesStudentResponse
     books: list[ParentBookHistoryResponse] = Field(
@@ -218,16 +228,6 @@ class ParentInvoiceResponse(BaseModel):
     status: str
     items: list[ParentFeeItemResponse] = Field(default_factory=list)
     payments: list[ParentPaymentHistoryResponse] = Field(default_factory=list)
-
-
-class ParentFeesStudentResponse(BaseModel):
-    id: int
-    admission_number: str
-    first_name: str
-    last_name: str
-    middle_name: str | None = None
-    class_name: str | None = None
-    school_name: str
 
 
 class ParentFeesTotalsResponse(BaseModel):
