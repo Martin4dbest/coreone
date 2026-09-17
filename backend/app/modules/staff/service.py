@@ -165,6 +165,27 @@ class StaffService:
 
         return staff
 
+    async def delete_staff(
+        self,
+        staff_id: int,
+        current_user,
+    ):
+        staff = await self.get_staff_member(
+            staff_id,
+            current_user,
+        )
+
+        user = staff.user
+
+        await self.db.delete(staff)
+        await self.db.flush()
+
+        if user:
+            await self.db.delete(user)
+
+        await self.db.commit()
+
+
     async def set_staff_status(
         self,
         staff_id: int,

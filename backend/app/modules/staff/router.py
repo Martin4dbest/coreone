@@ -260,6 +260,23 @@ async def update_staff(
     )
 
 
+@router.delete(
+    "/{staff_id}",
+    status_code=204,
+)
+async def delete_staff(
+    staff_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
+    ),
+):
+    await StaffService(db).delete_staff(
+        staff_id,
+        current_user,
+    )
+
+
 @router.patch(
     "/{staff_id}/status",
     response_model=StaffStatusResponse,

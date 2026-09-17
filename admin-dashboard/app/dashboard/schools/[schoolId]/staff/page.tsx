@@ -13,6 +13,7 @@ import {
   Power,
   Mail,
   IdCard,
+  Trash2,
 } from "lucide-react";
 import api from "@/lib/api";
 
@@ -217,6 +218,29 @@ export default function Page({
       alert(
         error?.response?.data?.detail ||
           "Unable to update staff status."
+      );
+    }
+  }
+
+
+  async function deleteStaff(member: Staff) {
+    const confirmed = window.confirm(
+      `PERMANENTLY DELETE ${member.first_name} ${member.last_name}?\n\nThis will remove the staff account and staff record from the database. This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/staff/${member.id}`);
+
+      setSelectedStaff(null);
+      await loadStaff();
+    } catch (error: any) {
+      console.error("Failed to delete staff:", error);
+
+      alert(
+        error?.response?.data?.detail ||
+          "Unable to delete staff."
       );
     }
   }
@@ -725,6 +749,15 @@ export default function Page({
                 {selectedStaff.is_active
                   ? "Deactivate"
                   : "Activate"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => deleteStaff(selectedStaff)}
+                className="inline-flex items-center gap-2 rounded-xl bg-red-50 px-5 py-3 text-sm font-bold text-red-600 hover:bg-red-100"
+              >
+                <Trash2 size={16} />
+                Delete Staff
               </button>
 
               <button
