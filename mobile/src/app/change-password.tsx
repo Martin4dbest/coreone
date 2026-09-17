@@ -66,6 +66,8 @@ export default function ChangePassword() {
         router.replace("/parent/dashboard");
       } else if (user?.role === "STUDENT") {
         router.replace("/student/dashboard");
+      } else if (user?.role === "STAFF") {
+        router.replace("/staff/dashboard");
       } else {
         router.replace("/");
       }

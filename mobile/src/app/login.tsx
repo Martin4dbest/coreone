@@ -59,6 +59,8 @@ export default function Login() {
         router.replace("/student/dashboard");
       } else if (data?.user?.role === "PARENT") {
         router.replace("/parent/dashboard");
+      } else if (data?.user?.role === "STAFF") {
+        router.replace("/staff/dashboard");
       } else {
         router.replace("/");
       }
