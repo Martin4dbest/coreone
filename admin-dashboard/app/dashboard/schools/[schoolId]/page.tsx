@@ -585,9 +585,11 @@ function SectionTitle({
 function BarChart({
   values,
   labels,
+  primaryColor,
 }: {
   values: number[];
   labels: string[];
+  primaryColor: string;
 }) {
   const max = Math.max(...values, 1);
 
@@ -607,8 +609,11 @@ function BarChart({
 
             <div className="flex h-40 w-full items-end rounded-t-xl bg-slate-50">
               <div
-                className="w-full rounded-t-xl bg-gradient-to-t from-rose-500 to-orange-400 transition-all duration-700"
-                style={{ height: `${height}%` }}
+                className="w-full rounded-t-xl transition-all duration-700"
+                style={{
+                  height: `${height}%`,
+                  background: `linear-gradient(to top, ${primaryColor}, ${primaryColor}99)`,
+                }}
               />
             </div>
 
@@ -639,7 +644,7 @@ function Donut({
 
       const colour =
         segment.className.includes("rose")
-          ? "#f43f5e"
+          ? "primaryColor"
           : segment.className.includes("blue")
             ? "#3b82f6"
             : segment.className.includes("amber")
@@ -687,12 +692,43 @@ function Donut({
   );
 }
 
+
+function extractArray(value: any): any[] {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.items)) return value.items;
+  if (Array.isArray(value?.data)) return value.data;
+  if (Array.isArray(value?.results)) return value.results;
+  return [];
+}
+
+function normalizeGender(value: any): "male" | "female" | null {
+  const gender = String(value ?? "").trim().toLowerCase();
+
+  if (gender === "male" || gender === "m") return "male";
+  if (gender === "female" || gender === "f") return "female";
+
+  return null;
+}
+
+function getSchoolPrimaryColor(school: any): string {
+  return (
+    school?.school_branding?.primary_color ||
+    school?.school_branding?.primaryColor ||
+    school?.branding?.primary_color ||
+    school?.branding?.primaryColor ||
+    school?.primary_color ||
+    school?.primaryColor ||
+    "primaryColor"
+  );
+}
+
 export default function School360Dashboard() {
   const params = useParams();
   const schoolId = String(params?.schoolId ?? "");
 
   const [data, setData] = useState<DashboardData>(emptyData);
   const [school, setSchool] = useState<AnyRecord | null>(null);
+  const [primaryColor, setPrimaryColor] = useState("primaryColor");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -752,6 +788,26 @@ export default function School360Dashboard() {
 
       if (schoolResponse) {
         setSchool(schoolResponse);
+
+        const branding =
+          schoolResponse?.school_branding ??
+          schoolResponse?.branding ??
+          schoolResponse?.schoolBranding ??
+          {};
+
+        const brandPrimary =
+          branding?.primary_color ??
+          branding?.primaryColor ??
+          schoolResponse?.primary_color ??
+          schoolResponse?.primaryColor ??
+          "primaryColor";
+
+        if (
+          typeof brandPrimary === "string" &&
+          /^#[0-9a-fA-F]{6}$/.test(brandPrimary.trim())
+        ) {
+          setPrimaryColor(brandPrimary.trim());
+        }
       }
 
       const peopleResponses = successful.map((item: any) => {
@@ -819,11 +875,59 @@ export default function School360Dashboard() {
           ),
       );
 
+      const rawStudentResponse = results[2]?.data ?? [];
+
+      const rawStudents = Array.isArray(rawStudentResponse)
+        ? rawStudentResponse
+        : arrayFrom(rawStudentResponse, [
+            "students",
+            "items",
+            "data",
+            "results",
+          ]);
+
+      const derivedMaleStudents = rawStudents.filter((student: AnyRecord) => {
+        const gender = String(
+          student?.gender ??
+            student?.sex ??
+            student?.student_gender ??
+            "",
+        )
+          .trim()
+          .toLowerCase();
+
+        return (
+          gender === "male" ||
+          gender === "m" ||
+          gender === "boy"
+        );
+      }).length;
+
+      const derivedFemaleStudents = rawStudents.filter(
+        (student: AnyRecord) => {
+          const gender = String(
+            student?.gender ??
+              student?.sex ??
+              student?.student_gender ??
+              "",
+          )
+            .trim()
+            .toLowerCase();
+
+          return (
+            gender === "female" ||
+            gender === "f" ||
+            gender === "girl"
+          );
+        },
+      ).length;
+
       const finalData: DashboardData = {
         ...extracted,
 
         students:
           extracted.students ||
+          rawStudents.length ||
           (Array.isArray(studentList) ? studentList.length : 0),
 
         teachers:
@@ -841,6 +945,9 @@ export default function School360Dashboard() {
         classes:
           extracted.classes ||
           (Array.isArray(classList) ? classList.length : 0),
+
+        maleStudents: derivedMaleStudents,
+        femaleStudents: derivedFemaleStudents,
       };
 
       if (
@@ -954,9 +1061,23 @@ export default function School360Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f8fc] pb-12">
+    <div
+      className="min-h-screen bg-[#f7f8fc] pb-12"
+      style={
+        {
+          "--school-primary": primaryColor,
+          "--school-primary-soft": `${primaryColor}18`,
+          "--school-primary-border": `${primaryColor}35`,
+        } as React.CSSProperties
+      }
+    >
       {/* HERO */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-5 py-8 text-white md:px-8">
+      <div
+        className="relative overflow-hidden px-5 py-8 text-white md:px-8"
+        style={{
+          background: `linear-gradient(135deg, ${primaryColor}, #111827 72%)`,
+        }}
+      >
         <div className="absolute -right-20 -top-32 h-80 w-80 rounded-full bg-rose-500/20 blur-3xl" />
         <div className="absolute -bottom-40 left-1/3 h-80 w-80 rounded-full bg-orange-400/10 blur-3xl" />
 
@@ -1085,6 +1206,7 @@ export default function School360Dashboard() {
             <BarChart
               values={data.monthlyStudents}
               labels={monthlyLabels}
+              primaryColor={primaryColor}
             />
           </div>
 
@@ -1159,8 +1281,11 @@ export default function School360Dashboard() {
 
               <div className="mt-7 h-3 overflow-hidden rounded-full bg-slate-100">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-700"
-                  style={{ width: `${attendanceRate}%` }}
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${attendanceRate}%`,
+                    background: primaryColor,
+                  }}
                 />
               </div>
 
@@ -1204,6 +1329,7 @@ export default function School360Dashboard() {
               <BarChart
                 values={data.monthlyAttendance}
                 labels={monthlyLabels}
+                primaryColor={primaryColor}
               />
             </div>
           </div>
@@ -1241,8 +1367,11 @@ export default function School360Dashboard() {
 
               <div className="mt-7 h-4 overflow-hidden rounded-full bg-slate-100">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-700"
-                  style={{ width: `${feeRate}%` }}
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${feeRate}%`,
+                    background: primaryColor,
+                  }}
                 />
               </div>
 
@@ -1488,12 +1617,13 @@ export default function School360Dashboard() {
 
                         <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-rose-500 to-orange-400"
+                            className="h-full rounded-full"
                             style={{
                               width: `${Math.max(
                                 4,
                                 (item.value / max) * 100,
                               )}%`,
+                              background: primaryColor,
                             }}
                           />
                         </div>
@@ -1651,9 +1781,10 @@ export default function School360Dashboard() {
 
                   <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
                     <div
-                      className="h-full rounded-full bg-slate-800 transition-all duration-700"
+                      className="h-full rounded-full transition-all duration-700"
                       style={{
                         width: `${Math.max(2, share)}%`,
+                        background: primaryColor,
                       }}
                     />
                   </div>
@@ -1664,7 +1795,12 @@ export default function School360Dashboard() {
         </section>
 
         {/* EXECUTIVE SUMMARY */}
-        <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-rose-500 via-rose-600 to-orange-500 p-6 text-white shadow-xl">
+        <section
+          className="overflow-hidden rounded-3xl p-6 text-white shadow-xl"
+          style={{
+            background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}CC, #111827)`,
+          }}
+        >
           <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
             <div>
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-white/70">
