@@ -110,7 +110,11 @@ export default function Page({
       setLoading(true);
       setError("");
 
-      const response = await api.get<Staff[]>("/staff");
+      const response = await api.get<Staff[]>("/staff", {
+        params: {
+          school_id: Number(schoolId),
+        },
+      });
       setStaff(response.data);
     } catch (error) {
       console.error("Failed to load staff:", error);

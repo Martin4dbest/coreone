@@ -67,7 +67,11 @@ export default function Page({
       setError("");
 
       const [staffResponse, attendanceResponse] = await Promise.all([
-        api.get<Staff[]>("/staff"),
+        api.get<Staff[]>("/staff", {
+          params: {
+            school_id: Number(schoolId),
+          },
+        }),
         api.get<Attendance[]>("/staff/attendance", {
           params: {
             attendance_date: selectedDate,

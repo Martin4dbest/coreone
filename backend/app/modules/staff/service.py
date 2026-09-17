@@ -43,7 +43,8 @@ class StaffService:
             )
 
         existing_staff = await self.repository.get_by_employee_number(
-            payload.employee_number
+            payload.employee_number,
+            payload.school_id,
         )
 
         if existing_staff:
@@ -232,7 +233,8 @@ class StaffService:
                 )
 
             existing_staff = await self.repository.get_by_employee_number(
-                employee_number
+                employee_number,
+                school_id,
             )
 
             if existing_staff:
@@ -343,9 +345,25 @@ class StaffService:
     async def get_staff(
         self,
         current_user,
+        school_id: int | None = None,
     ):
+        if current_user.role.name == "SUPER_ADMIN":
+            if school_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="school_id is required when viewing staff for a school",
+                )
+
+            return await self.repository.get_all(school_id)
+
+        if school_id is not None and school_id != current_user.school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot view staff for another school",
+            )
+
         return await self.repository.get_all(
-            self._school_id(current_user)
+            current_user.school_id
         )
 
     async def get_staff_member(
@@ -379,7 +397,8 @@ class StaffService:
 
         if payload.employee_number is not None:
             existing = await self.repository.get_by_employee_number(
-                payload.employee_number
+                payload.employee_number,
+                staff.user.school_id,
             )
 
             if existing and existing.id != staff.id:

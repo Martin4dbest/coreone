@@ -66,13 +66,23 @@ class StaffRepository:
     async def get_by_employee_number(
         self,
         employee_number: str,
+        school_id: int | None = None,
     ):
-        result = await self.db.execute(
-            select(Staff).where(
+        query = (
+            select(Staff)
+            .join(Staff.user)
+            .options(selectinload(Staff.user))
+            .where(
                 Staff.employee_number == employee_number
             )
         )
 
+        if school_id is not None:
+            query = query.where(
+                User.school_id == school_id
+            )
+
+        result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
     async def create(self, staff: Staff):

@@ -1,0 +1,1921 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import {
+  Activity,
+  AlertCircle,
+  ArrowDownRight,
+  ArrowUpRight,
+  BookOpen,
+  BriefcaseBusiness,
+  CalendarCheck2,
+  ChevronRight,
+  CircleDollarSign,
+  GraduationCap,
+  HeartHandshake,
+  Loader2,
+  MoreHorizontal,
+  RefreshCw,
+  School,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  TrendingUp,
+  UserCheck,
+  UserRound,
+  Users,
+  Wallet,
+} from "lucide-react";
+import api from "@/lib/api";
+
+type AnyRecord = Record<string, any>;
+
+type DashboardData = {
+  students: number;
+  teachers: number;
+  staff: number;
+  parents: number;
+  classes: number;
+
+  maleStudents: number;
+  femaleStudents: number;
+
+  present: number;
+  absent: number;
+  late: number;
+
+  feesExpected: number;
+  feesPaid: number;
+  feesOutstanding: number;
+
+  booksIssued: number;
+  booksReturned: number;
+  booksOutstanding: number;
+
+  cbtExams: number;
+  cbtResults: number;
+  averageScore: number;
+
+  leavePending: number;
+  leaveApproved: number;
+
+  monthlyStudents: number[];
+  monthlyAttendance: number[];
+  classDistribution: { name: string; value: number }[];
+  departmentDistribution: { name: string; value: number }[];
+};
+
+const emptyData: DashboardData = {
+  students: 0,
+  teachers: 0,
+  staff: 0,
+  parents: 0,
+  classes: 0,
+
+  maleStudents: 0,
+  femaleStudents: 0,
+
+  present: 0,
+  absent: 0,
+  late: 0,
+
+  feesExpected: 0,
+  feesPaid: 0,
+  feesOutstanding: 0,
+
+  booksIssued: 0,
+  booksReturned: 0,
+  booksOutstanding: 0,
+
+  cbtExams: 0,
+  cbtResults: 0,
+  averageScore: 0,
+
+  leavePending: 0,
+  leaveApproved: 0,
+
+  monthlyStudents: [0, 0, 0, 0, 0, 0, 0],
+  monthlyAttendance: [0, 0, 0, 0, 0, 0, 0],
+
+  classDistribution: [],
+  departmentDistribution: [],
+};
+
+function number(value: any): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/[₦,\s%]/g, ""));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+function firstNumber(
+  source: AnyRecord,
+  keys: string[],
+  fallback = 0,
+): number {
+  for (const key of keys) {
+    if (source?.[key] !== undefined && source?.[key] !== null) {
+      return number(source[key]);
+    }
+  }
+
+  return fallback;
+}
+
+function arrayFrom(source: any, keys: string[]): any[] {
+  if (Array.isArray(source)) return source;
+
+  if (!source || typeof source !== "object") return [];
+
+  for (const key of keys) {
+    if (Array.isArray(source[key])) return source[key];
+  }
+
+  return [];
+}
+
+function currency(value: number) {
+  return `₦${Math.round(value).toLocaleString("en-NG")}`;
+}
+
+function percentage(value: number, total: number) {
+  if (!total) return 0;
+  return Math.round((value / total) * 100);
+}
+
+function safeLabel(value: any, fallback: string) {
+  if (value === undefined || value === null || value === "") return fallback;
+  return String(value);
+}
+
+function extractDashboard(
+  responses: AnyRecord[],
+): DashboardData {
+  const merged: AnyRecord = {};
+
+  for (const response of responses) {
+    if (!response || typeof response !== "object") continue;
+
+    Object.assign(merged, response);
+
+    if (response.data && typeof response.data === "object") {
+      Object.assign(merged, response.data);
+    }
+
+    if (response.summary && typeof response.summary === "object") {
+      Object.assign(merged, response.summary);
+    }
+
+    if (response.statistics && typeof response.statistics === "object") {
+      Object.assign(merged, response.statistics);
+    }
+
+    if (response.analytics && typeof response.analytics === "object") {
+      Object.assign(merged, response.analytics);
+    }
+  }
+
+  const students = firstNumber(
+    merged,
+    [
+      "students",
+      "student_count",
+      "total_students",
+      "students_count",
+      "studentCount",
+    ],
+  );
+
+  const teachers = firstNumber(
+    merged,
+    [
+      "teachers",
+      "teacher_count",
+      "total_teachers",
+      "teachers_count",
+      "teacherCount",
+    ],
+  );
+
+  const staff = firstNumber(
+    merged,
+    [
+      "staff",
+      "staff_count",
+      "total_staff",
+      "staff_count_total",
+    ],
+  );
+
+  const parents = firstNumber(
+    merged,
+    [
+      "parents",
+      "parent_count",
+      "total_parents",
+      "parents_count",
+    ],
+  );
+
+  const classes = firstNumber(
+    merged,
+    [
+      "classes",
+      "class_count",
+      "total_classes",
+      "classrooms",
+    ],
+  );
+
+  const maleStudents = firstNumber(
+    merged,
+    [
+      "male_students",
+      "maleStudents",
+      "students_male",
+      "male_count",
+    ],
+  );
+
+  const femaleStudents = firstNumber(
+    merged,
+    [
+      "female_students",
+      "femaleStudents",
+      "students_female",
+      "female_count",
+    ],
+  );
+
+  const present = firstNumber(
+    merged,
+    [
+      "present",
+      "present_count",
+      "students_present",
+      "attendance_present",
+    ],
+  );
+
+  const absent = firstNumber(
+    merged,
+    [
+      "absent",
+      "absent_count",
+      "students_absent",
+      "attendance_absent",
+    ],
+  );
+
+  const late = firstNumber(
+    merged,
+    [
+      "late",
+      "late_count",
+      "students_late",
+      "attendance_late",
+    ],
+  );
+
+  const feesExpected = firstNumber(
+    merged,
+    [
+      "fees_expected",
+      "expected_fees",
+      "total_expected",
+      "total_fee_expected",
+      "fee_expected",
+    ],
+  );
+
+  const feesPaid = firstNumber(
+    merged,
+    [
+      "fees_paid",
+      "paid_fees",
+      "total_paid",
+      "total_fee_paid",
+      "fee_paid",
+    ],
+  );
+
+  const feesOutstanding = firstNumber(
+    merged,
+    [
+      "fees_outstanding",
+      "outstanding_fees",
+      "total_outstanding",
+      "balance",
+      "fee_outstanding",
+    ],
+    Math.max(0, feesExpected - feesPaid),
+  );
+
+  const booksIssued = firstNumber(
+    merged,
+    [
+      "books_issued",
+      "issued_books",
+      "total_books_issued",
+    ],
+  );
+
+  const booksReturned = firstNumber(
+    merged,
+    [
+      "books_returned",
+      "returned_books",
+      "total_books_returned",
+    ],
+  );
+
+  const booksOutstanding = firstNumber(
+    merged,
+    [
+      "books_outstanding",
+      "outstanding_books",
+      "total_books_outstanding",
+    ],
+    Math.max(0, booksIssued - booksReturned),
+  );
+
+  const cbtExams = firstNumber(
+    merged,
+    [
+      "cbt_exams",
+      "total_cbt_exams",
+      "exams",
+      "exam_count",
+    ],
+  );
+
+  const cbtResults = firstNumber(
+    merged,
+    [
+      "cbt_results",
+      "total_cbt_results",
+      "results",
+      "result_count",
+    ],
+  );
+
+  const averageScore = firstNumber(
+    merged,
+    [
+      "average_score",
+      "avg_score",
+      "averageScore",
+      "cbt_average",
+    ],
+  );
+
+  const leavePending = firstNumber(
+    merged,
+    [
+      "leave_pending",
+      "pending_leave",
+      "pending_leaves",
+    ],
+  );
+
+  const leaveApproved = firstNumber(
+    merged,
+    [
+      "leave_approved",
+      "approved_leave",
+      "approved_leaves",
+    ],
+  );
+
+  const monthlyStudentsRaw = arrayFrom(
+    merged,
+    [
+      "monthly_students",
+      "student_growth",
+      "students_growth",
+    ],
+  );
+
+  const monthlyAttendanceRaw = arrayFrom(
+    merged,
+    [
+      "monthly_attendance",
+      "attendance_trend",
+      "attendance_growth",
+    ],
+  );
+
+  const classRaw = arrayFrom(
+    merged,
+    [
+      "class_distribution",
+      "students_by_class",
+      "class_counts",
+    ],
+  );
+
+  const departmentRaw = arrayFrom(
+    merged,
+    [
+      "department_distribution",
+      "students_by_department",
+      "department_counts",
+    ],
+  );
+
+  return {
+    students,
+    teachers,
+    staff,
+    parents,
+    classes,
+
+    maleStudents,
+    femaleStudents,
+
+    present,
+    absent,
+    late,
+
+    feesExpected,
+    feesPaid,
+    feesOutstanding,
+
+    booksIssued,
+    booksReturned,
+    booksOutstanding,
+
+    cbtExams,
+    cbtResults,
+    averageScore,
+
+    leavePending,
+    leaveApproved,
+
+    monthlyStudents:
+      monthlyStudentsRaw.length > 0
+        ? monthlyStudentsRaw.map((item) =>
+            typeof item === "object"
+              ? firstNumber(item, ["value", "count", "students", "total"])
+              : number(item),
+          )
+        : emptyData.monthlyStudents,
+
+    monthlyAttendance:
+      monthlyAttendanceRaw.length > 0
+        ? monthlyAttendanceRaw.map((item) =>
+            typeof item === "object"
+              ? firstNumber(item, ["value", "count", "percentage", "attendance"])
+              : number(item),
+          )
+        : emptyData.monthlyAttendance,
+
+    classDistribution: classRaw.map((item: any, index: number) => ({
+      name: safeLabel(
+        item?.name ??
+          item?.class_name ??
+          item?.classroom_name ??
+          item?.label,
+        `Class ${index + 1}`,
+      ),
+      value: number(
+        item?.value ??
+          item?.count ??
+          item?.students ??
+          item?.student_count,
+      ),
+    })),
+
+    departmentDistribution: departmentRaw.map((item: any, index: number) => ({
+      name: safeLabel(
+        item?.name ??
+          item?.department ??
+          item?.label,
+        `Department ${index + 1}`,
+      ),
+      value: number(
+        item?.value ??
+          item?.count ??
+          item?.students ??
+          item?.student_count,
+      ),
+    })),
+  };
+}
+
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  description,
+  trend,
+  iconClass,
+}: {
+  title: string;
+  value: string | number;
+  icon: any;
+  description: string;
+  trend?: string;
+  iconClass: string;
+}) {
+  return (
+    <div className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+      <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-slate-50 transition-transform duration-500 group-hover:scale-150" />
+
+      <div className="relative flex items-start justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-500">{title}</p>
+
+          <p className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+            {value}
+          </p>
+
+          <div className="mt-2 flex items-center gap-2">
+            {trend && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-600">
+                <ArrowUpRight size={12} />
+                {trend}
+              </span>
+            )}
+
+            <span className="text-xs text-slate-400">
+              {description}
+            </span>
+          </div>
+        </div>
+
+        <div
+          className={`flex h-12 w-12 items-center justify-center rounded-2xl ${iconClass}`}
+        >
+          <Icon size={23} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: any;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="mb-5 flex items-center gap-3">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+        <Icon size={19} />
+      </div>
+
+      <div>
+        <h2 className="text-lg font-black text-slate-900">{title}</h2>
+        <p className="text-xs text-slate-400">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function BarChart({
+  values,
+  labels,
+  primaryColor,
+}: {
+  values: number[];
+  labels: string[];
+  primaryColor: string;
+}) {
+  const max = Math.max(...values, 1);
+
+  return (
+    <div className="flex h-56 items-end gap-3">
+      {values.map((value, index) => {
+        const height = Math.max(5, (value / max) * 100);
+
+        return (
+          <div
+            key={`${labels[index]}-${index}`}
+            className="flex h-full flex-1 flex-col items-center justify-end gap-2"
+          >
+            <div className="text-[10px] font-bold text-slate-500">
+              {value}
+            </div>
+
+            <div className="flex h-40 w-full items-end rounded-t-xl bg-slate-50">
+              <div
+                className="w-full rounded-t-xl transition-all duration-700"
+                style={{
+                  height: `${height}%`,
+                  background: `linear-gradient(to top, ${primaryColor}, ${primaryColor}99)`,
+                }}
+              />
+            </div>
+
+            <span className="text-[10px] font-semibold text-slate-400">
+              {labels[index]}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Donut({
+  segments,
+  total,
+}: {
+  segments: { value: number; label: string; className: string }[];
+  total: number;
+}) {
+  let cursor = 0;
+
+  const gradient = segments
+    .map((segment) => {
+      const start = total ? (cursor / total) * 100 : 0;
+      cursor += segment.value;
+      const end = total ? (cursor / total) * 100 : 0;
+
+      const colour =
+        segment.className.includes("rose")
+          ? "#f43f5e"
+          : segment.className.includes("blue")
+            ? "#3b82f6"
+            : segment.className.includes("amber")
+              ? "#f59e0b"
+              : "#10b981";
+
+      return `${colour} ${start}% ${end}%`;
+    })
+    .join(", ");
+
+  return (
+    <div className="flex items-center gap-7">
+      <div
+        className="relative flex h-40 w-40 shrink-0 items-center justify-center rounded-full"
+        style={{
+          background: `conic-gradient(${gradient || "#e2e8f0 0% 100%"})`,
+        }}
+      >
+        <div className="flex h-24 w-24 flex-col items-center justify-center rounded-full bg-white shadow-inner">
+          <span className="text-2xl font-black text-slate-900">
+            {total}
+          </span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Total
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {segments.map((segment) => (
+          <div key={segment.label} className="flex items-center gap-2">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${segment.className}`}
+            />
+            <span className="text-xs font-semibold text-slate-600">
+              {segment.label}
+            </span>
+            <span className="text-xs font-black text-slate-900">
+              {segment.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function School360Dashboard() {
+  const params = useParams();
+  const schoolId = String(params?.schoolId ?? "");
+
+  const [data, setData] = useState<DashboardData>(emptyData);
+  const [school, setSchool] = useState<AnyRecord | null>(null);
+  const [primaryColor, setPrimaryColor] = useState("#f43f5e");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
+
+  async function loadDashboard(showRefresh = false) {
+    if (!schoolId) return;
+
+    if (showRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    setError("");
+
+    try {
+      const requests = [
+        api.get(`/dashboard?school_id=${schoolId}`).catch(() => null),
+
+        api.get(`/schools/${schoolId}`).catch(() => null),
+
+        api.get(`/students?school_id=${schoolId}`).catch(() => null),
+
+        api.get(`/teachers?school_id=${schoolId}`).catch(() => null),
+
+        api.get(`/staff?school_id=${schoolId}`).catch(() => null),
+
+        api.get(`/parents?school_id=${schoolId}`).catch(() => null),
+
+        api.get(`/classes?school_id=${schoolId}`).catch(() => null),
+
+        api.get(`/attendance?school_id=${schoolId}`).catch(() => null),
+
+        api.get(`/fees?school_id=${schoolId}`).catch(() => null),
+
+        api
+          .get(`/cbt/schools/${schoolId}/exams`)
+          .catch(() => null),
+
+        api
+          .get(`/cbt/schools/${schoolId}/results`)
+          .catch(() => null),
+
+        api
+          .get(`/cbt/results/dashboard?school_id=${schoolId}`)
+          .catch(() => null),
+      ];
+
+      const results = await Promise.all(requests);
+
+      const successful = results
+        .filter(Boolean)
+        .map((item: any) => item?.data ?? item)
+        .filter(Boolean);
+
+      const schoolResponse = results[1]?.data ?? null;
+
+      if (schoolResponse) {
+        setSchool(schoolResponse);
+
+        const branding =
+          schoolResponse?.school_branding ??
+          schoolResponse?.branding ??
+          schoolResponse?.schoolBranding ??
+          {};
+
+        const brandPrimary =
+          branding?.primary_color ??
+          branding?.primaryColor ??
+          schoolResponse?.primary_color ??
+          schoolResponse?.primaryColor ??
+          "#f43f5e";
+
+        if (
+          typeof brandPrimary === "string" &&
+          /^#[0-9a-fA-F]{6}$/.test(brandPrimary.trim())
+        ) {
+          setPrimaryColor(brandPrimary.trim());
+        }
+      }
+
+      const peopleResponses = successful.map((item: any) => {
+        if (Array.isArray(item)) {
+          return {
+            list: item,
+            count: item.length,
+          };
+        }
+
+        return item;
+      });
+
+      const extracted = extractDashboard(peopleResponses);
+
+      const studentList = successful.find(
+        (item: any) =>
+          Array.isArray(item) &&
+          item.some(
+            (row: any) =>
+              row?.student_id !== undefined ||
+              row?.studentId !== undefined ||
+              row?.admission_number !== undefined,
+          ),
+      );
+
+      const teacherList = successful.find(
+        (item: any) =>
+          Array.isArray(item) &&
+          item.some(
+            (row: any) =>
+              row?.teacher_id !== undefined ||
+              row?.teacherId !== undefined,
+          ),
+      );
+
+      const staffList = successful.find(
+        (item: any) =>
+          Array.isArray(item) &&
+          item.some(
+            (row: any) =>
+              row?.employee_number !== undefined ||
+              row?.job_title !== undefined,
+          ),
+      );
+
+      const parentList = successful.find(
+        (item: any) =>
+          Array.isArray(item) &&
+          item.some(
+            (row: any) =>
+              row?.parent_id !== undefined ||
+              row?.parentId !== undefined,
+          ),
+      );
+
+      const classList = successful.find(
+        (item: any) =>
+          Array.isArray(item) &&
+          item.some(
+            (row: any) =>
+              row?.class_name !== undefined ||
+              row?.classroom_name !== undefined ||
+              row?.level_id !== undefined,
+          ),
+      );
+
+      const rawStudentResponse = results[2]?.data ?? [];
+
+      const rawStudents = Array.isArray(rawStudentResponse)
+        ? rawStudentResponse
+        : arrayFrom(rawStudentResponse, [
+            "students",
+            "items",
+            "data",
+            "results",
+          ]);
+
+      const derivedMaleStudents = rawStudents.filter((student: AnyRecord) => {
+        const gender = String(
+          student?.gender ??
+            student?.sex ??
+            student?.student_gender ??
+            "",
+        )
+          .trim()
+          .toLowerCase();
+
+        return (
+          gender === "male" ||
+          gender === "m" ||
+          gender === "boy"
+        );
+      }).length;
+
+      const derivedFemaleStudents = rawStudents.filter(
+        (student: AnyRecord) => {
+          const gender = String(
+            student?.gender ??
+              student?.sex ??
+              student?.student_gender ??
+              "",
+          )
+            .trim()
+            .toLowerCase();
+
+          return (
+            gender === "female" ||
+            gender === "f" ||
+            gender === "girl"
+          );
+        },
+      ).length;
+
+      const finalData: DashboardData = {
+        ...extracted,
+
+        students:
+          extracted.students ||
+          rawStudents.length ||
+          (Array.isArray(studentList) ? studentList.length : 0),
+
+        teachers:
+          extracted.teachers ||
+          (Array.isArray(teacherList) ? teacherList.length : 0),
+
+        staff:
+          extracted.staff ||
+          (Array.isArray(staffList) ? staffList.length : 0),
+
+        parents:
+          extracted.parents ||
+          (Array.isArray(parentList) ? parentList.length : 0),
+
+        classes:
+          extracted.classes ||
+          (Array.isArray(classList) ? classList.length : 0),
+
+        maleStudents: derivedMaleStudents,
+        femaleStudents: derivedFemaleStudents,
+      };
+
+      if (
+        finalData.students === 0 &&
+        finalData.teachers === 0 &&
+        finalData.staff === 0 &&
+        finalData.parents === 0
+      ) {
+        setError(
+          "Some analytics endpoints did not return dashboard totals. The dashboard is ready and will populate automatically as the school data endpoints return records.",
+        );
+      }
+
+      setData(finalData);
+    } catch (err) {
+      console.error("School 360 dashboard error:", err);
+
+      setError(
+        "Unable to load some school analytics. Please refresh and try again.",
+      );
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => {
+    loadDashboard();
+  }, [schoolId]);
+
+  const totalAttendance =
+    data.present + data.absent + data.late;
+
+  const attendanceRate = percentage(
+    data.present,
+    totalAttendance,
+  );
+
+  const feeRate = percentage(
+    data.feesPaid,
+    data.feesExpected,
+  );
+
+  const bookReturnRate = percentage(
+    data.booksReturned,
+    data.booksIssued,
+  );
+
+  const maleFemaleTotal =
+    data.maleStudents + data.femaleStudents;
+
+  const malePercentage = percentage(
+    data.maleStudents,
+    maleFemaleTotal,
+  );
+
+  const femalePercentage = percentage(
+    data.femaleStudents,
+    maleFemaleTotal,
+  );
+
+  const monthlyLabels = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+  ];
+
+  const populationTotal =
+    data.students +
+    data.teachers +
+    data.staff +
+    data.parents;
+
+  const healthScore = useMemo(() => {
+    const attendancePart = attendanceRate;
+    const feePart = feeRate;
+    const bookPart = bookReturnRate;
+
+    return Math.round(
+      attendancePart * 0.45 +
+        feePart * 0.35 +
+        bookPart * 0.2,
+    );
+  }, [attendanceRate, feeRate, bookReturnRate]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50">
+            <Loader2
+              size={28}
+              className="animate-spin text-rose-500"
+            />
+          </div>
+
+          <p className="mt-4 text-sm font-bold text-slate-700">
+            Loading School 360° Intelligence...
+          </p>
+
+          <p className="mt-1 text-xs text-slate-400">
+            Preparing your school analytics
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="min-h-screen bg-[#f7f8fc] pb-12"
+      style={
+        {
+          "--school-primary": primaryColor,
+          "--school-primary-soft": `${primaryColor}18`,
+          "--school-primary-border": `${primaryColor}35`,
+        } as React.CSSProperties
+      }
+    >
+      {/* HERO */}
+      <div
+        className="relative overflow-hidden px-5 py-8 text-white md:px-8"
+        style={{
+          background: `linear-gradient(135deg, ${primaryColor}, #111827 72%)`,
+        }}
+      >
+        <div className="absolute -right-20 -top-32 h-80 w-80 rounded-full bg-rose-500/20 blur-3xl" />
+        <div className="absolute -bottom-40 left-1/3 h-80 w-80 rounded-full bg-orange-400/10 blur-3xl" />
+
+        <div className="relative mx-auto max-w-[1600px]">
+          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+            <div>
+              <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-rose-300">
+                <Sparkles size={15} />
+                CoreOne School Intelligence
+              </div>
+
+              <h1 className="text-3xl font-black tracking-tight md:text-4xl">
+                {school?.name || "School"} 360°
+              </h1>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+                A complete operational view of students, teachers,
+                staff, parents, academics, attendance, finance and
+                digital school activity.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  School Health
+                </p>
+
+                <div className="mt-1 flex items-center gap-2">
+                  <ShieldCheck size={18} className="text-emerald-400" />
+                  <span className="text-xl font-black">
+                    {healthScore}%
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => loadDashboard(true)}
+                disabled={refreshing}
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-bold backdrop-blur transition hover:bg-white/15 disabled:opacity-50"
+              >
+                <RefreshCw
+                  size={17}
+                  className={refreshing ? "animate-spin" : ""}
+                />
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+              <AlertCircle size={18} className="mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <main className="mx-auto max-w-[1600px] space-y-8 px-5 py-7 md:px-8">
+        {/* POPULATION */}
+        <section>
+          <SectionTitle
+            icon={Users}
+            title="School Population"
+            description="360° view of the people who make up the school community"
+          />
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <StatCard
+              title="Students"
+              value={data.students.toLocaleString()}
+              icon={GraduationCap}
+              description="enrolled students"
+              trend="Live"
+              iconClass="bg-rose-50 text-rose-500"
+            />
+
+            <StatCard
+              title="Teachers"
+              value={data.teachers.toLocaleString()}
+              icon={UserCheck}
+              description="teaching personnel"
+              trend="Live"
+              iconClass="bg-blue-50 text-blue-500"
+            />
+
+            <StatCard
+              title="Staff"
+              value={data.staff.toLocaleString()}
+              icon={BriefcaseBusiness}
+              description="non-teaching staff"
+              trend="Live"
+              iconClass="bg-violet-50 text-violet-500"
+            />
+
+            <StatCard
+              title="Parents"
+              value={data.parents.toLocaleString()}
+              icon={HeartHandshake}
+              description="registered parents"
+              trend="Live"
+              iconClass="bg-emerald-50 text-emerald-500"
+            />
+
+            <StatCard
+              title="Classes"
+              value={data.classes.toLocaleString()}
+              icon={School}
+              description="active classrooms"
+              iconClass="bg-orange-50 text-orange-500"
+            />
+          </div>
+        </section>
+
+        {/* GROWTH + GENDER */}
+        <section className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <SectionTitle
+              icon={TrendingUp}
+              title="Student Growth"
+              description="Population movement across the reporting period"
+            />
+
+            <BarChart
+              values={data.monthlyStudents}
+              labels={monthlyLabels}
+              primaryColor={primaryColor}
+            />
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <SectionTitle
+              icon={UserRound}
+              title="Student Gender Distribution"
+              description="Current student population composition"
+            />
+
+            <Donut
+              total={maleFemaleTotal}
+              segments={[
+                {
+                  value: data.maleStudents,
+                  label: `Male ${malePercentage}%`,
+                  className: "bg-blue-500",
+                },
+                {
+                  value: data.femaleStudents,
+                  label: `Female ${femalePercentage}%`,
+                  className: "bg-rose-500",
+                },
+              ]}
+            />
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-blue-50 p-4">
+                <p className="text-xs font-bold text-blue-500">MALE</p>
+                <p className="mt-1 text-2xl font-black text-blue-900">
+                  {data.maleStudents}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-rose-50 p-4">
+                <p className="text-xs font-bold text-rose-500">
+                  FEMALE
+                </p>
+                <p className="mt-1 text-2xl font-black text-rose-900">
+                  {data.femaleStudents}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ATTENDANCE */}
+        <section>
+          <SectionTitle
+            icon={CalendarCheck2}
+            title="Attendance Intelligence"
+            description="Monitor daily presence, absence and punctuality"
+          />
+
+          <div className="grid gap-6 xl:grid-cols-[1fr_1.6fr]">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Attendance Rate
+                  </p>
+
+                  <p className="mt-2 text-4xl font-black text-slate-900">
+                    {attendanceRate}%
+                  </p>
+                </div>
+
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
+                  <Target size={28} />
+                </div>
+              </div>
+
+              <div className="mt-7 h-3 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${attendanceRate}%`,
+                    background: primaryColor,
+                  }}
+                />
+              </div>
+
+              <div className="mt-6 grid grid-cols-3 gap-3">
+                <div className="rounded-2xl bg-emerald-50 p-3">
+                  <p className="text-[10px] font-bold text-emerald-600">
+                    PRESENT
+                  </p>
+                  <p className="mt-1 text-xl font-black text-emerald-900">
+                    {data.present}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-rose-50 p-3">
+                  <p className="text-[10px] font-bold text-rose-600">
+                    ABSENT
+                  </p>
+                  <p className="mt-1 text-xl font-black text-rose-900">
+                    {data.absent}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-amber-50 p-3">
+                  <p className="text-[10px] font-bold text-amber-600">
+                    LATE
+                  </p>
+                  <p className="mt-1 text-xl font-black text-amber-900">
+                    {data.late}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <SectionTitle
+                icon={Activity}
+                title="Attendance Trend"
+                description="Recent attendance movement"
+              />
+
+              <BarChart
+                values={data.monthlyAttendance}
+                labels={monthlyLabels}
+                primaryColor={primaryColor}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* FINANCE */}
+        <section>
+          <SectionTitle
+            icon={Wallet}
+            title="Financial Intelligence"
+            description="School fee collection and outstanding obligations"
+          />
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+              <div className="flex flex-col justify-between gap-5 md:flex-row">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Fee Collection
+                  </p>
+
+                  <p className="mt-2 text-4xl font-black text-slate-900">
+                    {feeRate}%
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-400">
+                    of expected fees collected
+                  </p>
+                </div>
+
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
+                  <CircleDollarSign size={30} />
+                </div>
+              </div>
+
+              <div className="mt-7 h-4 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${feeRate}%`,
+                    background: primaryColor,
+                  }}
+                />
+              </div>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-xs font-bold text-slate-400">
+                    EXPECTED
+                  </p>
+                  <p className="mt-1 text-lg font-black text-slate-900">
+                    {currency(data.feesExpected)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-emerald-50 p-4">
+                  <p className="text-xs font-bold text-emerald-600">
+                    COLLECTED
+                  </p>
+                  <p className="mt-1 text-lg font-black text-emerald-900">
+                    {currency(data.feesPaid)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-rose-50 p-4">
+                  <p className="text-xs font-bold text-rose-600">
+                    OUTSTANDING
+                  </p>
+                  <p className="mt-1 text-lg font-black text-rose-900">
+                    {currency(data.feesOutstanding)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-900 to-slate-800 p-6 text-white shadow-sm">
+              <div className="flex h-full flex-col justify-between">
+                <div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
+                    <CircleDollarSign size={24} />
+                  </div>
+
+                  <p className="mt-6 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Outstanding Fees
+                  </p>
+
+                  <p className="mt-2 text-3xl font-black">
+                    {currency(data.feesOutstanding)}
+                  </p>
+                </div>
+
+                <div className="mt-8 flex items-center justify-between border-t border-white/10 pt-4">
+                  <span className="text-xs text-slate-400">
+                    Collection efficiency
+                  </span>
+
+                  <span className="text-sm font-black text-emerald-400">
+                    {feeRate}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ACADEMICS */}
+        <section>
+          <SectionTitle
+            icon={GraduationCap}
+            title="Academic & CBT Intelligence"
+            description="Examinations, digital assessments and academic activity"
+          />
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              title="CBT Exams"
+              value={data.cbtExams}
+              icon={BookOpen}
+              description="created examinations"
+              iconClass="bg-violet-50 text-violet-500"
+            />
+
+            <StatCard
+              title="Results"
+              value={data.cbtResults}
+              icon={Activity}
+              description="recorded results"
+              iconClass="bg-blue-50 text-blue-500"
+            />
+
+            <StatCard
+              title="Average Score"
+              value={`${data.averageScore}%`}
+              icon={Target}
+              description="overall CBT average"
+              iconClass="bg-emerald-50 text-emerald-500"
+            />
+
+            <StatCard
+              title="Classes"
+              value={data.classes}
+              icon={School}
+              description="academic groups"
+              iconClass="bg-orange-50 text-orange-500"
+            />
+          </div>
+        </section>
+
+        {/* BOOKS + LEAVE */}
+        <section className="grid gap-6 xl:grid-cols-2">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <SectionTitle
+              icon={BookOpen}
+              title="School Books"
+              description="Book issue, return and outstanding inventory"
+            />
+
+            <div className="flex items-center gap-7">
+              <Donut
+                total={data.booksIssued}
+                segments={[
+                  {
+                    value: data.booksReturned,
+                    label: `Returned ${bookReturnRate}%`,
+                    className: "bg-emerald-500",
+                  },
+                  {
+                    value: data.booksOutstanding,
+                    label: "Outstanding",
+                    className: "bg-rose-500",
+                  },
+                ]}
+              />
+
+              <div className="flex-1 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <span className="text-sm text-slate-500">
+                    Books issued
+                  </span>
+                  <span className="font-black text-slate-900">
+                    {data.booksIssued}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <span className="text-sm text-slate-500">
+                    Books returned
+                  </span>
+                  <span className="font-black text-emerald-600">
+                    {data.booksReturned}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-500">
+                    Outstanding
+                  </span>
+                  <span className="font-black text-rose-600">
+                    {data.booksOutstanding}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <SectionTitle
+              icon={BriefcaseBusiness}
+              title="Staff Leave"
+              description="Current staff leave activity"
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-3xl bg-amber-50 p-5">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-amber-500 shadow-sm">
+                  <CalendarCheck2 size={22} />
+                </div>
+
+                <p className="mt-5 text-xs font-bold uppercase tracking-wider text-amber-600">
+                  Pending
+                </p>
+
+                <p className="mt-1 text-3xl font-black text-amber-950">
+                  {data.leavePending}
+                </p>
+
+                <p className="mt-1 text-xs text-amber-700">
+                  awaiting review
+                </p>
+              </div>
+
+              <div className="rounded-3xl bg-emerald-50 p-5">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-emerald-500 shadow-sm">
+                  <UserCheck size={22} />
+                </div>
+
+                <p className="mt-5 text-xs font-bold uppercase tracking-wider text-emerald-600">
+                  Approved
+                </p>
+
+                <p className="mt-1 text-3xl font-black text-emerald-950">
+                  {data.leaveApproved}
+                </p>
+
+                <p className="mt-1 text-xs text-emerald-700">
+                  approved requests
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CLASS / DEPARTMENT */}
+        <section className="grid gap-6 xl:grid-cols-2">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <SectionTitle
+              icon={School}
+              title="Students by Class"
+              description="Population distribution across classes"
+            />
+
+            {data.classDistribution.length > 0 ? (
+              <div className="space-y-4">
+                {data.classDistribution
+                  .slice(0, 10)
+                  .map((item, index) => {
+                    const max = Math.max(
+                      ...data.classDistribution.map(
+                        (row) => row.value,
+                      ),
+                      1,
+                    );
+
+                    return (
+                      <div key={`${item.name}-${index}`}>
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-600">
+                            {item.name}
+                          </span>
+
+                          <span className="text-xs font-black text-slate-900">
+                            {item.value}
+                          </span>
+                        </div>
+
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${Math.max(
+                                4,
+                                (item.value / max) * 100,
+                              )}%`,
+                              background: primaryColor,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            ) : (
+              <div className="flex min-h-48 items-center justify-center rounded-2xl bg-slate-50 text-center">
+                <div>
+                  <School
+                    size={28}
+                    className="mx-auto text-slate-300"
+                  />
+                  <p className="mt-3 text-sm font-bold text-slate-500">
+                    Class distribution will appear here
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Once class-level analytics are available
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <SectionTitle
+              icon={BriefcaseBusiness}
+              title="Department Distribution"
+              description="Population grouped by department"
+            />
+
+            {data.departmentDistribution.length > 0 ? (
+              <div className="space-y-4">
+                {data.departmentDistribution
+                  .slice(0, 10)
+                  .map((item, index) => {
+                    const max = Math.max(
+                      ...data.departmentDistribution.map(
+                        (row) => row.value,
+                      ),
+                      1,
+                    );
+
+                    return (
+                      <div key={`${item.name}-${index}`}>
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-600">
+                            {item.name}
+                          </span>
+
+                          <span className="text-xs font-black text-slate-900">
+                            {item.value}
+                          </span>
+                        </div>
+
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-blue-500 to-violet-500"
+                            style={{
+                              width: `${Math.max(
+                                4,
+                                (item.value / max) * 100,
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            ) : (
+              <div className="flex min-h-48 items-center justify-center rounded-2xl bg-slate-50 text-center">
+                <div>
+                  <BriefcaseBusiness
+                    size={28}
+                    className="mx-auto text-slate-300"
+                  />
+                  <p className="mt-3 text-sm font-bold text-slate-500">
+                    Department analytics will appear here
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Once department-level data is available
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* PEOPLE MIX */}
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <SectionTitle
+            icon={Users}
+            title="School Community Mix"
+            description="Relative size of the major school populations"
+          />
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                label: "Students",
+                value: data.students,
+                icon: GraduationCap,
+                className: "bg-rose-50 text-rose-500",
+              },
+              {
+                label: "Teachers",
+                value: data.teachers,
+                icon: UserCheck,
+                className: "bg-blue-50 text-blue-500",
+              },
+              {
+                label: "Staff",
+                value: data.staff,
+                icon: BriefcaseBusiness,
+                className: "bg-violet-50 text-violet-500",
+              },
+              {
+                label: "Parents",
+                value: data.parents,
+                icon: HeartHandshake,
+                className: "bg-emerald-50 text-emerald-500",
+              },
+            ].map((item) => {
+              const share = percentage(
+                item.value,
+                populationTotal,
+              );
+
+              return (
+                <div
+                  key={item.label}
+                  className="rounded-3xl border border-slate-100 bg-slate-50/70 p-5"
+                >
+                  <div className="flex items-center justify-between">
+                    <div
+                      className={`flex h-11 w-11 items-center justify-center rounded-2xl ${item.className}`}
+                    >
+                      <item.icon size={21} />
+                    </div>
+
+                    <span className="text-xs font-black text-slate-400">
+                      {share}%
+                    </span>
+                  </div>
+
+                  <p className="mt-5 text-sm font-semibold text-slate-500">
+                    {item.label}
+                  </p>
+
+                  <p className="mt-1 text-3xl font-black text-slate-900">
+                    {item.value.toLocaleString()}
+                  </p>
+
+                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${Math.max(2, share)}%`,
+                        background: primaryColor,
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* EXECUTIVE SUMMARY */}
+        <section
+          className="overflow-hidden rounded-3xl p-6 text-white shadow-xl"
+          style={{
+            background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}CC, #111827)`,
+          }}
+        >
+          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-white/70">
+                <Sparkles size={15} />
+                Executive Snapshot
+              </div>
+
+              <h2 className="mt-2 text-2xl font-black">
+                School performance at a glance
+              </h2>
+
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-white/80">
+                CoreOne brings together the major operational
+                indicators of the school into one management view,
+                helping the School Admin understand population,
+                attendance, academics, finance, books and staff
+                activity from one place.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                <p className="text-[10px] font-bold text-white/60">
+                  PEOPLE
+                </p>
+                <p className="mt-1 text-2xl font-black">
+                  {populationTotal.toLocaleString()}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                <p className="text-[10px] font-bold text-white/60">
+                  ATTENDANCE
+                </p>
+                <p className="mt-1 text-2xl font-black">
+                  {attendanceRate}%
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                <p className="text-[10px] font-bold text-white/60">
+                  FEES
+                </p>
+                <p className="mt-1 text-2xl font-black">
+                  {feeRate}%
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                <p className="text-[10px] font-bold text-white/60">
+                  CBT
+                </p>
+                <p className="mt-1 text-2xl font-black">
+                  {data.averageScore}%
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* QUICK NAV */}
+        <section>
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-black text-slate-900">
+                Explore School Intelligence
+              </h2>
+              <p className="text-xs text-slate-400">
+                Jump into detailed management areas
+              </p>
+            </div>
+
+            <MoreHorizontal
+              size={20}
+              className="text-slate-300"
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                title: "Students",
+                href: `/dashboard/schools/${schoolId}/students`,
+                icon: GraduationCap,
+              },
+              {
+                title: "Teachers",
+                href: `/dashboard/schools/${schoolId}/teachers`,
+                icon: UserCheck,
+              },
+              {
+                title: "Staff",
+                href: `/dashboard/schools/${schoolId}/staff`,
+                icon: BriefcaseBusiness,
+              },
+              {
+                title: "Parents",
+                href: `/dashboard/schools/${schoolId}/parents`,
+                icon: HeartHandshake,
+              },
+              {
+                title: "Attendance",
+                href: `/dashboard/schools/${schoolId}/attendance`,
+                icon: CalendarCheck2,
+              },
+              {
+                title: "Fees & Payments",
+                href: `/dashboard/schools/${schoolId}/school-fees`,
+                icon: Wallet,
+              },
+              {
+                title: "CBT Results",
+                href: `/dashboard/schools/${schoolId}/cbt/results`,
+                icon: Target,
+              },
+              {
+                title: "School Books",
+                href: `/dashboard/schools/${schoolId}/school-books`,
+                icon: BookOpen,
+              },
+            ].map((item) => (
+              <a
+                key={item.title}
+                href={item.href}
+                className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-md"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600 transition group-hover:bg-rose-50 group-hover:text-rose-500">
+                    <item.icon size={19} />
+                  </div>
+
+                  <span className="text-sm font-bold text-slate-700">
+                    {item.title}
+                  </span>
+                </div>
+
+                <ChevronRight
+                  size={17}
+                  className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-rose-400"
+                />
+              </a>
+            ))}
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}

@@ -233,13 +233,15 @@ async def create_staff(
     response_model=list[StaffResponse],
 )
 async def get_staff(
+    school_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(
         require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
     ),
 ):
     return await StaffService(db).get_staff(
-        current_user
+        current_user,
+        school_id,
     )
 
 
