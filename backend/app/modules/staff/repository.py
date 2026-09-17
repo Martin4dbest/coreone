@@ -79,4 +79,10 @@ class StaffRepository:
         self.db.add(staff)
         await self.db.commit()
         await self.db.refresh(staff)
-        return staff
+
+        result = await self.db.execute(
+            select(Staff)
+            .options(selectinload(Staff.user))
+            .where(Staff.id == staff.id)
+        )
+        return result.scalar_one()
