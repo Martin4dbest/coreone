@@ -50,6 +50,10 @@ async (config) => {
   console.log(config.method?.toUpperCase(), `${API_BASE_URL}${config.url}`);
   console.log("TOKEN:", token ? "FOUND" : "MISSING");
   console.log(
+    "AUTH HEADER:",
+    config.headers?.Authorization ? "SET" : "MISSING"
+  );
+  console.log(
     "TENANT:",
     tenantCode ? String(tenantCode).trim().toUpperCase() : "MISSING"
   );
