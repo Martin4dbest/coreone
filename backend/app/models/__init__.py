@@ -101,3 +101,7 @@ from app.models.payment import Payment
 
 # School payment configuration
 from app.models.school_payment_setting import SchoolPaymentSetting
+
+from app.models.staff_attendance import StaffAttendance
+
+from app.models.staff_leave import StaffLeave

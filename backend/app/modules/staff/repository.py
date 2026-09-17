@@ -49,6 +49,32 @@ class StaffRepository:
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
+    async def get_by_user_id(
+        self,
+        user_id: int,
+    ):
+        query = (
+            select(Staff)
+            .join(Staff.user)
+            .options(selectinload(Staff.user))
+            .where(User.id == user_id)
+        )
+
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def get_by_employee_number(
+        self,
+        employee_number: str,
+    ):
+        result = await self.db.execute(
+            select(Staff).where(
+                Staff.employee_number == employee_number
+            )
+        )
+
+        return result.scalar_one_or_none()
+
     async def create(self, staff: Staff):
         self.db.add(staff)
         await self.db.commit()

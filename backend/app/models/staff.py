@@ -28,3 +28,11 @@ class Staff(Base, BaseModel):
         "User",
         back_populates="staff",
     )
+
+    @property
+    def email(self) -> str:
+        return self.user.email if self.user else ""
+
+    @property
+    def is_active(self) -> bool:
+        return self.user.is_active if self.user else False
