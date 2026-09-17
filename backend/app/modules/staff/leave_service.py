@@ -17,7 +17,25 @@ class StaffLeaveService:
         self.db = db
         self.repository = StaffLeaveRepository(db)
 
-    def _school_id(self, current_user):
+    def _school_id(
+        self,
+        current_user,
+        school_id: int | None = None,
+    ):
+        if current_user.role.name == "SUPER_ADMIN":
+            if school_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="school_id is required.",
+                )
+            return school_id
+
+        if current_user.school_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User is not linked to a school.",
+            )
+
         return current_user.school_id
 
     async def _get_staff_for_user(self, current_user):
@@ -76,9 +94,16 @@ class StaffLeaveService:
             staff_id=staff.id,
         )
 
-    async def get_all(self, current_user):
+    async def get_all(
+        self,
+        current_user,
+        school_id: int | None = None,
+    ):
         return await self.repository.get_all(
-            school_id=self._school_id(current_user)
+            school_id=self._school_id(
+                current_user,
+                school_id,
+            )
         )
 
     async def review(

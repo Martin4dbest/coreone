@@ -30,9 +30,18 @@ class StaffAttendanceService:
         self.db = db
         self.repository = StaffAttendanceRepository(db)
 
-    async def _school_id(self, current_user):
+    async def _school_id(
+        self,
+        current_user,
+        school_id: int | None = None,
+    ):
         if current_user.role.name == "SUPER_ADMIN":
-            return current_user.school_id
+            if school_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="school_id is required.",
+                )
+            return school_id
 
         if current_user.school_id is None:
             raise HTTPException(
@@ -153,6 +162,7 @@ class StaffAttendanceService:
         current_user,
         staff_id: int | None = None,
         attendance_date: date | None = None,
+        school_id: int | None = None,
     ):
         if current_user.role.name not in {
             "SUPER_ADMIN",
@@ -163,8 +173,13 @@ class StaffAttendanceService:
                 detail="You are not permitted to view staff attendance.",
             )
 
+        resolved_school_id = await self._school_id(
+            current_user,
+            school_id,
+        )
+
         return await self.repository.get_all(
-            school_id=current_user.school_id,
+            school_id=resolved_school_id,
             staff_id=staff_id,
             attendance_date=attendance_date,
         )

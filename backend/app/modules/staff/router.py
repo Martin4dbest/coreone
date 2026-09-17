@@ -90,6 +90,7 @@ async def create_staff_attendance(
     response_model=list[StaffAttendanceResponse],
 )
 async def get_staff_attendance(
+    school_id: int | None = None,
     staff_id: int | None = None,
     attendance_date: date | None = None,
     db: AsyncSession = Depends(get_db),
@@ -104,6 +105,7 @@ async def get_staff_attendance(
         current_user,
         staff_id,
         attendance_date,
+        school_id,
     )
 
 
@@ -163,6 +165,7 @@ async def get_my_staff_leave(
     response_model=list[StaffLeaveResponse],
 )
 async def get_staff_leave(
+    school_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(
         require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
@@ -170,6 +173,7 @@ async def get_staff_leave(
 ):
     return await StaffLeaveService(db).get_all(
         current_user,
+        school_id,
     )
 
 
