@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -14,6 +14,7 @@ import {
   Mail,
   IdCard,
   Trash2,
+  Upload,
 } from "lucide-react";
 import api from "@/lib/api";
 
@@ -65,6 +66,10 @@ export default function Page({
 
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const emptyProfileForm = {
     first_name: "",
@@ -158,6 +163,57 @@ export default function Page({
 
     setEditingStaff(member);
     setSelectedStaff(null);
+  }
+
+  async function handleImportFile(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    setImporting(true);
+    setImportError("");
+
+    try {
+      const formData = new FormData();
+
+      formData.append("file", file);
+      formData.append("school_id", String(schoolId));
+
+      const response = await api.post<Staff[]>(
+        "/staff/import",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      setStaff((current) => [...current, ...response.data]);
+      setShowImportModal(false);
+
+      alert(
+        `${response.data.length} staff member(s) imported successfully.`
+      );
+    } catch (err: any) {
+      console.error("Staff import failed:", err);
+
+      const detail = err?.response?.data?.detail;
+
+      setImportError(
+        typeof detail === "string"
+          ? detail
+          : "Unable to import staff. Please check the Excel file."
+      );
+    } finally {
+      setImporting(false);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   }
 
   async function handleCreateStaff(
@@ -398,20 +454,132 @@ export default function Page({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              resetAddForm();
-              setShowAddForm(true);
-              setEditingStaff(null);
-            }}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-500 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-rose-600"
-          >
-            <Plus size={18} />
-            Add Staff
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setImportError("");
+                setShowImportModal(true);
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
+            >
+              <Upload size={18} />
+              Import Staff
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                resetAddForm();
+                setShowAddForm(true);
+                setEditingStaff(null);
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-500 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-rose-600"
+            >
+              <Plus size={18} />
+              Add Staff
+            </button>
+          </div>
         </div>
       </section>
+
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-3xl bg-white p-8 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">
+                  Import Staff
+                </h2>
+
+                <p className="mt-2 text-sm text-slate-500">
+                  Upload an Excel or CSV file containing multiple staff members.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {importError && (
+              <div className="mt-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+                {importError}
+              </div>
+            )}
+
+            <div className="mt-6 rounded-2xl bg-slate-50 p-5">
+              <h3 className="font-bold text-slate-800">
+                Required Columns
+              </h3>
+
+              <p className="mt-2 text-xs leading-6 text-slate-600">
+                employee_number, first_name, last_name, email, password
+              </p>
+
+              <h3 className="mt-5 font-bold text-slate-800">
+                Optional Columns
+              </h3>
+
+              <p className="mt-2 text-xs leading-6 text-slate-600">
+                middle_name, gender, date_of_birth, phone, address,
+                job_title, department, employment_type, date_employed,
+                qualification, emergency_contact_name,
+                emergency_contact_relationship, emergency_contact_phone,
+                profile_photo, notes
+              </p>
+
+              <p className="mt-4 text-xs text-slate-500">
+                Dates should preferably use YYYY-MM-DD format.
+              </p>
+            </div>
+
+            <label className="mt-6 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 p-10 transition hover:border-rose-300 hover:bg-rose-50/20">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                {importing ? (
+                  <Loader2 size={24} className="animate-spin text-rose-500" />
+                ) : (
+                  <Upload size={24} />
+                )}
+              </div>
+
+              <span className="mt-4 text-sm font-bold text-slate-700">
+                {importing
+                  ? "Importing staff..."
+                  : "Click to select Excel or CSV file"}
+              </span>
+
+              <span className="mt-1 text-xs text-slate-400">
+                Supports .xlsx, .xls and .csv
+              </span>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                hidden
+                disabled={importing}
+                onChange={handleImportFile}
+              />
+            </label>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                disabled={importing}
+                onClick={() => setShowImportModal(false)}
+                className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddForm && (
         <section className="rounded-2xl border border-rose-100 bg-white p-6 shadow-sm">

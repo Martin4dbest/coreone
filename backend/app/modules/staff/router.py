@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import require_roles
@@ -188,6 +188,25 @@ async def review_staff_leave(
     return await StaffLeaveService(db).review(
         leave_id,
         payload,
+        current_user,
+    )
+
+
+@router.post(
+    "/import",
+    response_model=list[StaffResponse],
+)
+async def import_staff(
+    file: UploadFile = File(...),
+    school_id: int = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
+    ),
+):
+    return await StaffService(db).import_staff(
+        school_id,
+        file,
         current_user,
     )
 

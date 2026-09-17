@@ -1,4 +1,7 @@
-from fastapi import HTTPException, status
+import io
+
+import pandas as pd
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -93,6 +96,227 @@ class StaffService:
         )
 
         return await self.repository.create(staff)
+
+    async def import_staff(
+        self,
+        school_id: int,
+        file: UploadFile,
+        current_user,
+    ):
+        if (
+            current_user.role.name != "SUPER_ADMIN"
+            and current_user.school_id != school_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot import staff for another school",
+            )
+
+        filename = (file.filename or "").lower()
+
+        if not filename.endswith((".csv", ".xlsx", ".xls")):
+            raise HTTPException(
+                status_code=400,
+                detail="Only CSV/XLS/XLSX files are supported.",
+            )
+
+        try:
+            content = await file.read()
+
+            if filename.endswith(".csv"):
+                df = pd.read_csv(io.BytesIO(content))
+            else:
+                df = pd.read_excel(io.BytesIO(content))
+
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="Unable to read uploaded file.",
+            )
+
+        df.columns = [
+            str(column).strip().lower()
+            for column in df.columns
+        ]
+
+        required = [
+            "employee_number",
+            "first_name",
+            "last_name",
+            "email",
+            "password",
+        ]
+
+        missing = [
+            column
+            for column in required
+            if column not in df.columns
+        ]
+
+        if missing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Missing columns: {', '.join(missing)}",
+            )
+
+        if df.empty:
+            raise HTTPException(
+                status_code=400,
+                detail="The uploaded file contains no staff records.",
+            )
+
+        if df["employee_number"].duplicated().any():
+            raise HTTPException(
+                status_code=400,
+                detail="Duplicate employee numbers found in file.",
+            )
+
+        if df["email"].duplicated().any():
+            raise HTTPException(
+                status_code=400,
+                detail="Duplicate email addresses found in file.",
+            )
+
+        created = []
+
+        for index, row in df.iterrows():
+            row_number = index + 2
+
+            def value(column):
+                if column not in df.columns:
+                    return None
+
+                item = row[column]
+
+                if pd.isna(item):
+                    return None
+
+                text = str(item).strip()
+
+                return text if text else None
+
+            employee_number = value("employee_number")
+            first_name = value("first_name")
+            last_name = value("last_name")
+            email = value("email")
+            password = value("password")
+
+            if not employee_number:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Row {row_number}: employee_number is required.",
+                )
+
+            if not first_name:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Row {row_number}: first_name is required.",
+                )
+
+            if not last_name:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Row {row_number}: last_name is required.",
+                )
+
+            if not email:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Row {row_number}: email is required.",
+                )
+
+            if not password:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Row {row_number}: password is required.",
+                )
+
+            existing_staff = await self.repository.get_by_employee_number(
+                employee_number
+            )
+
+            if existing_staff:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Row {row_number}: employee number "
+                        f"'{employee_number}' already exists."
+                    ),
+                )
+
+            existing_user = await self.user_service.repository.get_by_email(
+                email
+            )
+
+            if existing_user:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Row {row_number}: email "
+                        f"'{email}' already exists."
+                    ),
+                )
+
+            date_of_birth = None
+            if value("date_of_birth"):
+                try:
+                    date_of_birth = pd.to_datetime(
+                        value("date_of_birth")
+                    ).date()
+                except Exception:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Row {row_number}: invalid date_of_birth.",
+                    )
+
+            date_employed = None
+            if value("date_employed"):
+                try:
+                    date_employed = pd.to_datetime(
+                        value("date_employed")
+                    ).date()
+                except Exception:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Row {row_number}: invalid date_employed.",
+                    )
+
+            payload = StaffCreateRequest(
+                email=email,
+                password=password,
+                school_id=school_id,
+                employee_number=employee_number,
+                first_name=first_name,
+                middle_name=value("middle_name"),
+                last_name=last_name,
+                gender=value("gender"),
+                date_of_birth=date_of_birth,
+                phone=value("phone"),
+                address=value("address"),
+                job_title=value("job_title"),
+                department=value("department"),
+                employment_type=value("employment_type"),
+                date_employed=date_employed,
+                qualification=value("qualification"),
+                emergency_contact_name=value("emergency_contact_name"),
+                emergency_contact_relationship=value(
+                    "emergency_contact_relationship"
+                ),
+                emergency_contact_phone=value(
+                    "emergency_contact_phone"
+                ),
+                profile_photo=value("profile_photo"),
+                notes=value("notes"),
+            )
+
+            staff = await self.create_staff(
+                payload,
+                current_user,
+            )
+
+            created.append(staff)
+
+        return created
 
     async def get_my_profile(
         self,
