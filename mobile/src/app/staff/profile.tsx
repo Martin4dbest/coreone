@@ -15,7 +15,28 @@ type StaffProfile = {
   user_id: number;
   employee_number: string;
   first_name: string;
+  middle_name: string | null;
   last_name: string;
+
+  gender: string | null;
+  date_of_birth: string | null;
+  phone: string | null;
+  address: string | null;
+
+  job_title: string | null;
+  department: string | null;
+  employment_type: string | null;
+  date_employed: string | null;
+
+  qualification: string | null;
+
+  emergency_contact_name: string | null;
+  emergency_contact_relationship: string | null;
+  emergency_contact_phone: string | null;
+
+  profile_photo: string | null;
+  notes: string | null;
+
   email: string;
   is_active: boolean;
 };
@@ -129,7 +150,7 @@ export default function StaffProfileScreen() {
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>
-          Staff Information
+          Personal Information
         </Text>
 
         <ProfileRow
@@ -143,9 +164,67 @@ export default function StaffProfileScreen() {
         />
 
         <ProfileRow
+          label="Middle Name"
+          value={profile?.middle_name || "-"}
+        />
+
+        <ProfileRow
           label="Last Name"
           value={profile?.last_name || "-"}
         />
+
+        <ProfileRow
+          label="Gender"
+          value={profile?.gender || "-"}
+        />
+
+        <ProfileRow
+          label="Date of Birth"
+          value={profile?.date_of_birth || "-"}
+        />
+
+        <ProfileRow
+          label="Phone"
+          value={profile?.phone || "-"}
+        />
+
+        <ProfileRow
+          label="Address"
+          value={profile?.address || "-"}
+        />
+
+        <Text style={styles.sectionTitle}>
+          Employment Information
+        </Text>
+
+        <ProfileRow
+          label="Job Title"
+          value={profile?.job_title || "-"}
+        />
+
+        <ProfileRow
+          label="Department"
+          value={profile?.department || "-"}
+        />
+
+        <ProfileRow
+          label="Employment Type"
+          value={profile?.employment_type || "-"}
+        />
+
+        <ProfileRow
+          label="Date Employed"
+          value={profile?.date_employed || "-"}
+        />
+
+        <ProfileRow
+          label="Qualification"
+          value={profile?.qualification || "-"}
+        />
+
+        <Text style={styles.sectionTitle}>
+          Account Information
+        </Text>
 
         <ProfileRow
           label="Email"
@@ -160,8 +239,34 @@ export default function StaffProfileScreen() {
         <ProfileRow
           label="Status"
           value={profile?.is_active ? "Active" : "Inactive"}
-          last
         />
+
+        <Text style={styles.sectionTitle}>
+          Emergency Contact
+        </Text>
+
+        <ProfileRow
+          label="Name"
+          value={profile?.emergency_contact_name || "-"}
+        />
+
+        <ProfileRow
+          label="Relationship"
+          value={profile?.emergency_contact_relationship || "-"}
+        />
+
+        <ProfileRow
+          label="Phone"
+          value={profile?.emergency_contact_phone || "-"}
+        />
+
+        <Text style={styles.sectionTitle}>
+          Notes
+        </Text>
+
+        <Text style={styles.notes}>
+          {profile?.notes || "No notes available."}
+        </Text>
       </View>
     </ScrollView>
   );
@@ -249,7 +354,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#0F172A",
+    marginTop: 10,
     marginBottom: 8,
+  },
+  notes: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: "#334155",
+    paddingVertical: 12,
+    paddingBottom: 18,
   },
   row: {
     paddingVertical: 16,

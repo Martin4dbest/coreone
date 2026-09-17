@@ -74,7 +74,22 @@ class StaffService:
             user_id=user.id,
             employee_number=payload.employee_number,
             first_name=payload.first_name,
+            middle_name=payload.middle_name,
             last_name=payload.last_name,
+            gender=payload.gender,
+            date_of_birth=payload.date_of_birth,
+            phone=payload.phone,
+            address=payload.address,
+            job_title=payload.job_title,
+            department=payload.department,
+            employment_type=payload.employment_type,
+            date_employed=payload.date_employed,
+            qualification=payload.qualification,
+            emergency_contact_name=payload.emergency_contact_name,
+            emergency_contact_relationship=payload.emergency_contact_relationship,
+            emergency_contact_phone=payload.emergency_contact_phone,
+            profile_photo=payload.profile_photo,
+            notes=payload.notes,
         )
 
         return await self.repository.create(staff)
@@ -154,8 +169,53 @@ class StaffService:
         if payload.first_name is not None:
             staff.first_name = payload.first_name
 
+        if payload.middle_name is not None:
+            staff.middle_name = payload.middle_name
+
         if payload.last_name is not None:
             staff.last_name = payload.last_name
+
+        if payload.gender is not None:
+            staff.gender = payload.gender
+
+        if payload.date_of_birth is not None:
+            staff.date_of_birth = payload.date_of_birth
+
+        if payload.phone is not None:
+            staff.phone = payload.phone
+
+        if payload.address is not None:
+            staff.address = payload.address
+
+        if payload.job_title is not None:
+            staff.job_title = payload.job_title
+
+        if payload.department is not None:
+            staff.department = payload.department
+
+        if payload.employment_type is not None:
+            staff.employment_type = payload.employment_type
+
+        if payload.date_employed is not None:
+            staff.date_employed = payload.date_employed
+
+        if payload.qualification is not None:
+            staff.qualification = payload.qualification
+
+        if payload.emergency_contact_name is not None:
+            staff.emergency_contact_name = payload.emergency_contact_name
+
+        if payload.emergency_contact_relationship is not None:
+            staff.emergency_contact_relationship = payload.emergency_contact_relationship
+
+        if payload.emergency_contact_phone is not None:
+            staff.emergency_contact_phone = payload.emergency_contact_phone
+
+        if payload.profile_photo is not None:
+            staff.profile_photo = payload.profile_photo
+
+        if payload.notes is not None:
+            staff.notes = payload.notes
 
         if payload.email is not None:
             staff.user.email = str(payload.email)

@@ -22,7 +22,28 @@ type Staff = {
   user_id: number;
   employee_number: string;
   first_name: string;
+  middle_name: string | null;
   last_name: string;
+
+  gender: string | null;
+  date_of_birth: string | null;
+  phone: string | null;
+  address: string | null;
+
+  job_title: string | null;
+  department: string | null;
+  employment_type: string | null;
+  date_employed: string | null;
+
+  qualification: string | null;
+
+  emergency_contact_name: string | null;
+  emergency_contact_relationship: string | null;
+  emergency_contact_phone: string | null;
+
+  profile_photo: string | null;
+  notes: string | null;
+
   email: string;
   is_active: boolean;
 };
@@ -45,19 +66,38 @@ export default function Page({
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
-  const [form, setForm] = useState({
+  const emptyProfileForm = {
     first_name: "",
+    middle_name: "",
     last_name: "",
     employee_number: "",
     email: "",
     password: "",
-  });
 
+    gender: "",
+    date_of_birth: "",
+    phone: "",
+    address: "",
+
+    job_title: "",
+    department: "",
+    employment_type: "",
+    date_employed: "",
+
+    qualification: "",
+
+    emergency_contact_name: "",
+    emergency_contact_relationship: "",
+    emergency_contact_phone: "",
+
+    profile_photo: "",
+    notes: "",
+  };
+
+  const [form, setForm] = useState(emptyProfileForm);
   const [editForm, setEditForm] = useState({
-    first_name: "",
-    last_name: "",
-    employee_number: "",
-    email: "",
+    ...emptyProfileForm,
+    password: "",
   });
 
   async function loadStaff() {
@@ -80,13 +120,7 @@ export default function Page({
   }, []);
 
   function resetAddForm() {
-    setForm({
-      first_name: "",
-      last_name: "",
-      employee_number: "",
-      email: "",
-      password: "",
-    });
+    setForm({ ...emptyProfileForm });
     setFormError("");
   }
 
@@ -94,10 +128,32 @@ export default function Page({
     setFormError("");
 
     setEditForm({
-      first_name: member.first_name,
-      last_name: member.last_name,
-      employee_number: member.employee_number,
-      email: member.email,
+      ...emptyProfileForm,
+      first_name: member.first_name || "",
+      middle_name: member.middle_name || "",
+      last_name: member.last_name || "",
+      employee_number: member.employee_number || "",
+      email: member.email || "",
+
+      gender: member.gender || "",
+      date_of_birth: member.date_of_birth || "",
+      phone: member.phone || "",
+      address: member.address || "",
+
+      job_title: member.job_title || "",
+      department: member.department || "",
+      employment_type: member.employment_type || "",
+      date_employed: member.date_employed || "",
+
+      qualification: member.qualification || "",
+
+      emergency_contact_name: member.emergency_contact_name || "",
+      emergency_contact_relationship:
+        member.emergency_contact_relationship || "",
+      emergency_contact_phone: member.emergency_contact_phone || "",
+
+      profile_photo: member.profile_photo || "",
+      notes: member.notes || "",
     });
 
     setEditingStaff(member);
@@ -126,11 +182,36 @@ export default function Page({
 
       await api.post("/staff", {
         school_id: Number(schoolId),
+
         first_name: form.first_name.trim(),
+        middle_name: form.middle_name.trim() || null,
         last_name: form.last_name.trim(),
         employee_number: form.employee_number.trim(),
+
         email: form.email.trim(),
         password: form.password,
+
+        gender: form.gender || null,
+        date_of_birth: form.date_of_birth || null,
+        phone: form.phone.trim() || null,
+        address: form.address.trim() || null,
+
+        job_title: form.job_title.trim() || null,
+        department: form.department.trim() || null,
+        employment_type: form.employment_type || null,
+        date_employed: form.date_employed || null,
+
+        qualification: form.qualification.trim() || null,
+
+        emergency_contact_name:
+          form.emergency_contact_name.trim() || null,
+        emergency_contact_relationship:
+          form.emergency_contact_relationship.trim() || null,
+        emergency_contact_phone:
+          form.emergency_contact_phone.trim() || null,
+
+        profile_photo: form.profile_photo.trim() || null,
+        notes: form.notes.trim() || null,
       });
 
       resetAddForm();
@@ -163,9 +244,32 @@ export default function Page({
 
       await api.patch(`/staff/${editingStaff.id}`, {
         first_name: editForm.first_name.trim(),
+        middle_name: editForm.middle_name.trim() || null,
         last_name: editForm.last_name.trim(),
         employee_number: editForm.employee_number.trim(),
         email: editForm.email.trim(),
+
+        gender: editForm.gender || null,
+        date_of_birth: editForm.date_of_birth || null,
+        phone: editForm.phone.trim() || null,
+        address: editForm.address.trim() || null,
+
+        job_title: editForm.job_title.trim() || null,
+        department: editForm.department.trim() || null,
+        employment_type: editForm.employment_type || null,
+        date_employed: editForm.date_employed || null,
+
+        qualification: editForm.qualification.trim() || null,
+
+        emergency_contact_name:
+          editForm.emergency_contact_name.trim() || null,
+        emergency_contact_relationship:
+          editForm.emergency_contact_relationship.trim() || null,
+        emergency_contact_phone:
+          editForm.emergency_contact_phone.trim() || null,
+
+        profile_photo: editForm.profile_photo.trim() || null,
+        notes: editForm.notes.trim() || null,
       });
 
       setEditingStaff(null);
@@ -347,58 +451,218 @@ export default function Page({
               </div>
             )}
 
-            <div className="grid gap-5 md:grid-cols-2">
-              <Input
-                label="First Name"
-                value={form.first_name}
-                onChange={(value) =>
-                  setForm({ ...form, first_name: value })
-                }
-                placeholder="e.g. John"
-              />
+            <div className="space-y-7">
+              <div>
+                <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-400">
+                  Personal Information
+                </h3>
 
-              <Input
-                label="Last Name"
-                value={form.last_name}
-                onChange={(value) =>
-                  setForm({ ...form, last_name: value })
-                }
-                placeholder="e.g. Doe"
-              />
+                <div className="grid gap-5 md:grid-cols-2">
+                  <Input
+                    label="First Name"
+                    value={form.first_name}
+                    onChange={(value) =>
+                      setForm({ ...form, first_name: value })
+                    }
+                  />
 
-              <Input
-                label="Employee Number"
-                value={form.employee_number}
-                onChange={(value) =>
-                  setForm({
-                    ...form,
-                    employee_number: value,
-                  })
-                }
-                placeholder="e.g. STF001"
-              />
+                  <Input
+                    label="Middle Name"
+                    value={form.middle_name}
+                    onChange={(value) =>
+                      setForm({ ...form, middle_name: value })
+                    }
+                  />
 
-              <Input
-                label="Staff Email"
-                type="email"
-                value={form.email}
-                onChange={(value) =>
-                  setForm({ ...form, email: value })
-                }
-                placeholder="staff@school.com"
-              />
+                  <Input
+                    label="Last Name"
+                    value={form.last_name}
+                    onChange={(value) =>
+                      setForm({ ...form, last_name: value })
+                    }
+                  />
 
-              <div className="md:col-span-2">
-                <Input
-                  label="Login Password"
-                  type="password"
-                  value={form.password}
-                  onChange={(value) =>
-                    setForm({ ...form, password: value })
-                  }
-                  placeholder="Create a temporary password"
-                />
+                  <Input
+                    label="Employee Number"
+                    value={form.employee_number}
+                    onChange={(value) =>
+                      setForm({ ...form, employee_number: value })
+                    }
+                  />
+
+                  <Input
+                    label="Phone Number"
+                    value={form.phone}
+                    onChange={(value) =>
+                      setForm({ ...form, phone: value })
+                    }
+                  />
+
+                  <SelectInput
+                    label="Gender"
+                    value={form.gender}
+                    onChange={(value) =>
+                      setForm({ ...form, gender: value })
+                    }
+                    options={["Male", "Female", "Other"]}
+                  />
+
+                  <Input
+                    label="Date of Birth"
+                    type="date"
+                    value={form.date_of_birth}
+                    onChange={(value) =>
+                      setForm({ ...form, date_of_birth: value })
+                    }
+                  />
+
+                  <Input
+                    label="Address"
+                    value={form.address}
+                    onChange={(value) =>
+                      setForm({ ...form, address: value })
+                    }
+                  />
+                </div>
               </div>
+
+              <div>
+                <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-400">
+                  Employment Information
+                </h3>
+
+                <div className="grid gap-5 md:grid-cols-2">
+                  <Input
+                    label="Job Title / Position"
+                    value={form.job_title}
+                    onChange={(value) =>
+                      setForm({ ...form, job_title: value })
+                    }
+                  />
+
+                  <Input
+                    label="Department"
+                    value={form.department}
+                    onChange={(value) =>
+                      setForm({ ...form, department: value })
+                    }
+                  />
+
+                  <SelectInput
+                    label="Employment Type"
+                    value={form.employment_type}
+                    onChange={(value) =>
+                      setForm({ ...form, employment_type: value })
+                    }
+                    options={[
+                      "Full-Time",
+                      "Part-Time",
+                      "Contract",
+                      "Temporary",
+                    ]}
+                  />
+
+                  <Input
+                    label="Date Employed"
+                    type="date"
+                    value={form.date_employed}
+                    onChange={(value) =>
+                      setForm({ ...form, date_employed: value })
+                    }
+                  />
+
+                  <Input
+                    label="Qualification"
+                    value={form.qualification}
+                    onChange={(value) =>
+                      setForm({ ...form, qualification: value })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-400">
+                  Account Information
+                </h3>
+
+                <div className="grid gap-5 md:grid-cols-2">
+                  <Input
+                    label="Email"
+                    type="email"
+                    value={form.email}
+                    onChange={(value) =>
+                      setForm({ ...form, email: value })
+                    }
+                  />
+
+                  <Input
+                    label="Password"
+                    type="password"
+                    value={form.password}
+                    onChange={(value) =>
+                      setForm({ ...form, password: value })
+                    }
+                  />
+
+                  <Input
+                    label="Profile Photo URL"
+                    value={form.profile_photo}
+                    onChange={(value) =>
+                      setForm({ ...form, profile_photo: value })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-400">
+                  Emergency Contact
+                </h3>
+
+                <div className="grid gap-5 md:grid-cols-2">
+                  <Input
+                    label="Contact Name"
+                    value={form.emergency_contact_name}
+                    onChange={(value) =>
+                      setForm({
+                        ...form,
+                        emergency_contact_name: value,
+                      })
+                    }
+                  />
+
+                  <Input
+                    label="Relationship"
+                    value={form.emergency_contact_relationship}
+                    onChange={(value) =>
+                      setForm({
+                        ...form,
+                        emergency_contact_relationship: value,
+                      })
+                    }
+                  />
+
+                  <Input
+                    label="Contact Phone"
+                    value={form.emergency_contact_phone}
+                    onChange={(value) =>
+                      setForm({
+                        ...form,
+                        emergency_contact_phone: value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <TextArea
+                label="Notes"
+                value={form.notes}
+                onChange={(value) =>
+                  setForm({ ...form, notes: value })
+                }
+              />
             </div>
 
             <div className="flex justify-end gap-3 border-t border-slate-100 pt-5">
@@ -771,6 +1035,67 @@ export default function Page({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function SelectInput({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-semibold text-slate-700">
+        {label}
+      </label>
+
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+      >
+        <option value="">Select {label}</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function TextArea({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-semibold text-slate-700">
+        {label}
+      </label>
+
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={4}
+        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+      />
     </div>
   );
 }
