@@ -748,7 +748,7 @@ export default function School360Dashboard() {
       const requests = [
         // School-level dashboard. This endpoint resolves the school
         // from the authenticated SCHOOL_ADMIN account.
-        api.get(`/dashboard`).catch(() => null),
+        api.get(`/dashboard/school-360?school_id=${schoolId}`).catch(() => null),
 
         api.get(`/schools/${schoolId}`).catch(() => null),
 
