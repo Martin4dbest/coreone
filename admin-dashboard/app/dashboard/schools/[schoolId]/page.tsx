@@ -746,11 +746,14 @@ export default function School360Dashboard() {
 
     try {
       const requests = [
-        api.get(`/dashboard?school_id=${schoolId}`).catch(() => null),
+        // School-level dashboard. This endpoint resolves the school
+        // from the authenticated SCHOOL_ADMIN account.
+        api.get(`/dashboard`).catch(() => null),
 
         api.get(`/schools/${schoolId}`).catch(() => null),
 
-        api.get(`/students?school_id=${schoolId}`).catch(() => null),
+        // Students endpoint is tenant-scoped; it does not accept school_id.
+        api.get(`/students`).catch(() => null),
 
         api.get(`/teachers?school_id=${schoolId}`).catch(() => null),
 
@@ -760,9 +763,11 @@ export default function School360Dashboard() {
 
         api.get(`/classes?school_id=${schoolId}`).catch(() => null),
 
-        api.get(`/attendance?school_id=${schoolId}`).catch(() => null),
+        // Attendance is tenant-scoped and supports classroom/date filters.
+        api.get(`/attendance`).catch(() => null),
 
-        api.get(`/fees?school_id=${schoolId}`).catch(() => null),
+        // Fees are exposed through student-fees, not /fees.
+        api.get(`/fees/student-fees`).catch(() => null),
 
         api
           .get(`/cbt/schools/${schoolId}/exams`)
@@ -774,6 +779,25 @@ export default function School360Dashboard() {
 
         api
           .get(`/cbt/results/dashboard?school_id=${schoolId}`)
+          .catch(() => null),
+
+        // School Books
+        api
+          .get(`/school-books/${schoolId}`)
+          .catch(() => null),
+
+        api
+          .get(`/school-books/${schoolId}/distribution-records`)
+          .catch(() => null),
+
+        // Staff Leave
+        api
+          .get(`/staff/leave?school_id=${schoolId}`)
+          .catch(() => null),
+
+        // Departments
+        api
+          .get(`/departments?school_id=${schoolId}`)
           .catch(() => null),
       ];
 
@@ -822,6 +846,566 @@ export default function School360Dashboard() {
       });
 
       const extracted = extractDashboard(peopleResponses);
+      // ============================================================
+      // DIRECT SCHOOL 360 DATA NORMALIZATION
+      // Do not guess response shapes. Each metric below is tied to
+      // the exact endpoint used above.
+      // ============================================================
+
+      const unwrap = (index: number): any =>
+        results[index]?.data ?? null;
+
+      const toList = (value: any): any[] => {
+        if (Array.isArray(value)) return value;
+
+        if (Array.isArray(value?.items)) return value.items;
+
+        if (Array.isArray(value?.data)) return value.data;
+
+        if (Array.isArray(value?.results)) return value.results;
+
+        return [];
+      };
+
+      const dashboardResponse = unwrap(0) || {};
+      const students360 = toList(unwrap(2));
+      const teachers360 = toList(unwrap(3));
+      const staff360 = toList(unwrap(4));
+      const parents360 = toList(unwrap(5));
+      const classes360 = toList(unwrap(6));
+      const attendance360 = toList(unwrap(7));
+      const fees360 = toList(unwrap(8));
+      const cbtExams360 = toList(unwrap(9));
+      const cbtResults360 = toList(unwrap(10));
+      const cbtDashboard360 = unwrap(11) || {};
+      const books360 = toList(unwrap(12));
+      const bookDistribution360 = toList(unwrap(13));
+      const leave360 = toList(unwrap(14));
+      const departments360 = toList(unwrap(15));
+
+      const numericValue = (...values: any[]): number => {
+        for (const value of values) {
+          if (value === null || value === undefined || value === "") {
+            continue;
+          }
+
+          const number = Number(value);
+
+          if (Number.isFinite(number)) {
+            return number;
+          }
+        }
+
+        return 0;
+      };
+
+      const studentCount =
+        students360.length ||
+        numericValue(
+          dashboardResponse.total_students,
+          dashboardResponse.students,
+        );
+
+      const teacherCount =
+        teachers360.length ||
+        numericValue(
+          dashboardResponse.total_teachers,
+          dashboardResponse.teachers,
+        );
+
+      const staffCount =
+        staff360.length ||
+        numericValue(
+          dashboardResponse.total_staff,
+          dashboardResponse.staff,
+        );
+
+      const parentCount =
+        parents360.length ||
+        numericValue(
+          dashboardResponse.total_parents,
+          dashboardResponse.parents,
+        );
+
+      const classCount =
+        classes360.length ||
+        numericValue(
+          dashboardResponse.total_classes,
+          dashboardResponse.classes,
+        );
+
+      // ------------------------------------------------------------
+      // GENDER
+      // ------------------------------------------------------------
+
+      const maleCount = students360.filter((student: any) => {
+        const gender = String(student?.gender || "").trim().toLowerCase();
+
+        return gender === "male" || gender === "m";
+      }).length;
+
+      const femaleCount = students360.filter((student: any) => {
+        const gender = String(student?.gender || "").trim().toLowerCase();
+
+        return gender === "female" || gender === "f";
+      }).length;
+
+      // ------------------------------------------------------------
+      // ATTENDANCE
+      // ------------------------------------------------------------
+
+      const attendanceStatus = (item: any): string =>
+        String(
+          item?.status ??
+          item?.attendance_status ??
+          "",
+        )
+          .trim()
+          .toLowerCase();
+
+      const presentCount = attendance360.filter(
+        (item: any) =>
+          attendanceStatus(item) === "present" ||
+          attendanceStatus(item) === "p",
+      ).length;
+
+      const absentCount = attendance360.filter(
+        (item: any) =>
+          attendanceStatus(item) === "absent" ||
+          attendanceStatus(item) === "a",
+      ).length;
+
+      const lateCount = attendance360.filter(
+        (item: any) =>
+          attendanceStatus(item) === "late" ||
+          attendanceStatus(item) === "l",
+      ).length;
+
+      const attendanceTotal =
+        presentCount + absentCount + lateCount;
+
+      const attendanceRate =
+        attendanceTotal > 0
+          ? Number(
+              ((presentCount / attendanceTotal) * 100).toFixed(1),
+            )
+          : 0;
+
+      // ------------------------------------------------------------
+      // ATTENDANCE MONTHLY TREND - JANUARY TO JULY
+      // ------------------------------------------------------------
+
+      const monthlyAttendance = Array.from(
+        { length: 7 },
+        (_, monthIndex) => {
+          const monthRows = attendance360.filter((item: any) => {
+            const rawDate =
+              item?.attendance_date ??
+              item?.attendanceDate ??
+              item?.date;
+
+            if (!rawDate) return false;
+
+            const parsed = new Date(rawDate);
+
+            if (Number.isNaN(parsed.getTime())) return false;
+
+            return (
+              parsed.getFullYear() === new Date().getFullYear() &&
+              parsed.getMonth() === monthIndex
+            );
+          });
+
+          if (!monthRows.length) return 0;
+
+          const present = monthRows.filter(
+            (item: any) =>
+              attendanceStatus(item) === "present" ||
+              attendanceStatus(item) === "p",
+          ).length;
+
+          return Number(
+            ((present / monthRows.length) * 100).toFixed(1),
+          );
+        },
+      );
+
+      // ------------------------------------------------------------
+      // STUDENT GROWTH - JANUARY TO JULY
+      // ------------------------------------------------------------
+
+      const monthlyStudents =
+        Array.isArray(dashboardResponse.monthly_students)
+          ? dashboardResponse.monthly_students.map(
+              (value: any) => numericValue(value),
+            ).slice(0, 7)
+          : Array.from({ length: 7 }, (_, monthIndex) => {
+              return students360.filter((student: any) => {
+                const rawDate =
+                  student?.created_at ??
+                  student?.createdAt ??
+                  student?.admission_date ??
+                  student?.date_admitted;
+
+                if (!rawDate) return false;
+
+                const parsed = new Date(rawDate);
+
+                if (Number.isNaN(parsed.getTime())) return false;
+
+                return (
+                  parsed.getFullYear() ===
+                    new Date().getFullYear() &&
+                  parsed.getMonth() === monthIndex
+                );
+              }).length;
+            });
+
+      while (monthlyStudents.length < 7) {
+        monthlyStudents.push(0);
+      }
+
+      // ------------------------------------------------------------
+      // FEES
+      // ------------------------------------------------------------
+
+      const feesExpected = fees360.reduce(
+        (sum: number, item: any) =>
+          sum +
+          numericValue(
+            item?.amount_due,
+            item?.amountDue,
+          ),
+        0,
+      );
+
+      const feesPaid = fees360.reduce(
+        (sum: number, item: any) =>
+          sum +
+          numericValue(
+            item?.amount_paid,
+            item?.amountPaid,
+          ),
+        0,
+      );
+
+      const feesOutstanding = Math.max(
+        fees360.reduce(
+          (sum: number, item: any) =>
+            sum +
+            numericValue(
+              item?.balance,
+              item?.outstanding_balance,
+              item?.outstandingBalance,
+              numericValue(
+                item?.amount_due,
+                item?.amountDue,
+              ) -
+                numericValue(
+                  item?.amount_paid,
+                  item?.amountPaid,
+                ),
+            ),
+          0,
+        ),
+        0,
+      );
+
+      const feeCollectionRate =
+        feesExpected > 0
+          ? Number(
+              ((feesPaid / feesExpected) * 100).toFixed(1),
+            )
+          : 0;
+
+      // ------------------------------------------------------------
+      // CBT
+      // ------------------------------------------------------------
+
+      const cbtExams =
+        cbtExams360.length ||
+        numericValue(
+          dashboardResponse.cbt_exams,
+          dashboardResponse.total_cbt_exams,
+        );
+
+      const cbtResults =
+        cbtResults360.length ||
+        numericValue(
+          cbtDashboard360.total_attempts,
+          cbtDashboard360.total_results,
+          dashboardResponse.cbt_results,
+        );
+
+      let averageScore = numericValue(
+        cbtDashboard360.average_score,
+        cbtDashboard360.averageScore,
+      );
+
+      if (!averageScore && cbtResults360.length) {
+        const scores = cbtResults360
+          .map((item: any) =>
+            numericValue(
+              item?.score,
+              item?.percentage,
+              item?.average_score,
+              item?.averageScore,
+            ),
+          )
+          .filter((score: number) => score > 0);
+
+        if (scores.length) {
+          averageScore = Number(
+            (
+              scores.reduce(
+                (sum: number, score: number) =>
+                  sum + score,
+                0,
+              ) / scores.length
+            ).toFixed(1),
+          );
+        }
+      }
+
+      // ------------------------------------------------------------
+      // SCHOOL BOOKS
+      // ------------------------------------------------------------
+
+      const booksIssued = bookDistribution360.reduce(
+        (sum: number, item: any) =>
+          sum +
+          numericValue(
+            item?.quantity_issued,
+            item?.quantityIssued,
+            item?.student_count,
+          ),
+        0,
+      );
+
+      const booksTotal = books360.reduce(
+        (sum: number, item: any) =>
+          sum +
+          numericValue(
+            item?.total_quantity,
+            item?.quantity_received,
+            item?.quantity,
+            item?.stock_quantity,
+            item?.available_quantity,
+            item?.quantity_on_hand,
+          ),
+        0,
+      );
+
+      const booksReturned = bookDistribution360.filter(
+        (item: any) =>
+          String(item?.status || "")
+            .trim()
+            .toLowerCase() === "returned",
+      ).length;
+
+      const booksOutstanding = Math.max(
+        booksIssued - booksReturned,
+        0,
+      );
+
+      // ------------------------------------------------------------
+      // STAFF LEAVE
+      // ------------------------------------------------------------
+
+      const leaveStatus = (item: any): string =>
+        String(
+          item?.status ??
+          item?.leave_status ??
+          "",
+        )
+          .trim()
+          .toLowerCase();
+
+      const leavePending = leave360.filter(
+        (item: any) =>
+          leaveStatus(item) === "pending",
+      ).length;
+
+      const leaveApproved = leave360.filter(
+        (item: any) =>
+          leaveStatus(item) === "approved" ||
+          leaveStatus(item) === "approve",
+      ).length;
+
+      // ------------------------------------------------------------
+      // CLASS DISTRIBUTION
+      // ------------------------------------------------------------
+
+      const classNameMap = new Map<string, number>();
+
+      for (const classroom of classes360) {
+        const name = String(
+          classroom?.name ??
+          classroom?.title ??
+          `Class ${classroom?.id ?? ""}`,
+        ).trim();
+
+        if (name) {
+          classNameMap.set(name, 0);
+        }
+      }
+
+      for (const student of students360) {
+        let className =
+          student?.class_name ??
+          student?.className ??
+          "";
+
+        if (!className) {
+          const classroomId =
+            student?.classroom_id ??
+            student?.class_id ??
+            null;
+
+          const classroom = classes360.find(
+            (item: any) =>
+              String(item?.id) === String(classroomId),
+          );
+
+          className =
+            classroom?.name ??
+            classroom?.title ??
+            "";
+        }
+
+        className = String(className).trim();
+
+        if (className) {
+          classNameMap.set(
+            className,
+            (classNameMap.get(className) || 0) + 1,
+          );
+        }
+      }
+
+      const classDistribution = Array.from(
+        classNameMap.entries(),
+      )
+        .filter(([, value]) => value > 0)
+        .map(([name, value]) => ({
+          name,
+          value,
+        }));
+
+      // ------------------------------------------------------------
+      // DEPARTMENT DISTRIBUTION
+      // ------------------------------------------------------------
+
+      const departmentNameMap = new Map<string, number>();
+
+      for (const department of departments360) {
+        const name = String(
+          department?.name ??
+          department?.title ??
+          `Department ${department?.id ?? ""}`,
+        ).trim();
+
+        if (name) {
+          departmentNameMap.set(name, 0);
+        }
+      }
+
+      for (const student of students360) {
+        let departmentName =
+          student?.department_name ??
+          student?.departmentName ??
+          student?.department ??
+          "";
+
+        if (!departmentName) {
+          const departmentId =
+            student?.department_id ??
+            null;
+
+          const department = departments360.find(
+            (item: any) =>
+              String(item?.id) ===
+              String(departmentId),
+          );
+
+          departmentName =
+            department?.name ??
+            department?.title ??
+            "";
+        }
+
+        departmentName = String(
+          departmentName,
+        ).trim();
+
+        if (departmentName) {
+          departmentNameMap.set(
+            departmentName,
+            (departmentNameMap.get(departmentName) || 0) +
+              1,
+          );
+        }
+      }
+
+      const departmentDistribution = Array.from(
+        departmentNameMap.entries(),
+      )
+        .filter(([, value]) => value > 0)
+        .map(([name, value]) => ({
+          name,
+          value,
+        }));
+
+      // ------------------------------------------------------------
+      // OVERRIDE THE GENERIC INFERENCE WITH VERIFIED ENDPOINT DATA
+      // ------------------------------------------------------------
+
+      Object.assign(extracted, {
+        students: studentCount,
+        teachers: teacherCount,
+        staff: staffCount,
+        parents: parentCount,
+        classes: classCount,
+
+        maleStudents: maleCount,
+        femaleStudents: femaleCount,
+
+        present: presentCount,
+        absent: absentCount,
+        late: lateCount,
+
+        feesExpected,
+        feesPaid,
+        feesOutstanding,
+
+        booksIssued,
+        booksReturned,
+        booksOutstanding,
+
+        cbtExams,
+        cbtResults,
+        averageScore,
+
+        leavePending,
+        leaveApproved,
+
+        monthlyStudents,
+        monthlyAttendance,
+
+        classDistribution,
+        departmentDistribution,
+
+        attendanceRate,
+        feeCollectionRate,
+
+        // Preserve useful backend totals when available.
+        totalSchools: numericValue(
+          dashboardResponse.total_schools,
+          dashboardResponse.totalSchools,
+          1,
+        ),
+      });
+
 
       const studentList = successful.find(
         (item: any) =>
