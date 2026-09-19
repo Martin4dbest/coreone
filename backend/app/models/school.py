@@ -98,6 +98,11 @@ class School(Base, BaseModel):
     # Tenant Management
     # -----------------------------
 
+    staff_attendance_location_name: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
     domain: Mapped[str | None] = mapped_column(
         String(255),
         unique=True,

@@ -79,3 +79,8 @@ class StaffAttendance(Base, BaseModel):
 
     staff = relationship("Staff")
     school = relationship("School")
+
+    check_in_location_name: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
