@@ -80,6 +80,7 @@ export default function StaffAttendancePage({
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [radius, setRadius] = useState("100");
+  const [locationName, setLocationName] = useState("");
   const [attendanceDate, setAttendanceDate] = useState(
     new Date().toISOString().slice(0, 10),
   );
@@ -108,6 +109,7 @@ export default function StaffAttendancePage({
 
       setLocation(settings);
       setRecords(reportResponse.data || []);
+      setLocationName(settings.location_name || "");
 
       setLatitude(
         settings.latitude === null ? "" : String(settings.latitude),
@@ -128,6 +130,32 @@ export default function StaffAttendancePage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolId, attendanceDate]);
 
+  const reverseGeocode = async (
+    latitudeValue: number,
+    longitudeValue: number,
+  ) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitudeValue}&lon=${longitudeValue}&zoom=18&addressdetails=1&accept-language=en`,
+        {
+          headers: {
+            Accept: "application/json",
+          },
+        },
+      );
+
+      if (!response.ok) {
+        return "";
+      }
+
+      const data = await response.json();
+
+      return data?.display_name || "";
+    } catch {
+      return "";
+    }
+  };
+
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
       setErrorMessage("Geolocation is not supported by this browser.");
@@ -139,13 +167,28 @@ export default function StaffAttendancePage({
     setSavingMessage("");
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLatitude(position.coords.latitude.toFixed(8));
-        setLongitude(position.coords.longitude.toFixed(8));
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        setLatitude(lat.toFixed(8));
+        setLongitude(lng.toFixed(8));
+
+        const address = await reverseGeocode(lat, lng);
+
+        if (address) {
+          setLocationName(address);
+          setSavingMessage(
+            "Current location and address detected. Click Save Location to apply it.",
+          );
+        } else {
+          setLocationName("");
+          setSavingMessage(
+            "Current location loaded. The address could not be resolved automatically. Click Save Location to continue.",
+          );
+        }
+
         setUsingLocation(false);
-        setSavingMessage(
-          "Current browser location loaded. Click Save Location to apply it.",
-        );
       },
       (error) => {
         setUsingLocation(false);
@@ -196,6 +239,7 @@ export default function StaffAttendancePage({
       );
 
       setLocation(response.data);
+      setLocationName(response.data.location_name || "");
       setLatitude(String(response.data.latitude ?? ""));
       setLongitude(String(response.data.longitude ?? ""));
       setRadius(String(response.data.radius_meters));
@@ -291,6 +335,21 @@ export default function StaffAttendancePage({
           </button>
 
           <div className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Location / Address
+              </label>
+              <input
+                value={locationName}
+                readOnly
+                placeholder="Address will appear after detecting the location"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                This is the readable address resolved from the selected GPS location.
+              </p>
+            </div>
+
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Latitude
