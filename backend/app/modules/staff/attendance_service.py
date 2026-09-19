@@ -949,7 +949,7 @@ class StaffAttendanceService:
             "latitude": school.staff_attendance_latitude,
             "longitude": school.staff_attendance_longitude,
             "radius_meters": float(
-                school.staff_attendance_radius_meters
+                school.staff_attendance_radius_meters or 100.0
             ),
         }
 
