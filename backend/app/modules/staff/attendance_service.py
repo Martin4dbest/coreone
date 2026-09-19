@@ -280,7 +280,7 @@ class StaffAttendanceService:
                 ),
             )
 
-        if payload.accuracy > 50:
+        if payload.accuracy > 100.0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
@@ -310,7 +310,13 @@ class StaffAttendanceService:
         # Store UTC and derive the official Lagos attendance date
         # from this exact same instant.
         check_in_at=check_in_at
+        # Authoritative clock-in timestamp from the CoreOne server.
+        # Store UTC and derive the attendance date from this same instant
+        # in Africa/Lagos.
+        check_in_at = datetime.now(timezone.utc)
         attendance_date = check_in_at.astimezone(
+            ZoneInfo("Africa/Lagos")
+        ).date()
             ZoneInfo("Africa/Lagos")
         ).date()
 

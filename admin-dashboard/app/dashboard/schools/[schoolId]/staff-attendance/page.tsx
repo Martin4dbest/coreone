@@ -130,6 +130,36 @@ export default function StaffAttendancePage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolId, attendanceDate]);
 
+  useEffect(() => {
+    let active = true;
+
+    const refreshAttendance = async () => {
+      if (!active) return;
+
+      try {
+        const response = await api.get<AttendanceItem[]>(
+          `/staff/attendance/report?school_id=${schoolId}&attendance_date=${attendanceDate}`,
+        );
+
+        if (active) {
+          setRecords(response.data || []);
+        }
+      } catch {
+        // Keep the existing records visible if a background refresh fails.
+      }
+    };
+
+    const interval = setInterval(
+      refreshAttendance,
+      5000,
+    );
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [schoolId, attendanceDate]);
+
   const reverseGeocode = async (
     latitudeValue: number,
     longitudeValue: number,
@@ -301,6 +331,60 @@ export default function StaffAttendancePage({
         </div>
       )}
 
+      {records.length > 0 && records[0].check_in_at && (
+        <div className="rounded-2xl border border-green-200 bg-green-50 p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-green-700">
+                Latest Clock-In
+              </p>
+
+              <h2 className="mt-1 text-xl font-bold text-slate-900">
+                {records[0].staff_name}
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-600">
+                {records[0].employee_number} · {formatDate(records[0].attendance_date)}
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl bg-white px-4 py-3">
+                <p className="text-xs text-slate-500">Check-In</p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {formatTime(records[0].check_in_at)}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white px-4 py-3">
+                <p className="text-xs text-slate-500">Location</p>
+                <p className="mt-1 max-w-[280px] text-sm font-semibold text-slate-900">
+                  {records[0].check_in_location_name || "Address unavailable"}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white px-4 py-3">
+                <p className="text-xs text-slate-500">Distance</p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {records[0].check_in_distance_meters == null
+                    ? "—"
+                    : `${records[0].check_in_distance_meters.toFixed(1)}m`}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white px-4 py-3">
+                <p className="text-xs text-slate-500">GPS Accuracy</p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {records[0].check_in_accuracy == null
+                    ? "—"
+                    : `±${records[0].check_in_accuracy.toFixed(1)}m`}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5 flex items-center gap-3">
@@ -413,9 +497,12 @@ export default function StaffAttendancePage({
               <h2 className="font-semibold text-slate-900">
                 Staff Clock-In Records
               </h2>
-              <p className="text-sm text-slate-500">
-                {records.length} record{records.length === 1 ? "" : "s"}
-              </p>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
+                <p className="text-sm text-slate-500">
+                  Live attendance · {records.length} record{records.length === 1 ? "" : "s"}
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
