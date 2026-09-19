@@ -163,6 +163,33 @@ async def get_staff_attendance_report(
 
 
 @router.get(
+    "/attendance/reverse-geocode",
+)
+async def reverse_geocode_staff_attendance_location(
+    latitude: float,
+    longitude: float,
+    current_user: User = Depends(
+        require_roles(
+            "SUPER_ADMIN",
+            "SCHOOL_ADMIN",
+        )
+    ),
+):
+    from app.modules.staff.attendance_service import _reverse_geocode
+
+    location_name = await _reverse_geocode(
+        latitude,
+        longitude,
+    )
+
+    return {
+        "latitude": latitude,
+        "longitude": longitude,
+        "location_name": location_name,
+    }
+
+
+@router.get(
     "/attendance/location/{school_id}",
     response_model=StaffAttendanceLocationResponse,
 )

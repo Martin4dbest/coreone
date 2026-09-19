@@ -108,7 +108,22 @@ export default function StaffAttendancePage({
       const settings = locationResponse.data;
 
       setLocation(settings);
-      setRecords(reportResponse.data || []);
+
+      const sortedRecords = [...(reportResponse.data || [])].sort(
+        (a, b) => {
+          const aTime = a.check_in_at
+            ? new Date(a.check_in_at).getTime()
+            : 0;
+
+          const bTime = b.check_in_at
+            ? new Date(b.check_in_at).getTime()
+            : 0;
+
+          return bTime - aTime;
+        },
+      );
+
+      setRecords(sortedRecords);
       setLocationName(settings.location_name || "");
 
       setLatitude(
@@ -142,7 +157,21 @@ export default function StaffAttendancePage({
         );
 
         if (active) {
-          setRecords(response.data || []);
+          const sortedRecords = [...(response.data || [])].sort(
+            (a, b) => {
+              const aTime = a.check_in_at
+                ? new Date(a.check_in_at).getTime()
+                : 0;
+
+              const bTime = b.check_in_at
+                ? new Date(b.check_in_at).getTime()
+                : 0;
+
+              return bTime - aTime;
+            },
+          );
+
+          setRecords(sortedRecords);
         }
       } catch {
         // Keep the existing records visible if a background refresh fails.
@@ -151,7 +180,7 @@ export default function StaffAttendancePage({
 
     const interval = setInterval(
       refreshAttendance,
-      5000,
+      2000,
     );
 
     return () => {
@@ -165,22 +194,17 @@ export default function StaffAttendancePage({
     longitudeValue: number,
   ) => {
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitudeValue}&lon=${longitudeValue}&zoom=18&addressdetails=1&accept-language=en`,
+      const response = await api.get(
+        "/staff/attendance/reverse-geocode",
         {
-          headers: {
-            Accept: "application/json",
+          params: {
+            latitude: latitudeValue,
+            longitude: longitudeValue,
           },
         },
       );
 
-      if (!response.ok) {
-        return "";
-      }
-
-      const data = await response.json();
-
-      return data?.display_name || "";
+      return response.data?.location_name || "";
     } catch {
       return "";
     }

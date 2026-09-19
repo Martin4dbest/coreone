@@ -1,3 +1,4 @@
+import os
 import math
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
@@ -61,7 +62,7 @@ def _distance_meters(
 
 
 
-async def _reverse_geocode(
+async def _reverse_geocode_nominatim(
     latitude: float,
     longitude: float,
 ) -> str | None:
@@ -72,6 +73,7 @@ async def _reverse_geocode(
             "lon": f"{longitude:.8f}",
             "zoom": "18",
             "addressdetails": "1",
+            "layer": "address",
             "accept-language": "en",
         }
     )
@@ -83,6 +85,7 @@ async def _reverse_geocode(
             url,
             headers={
                 "User-Agent": "CoreOne-Staff-Attendance/1.0",
+                "Accept": "application/json",
             },
         )
 
@@ -91,6 +94,38 @@ async def _reverse_geocode(
                 payload = json.loads(
                     response.read().decode("utf-8")
                 )
+
+            address = payload.get("address") or {}
+
+            parts = []
+
+            # Most precise components first.
+            for key in (
+                "house_number",
+                "road",
+            ):
+                value = address.get(key)
+                if value:
+                    parts.append(str(value).strip())
+
+            for key in (
+                "neighbourhood",
+                "suburb",
+                "city_district",
+                "town",
+                "city",
+                "state",
+                "postcode",
+                "country",
+            ):
+                value = address.get(key)
+                if value:
+                    value = str(value).strip()
+                    if value not in parts:
+                        parts.append(value)
+
+            if parts:
+                return ", ".join(parts)
 
             display_name = payload.get("display_name")
 
@@ -103,6 +138,135 @@ async def _reverse_geocode(
         return None
 
     return await asyncio.to_thread(fetch)
+
+
+async def _reverse_geocode_google(
+    latitude: float,
+    longitude: float,
+) -> str | None:
+    api_key = os.getenv("GOOGLE_MAPS_API_KEY", "").strip()
+
+    if not api_key:
+        return None
+
+    params = urlencode(
+        {
+            "latlng": f"{latitude:.8f},{longitude:.8f}",
+            "key": api_key,
+            "language": "en",
+        }
+    )
+
+    url = (
+        "https://maps.googleapis.com/maps/api/geocode/json?"
+        f"{params}"
+    )
+
+    def fetch() -> str | None:
+        request = Request(
+            url,
+            headers={
+                "User-Agent": "CoreOne-Staff-Attendance/1.0",
+                "Accept": "application/json",
+            },
+        )
+
+        try:
+            with urlopen(request, timeout=8) as response:
+                payload = json.loads(
+                    response.read().decode("utf-8")
+                )
+
+            if payload.get("status") != "OK":
+                return None
+
+            results = payload.get("results") or []
+
+            if not results:
+                return None
+
+            # Prefer a true street address.
+            preferred = None
+
+            for result in results:
+                result_types = set(result.get("types") or [])
+
+                if "street_address" in result_types:
+                    preferred = result
+                    break
+
+            result = preferred or results[0]
+
+            components = {}
+
+            for component in result.get("address_components") or []:
+                for component_type in component.get("types") or []:
+                    components[component_type] = (
+                        component.get("long_name")
+                    )
+
+            exact_parts = []
+
+            street_number = components.get("street_number")
+            route = components.get("route")
+
+            if street_number:
+                exact_parts.append(street_number)
+
+            if route:
+                exact_parts.append(route)
+
+            # Add locality hierarchy without duplication.
+            for component_type in (
+                "neighborhood",
+                "sublocality_level_1",
+                "sublocality",
+                "locality",
+                "administrative_area_level_2",
+                "administrative_area_level_1",
+                "postal_code",
+                "country",
+            ):
+                value = components.get(component_type)
+
+                if value and value not in exact_parts:
+                    exact_parts.append(value)
+
+            if exact_parts:
+                return ", ".join(exact_parts)
+
+            formatted = result.get("formatted_address")
+
+            if formatted:
+                return str(formatted).strip()
+
+        except Exception:
+            return None
+
+        return None
+
+    return await asyncio.to_thread(fetch)
+
+
+async def _reverse_geocode(
+    latitude: float,
+    longitude: float,
+) -> str | None:
+    # Production priority:
+    # 1. Google — preferred for precise street/building addresses.
+    # 2. Nominatim — fallback when Google is unavailable/not configured.
+    location = await _reverse_geocode_google(
+        latitude,
+        longitude,
+    )
+
+    if location:
+        return location
+
+    return await _reverse_geocode_nominatim(
+        latitude,
+        longitude,
+    )
 
 
 class StaffAttendanceService:
@@ -317,6 +481,7 @@ class StaffAttendanceService:
                 StaffAttendance.staff_id == staff_id,
                 StaffAttendance.school_id == school_id,
                 StaffAttendance.attendance_date == attendance_date,
+            StaffAttendance.check_in_at.is_not(None),
             )
         )
 
@@ -636,6 +801,21 @@ class StaffAttendanceService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="School not found.",
             )
+
+        location_name = school.staff_attendance_location_name
+
+        if not location_name and (
+            school.staff_attendance_latitude is not None
+            and school.staff_attendance_longitude is not None
+        ):
+            location_name = await _reverse_geocode(
+                school.staff_attendance_latitude,
+                school.staff_attendance_longitude,
+            )
+
+            if location_name:
+                school.staff_attendance_location_name = location_name
+                await self.db.commit()
 
         return {
             "school_id": school.id,

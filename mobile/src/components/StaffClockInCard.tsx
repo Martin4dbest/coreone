@@ -24,6 +24,7 @@ type Attendance = {
   check_in_longitude: number;
   check_in_accuracy: number;
   check_in_distance_meters: number;
+  check_in_location_name: string | null;
   check_in_mocked: boolean;
   message?: string;
 };
@@ -182,6 +183,11 @@ export default function StaffClockInCard() {
           <View style={styles.details}>
             <Text style={styles.detailText}>
               Check-in: {formatTime(attendance.check_in_at)}
+            </Text>
+
+            <Text style={styles.detailText}>
+              Location:{" "}
+              {attendance.check_in_location_name || "Address unavailable"}
             </Text>
 
             <Text style={styles.detailText}>
