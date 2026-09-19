@@ -598,6 +598,7 @@ class StaffAttendanceService:
                 WHERE s.user_id = :user_id
                   AND sa.school_id = :school_id
                   AND sa.attendance_date = :attendance_date
+                  AND sa.check_in_at IS NOT NULL
                 ORDER BY sa.id DESC
                 LIMIT 1
                 """
@@ -726,6 +727,7 @@ class StaffAttendanceService:
                 sa.attendance_date,
                 sa.status,
                 sa.check_in_at,
+                sa.check_in_location_name,
                 sa.check_in_latitude,
                 sa.check_in_longitude,
                 sa.check_in_accuracy,
