@@ -161,26 +161,59 @@ class StaffAttendanceService:
                 detail="User is not linked to a school.",
             )
 
+        # Resolve Staff explicitly. Never access current_user.staff
+        # because that relationship may trigger async lazy loading.
         staff_result = await self.db.execute(
-            select(Staff).where(
+            select(Staff.id).where(
                 Staff.user_id == current_user.id,
-                Staff.school_id == current_user.school_id,
             )
         )
 
-        staff = staff_result.scalar_one_or_none()
+        staff_id = staff_result.scalar_one_or_none()
 
-        if not staff:
+        if staff_id is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Staff profile not found.",
             )
 
-        return await self.repository.get_all(
-            school_id=current_user.school_id,
-            staff_id=staff.id,
-            attendance_date=attendance_date,
+        # Select scalar columns directly. This completely avoids ORM
+        # relationship loading during FastAPI response serialization.
+        query = select(
+            StaffAttendance.id,
+            StaffAttendance.staff_id,
+            StaffAttendance.school_id,
+            StaffAttendance.attendance_date,
+            StaffAttendance.status,
+            StaffAttendance.remarks,
+        ).where(
+            StaffAttendance.school_id == current_user.school_id,
+            StaffAttendance.staff_id == staff_id,
         )
+
+        if attendance_date is not None:
+            query = query.where(
+                StaffAttendance.attendance_date == attendance_date,
+            )
+
+        query = query.order_by(
+            StaffAttendance.attendance_date.desc(),
+            StaffAttendance.id.desc(),
+        )
+
+        result = await self.db.execute(query)
+
+        return [
+            {
+                "id": row.id,
+                "staff_id": row.staff_id,
+                "school_id": row.school_id,
+                "attendance_date": row.attendance_date,
+                "status": row.status,
+                "remarks": row.remarks,
+            }
+            for row in result.all()
+        ]
 
     async def get_all(
         self,
