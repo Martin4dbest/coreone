@@ -18,6 +18,7 @@ from app.modules.staff.attendance_schemas import (
     StaffAttendanceCreateRequest,
     StaffAttendanceUpdateRequest,
     StaffAttendanceResponse,
+    StaffAttendanceDeleteResponse,
     StaffClockInRequest,
     StaffClockInResponse,
     StaffClockInStatusResponse,
@@ -239,6 +240,30 @@ async def get_staff_attendance(
         staff_id,
         attendance_date,
         school_id,
+    )
+
+
+@router.delete(
+    "/attendance/history",
+    response_model=StaffAttendanceDeleteResponse,
+)
+async def delete_staff_attendance_history(
+    school_id: int,
+    start_date: date,
+    end_date: date,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(
+            "SUPER_ADMIN",
+            "SCHOOL_ADMIN",
+        )
+    ),
+):
+    return await StaffAttendanceService(db).delete_attendance_history(
+        school_id,
+        start_date,
+        end_date,
+        current_user,
     )
 
 

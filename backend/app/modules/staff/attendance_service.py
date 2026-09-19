@@ -457,6 +457,71 @@ class StaffAttendanceService:
             "attendance": dict(row),
         }
 
+    async def delete_attendance_history(
+        self,
+        school_id: int,
+        start_date: date,
+        end_date: date,
+        current_user,
+    ):
+        if start_date > end_date:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Start date cannot be later than end date.",
+            )
+
+        role_name = getattr(
+            getattr(current_user, "role", None),
+            "name",
+            None,
+        )
+
+        if role_name == "SCHOOL_ADMIN":
+            if current_user.school_id != school_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only delete attendance for your own school.",
+                )
+
+        elif role_name != "SUPER_ADMIN":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not authorised to delete staff attendance history.",
+            )
+
+        result = await self.db.execute(
+            sql_text(
+                """
+                DELETE FROM staff_attendance
+                WHERE school_id = :school_id
+                  AND attendance_date >= :start_date
+                  AND attendance_date <= :end_date
+                RETURNING id
+                """
+            ),
+            {
+                "school_id": school_id,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+        )
+
+        deleted_ids = result.scalars().all()
+        deleted_count = len(deleted_ids)
+
+        await self.db.commit()
+
+        return {
+            "school_id": school_id,
+            "start_date": start_date,
+            "end_date": end_date,
+            "deleted_count": deleted_count,
+            "message": (
+                f"{deleted_count} staff attendance record"
+                f"{'' if deleted_count == 1 else 's'} deleted."
+            ),
+        }
+
     async def get_attendance_report(
         self,
         school_id: int,

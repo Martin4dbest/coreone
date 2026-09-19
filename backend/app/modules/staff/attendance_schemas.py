@@ -95,3 +95,10 @@ class StaffAttendanceReportItem(BaseModel):
     check_in_distance_meters: float | None = None
 
     check_in_location_name: str | None = None
+
+class StaffAttendanceDeleteResponse(BaseModel):
+    school_id: int
+    start_date: date
+    end_date: date
+    deleted_count: int
+    message: str
