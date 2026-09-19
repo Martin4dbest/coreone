@@ -24,6 +24,10 @@ class SchoolResponse(BaseModel):
     state: str
     country: str
 
+    staff_attendance_latitude: float | None = None
+    staff_attendance_longitude: float | None = None
+    staff_attendance_radius_meters: float = 100.0
+
     is_active: bool
 
     logo_url: str | None = None

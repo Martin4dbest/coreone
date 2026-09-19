@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, Query, File, Form, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import require_roles
@@ -18,6 +18,12 @@ from app.modules.staff.attendance_schemas import (
     StaffAttendanceCreateRequest,
     StaffAttendanceUpdateRequest,
     StaffAttendanceResponse,
+    StaffClockInRequest,
+    StaffClockInResponse,
+    StaffClockInStatusResponse,
+    StaffAttendanceLocationUpdateRequest,
+    StaffAttendanceLocationResponse,
+    StaffAttendanceReportItem,
 )
 from app.modules.staff.attendance_service import (
     StaffAttendanceService,
@@ -105,6 +111,91 @@ async def get_my_staff_attendance(
         }
         for row in result.mappings().all()
     ]
+
+@router.post(
+    "/me/clock-in",
+    response_model=StaffClockInResponse,
+)
+async def clock_in_staff(
+    payload: StaffClockInRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await StaffAttendanceService(db).clock_in(
+        payload,
+        current_user,
+    )
+
+
+@router.get(
+    "/me/clock-in-status",
+    response_model=StaffClockInStatusResponse,
+)
+async def get_staff_clock_in_status(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await StaffAttendanceService(
+        db
+    ).get_clock_in_status(
+        current_user,
+    )
+
+
+@router.get(
+    "/attendance/report",
+    response_model=list[StaffAttendanceReportItem],
+)
+async def get_staff_attendance_report(
+    school_id: int,
+    attendance_date: date | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await StaffAttendanceService(
+        db
+    ).get_attendance_report(
+        school_id,
+        current_user,
+        attendance_date,
+    )
+
+
+@router.get(
+    "/attendance/location/{school_id}",
+    response_model=StaffAttendanceLocationResponse,
+)
+async def get_staff_attendance_location(
+    school_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await StaffAttendanceService(
+        db
+    ).get_attendance_location(
+        school_id,
+        current_user,
+    )
+
+
+@router.patch(
+    "/attendance/location/{school_id}",
+    response_model=StaffAttendanceLocationResponse,
+)
+async def update_staff_attendance_location(
+    school_id: int,
+    payload: StaffAttendanceLocationUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await StaffAttendanceService(
+        db
+    ).update_attendance_location(
+        school_id,
+        payload,
+        current_user,
+    )
+
 
 @router.post(
     "/attendance",

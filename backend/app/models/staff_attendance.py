@@ -1,6 +1,6 @@
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import Date, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_model import BaseModel
@@ -44,6 +44,37 @@ class StaffAttendance(Base, BaseModel):
     remarks: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
+    )
+
+    check_in_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    check_in_latitude: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    check_in_longitude: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    check_in_accuracy: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    check_in_distance_meters: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    check_in_mocked: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
     )
 
     staff = relationship("Staff")

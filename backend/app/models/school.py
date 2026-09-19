@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from sqlalchemy import Boolean, Enum as SQLEnum, String
+from sqlalchemy import Boolean, Enum as SQLEnum, Float, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base_model import BaseModel
@@ -72,6 +72,26 @@ class School(Base, BaseModel):
 
     website: Mapped[str | None] = mapped_column(
         String(255),
+    )
+
+    # -----------------------------
+    # Staff Attendance Geofence
+    # -----------------------------
+
+    staff_attendance_latitude: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    staff_attendance_longitude: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    staff_attendance_radius_meters: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        default=100.0,
     )
 
     # -----------------------------
