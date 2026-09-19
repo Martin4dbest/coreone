@@ -910,6 +910,32 @@ async def distribution_records(
 
 
 @router.get(
+    "/{school_id}/receipts",
+)
+async def school_receipt_history(
+    school_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        require_roles(*BOOK_MANAGEMENT_ROLES)
+    ),
+):
+    verify_school_access(current_user, school_id)
+
+    result = await db.execute(
+        select(SchoolBookReceipt)
+        .where(
+            SchoolBookReceipt.school_id == school_id,
+        )
+        .order_by(
+            SchoolBookReceipt.date_received.desc(),
+            SchoolBookReceipt.id.desc(),
+        )
+    )
+
+    return list(result.scalars().all())
+
+
+@router.get(
     "/{school_id}/{book_id}/receipts/history",
 )
 async def receipt_history(
