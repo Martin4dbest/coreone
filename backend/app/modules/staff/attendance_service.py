@@ -161,8 +161,8 @@ class StaffAttendanceService:
                 detail="User is not linked to a school.",
             )
 
-        # Resolve Staff explicitly. Never access current_user.staff
-        # because that relationship may trigger async lazy loading.
+        # Resolve staff profile directly from the users.id -> staff.user_id
+        # relationship using an async SQL query.
         staff_result = await self.db.execute(
             select(Staff.id).where(
                 Staff.user_id == current_user.id,
@@ -177,8 +177,8 @@ class StaffAttendanceService:
                 detail="Staff profile not found.",
             )
 
-        # Select scalar columns directly. This completely avoids ORM
-        # relationship loading during FastAPI response serialization.
+        # Return scalar columns directly.
+        # No StaffAttendance ORM relationship is exposed here.
         query = select(
             StaffAttendance.id,
             StaffAttendance.staff_id,

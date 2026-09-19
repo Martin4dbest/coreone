@@ -56,7 +56,8 @@ async def get_current_user(
 
     result = await db.execute(
         select(User).options(
-            selectinload(User.teacher)
+            selectinload(User.teacher),
+                selectinload(User.staff)
         )
         .options(
             selectinload(User.role)
