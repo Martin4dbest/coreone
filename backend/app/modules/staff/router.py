@@ -51,29 +51,60 @@ async def get_my_staff_profile(
 
 @router.get(
     "/me/attendance",
-    response_model=list[StaffAttendanceResponse],
 )
 async def get_my_staff_attendance(
     attendance_date: date | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    records = await StaffAttendanceService(db).get_my_attendance(
-        current_user,
-        attendance_date,
+    from sqlalchemy import text
+
+    query = """
+        SELECT
+            sa.id,
+            sa.staff_id,
+            sa.school_id,
+            sa.attendance_date,
+            sa.status,
+            sa.remarks
+        FROM staff_attendance sa
+        INNER JOIN staff s
+            ON s.id = sa.staff_id
+        WHERE s.user_id = :user_id
+          AND sa.school_id = :school_id
+    """
+
+    params = {
+        "user_id": current_user.id,
+        "school_id": current_user.school_id,
+    }
+
+    if attendance_date is not None:
+        query += """
+            AND sa.attendance_date = :attendance_date
+        """
+        params["attendance_date"] = attendance_date
+
+    query += """
+        ORDER BY sa.attendance_date DESC, sa.id DESC
+    """
+
+    result = await db.execute(
+        text(query),
+        params,
     )
 
-    # Serialize database columns only.
-    # This prevents FastAPI/Pydantic from triggering lazy async
-    # SQLAlchemy relationship loading outside the greenlet context.
     return [
         {
-            column.key: getattr(record, column.key)
-            for column in record.__table__.columns
+            "id": row["id"],
+            "staff_id": row["staff_id"],
+            "school_id": row["school_id"],
+            "attendance_date": row["attendance_date"],
+            "status": row["status"],
+            "remarks": row["remarks"],
         }
-        for record in records
+        for row in result.mappings().all()
     ]
-
 
 @router.post(
     "/attendance",
