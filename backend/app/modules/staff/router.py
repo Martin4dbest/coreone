@@ -58,10 +58,21 @@ async def get_my_staff_attendance(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await StaffAttendanceService(db).get_my_attendance(
+    records = await StaffAttendanceService(db).get_my_attendance(
         current_user,
         attendance_date,
     )
+
+    # Serialize database columns only.
+    # This prevents FastAPI/Pydantic from triggering lazy async
+    # SQLAlchemy relationship loading outside the greenlet context.
+    return [
+        {
+            column.key: getattr(record, column.key)
+            for column in record.__table__.columns
+        }
+        for record in records
+    ]
 
 
 @router.post(
