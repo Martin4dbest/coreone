@@ -306,7 +306,13 @@ class StaffAttendanceService:
         local_now = datetime.now(
             ZoneInfo("Africa/Lagos")
         )
-        attendance_date = local_now.date()
+        # One authoritative server timestamp for the clock-in.
+        # Store UTC and derive the official Lagos attendance date
+        # from this exact same instant.
+        check_in_at=check_in_at
+        attendance_date = check_in_at.astimezone(
+            ZoneInfo("Africa/Lagos")
+        ).date()
 
         existing_result = await self.db.execute(
             select(StaffAttendance.id).where(
@@ -352,7 +358,7 @@ class StaffAttendanceService:
             attendance_date=attendance_date,
             status="present",
             remarks="Mobile geofenced clock-in",
-            check_in_at=datetime.now(timezone.utc),
+            check_in_at=check_in_at,
             check_in_latitude=payload.latitude,
             check_in_longitude=payload.longitude,
             check_in_accuracy=payload.accuracy,
