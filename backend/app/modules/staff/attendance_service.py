@@ -1,12 +1,11 @@
 from datetime import date
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.staff import Staff
-from app.models.role import Role
 from app.models.staff_attendance import StaffAttendance
 
 from app.modules.staff.attendance_repository import (
@@ -150,70 +149,59 @@ class StaffAttendanceService:
         current_user,
         attendance_date: date | None = None,
     ):
-        # Read role directly from the database.
-        # This avoids lazy-loading current_user.role in AsyncSession.
-        role_result = await self.db.execute(
-            select(Role.name).where(
-                Role.id == current_user.role_id
-            )
-        )
-        role_name = role_result.scalar_one_or_none()
+        query = """
+            SELECT
+                sa.id,
+                sa.staff_id,
+                sa.school_id,
+                sa.attendance_date,
+                sa.status,
+                sa.remarks
+            FROM staff_attendance sa
+            INNER JOIN staff s
+                ON s.id = sa.staff_id
+            INNER JOIN users u
+                ON u.id = s.user_id
+            INNER JOIN roles r
+                ON r.id = u.role_id
+            WHERE u.id = :user_id
+              AND u.school_id = :school_id
+              AND r.name = 'STAFF'
+              AND sa.school_id = u.school_id
+        """
 
-        if role_name != "STAFF":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Staff access required.",
-            )
-
-        # Resolve the staff profile using a direct SQL query.
-        # Do NOT access current_user.staff here because that relationship
-        # can trigger MissingGreenlet under Async SQLAlchemy.
-        staff_result = await self.db.execute(
-            select(Staff.id).where(
-                Staff.user_id == current_user.id
-            )
-        )
-        staff_id = staff_result.scalar_one_or_none()
-
-        if staff_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Staff profile not found.",
-            )
-
-        query = select(
-            StaffAttendance.id,
-            StaffAttendance.staff_id,
-            StaffAttendance.school_id,
-            StaffAttendance.attendance_date,
-            StaffAttendance.status,
-            StaffAttendance.remarks,
-        ).where(
-            StaffAttendance.staff_id == staff_id,
-            StaffAttendance.school_id == current_user.school_id,
-        )
+        params = {
+            "user_id": current_user.id,
+            "school_id": current_user.school_id,
+        }
 
         if attendance_date is not None:
-            query = query.where(
-                StaffAttendance.attendance_date == attendance_date
-            )
+            query += """
+                AND sa.attendance_date = :attendance_date
+            """
+            params["attendance_date"] = attendance_date
 
-        query = query.order_by(
-            StaffAttendance.attendance_date.desc()
+        query += """
+            ORDER BY
+                sa.attendance_date DESC,
+                sa.id DESC
+        """
+
+        result = await self.db.execute(
+            text(query),
+            params,
         )
-
-        result = await self.db.execute(query)
 
         return [
             {
-                "id": row.id,
-                "staff_id": row.staff_id,
-                "school_id": row.school_id,
-                "attendance_date": row.attendance_date,
-                "status": row.status,
-                "remarks": row.remarks,
+                "id": row["id"],
+                "staff_id": row["staff_id"],
+                "school_id": row["school_id"],
+                "attendance_date": row["attendance_date"],
+                "status": row["status"],
+                "remarks": row["remarks"],
             }
-            for row in result.all()
+            for row in result.mappings().all()
         ]
 
     async def get_all(
