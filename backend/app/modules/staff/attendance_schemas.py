@@ -27,6 +27,7 @@ class StaffAttendanceResponse(BaseModel):
     check_in_longitude: float | None = None
     check_in_accuracy: float | None = None
     check_in_distance_meters: float | None = None
+    check_in_location_name: str | None = None
     check_in_mocked: bool = False
 
     class Config:
@@ -51,6 +52,7 @@ class StaffClockInResponse(BaseModel):
     check_in_longitude: float
     check_in_accuracy: float
     check_in_distance_meters: float
+    check_in_location_name: str | None = None
     check_in_mocked: bool
     message: str
 
@@ -91,3 +93,5 @@ class StaffAttendanceReportItem(BaseModel):
     check_in_longitude: float | None = None
     check_in_accuracy: float | None = None
     check_in_distance_meters: float | None = None
+
+    check_in_location_name: str | None = None

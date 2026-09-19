@@ -8,6 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
+import asyncio
+import json
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
 from app.models.staff import Staff
 from app.models.school import School
 from app.models.staff_attendance import StaffAttendance
@@ -53,6 +58,51 @@ def _distance_meters(
         math.sqrt(a),
         math.sqrt(1 - a),
     )
+
+
+
+async def _reverse_geocode(
+    latitude: float,
+    longitude: float,
+) -> str | None:
+    params = urlencode(
+        {
+            "format": "jsonv2",
+            "lat": f"{latitude:.8f}",
+            "lon": f"{longitude:.8f}",
+            "zoom": "18",
+            "addressdetails": "1",
+            "accept-language": "en",
+        }
+    )
+
+    url = f"https://nominatim.openstreetmap.org/reverse?{params}"
+
+    def fetch() -> str | None:
+        request = Request(
+            url,
+            headers={
+                "User-Agent": "CoreOne-Staff-Attendance/1.0",
+            },
+        )
+
+        try:
+            with urlopen(request, timeout=8) as response:
+                payload = json.loads(
+                    response.read().decode("utf-8")
+                )
+
+            display_name = payload.get("display_name")
+
+            if display_name:
+                return str(display_name).strip()
+
+        except Exception:
+            return None
+
+        return None
+
+    return await asyncio.to_thread(fetch)
 
 
 class StaffAttendanceService:
@@ -163,6 +213,11 @@ class StaffAttendanceService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Staff attendance already exists for this date.",
             )
+
+        location_name = await _reverse_geocode(
+            payload.latitude,
+            payload.longitude,
+        )
 
         attendance = StaffAttendance(
             staff_id=payload.staff_id,
@@ -303,6 +358,7 @@ class StaffAttendanceService:
             check_in_accuracy=payload.accuracy,
             check_in_distance_meters=distance,
             check_in_mocked=payload.mocked,
+            check_in_location_name=location_name,
         )
 
         try:
@@ -328,6 +384,7 @@ class StaffAttendanceService:
             "check_in_longitude": attendance.check_in_longitude,
             "check_in_accuracy": attendance.check_in_accuracy,
             "check_in_distance_meters": attendance.check_in_distance_meters,
+            "check_in_location_name": attendance.check_in_location_name,
             "check_in_mocked": attendance.check_in_mocked,
             "message": (
                 f"Attendance marked successfully at "
@@ -364,6 +421,7 @@ class StaffAttendanceService:
                     sa.check_in_longitude,
                     sa.check_in_accuracy,
                     sa.check_in_distance_meters,
+                    sa.check_in_location_name,
                     sa.check_in_mocked
                 FROM staff_attendance sa
                 INNER JOIN staff s
@@ -511,6 +569,7 @@ class StaffAttendanceService:
         return {
             "school_id": school.id,
             "school_name": school.name,
+"location_name": school.staff_attendance_location_name,
             "latitude": school.staff_attendance_latitude,
             "longitude": school.staff_attendance_longitude,
             "radius_meters": float(
@@ -559,6 +618,27 @@ class StaffAttendanceService:
         school.staff_attendance_latitude = payload.latitude
         school.staff_attendance_longitude = payload.longitude
         school.staff_attendance_radius_meters = payload.radius_meters
+        location_name = await _reverse_geocode(
+            payload.latitude,
+            payload.longitude,
+        )
+
+        if not location_name:
+            fallback_parts = [
+                school.address,
+                school.city,
+                school.state,
+                school.country,
+            ]
+
+            location_name = ", ".join(
+                part.strip()
+                for part in fallback_parts
+                if part and part.strip()
+            ) or None
+
+        school.staff_attendance_location_name = location_name
+
 
         await self.db.commit()
         await self.db.refresh(school)

@@ -17,6 +17,7 @@ import api from "@/lib/api";
 type LocationSettings = {
   school_id: number;
   school_name: string;
+  location_name: string | null;
   latitude: number | null;
   longitude: number | null;
   radius_meters: number;
@@ -35,6 +36,7 @@ type AttendanceItem = {
   check_in_longitude: number | null;
   check_in_accuracy: number | null;
   check_in_distance_meters: number | null;
+  check_in_location_name: string | null;
 };
 
 function formatDate(value: string) {
@@ -217,6 +219,30 @@ export default function StaffAttendancePage({
         </p>
       </div>
 
+      {location?.location_name && (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white">
+              <MapPin className="h-5 w-5 text-blue-600" />
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
+                Configured Address
+              </p>
+
+              <p className="mt-1 text-base font-semibold text-slate-900">
+                {location.location_name}
+              </p>
+
+              <p className="mt-1 text-xs text-slate-500">
+                GPS: {location.latitude}, {location.longitude} · Radius: {location.radius_meters}m
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {errorMessage && (
         <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <XCircle className="h-5 w-5 shrink-0" />
@@ -367,6 +393,7 @@ export default function StaffAttendancePage({
                     <th className="px-3 py-3">Employee No.</th>
                     <th className="px-3 py-3">Date</th>
                     <th className="px-3 py-3">Check-In</th>
+                    <th className="px-3 py-3">Location</th>
                     <th className="px-3 py-3">Status</th>
                     <th className="px-3 py-3">Distance</th>
                     <th className="px-3 py-3">Accuracy</th>
@@ -397,6 +424,14 @@ export default function StaffAttendancePage({
 
                       <td className="px-3 py-4 text-slate-600">
                         {formatTime(record.check_in_at)}
+                      </td>
+
+                      <td className="max-w-[280px] px-3 py-4 text-slate-600">
+                        {record.check_in_location_name || (
+                          <span className="text-slate-400">
+                            Address unavailable
+                          </span>
+                        )}
                       </td>
 
                       <td className="px-3 py-4">
