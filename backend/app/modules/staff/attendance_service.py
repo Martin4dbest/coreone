@@ -83,9 +83,18 @@ class StaffAttendanceService:
         school_id = await self._school_id(current_user)
 
         if current_user.role.name == "STAFF":
+            staff_result = await self.db.execute(
+                select(Staff).where(
+                    Staff.user_id == current_user.id,
+                    Staff.school_id == school_id,
+                )
+            )
+
+            own_staff = staff_result.scalar_one_or_none()
+
             if (
-                not current_user.staff
-                or current_user.staff.id != payload.staff_id
+                not own_staff
+                or own_staff.id != payload.staff_id
             ):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -146,7 +155,22 @@ class StaffAttendanceService:
                 detail="Staff access required.",
             )
 
-        if not current_user.staff:
+        if current_user.school_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User is not linked to a school.",
+            )
+
+        staff_result = await self.db.execute(
+            select(Staff).where(
+                Staff.user_id == current_user.id,
+                Staff.school_id == current_user.school_id,
+            )
+        )
+
+        staff = staff_result.scalar_one_or_none()
+
+        if not staff:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Staff profile not found.",
@@ -154,7 +178,7 @@ class StaffAttendanceService:
 
         return await self.repository.get_all(
             school_id=current_user.school_id,
-            staff_id=current_user.staff.id,
+            staff_id=staff.id,
             attendance_date=attendance_date,
         )
 
