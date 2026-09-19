@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.staff import Staff
+from app.models.role import Role
 from app.models.staff_attendance import StaffAttendance
 
 from app.modules.staff.attendance_repository import (
@@ -149,26 +150,29 @@ class StaffAttendanceService:
         current_user,
         attendance_date: date | None = None,
     ):
-        if current_user.role.name != "STAFF":
+        # Read role directly from the database.
+        # This avoids lazy-loading current_user.role in AsyncSession.
+        role_result = await self.db.execute(
+            select(Role.name).where(
+                Role.id == current_user.role_id
+            )
+        )
+        role_name = role_result.scalar_one_or_none()
+
+        if role_name != "STAFF":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Staff access required.",
             )
 
-        if current_user.school_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User is not linked to a school.",
-            )
-
-        # Resolve staff profile directly from the users.id -> staff.user_id
-        # relationship using an async SQL query.
+        # Resolve the staff profile using a direct SQL query.
+        # Do NOT access current_user.staff here because that relationship
+        # can trigger MissingGreenlet under Async SQLAlchemy.
         staff_result = await self.db.execute(
             select(Staff.id).where(
-                Staff.user_id == current_user.id,
+                Staff.user_id == current_user.id
             )
         )
-
         staff_id = staff_result.scalar_one_or_none()
 
         if staff_id is None:
@@ -177,8 +181,6 @@ class StaffAttendanceService:
                 detail="Staff profile not found.",
             )
 
-        # Return scalar columns directly.
-        # No StaffAttendance ORM relationship is exposed here.
         query = select(
             StaffAttendance.id,
             StaffAttendance.staff_id,
@@ -187,18 +189,17 @@ class StaffAttendanceService:
             StaffAttendance.status,
             StaffAttendance.remarks,
         ).where(
-            StaffAttendance.school_id == current_user.school_id,
             StaffAttendance.staff_id == staff_id,
+            StaffAttendance.school_id == current_user.school_id,
         )
 
         if attendance_date is not None:
             query = query.where(
-                StaffAttendance.attendance_date == attendance_date,
+                StaffAttendance.attendance_date == attendance_date
             )
 
         query = query.order_by(
-            StaffAttendance.attendance_date.desc(),
-            StaffAttendance.id.desc(),
+            StaffAttendance.attendance_date.desc()
         )
 
         result = await self.db.execute(query)
