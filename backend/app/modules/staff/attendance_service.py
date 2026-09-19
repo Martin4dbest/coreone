@@ -373,16 +373,13 @@ class StaffAttendanceService:
         )
 
         if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Staff attendance already exists for this date.",
-            )
+            existing.status = attendance_status
+            existing.remarks = payload.remarks
 
-        location_name = await _reverse_geocode(
-            payload.latitude,
-            payload.longitude,
-        )
+            await self.db.commit()
+            await self.db.refresh(existing)
 
+            return existing
         attendance = StaffAttendance(
             staff_id=payload.staff_id,
             school_id=school_id,
@@ -444,53 +441,44 @@ class StaffAttendanceService:
                 ),
             )
 
-        if payload.accuracy > 100:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "Your GPS accuracy is too low. "
-                    "Please enable precise location and try again."
-                ),
-            )
-
         staff_result = await self.db.execute(
-            select(Staff.id).where(
+            select(Staff).where(
                 Staff.user_id == current_user.id,
+                Staff.school_id == school_id,
             )
         )
 
-        staff_id = staff_result.scalar_one_or_none()
+        staff = staff_result.scalar_one_or_none()
 
-        if staff_id is None:
+        if staff is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Staff profile not found.",
             )
 
-        local_now = datetime.now(
-            ZoneInfo("Africa/Lagos")
-        )
-        # Official clock-in time comes from the CoreOne server.
+        # CoreOne server is authoritative for attendance time.
         check_in_at = datetime.now(timezone.utc)
+
         attendance_date = check_in_at.astimezone(
             ZoneInfo("Africa/Lagos")
         ).date()
 
-        existing_result = await self.db.execute(
-            select(StaffAttendance.id).where(
-                StaffAttendance.staff_id == staff_id,
-                StaffAttendance.school_id == school_id,
-                StaffAttendance.attendance_date == attendance_date,
-            StaffAttendance.check_in_at.is_not(None),
-            )
+        radius = float(
+            school.staff_attendance_radius_meters or 100.0
         )
 
-        existing_id = existing_result.scalar_one_or_none()
-
-        if existing_id is not None:
+        # Accuracy must be compatible with the school's configured
+        # geofence. We intentionally do not impose an arbitrary
+        # universal 50m/100m ceiling.
+        if payload.accuracy > radius:
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="You have already marked attendance today.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Your GPS accuracy ({payload.accuracy:.0f}m) "
+                    f"is too low for this school's attendance radius "
+                    f"({radius:.0f}m). Please enable precise location "
+                    f"and try again."
+                ),
             )
 
         distance = _distance_meters(
@@ -500,12 +488,9 @@ class StaffAttendanceService:
             school.staff_attendance_longitude,
         )
 
-        radius = float(
-            school.staff_attendance_radius_meters or 100.0
-        )
-
-        # Require the GPS uncertainty circle to remain within
-        # the configured school geofence.
+        # Conservative geofence validation:
+        # the entire GPS uncertainty circle must remain inside
+        # the configured school radius.
         if distance + payload.accuracy > radius:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -515,32 +500,90 @@ class StaffAttendanceService:
                 ),
             )
 
-        attendance = StaffAttendance(
-            staff_id=staff_id,
-            school_id=school_id,
-            attendance_date=attendance_date,
-            status="present",
-            remarks="Mobile geofenced clock-in",
-            check_in_at=check_in_at,
-            check_in_latitude=payload.latitude,
-            check_in_longitude=payload.longitude,
-            check_in_accuracy=payload.accuracy,
-            check_in_distance_meters=distance,
-            check_in_mocked=payload.mocked,
-            check_in_location_name=location_name,
+        # Obtain a real human-readable address.
+        location_name = await _reverse_geocode(
+            payload.latitude,
+            payload.longitude,
         )
 
-        try:
-            self.db.add(attendance)
-            await self.db.commit()
-            await self.db.refresh(attendance)
-        except IntegrityError:
-            await self.db.rollback()
+        # Find today's attendance row, whether it was created
+        # manually by Admin or by a previous GPS operation.
+        existing_result = await self.db.execute(
+            select(StaffAttendance).where(
+                StaffAttendance.staff_id == staff.id,
+                StaffAttendance.school_id == school_id,
+                StaffAttendance.attendance_date == attendance_date,
+            )
+        )
 
+        existing = existing_result.scalar_one_or_none()
+
+        # A record with check_in_at already populated is a real
+        # GPS clock-in and therefore must not be clocked in again.
+        if existing is not None and existing.check_in_at is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="You have already marked attendance today.",
             )
+
+        # If Admin already created today's attendance row,
+        # enrich that SAME row with GPS clock-in information.
+        if existing is not None:
+            attendance = existing
+
+            attendance.status = "present"
+            attendance.check_in_at = check_in_at
+            attendance.check_in_latitude = payload.latitude
+            attendance.check_in_longitude = payload.longitude
+            attendance.check_in_accuracy = payload.accuracy
+            attendance.check_in_distance_meters = distance
+            attendance.check_in_mocked = payload.mocked
+            attendance.check_in_location_name = location_name
+
+            try:
+                await self.db.commit()
+                await self.db.refresh(attendance)
+            except IntegrityError:
+                await self.db.rollback()
+
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="You have already marked attendance today.",
+                )
+
+        else:
+            # No manual attendance exists yet, so create the
+            # attendance row directly from the staff GPS clock-in.
+            attendance = StaffAttendance(
+                staff_id=staff.id,
+                school_id=school_id,
+                attendance_date=attendance_date,
+                status="present",
+                remarks="Mobile geofenced clock-in",
+                check_in_at=check_in_at,
+                check_in_latitude=payload.latitude,
+                check_in_longitude=payload.longitude,
+                check_in_accuracy=payload.accuracy,
+                check_in_distance_meters=distance,
+                check_in_mocked=payload.mocked,
+                check_in_location_name=location_name,
+            )
+
+            try:
+                self.db.add(attendance)
+                await self.db.commit()
+                await self.db.refresh(attendance)
+            except IntegrityError:
+                await self.db.rollback()
+
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="You have already marked attendance today.",
+                )
+
+        local_now = check_in_at.astimezone(
+            ZoneInfo("Africa/Lagos")
+        )
 
         return {
             "id": attendance.id,
