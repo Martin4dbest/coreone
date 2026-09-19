@@ -62,6 +62,12 @@ type DashboardData = {
   monthlyStudents: number[];
   monthlyAttendance: number[];
   classDistribution: { name: string; value: number }[];
+  classGenderDistribution: {
+    name: string;
+    male: number;
+    female: number;
+    total: number;
+  }[];
   departmentDistribution: { name: string; value: number }[];
 };
 
@@ -97,6 +103,7 @@ const emptyData: DashboardData = {
   monthlyAttendance: [0, 0, 0, 0, 0, 0, 0],
 
   classDistribution: [],
+  classGenderDistribution: [],
   departmentDistribution: [],
 };
 
@@ -470,6 +477,8 @@ function extractDashboard(
           item?.student_count,
       ),
     })),
+
+    classGenderDistribution: [],
 
     departmentDistribution: departmentRaw.map((item: any, index: number) => ({
       name: safeLabel(
@@ -1348,6 +1357,108 @@ export default function School360Dashboard() {
       // OVERRIDE THE GENERIC INFERENCE WITH VERIFIED ENDPOINT DATA
       // ------------------------------------------------------------
 
+      // ------------------------------------------------------------
+      // STUDENTS BY CLASS + GENDER
+      // ------------------------------------------------------------
+
+      const classNameById = new Map<string, string>();
+
+      for (const classroom of classes360) {
+        const id =
+          classroom?.id ??
+          classroom?.classroom_id ??
+          classroom?.class_id;
+
+        const name = String(
+          classroom?.name ??
+          classroom?.title ??
+          classroom?.class_name ??
+          classroom?.classroom_name ??
+          "",
+        ).trim();
+
+        if (id !== undefined && id !== null && name) {
+          classNameById.set(String(id), name);
+        }
+      }
+
+      const classGenderMap = new Map<
+        string,
+        {
+          name: string;
+          male: number;
+          female: number;
+          total: number;
+        }
+      >();
+
+      for (const student of students360) {
+        const rawClassId =
+          student?.classroom_id ??
+          student?.class_id ??
+          student?.classroomId ??
+          student?.classId;
+
+        const className = String(
+          student?.class_name ??
+          student?.className ??
+          student?.classroom_name ??
+          student?.classroomName ??
+          student?.classroom?.name ??
+          student?.class?.name ??
+          (rawClassId !== undefined && rawClassId !== null
+            ? classNameById.get(String(rawClassId))
+            : undefined) ??
+          "Unassigned",
+        ).trim();
+
+        const key = className || "Unassigned";
+
+        if (!classGenderMap.has(key)) {
+          classGenderMap.set(key, {
+            name: key,
+            male: 0,
+            female: 0,
+            total: 0,
+          });
+        }
+
+        const entry = classGenderMap.get(key)!;
+
+        const gender = String(
+          student?.gender ??
+          student?.sex ??
+          "",
+        )
+          .trim()
+          .toLowerCase();
+
+        if (
+          gender === "male" ||
+          gender === "m" ||
+          gender === "boy"
+        ) {
+          entry.male += 1;
+        } else if (
+          gender === "female" ||
+          gender === "f" ||
+          gender === "girl"
+        ) {
+          entry.female += 1;
+        }
+
+        entry.total += 1;
+      }
+
+      const classGenderDistribution = Array.from(
+        classGenderMap.values(),
+      ).sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }),
+      );
+
       Object.assign(extracted, {
         students: studentCount,
         teachers: teacherCount,
@@ -1380,6 +1491,7 @@ export default function School360Dashboard() {
         monthlyAttendance,
 
         classDistribution,
+        classGenderDistribution,
         departmentDistribution,
 
         attendanceRate,
@@ -2229,62 +2341,112 @@ export default function School360Dashboard() {
 
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <SectionTitle
-              icon={BriefcaseBusiness}
-              title="Department Distribution"
-              description="Population grouped by department"
+              icon={GraduationCap}
+              title="Students by Class — Gender"
+              description="Male and female students in each class"
             />
 
-            {data.departmentDistribution.length > 0 ? (
-              <div className="space-y-4">
-                {data.departmentDistribution
-                  .slice(0, 10)
-                  .map((item, index) => {
-                    const max = Math.max(
-                      ...data.departmentDistribution.map(
-                        (row) => row.value,
-                      ),
-                      1,
-                    );
+            {data.classGenderDistribution.length > 0 ? (
+              <div className="mt-6 overflow-x-auto">
+                <div className="min-w-[680px]">
+                  <div className="mb-5 flex items-center justify-center gap-6 text-xs font-bold text-slate-500">
+                    <div className="flex items-center gap-2">
+                      <span className="h-3 w-3 rounded-sm bg-sky-500" />
+                      Male
+                    </div>
 
-                    return (
-                      <div key={`${item.name}-${index}`}>
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-600">
-                            {item.name}
-                          </span>
+                    <div className="flex items-center gap-2">
+                      <span className="h-3 w-3 rounded-sm bg-pink-500" />
+                      Female
+                    </div>
+                  </div>
 
-                          <span className="text-xs font-black text-slate-900">
-                            {item.value}
-                          </span>
+                  <div className="flex h-80 items-end gap-4 overflow-x-auto border-b border-l border-slate-200 px-4 pt-6">
+                    {data.classGenderDistribution.map((item) => (
+                      <div
+                        key={item.name}
+                        className="flex min-w-[84px] flex-1 flex-col items-center justify-end"
+                      >
+                        <div className="flex h-64 items-end gap-2">
+                          <div className="flex h-full flex-col items-center justify-end">
+                            <span className="mb-2 text-xs font-black text-slate-700">
+                              {item.male}
+                            </span>
+
+                            <div
+                              className="w-7 rounded-t-lg bg-sky-500 transition-all duration-500"
+                              style={{
+                                height: `${Math.max(
+                                  item.male > 0 ? 8 : 2,
+                                  (item.male /
+                                    Math.max(
+                                      ...data.classGenderDistribution.map(
+                                        (row) =>
+                                          Math.max(
+                                            row.male,
+                                            row.female,
+                                          ),
+                                      ),
+                                      1,
+                                    )) *
+                                    100,
+                                )}%`,
+                              }}
+                            />
+                          </div>
+
+                          <div className="flex h-full flex-col items-center justify-end">
+                            <span className="mb-2 text-xs font-black text-slate-700">
+                              {item.female}
+                            </span>
+
+                            <div
+                              className="w-7 rounded-t-lg bg-pink-500 transition-all duration-500"
+                              style={{
+                                height: `${Math.max(
+                                  item.female > 0 ? 8 : 2,
+                                  (item.female /
+                                    Math.max(
+                                      ...data.classGenderDistribution.map(
+                                        (row) =>
+                                          Math.max(
+                                            row.male,
+                                            row.female,
+                                          ),
+                                      ),
+                                      1,
+                                    )) *
+                                    100,
+                                )}%`,
+                              }}
+                            />
+                          </div>
                         </div>
 
-                        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-blue-500 to-violet-500"
-                            style={{
-                              width: `${Math.max(
-                                4,
-                                (item.value / max) * 100,
-                              )}%`,
-                            }}
-                          />
-                        </div>
+                        <p className="mt-4 text-center text-xs font-black text-slate-700">
+                          {item.name}
+                        </p>
+
+                        <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                          {item.total} students
+                        </p>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="flex min-h-48 items-center justify-center rounded-2xl bg-slate-50 text-center">
                 <div>
-                  <BriefcaseBusiness
+                  <GraduationCap
                     size={28}
                     className="mx-auto text-slate-300"
                   />
                   <p className="mt-3 text-sm font-bold text-slate-500">
-                    Department analytics will appear here
+                    No class student data available
                   </p>
                   <p className="mt-1 text-xs text-slate-400">
-                    Once department-level data is available
+                    Male and female student counts will appear here
                   </p>
                 </div>
               </div>
