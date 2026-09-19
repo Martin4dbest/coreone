@@ -59,7 +59,7 @@ async def get_my_staff_attendance(
 ):
     from sqlalchemy import text
 
-    query = """
+    sql = """
         SELECT
             sa.id,
             sa.staff_id,
@@ -80,17 +80,17 @@ async def get_my_staff_attendance(
     }
 
     if attendance_date is not None:
-        query += """
+        sql += """
             AND sa.attendance_date = :attendance_date
         """
         params["attendance_date"] = attendance_date
 
-    query += """
+    sql += """
         ORDER BY sa.attendance_date DESC, sa.id DESC
     """
 
     result = await db.execute(
-        text(query),
+        text(sql),
         params,
     )
 
