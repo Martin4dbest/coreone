@@ -3,6 +3,7 @@ from datetime import date
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.staff import Staff
 from app.models.staff_attendance import StaffAttendance
@@ -57,7 +58,7 @@ class StaffAttendanceService:
         school_id: int,
     ):
         result = await self.db.execute(
-            select(Staff)
+            select(Staff).options(selectinload("*"))
             .join(Staff.user)
             .where(
                 Staff.id == staff_id,
