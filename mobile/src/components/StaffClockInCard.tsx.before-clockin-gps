@@ -48,127 +48,13 @@ function formatTime(value: string) {
   }
 }
 
-function getErrorMessage(error: any): string {
-  const responseData = error?.response?.data;
-
-  console.error(
-    "[CLOCK-IN ERROR] Full error:",
-    JSON.stringify(
-      {
-        message: error?.message,
-        status: error?.response?.status,
-        data: responseData,
-        detail: responseData?.detail,
-        serverMessage: responseData?.message,
-      },
-      null,
-      2,
-    ),
+function getErrorMessage(error: any) {
+  return (
+    error?.response?.data?.detail ||
+    error?.response?.data?.message ||
+    error?.message ||
+    "Unable to mark attendance. Please try again."
   );
-
-  if (typeof responseData === "string" && responseData.trim()) {
-    return responseData;
-  }
-
-  if (typeof responseData?.detail === "string" && responseData.detail.trim()) {
-    return responseData.detail;
-  }
-
-  if (Array.isArray(responseData?.detail)) {
-    return responseData.detail
-      .map((item: any) => item?.msg || JSON.stringify(item))
-      .join("\n");
-  }
-
-  if (
-    responseData?.detail &&
-    typeof responseData.detail === "object"
-  ) {
-    return JSON.stringify(responseData.detail);
-  }
-
-  if (
-    typeof responseData?.message === "string" &&
-    responseData.message.trim()
-  ) {
-    return responseData.message;
-  }
-
-  if (typeof error?.message === "string" && error.message.trim()) {
-    return error.message;
-  }
-
-  return "Unable to mark attendance. Please try again.";
-}
-
-async function getBestClockInLocation(): Promise<Location.LocationObject> {
-  const readings: Location.LocationObject[] = [];
-
-  const attempts = 3;
-
-  for (let i = 0; i < attempts; i += 1) {
-    try {
-      const reading = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Highest,
-        mayShowUserSettingsDialog: true,
-      });
-
-      readings.push(reading);
-
-      console.log(
-        `[CLOCK-IN GPS] Reading ${i + 1}/${attempts}:`,
-        JSON.stringify({
-          latitude: reading.coords.latitude,
-          longitude: reading.coords.longitude,
-          accuracy: reading.coords.accuracy,
-          mocked: Boolean(
-            (reading as Location.LocationObject & { mocked?: boolean }).mocked
-          ),
-        })
-      );
-
-      if (
-        typeof reading.coords.accuracy === "number" &&
-        reading.coords.accuracy > 0 &&
-        reading.coords.accuracy <= 50
-      ) {
-        break;
-      }
-    } catch (error) {
-      console.error(
-        "[CLOCK-IN GPS] Location reading failed:",
-        error
-      );
-    }
-  }
-
-  if (!readings.length) {
-    throw new Error(
-      "Unable to obtain your current GPS location. Please enable location services and try again."
-    );
-  }
-
-  readings.sort((a, b) => {
-    const aa = a.coords.accuracy ?? Number.POSITIVE_INFINITY;
-    const bb = b.coords.accuracy ?? Number.POSITIVE_INFINITY;
-    return aa - bb;
-  });
-
-  const best = readings[0];
-
-  console.log(
-    "[CLOCK-IN GPS] Best reading:",
-    JSON.stringify({
-      latitude: best.coords.latitude,
-      longitude: best.coords.longitude,
-      accuracy: best.coords.accuracy,
-      mocked: Boolean(
-        (best as Location.LocationObject & { mocked?: boolean }).mocked
-      ),
-    })
-  );
-
-  return best;
 }
 
 export default function StaffClockInCard() {
@@ -232,7 +118,10 @@ export default function StaffClockInCard() {
         return;
       }
 
-      const position = await getBestClockInLocation();
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Highest,
+        mayShowUserSettingsDialog: true,
+      });
 
       const latitude = position.coords.latitude;
       const longitude = position.coords.longitude;
@@ -242,33 +131,12 @@ export default function StaffClockInCard() {
         (position as Location.LocationObject & { mocked?: boolean }).mocked,
       );
 
-      console.log(
-        "[CLOCK-IN] Payload:",
-        JSON.stringify(
-          {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            mocked: Boolean(
-              (position as Location.LocationObject & { mocked?: boolean }).mocked
-            ),
-          },
-          null,
-          2
-        )
-      );
-
       const response = await api.post<Attendance>("/staff/me/clock-in", {
         latitude,
         longitude,
         accuracy,
         mocked,
       });
-      console.log(
-        "[CLOCK-IN] Server success:",
-        JSON.stringify(response.data, null, 2),
-      );
-
 
       setAttendance(response.data);
       setCheckedIn(true);

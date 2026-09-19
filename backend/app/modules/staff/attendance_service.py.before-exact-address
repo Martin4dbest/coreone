@@ -871,15 +871,11 @@ class StaffAttendanceService:
         school.staff_attendance_latitude = payload.latitude
         school.staff_attendance_longitude = payload.longitude
         school.staff_attendance_radius_meters = payload.radius_meters
-        location_name = (
-            payload.location_name.strip()
-            if payload.location_name
-            and payload.location_name.strip()
-            else await _reverse_geocode(
-                payload.latitude,
-                payload.longitude,
-            )
+        location_name = await _reverse_geocode(
+            payload.latitude,
+            payload.longitude,
         )
+
         if not location_name:
             fallback_parts = [
                 school.address,
