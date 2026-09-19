@@ -444,7 +444,6 @@ class StaffAttendanceService:
         staff_result = await self.db.execute(
             select(Staff).where(
                 Staff.user_id == current_user.id,
-                Staff.school_id == school_id,
             )
         )
 
