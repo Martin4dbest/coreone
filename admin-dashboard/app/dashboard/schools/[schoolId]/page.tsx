@@ -988,11 +988,15 @@ export default function School360Dashboard() {
           : 0;
 
       // ------------------------------------------------------------
-      // ATTENDANCE MONTHLY TREND - JANUARY TO JULY
+      // ATTENDANCE MONTHLY TREND - JANUARY TO CURRENT MONTH
       // ------------------------------------------------------------
 
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const reportingMonthCount = currentDate.getMonth() + 1;
+
       const monthlyAttendance = Array.from(
-        { length: 7 },
+        { length: reportingMonthCount },
         (_, monthIndex) => {
           const monthRows = attendance360.filter((item: any) => {
             const rawDate =
@@ -1007,7 +1011,7 @@ export default function School360Dashboard() {
             if (Number.isNaN(parsed.getTime())) return false;
 
             return (
-              parsed.getFullYear() === new Date().getFullYear() &&
+              parsed.getFullYear() === currentYear &&
               parsed.getMonth() === monthIndex
             );
           });
@@ -1027,39 +1031,42 @@ export default function School360Dashboard() {
       );
 
       // ------------------------------------------------------------
-      // STUDENT GROWTH - JANUARY TO JULY
+      // STUDENT GROWTH - JANUARY TO CURRENT MONTH
       // ------------------------------------------------------------
 
-      const monthlyStudents =
+      const dashboardMonthlyStudents =
         Array.isArray(dashboardResponse.monthly_students)
           ? dashboardResponse.monthly_students.map(
               (value: any) => numericValue(value),
-            ).slice(0, 7)
-          : Array.from({ length: 7 }, (_, monthIndex) => {
-              return students360.filter((student: any) => {
-                const rawDate =
-                  student?.created_at ??
-                  student?.createdAt ??
-                  student?.admission_date ??
-                  student?.date_admitted;
+            )
+          : [];
 
-                if (!rawDate) return false;
+      const monthlyStudents =
+        dashboardMonthlyStudents.length >= reportingMonthCount
+          ? dashboardMonthlyStudents.slice(0, reportingMonthCount)
+          : Array.from(
+              { length: reportingMonthCount },
+              (_, monthIndex) => {
+                return students360.filter((student: any) => {
+                  const rawDate =
+                    student?.created_at ??
+                    student?.createdAt ??
+                    student?.admission_date ??
+                    student?.date_admitted;
 
-                const parsed = new Date(rawDate);
+                  if (!rawDate) return false;
 
-                if (Number.isNaN(parsed.getTime())) return false;
+                  const parsed = new Date(rawDate);
 
-                return (
-                  parsed.getFullYear() ===
-                    new Date().getFullYear() &&
-                  parsed.getMonth() === monthIndex
-                );
-              }).length;
-            });
+                  if (Number.isNaN(parsed.getTime())) return false;
 
-      while (monthlyStudents.length < 7) {
-        monthlyStudents.push(0);
-      }
+                  return (
+                    parsed.getFullYear() === currentYear &&
+                    parsed.getMonth() === monthIndex
+                  );
+                }).length;
+              },
+            );
 
       // ------------------------------------------------------------
       // FEES
@@ -1581,7 +1588,19 @@ export default function School360Dashboard() {
     "May",
     "Jun",
     "Jul",
-  ];
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ].slice(
+    0,
+    Math.max(
+      data.monthlyStudents.length,
+      data.monthlyAttendance.length,
+      1,
+    ),
+  );
 
   const populationTotal =
     data.students +
