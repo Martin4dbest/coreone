@@ -50,8 +50,7 @@ type DashboardData = {
   feesOutstanding: number;
 
   booksIssued: number;
-  booksReturned: number;
-  booksOutstanding: number;
+  booksReceived: number;
 
   cbtExams: number;
   cbtResults: number;
@@ -85,8 +84,7 @@ const emptyData: DashboardData = {
   feesOutstanding: 0,
 
   booksIssued: 0,
-  booksReturned: 0,
-  booksOutstanding: 0,
+  booksReceived: 0,
 
   cbtExams: 0,
   cbtResults: 0,
@@ -325,24 +323,7 @@ function extractDashboard(
     ],
   );
 
-  const booksReturned = firstNumber(
-    merged,
-    [
-      "books_returned",
-      "returned_books",
-      "total_books_returned",
-    ],
-  );
 
-  const booksOutstanding = firstNumber(
-    merged,
-    [
-      "books_outstanding",
-      "outstanding_books",
-      "total_books_outstanding",
-    ],
-    Math.max(0, booksIssued - booksReturned),
-  );
 
   const cbtExams = firstNumber(
     merged,
@@ -447,8 +428,7 @@ function extractDashboard(
     feesOutstanding,
 
     booksIssued,
-    booksReturned,
-    booksOutstanding,
+    booksReceived: 0,
 
     cbtExams,
     cbtResults,
@@ -880,6 +860,22 @@ export default function School360Dashboard() {
       const cbtDashboard360 = unwrap(11) || {};
       const books360 = toList(unwrap(12));
       const bookDistribution360 = toList(unwrap(13));
+
+      // School Books:
+      // publisher receipts are the source of truth for books received.
+      let bookReceipts360: any[] = [];
+
+      try {
+        const bookReceiptsResponse = await api.get(
+          `/school-books/${schoolId}/receipts`
+        );
+
+        bookReceipts360 = toList(
+          bookReceiptsResponse.data
+        );
+      } catch {
+        bookReceipts360 = [];
+      }
       const leave360 = toList(unwrap(14));
       const departments360 = toList(unwrap(15));
 
@@ -1171,40 +1167,25 @@ export default function School360Dashboard() {
       // SCHOOL BOOKS
       // ------------------------------------------------------------
 
+      // Total quantity received from publishers.
+      const booksReceived = bookReceipts360.reduce(
+        (sum: number, item: any) =>
+          sum +
+          numericValue(
+            item?.quantity_received,
+            item?.quantityReceived,
+          ),
+        0,
+      );
+
+      // Total quantity issued out to students.
       const booksIssued = bookDistribution360.reduce(
         (sum: number, item: any) =>
           sum +
           numericValue(
             item?.quantity_issued,
             item?.quantityIssued,
-            item?.student_count,
           ),
-        0,
-      );
-
-      const booksTotal = books360.reduce(
-        (sum: number, item: any) =>
-          sum +
-          numericValue(
-            item?.total_quantity,
-            item?.quantity_received,
-            item?.quantity,
-            item?.stock_quantity,
-            item?.available_quantity,
-            item?.quantity_on_hand,
-          ),
-        0,
-      );
-
-      const booksReturned = bookDistribution360.filter(
-        (item: any) =>
-          String(item?.status || "")
-            .trim()
-            .toLowerCase() === "returned",
-      ).length;
-
-      const booksOutstanding = Math.max(
-        booksIssued - booksReturned,
         0,
       );
 
@@ -1378,9 +1359,8 @@ export default function School360Dashboard() {
         feesPaid,
         feesOutstanding,
 
+        booksReceived,
         booksIssued,
-        booksReturned,
-        booksOutstanding,
 
         cbtExams,
         cbtResults,
@@ -1575,9 +1555,9 @@ export default function School360Dashboard() {
     data.feesExpected,
   );
 
-  const bookReturnRate = percentage(
-    data.booksReturned,
+  const bookPart = percentage(
     data.booksIssued,
+    data.booksReceived,
   );
 
   const maleFemaleTotal =
@@ -1612,14 +1592,18 @@ export default function School360Dashboard() {
   const healthScore = useMemo(() => {
     const attendancePart = attendanceRate;
     const feePart = feeRate;
-    const bookPart = bookReturnRate;
 
     return Math.round(
       attendancePart * 0.45 +
         feePart * 0.35 +
         bookPart * 0.2,
     );
-  }, [attendanceRate, feeRate, bookReturnRate]);
+  }, [
+    attendanceRate,
+    feeRate,
+    data.booksIssued,
+    data.booksReceived,
+  ]);
 
   if (loading) {
     return (
@@ -2064,57 +2048,48 @@ export default function School360Dashboard() {
 
         {/* BOOKS + LEAVE */}
         <section className="grid gap-6 xl:grid-cols-2">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <SectionTitle
               icon={BookOpen}
               title="School Books"
-              description="Book issue, return and outstanding inventory"
+              description="Publisher receipts and student book issues"
             />
 
-            <div className="flex items-center gap-7">
-              <Donut
-                total={data.booksIssued}
-                segments={[
-                  {
-                    value: data.booksReturned,
-                    label: `Returned ${bookReturnRate}%`,
-                    className: "bg-emerald-500",
-                  },
-                  {
-                    value: data.booksOutstanding,
-                    label: "Outstanding",
-                    className: "bg-rose-500",
-                  },
-                ]}
-              />
-
-              <div className="flex-1 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <span className="text-sm text-slate-500">
-                    Books issued
-                  </span>
-                  <span className="font-black text-slate-900">
-                    {data.booksIssued}
-                  </span>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-3xl bg-emerald-50 p-5">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-emerald-500 shadow-sm">
+                  <BookOpen size={22} />
                 </div>
 
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <span className="text-sm text-slate-500">
-                    Books returned
-                  </span>
-                  <span className="font-black text-emerald-600">
-                    {data.booksReturned}
-                  </span>
+                <p className="mt-5 text-xs font-bold uppercase tracking-wider text-emerald-600">
+                  Books received
+                </p>
+
+                <p className="mt-1 text-3xl font-black text-emerald-950">
+                  {data.booksReceived}
+                </p>
+
+                <p className="mt-1 text-xs text-emerald-700">
+                  received from publisher
+                </p>
+              </div>
+
+              <div className="rounded-3xl bg-indigo-50 p-5">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-indigo-500 shadow-sm">
+                  <BookOpen size={22} />
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-500">
-                    Outstanding
-                  </span>
-                  <span className="font-black text-rose-600">
-                    {data.booksOutstanding}
-                  </span>
-                </div>
+                <p className="mt-5 text-xs font-bold uppercase tracking-wider text-indigo-600">
+                  Books issued
+                </p>
+
+                <p className="mt-1 text-3xl font-black text-indigo-950">
+                  {data.booksIssued}
+                </p>
+
+                <p className="mt-1 text-xs text-indigo-700">
+                  issued out to students
+                </p>
               </div>
             </div>
           </div>
