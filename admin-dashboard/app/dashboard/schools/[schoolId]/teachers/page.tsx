@@ -594,9 +594,9 @@ export default function TeachersPage({
 
                     {linkableStaff.map((staff) => (
                       <option key={staff.id} value={staff.id}>
-                        {staff.first_name} {staff.last_name} —{" "}
+                        {staff.first_name} {staff.last_name} â€”{" "}
                         {staff.employee_number}
-                        {staff.email ? ` — ${staff.email}` : ""}
+                        {staff.email ? ` â€” ${staff.email}` : ""}
                       </option>
                     ))}
                   </select>
