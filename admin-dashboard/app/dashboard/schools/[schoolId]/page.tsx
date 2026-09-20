@@ -1797,6 +1797,30 @@ export default function School360Dashboard() {
                 staff, parents, academics, attendance, finance and
                 digital school activity.
               </p>
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <div className="rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 backdrop-blur">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    School Code
+                  </p>
+                  <p className="mt-1 text-sm font-black text-white">
+                    {school?.school_code || "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 backdrop-blur">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    School URL
+                  </p>
+                  <p className="mt-1 break-all text-sm font-semibold text-white">
+                    {school?.school_code
+                      ? `https://coreone-one.vercel.app/${String(
+                          school.school_code,
+                        ).toLowerCase()}`
+                      : "—"}
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-3">
