@@ -65,6 +65,7 @@ class StaffClockInStatusResponse(BaseModel):
 class StaffAttendanceLocationUpdateRequest(BaseModel):
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
+    location_name: str | None = None
     radius_meters: float = Field(
         default=100.0,
         ge=20.0,
