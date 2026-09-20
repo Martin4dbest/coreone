@@ -73,7 +73,6 @@ async def _reverse_geocode_nominatim(
             "lon": f"{longitude:.8f}",
             "zoom": "18",
             "addressdetails": "1",
-            "layer": "address",
             "accept-language": "en",
         }
     )
@@ -97,31 +96,31 @@ async def _reverse_geocode_nominatim(
 
             address = payload.get("address") or {}
 
+            # Build a human-readable address only.
+            # GPS coordinates are never returned as the staff-facing address.
             parts = []
 
-            # Most precise components first.
             for key in (
                 "house_number",
                 "road",
-            ):
-                value = address.get(key)
-                if value:
-                    parts.append(str(value).strip())
-
-            for key in (
+                "residential",
                 "neighbourhood",
                 "suburb",
-                "city_district",
+                "village",
                 "town",
+                "city_district",
                 "city",
+                "municipality",
                 "state",
                 "postcode",
                 "country",
             ):
                 value = address.get(key)
+
                 if value:
                     value = str(value).strip()
-                    if value not in parts:
+
+                    if value and value not in parts:
                         parts.append(value)
 
             if parts:
@@ -395,12 +394,6 @@ class StaffAttendanceService:
         payload,
         current_user,
     ):
-        if current_user.role.name != "STAFF":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Staff access required.",
-            )
-
         school_id = current_user.school_id
 
         if school_id is None:
@@ -607,12 +600,6 @@ class StaffAttendanceService:
         self,
         current_user,
     ):
-        if current_user.role.name != "STAFF":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Staff access required.",
-            )
-
         local_date = datetime.now(
             ZoneInfo("Africa/Lagos")
         ).date()
