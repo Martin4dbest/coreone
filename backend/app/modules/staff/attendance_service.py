@@ -462,17 +462,6 @@ class StaffAttendanceService:
         # Accuracy must be compatible with the school's configured
         # geofence. We intentionally do not impose an arbitrary
         # universal 50m/100m ceiling.
-        if payload.accuracy > radius:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    f"Your GPS accuracy ({payload.accuracy:.0f}m) "
-                    f"is too low for this school's attendance radius "
-                    f"({radius:.0f}m). Please enable precise location "
-                    f"and try again."
-                ),
-            )
-
         distance = _distance_meters(
             payload.latitude,
             payload.longitude,
