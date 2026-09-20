@@ -1804,7 +1804,7 @@ export default function School360Dashboard() {
                     School Code
                   </p>
                   <p className="mt-1 text-sm font-black text-white">
-                    {school?.school_code || "—"}
+                    {school?.school_code || "ï¿½"}
                   </p>
                 </div>
 
@@ -1817,7 +1817,7 @@ export default function School360Dashboard() {
                       ? `https://coreone-one.vercel.app/${String(
                           school.school_code,
                         ).toLowerCase()}`
-                      : "—"}
+                      : "ï¿½"}
                   </p>
                 </div>
               </div>
