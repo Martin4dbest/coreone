@@ -42,3 +42,19 @@ class TeacherAssignmentSummaryResponse(BaseModel):
     email: str | None = None
     class_teacher_of: list[str]
     subjects: list[TeacherSubjectSummary]
+
+class LinkStaffToTeacherRequest(BaseModel):
+    staff_id: int
+
+
+class LinkableStaffResponse(BaseModel):
+    id: int
+    user_id: int
+    employee_number: str
+    first_name: str
+    last_name: str
+    email: str
+    is_active: bool
+
+    class Config:
+        from_attributes = True

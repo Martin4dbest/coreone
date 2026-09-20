@@ -1,7 +1,7 @@
 from app.models.teacher_subject import TeacherSubject
 from app.models.teacher import Teacher
 from sqlalchemy import select
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -18,6 +18,7 @@ from app.modules.auth.dependencies.current_user import get_current_user
 from app.modules.teachers.schemas import (
     TeacherCreateRequest,
     TeacherResponse,
+    LinkStaffToTeacherRequest,
     TeacherAssignmentSummaryResponse,
 )
 
@@ -37,6 +38,15 @@ router = APIRouter(
 # =========================================================
 # LOGGED-IN TEACHER ASSIGNED SUBJECTS
 # =========================================================
+
+@router.get("/me/access")
+async def get_my_teacher_access(
+    current_user: User = Depends(get_current_user),
+):
+    return {
+        "has_teacher_profile": current_user.teacher is not None,
+    }
+
 
 @router.get("/me/subjects")
 async def get_my_teacher_subjects(
@@ -139,6 +149,51 @@ async def get_teachers(
     )
 
 
+@router.get(
+    "/linkable-staff",
+)
+async def get_linkable_staff(
+    school_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_from_request),
+    current_user=Depends(
+        require_roles(
+            "SUPER_ADMIN",
+            "SCHOOL_ADMIN",
+        )
+    ),
+):
+    return await TeacherService(db).get_linkable_staff(
+        tenant,
+        current_user,
+        school_id,
+    )
+
+
+@router.post(
+    "/link-staff",
+    response_model=TeacherResponse,
+)
+async def link_staff_to_teacher(
+    payload: LinkStaffToTeacherRequest,
+    school_id: int | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_from_request),
+    current_user=Depends(
+        require_roles(
+            "SUPER_ADMIN",
+            "SCHOOL_ADMIN",
+        )
+    ),
+):
+    return await TeacherService(db).link_staff_to_teacher(
+        payload.staff_id,
+        tenant,
+        current_user,
+        school_id,
+    )
+
+
 @router.post(
     "",
     response_model=TeacherResponse,
@@ -206,7 +261,10 @@ async def my_class_teacher_status(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role.name != "TEACHER":
+    if (
+        current_user.role.name != "TEACHER"
+        and current_user.teacher is None
+    ):
         raise HTTPException(status_code=403, detail="Teacher access only")
 
     teacher = current_user.teacher

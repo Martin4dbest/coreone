@@ -5,8 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.role import Role
 from app.models.teacher import Teacher
+from app.models.staff import Staff
 from app.modules.teachers.repository import TeacherRepository
-from app.modules.teachers.schemas import TeacherCreateRequest
+from app.modules.teachers.schemas import (
+    TeacherCreateRequest,
+    LinkableStaffResponse,
+)
 from app.modules.users.service import UserService
 
 
@@ -62,6 +66,131 @@ class TeacherService:
             )
 
         return teacher
+
+    async def get_linkable_staff(
+        self,
+        tenant,
+        current_user,
+        requested_school_id: int | None = None,
+    ):
+        if (
+            current_user.role.name == "SUPER_ADMIN"
+            and requested_school_id is not None
+        ):
+            school_id = requested_school_id
+        else:
+            school_id = tenant.school_id
+
+        result = await self.db.execute(
+            select(Staff)
+            .options(
+                selectinload(Staff.user),
+            )
+            .join(
+                Staff.user,
+            )
+            .outerjoin(
+                Teacher,
+                Teacher.user_id == Staff.user_id,
+            )
+            .where(
+                Staff.user.has(school_id=school_id),
+                Teacher.id.is_(None),
+            )
+            .order_by(
+                Staff.first_name,
+                Staff.last_name,
+            )
+        )
+
+        staff_members = result.scalars().all()
+
+        return [
+            LinkableStaffResponse(
+                id=staff.id,
+                user_id=staff.user_id,
+                employee_number=staff.employee_number,
+                first_name=staff.first_name,
+                last_name=staff.last_name,
+                email=staff.user.email if staff.user else "",
+                is_active=staff.is_active,
+            )
+            for staff in staff_members
+        ]
+
+    async def link_staff_to_teacher(
+        self,
+        staff_id: int,
+        tenant,
+        current_user,
+        requested_school_id: int | None = None,
+    ):
+        if (
+            current_user.role.name == "SUPER_ADMIN"
+            and requested_school_id is not None
+        ):
+            school_id = requested_school_id
+        else:
+            school_id = tenant.school_id
+
+        result = await self.db.execute(
+            select(Staff)
+            .options(
+                selectinload(Staff.user),
+                selectinload(Staff.user, User.teacher),
+            )
+            .join(
+                Staff.user,
+            )
+            .where(
+                Staff.id == staff_id,
+                Staff.user.has(school_id=school_id),
+            )
+        )
+
+        staff = result.scalar_one_or_none()
+
+        if not staff:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Staff member not found in this school",
+            )
+
+        if not staff.user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Staff member is not linked to a valid user account",
+            )
+
+        if staff.user.teacher is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This staff member is already linked to a teacher profile",
+            )
+
+        existing_teacher = await self.db.execute(
+            select(Teacher).where(
+                Teacher.employee_number == staff.employee_number,
+            )
+        )
+
+        if existing_teacher.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "This employee number already exists in the teacher records"
+                ),
+            )
+
+        teacher = Teacher(
+            user_id=staff.user_id,
+            school_id=school_id,
+            employee_number=staff.employee_number,
+            first_name=staff.first_name,
+            last_name=staff.last_name,
+        )
+
+        return await self.repository.create(teacher)
 
     async def create_teacher(
         self,

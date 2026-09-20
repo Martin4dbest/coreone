@@ -13,7 +13,8 @@ import {
   X, 
   ArrowLeft, 
   BookOpen, 
-  UserX 
+  UserX,
+  UserRoundPlus,
 } from "lucide-react";
 import api from "@/lib/api";
 import { useTenant } from "@/context/TenantContext";
@@ -28,6 +29,16 @@ interface Teacher {
   employee_number: string;
   first_name: string;
   last_name: string;
+}
+
+interface LinkableStaff {
+  id: number;
+  user_id: number;
+  employee_number: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  is_active: boolean;
 }
 
 interface TeacherPageProps {
@@ -104,6 +115,15 @@ export default function TeachersPage({
     password: "",
   });
 
+  // Link Staff to Teacher state
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState<boolean>(false);
+  const [linkableStaff, setLinkableStaff] = useState<LinkableStaff[]>([]);
+  const [selectedStaffId, setSelectedStaffId] = useState<string>("");
+  const [isLoadingLinkableStaff, setIsLoadingLinkableStaff] =
+    useState<boolean>(false);
+  const [isLinkingStaff, setIsLinkingStaff] = useState<boolean>(false);
+  const [linkModalError, setLinkModalError] = useState<string | null>(null);
+
   // Data Loading
   const handleDeleteTeacher = async (teacherId: number) => {
     const confirmed = window.confirm(
@@ -173,6 +193,69 @@ export default function TeachersPage({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormValues((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const openLinkStaffModal = async () => {
+    setIsLinkModalOpen(true);
+    setSelectedStaffId("");
+    setLinkModalError(null);
+    setIsLoadingLinkableStaff(true);
+
+    try {
+      const response = await api.get<LinkableStaff[]>("/teachers/linkable-staff", {
+        params: {
+          school_id: Number(schoolId),
+        },
+      });
+
+      setLinkableStaff(response.data);
+    } catch (err: unknown) {
+      setLinkModalError(parseApiError(err));
+      setLinkableStaff([]);
+    } finally {
+      setIsLoadingLinkableStaff(false);
+    }
+  };
+
+  const handleLinkModalClose = () => {
+    if (isLinkingStaff) return;
+
+    setIsLinkModalOpen(false);
+    setSelectedStaffId("");
+    setLinkModalError(null);
+    setLinkableStaff([]);
+  };
+
+  const handleLinkStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (isLinkingStaff) return;
+
+    if (!selectedStaffId) {
+      setLinkModalError("Please select a staff member.");
+      return;
+    }
+
+    setIsLinkingStaff(true);
+    setLinkModalError(null);
+
+    try {
+      await api.post("/teachers/link-staff", {
+        staff_id: Number(selectedStaffId),
+      }, {
+        params: {
+          school_id: Number(schoolId),
+        },
+      });
+
+      alert("Staff member linked to Teacher successfully.");
+      handleLinkModalClose();
+      await fetchTeachers();
+    } catch (err: unknown) {
+      setLinkModalError(parseApiError(err));
+    } finally {
+      setIsLinkingStaff(false);
+    }
   };
 
   const handleModalClose = () => {
@@ -274,7 +357,15 @@ export default function TeachersPage({
           </div>
           <p className="mt-1 text-sm text-slate-500">Manage teachers in this school.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={openLinkStaffModal}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-white px-4 py-2.5 text-sm font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          >
+            <UserRoundPlus className="h-4 w-4" />
+            Link Staff to Teacher
+          </button>
+
           <button
             onClick={() => setIsModalOpen(true)}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
@@ -430,6 +521,124 @@ export default function TeachersPage({
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Link Staff to Teacher Modal */}
+      {isLinkModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  Link Staff Member to Teacher
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Select an existing staff member. No new account or password
+                  will be created.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleLinkModalClose}
+                disabled={isLinkingStaff}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors disabled:opacity-50"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleLinkStaff} className="space-y-4">
+              {linkModalError && (
+                <div className="rounded-lg bg-red-50 p-3 border border-red-100 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                  <span className="text-xs font-medium text-red-800">
+                    {linkModalError}
+                  </span>
+                </div>
+              )}
+
+              {isLoadingLinkableStaff ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                  <span className="ml-2 text-sm text-slate-500">
+                    Loading staff members...
+                  </span>
+                </div>
+              ) : linkableStaff.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5 text-center">
+                  <Users className="mx-auto h-7 w-7 text-slate-400" />
+                  <p className="mt-2 text-sm font-semibold text-slate-700">
+                    No staff members available
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    All existing staff may already be linked, or no staff
+                    members have been registered yet.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Staff Member
+                  </label>
+
+                  <select
+                    value={selectedStaffId}
+                    onChange={(e) => setSelectedStaffId(e.target.value)}
+                    disabled={isLinkingStaff}
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-colors disabled:opacity-50"
+                  >
+                    <option value="">Select a staff member...</option>
+
+                    {linkableStaff.map((staff) => (
+                      <option key={staff.id} value={staff.id}>
+                        {staff.first_name} {staff.last_name} —{" "}
+                        {staff.employee_number}
+                        {staff.email ? ` — ${staff.email}` : ""}
+                      </option>
+                    ))}
+                  </select>
+
+                  <p className="mt-2 text-xs text-slate-500">
+                    The existing Staff account will remain intact and will
+                    also receive Teacher access.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4 mt-6">
+                <button
+                  type="button"
+                  onClick={handleLinkModalClose}
+                  disabled={isLinkingStaff}
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={
+                    isLinkingStaff ||
+                    isLoadingLinkableStaff ||
+                    linkableStaff.length === 0 ||
+                    !selectedStaffId
+                  }
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none transition-colors disabled:opacity-50 min-w-[150px]"
+                >
+                  {isLinkingStaff ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Linking...
+                    </>
+                  ) : (
+                    "Link to Teacher"
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

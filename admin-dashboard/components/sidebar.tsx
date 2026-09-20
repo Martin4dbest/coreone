@@ -47,6 +47,7 @@ export default function Sidebar() {
   const [schoolLogo, setSchoolLogo] = useState("");
   const [schoolFeatures, setSchoolFeatures] = useState<any[]>([]);
   const [featuresLoaded, setFeaturesLoaded] = useState(false);
+  const [hasTeacherProfile, setHasTeacherProfile] = useState(false);
 
   const getCurrentUser = useWorkspaceStore((state) => state.getCurrentUser);
   const getSchool = useWorkspaceStore((state) => state.getSchool);
@@ -76,6 +77,30 @@ export default function Sidebar() {
 
         setRole(userRole);
         setIsPrimarySchoolAdmin(Boolean(user?.is_primary_school_admin));
+
+        // A Staff user may also have a linked Teacher profile.
+        // Keep the user's primary role as STAFF while exposing
+        // Teacher navigation when the linked profile exists.
+        try {
+          const teacherAccessResponse = await api.get(
+            "/teachers/me/access"
+          );
+
+          if (mounted) {
+            setHasTeacherProfile(
+              teacherAccessResponse.data?.has_teacher_profile === true
+            );
+          }
+        } catch (teacherAccessError) {
+          console.error(
+            "Unable to check Teacher access for sidebar:",
+            teacherAccessError
+          );
+
+          if (mounted) {
+            setHasTeacherProfile(false);
+          }
+        }
 
         if (userSchoolId) {
           const schoolIdString = String(userSchoolId);
@@ -306,7 +331,7 @@ export default function Sidebar() {
     menu = filteredSchoolAdminMenu;
   }
 
-  if (role === "TEACHER") {
+  if (role === "TEACHER" || hasTeacherProfile) {
     menu = teacherMenu;
   }
 

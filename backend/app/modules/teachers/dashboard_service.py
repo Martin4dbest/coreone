@@ -30,7 +30,10 @@ class TeacherDashboardService:
         class_id=None,
     ):
 
-        if current_user.role.name != "TEACHER":
+        if (
+            current_user.role.name != "TEACHER"
+            and current_user.teacher is None
+        ):
             raise HTTPException(
                 status_code=403,
                 detail="Teacher access only",
@@ -114,7 +117,10 @@ class TeacherDashboardService:
         current_user,
     ):
 
-        if current_user.role.name != "TEACHER":
+        if (
+            current_user.role.name != "TEACHER"
+            and current_user.teacher is None
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Teacher access only",
