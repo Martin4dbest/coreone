@@ -2742,28 +2742,127 @@ export default function School360Dashboard() {
                 href: `/dashboard/schools/${schoolId}/school-books`,
                 icon: BookOpen,
               },
-            ].map((item) => (
-              <a
-                key={item.title}
-                href={item.href}
-                className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-md"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600 transition group-hover:bg-rose-50 group-hover:text-rose-500">
-                    <item.icon size={19} />
+            ].map((item, index) => {
+              const cardThemes = [
+                {
+                  card: "border-indigo-100 bg-indigo-50/40 hover:border-indigo-200 hover:bg-indigo-50",
+                  icon: "bg-indigo-100 text-indigo-600 group-hover:bg-indigo-200 group-hover:text-indigo-700",
+                  arrow: "text-indigo-300 group-hover:text-indigo-500",
+                },
+                {
+                  card: "border-purple-100 bg-purple-50/40 hover:border-purple-200 hover:bg-purple-50",
+                  icon: "bg-purple-100 text-purple-600 group-hover:bg-purple-200 group-hover:text-purple-700",
+                  arrow: "text-purple-300 group-hover:text-purple-500",
+                },
+                {
+                  card: "border-blue-100 bg-blue-50/40 hover:border-blue-200 hover:bg-blue-50",
+                  icon: "bg-blue-100 text-blue-600 group-hover:bg-blue-200 group-hover:text-blue-700",
+                  arrow: "text-blue-300 group-hover:text-blue-500",
+                },
+                {
+                  card: "border-emerald-100 bg-emerald-50/40 hover:border-emerald-200 hover:bg-emerald-50",
+                  icon: "bg-emerald-100 text-emerald-600 group-hover:bg-emerald-200 group-hover:text-emerald-700",
+                  arrow: "text-emerald-300 group-hover:text-emerald-500",
+                },
+                {
+                  card: "border-amber-100 bg-amber-50/40 hover:border-amber-200 hover:bg-amber-50",
+                  icon: "bg-amber-100 text-amber-600 group-hover:bg-amber-200 group-hover:text-amber-700",
+                  arrow: "text-amber-300 group-hover:text-amber-500",
+                },
+                {
+                  card: "border-rose-100 bg-rose-50/40 hover:border-rose-200 hover:bg-rose-50",
+                  icon: "bg-rose-100 text-rose-600 group-hover:bg-rose-200 group-hover:text-rose-700",
+                  arrow: "text-rose-300 group-hover:text-rose-500",
+                },
+                {
+                  card: "border-cyan-100 bg-cyan-50/40 hover:border-cyan-200 hover:bg-cyan-50",
+                  icon: "bg-cyan-100 text-cyan-600 group-hover:bg-cyan-200 group-hover:text-cyan-700",
+                  arrow: "text-cyan-300 group-hover:text-cyan-500",
+                },
+                {
+                  card: "border-teal-100 bg-teal-50/40 hover:border-teal-200 hover:bg-teal-50",
+                  icon: "bg-teal-100 text-teal-600 group-hover:bg-teal-200 group-hover:text-teal-700",
+                  arrow: "text-teal-300 group-hover:text-teal-500",
+                },
+                {
+                  card: "border-violet-100 bg-violet-50/40 hover:border-violet-200 hover:bg-violet-50",
+                  icon: "bg-violet-100 text-violet-600 group-hover:bg-violet-200 group-hover:text-violet-700",
+                  arrow: "text-violet-300 group-hover:text-violet-500",
+                },
+                {
+                  card: "border-orange-100 bg-orange-50/40 hover:border-orange-200 hover:bg-orange-50",
+                  icon: "bg-orange-100 text-orange-600 group-hover:bg-orange-200 group-hover:text-orange-700",
+                  arrow: "text-orange-300 group-hover:text-orange-500",
+                },
+                {
+                  card: "border-sky-100 bg-sky-50/40 hover:border-sky-200 hover:bg-sky-50",
+                  icon: "bg-sky-100 text-sky-600 group-hover:bg-sky-200 group-hover:text-sky-700",
+                  arrow: "text-sky-300 group-hover:text-sky-500",
+                },
+                {
+                  card: "border-fuchsia-100 bg-fuchsia-50/40 hover:border-fuchsia-200 hover:bg-fuchsia-50",
+                  icon: "bg-fuchsia-100 text-fuchsia-600 group-hover:bg-fuchsia-200 group-hover:text-fuchsia-700",
+                  arrow: "text-fuchsia-300 group-hover:text-fuchsia-500",
+                },
+                {
+                  card: "border-pink-100 bg-pink-50/40 hover:border-pink-200 hover:bg-pink-50",
+                  icon: "bg-pink-100 text-pink-600 group-hover:bg-pink-200 group-hover:text-pink-700",
+                  arrow: "text-pink-300 group-hover:text-pink-500",
+                },
+                {
+                  card: "border-slate-200 bg-slate-50/60 hover:border-slate-300 hover:bg-slate-100",
+                  icon: "bg-slate-200 text-slate-600 group-hover:bg-slate-300 group-hover:text-slate-700",
+                  arrow: "text-slate-300 group-hover:text-slate-500",
+                },
+                {
+                  card: "border-red-100 bg-red-50/40 hover:border-red-200 hover:bg-red-50",
+                  icon: "bg-red-100 text-red-600 group-hover:bg-red-200 group-hover:text-red-700",
+                  arrow: "text-red-300 group-hover:text-red-500",
+                },
+                {
+                  card: "border-green-100 bg-green-50/40 hover:border-green-200 hover:bg-green-50",
+                  icon: "bg-green-100 text-green-600 group-hover:bg-green-200 group-hover:text-green-700",
+                  arrow: "text-green-300 group-hover:text-green-500",
+                },
+                {
+                  card: "border-lime-100 bg-lime-50/40 hover:border-lime-200 hover:bg-lime-50",
+                  icon: "bg-lime-100 text-lime-600 group-hover:bg-lime-200 group-hover:text-lime-700",
+                  arrow: "text-lime-300 group-hover:text-lime-500",
+                },
+                {
+                  card: "border-yellow-100 bg-yellow-50/40 hover:border-yellow-200 hover:bg-yellow-50",
+                  icon: "bg-yellow-100 text-yellow-700 group-hover:bg-yellow-200 group-hover:text-yellow-800",
+                  arrow: "text-yellow-300 group-hover:text-yellow-500",
+                },
+              ];
+
+              const theme = cardThemes[index % cardThemes.length];
+
+              return (
+                <a
+                  key={item.title}
+                  href={item.href}
+                  className={`group flex items-center justify-between rounded-2xl border p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${theme.card}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`flex h-10 w-10 items-center justify-center rounded-xl transition ${theme.icon}`}
+                    >
+                      <item.icon size={19} />
+                    </div>
+
+                    <span className="text-sm font-bold text-slate-700">
+                      {item.title}
+                    </span>
                   </div>
 
-                  <span className="text-sm font-bold text-slate-700">
-                    {item.title}
-                  </span>
-                </div>
-
-                <ChevronRight
-                  size={17}
-                  className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-rose-400"
-                />
-              </a>
-            ))}
+                  <ChevronRight
+                    size={17}
+                    className={`transition group-hover:translate-x-1 ${theme.arrow}`}
+                  />
+                </a>
+              );
+            })}
           </div>
         </section>
       </main>
