@@ -186,6 +186,7 @@ async function getBestClockInLocation(): Promise<Location.LocationObject> {
 export default function StaffClockInCard() {
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [clockingIn, setClockingIn] = useState(false);
+  const [clockInError, setClockInError] = useState<string | null>(null);
   const [checkedIn, setCheckedIn] = useState(false);
   const [attendance, setAttendance] = useState<Attendance | null>(null);
 
@@ -213,6 +214,7 @@ export default function StaffClockInCard() {
   );
 
   const clockIn = async () => {
+    setClockInError(null);
     if (clockingIn || checkedIn) {
       return;
     }
@@ -292,12 +294,41 @@ export default function StaffClockInCard() {
         )}.`,
       );
     } catch (error: any) {
-      Alert.alert("Clock-In Failed", getErrorMessage(error));
+      const message = getErrorMessage(error);
+
+      setClockInError(message);
+
+      console.error("[CLOCK-IN ERROR]", message);
     } finally {
       setClockingIn(false);
       await loadStatus();
     }
   };
+
+  if (clockInError) {
+    return (
+      <View style={[styles.card, styles.errorCard]}>
+        <View style={styles.errorIconCircle}>
+          <Ionicons name="location-outline" size={26} color="#b91c1c" />
+        </View>
+
+        <View style={styles.content}>
+          <Text style={styles.errorTitle}>Cannot Clock In</Text>
+
+          <Text style={styles.errorMessage}>
+            {clockInError}
+          </Text>
+
+          <Pressable
+            style={styles.tryAgainButton}
+            onPress={() => setClockInError(null)}
+          >
+            <Text style={styles.tryAgainText}>Try Again</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   if (loadingStatus) {
     return (
@@ -415,6 +446,48 @@ const styles = StyleSheet.create({
     backgroundColor: "#F0FDF4",
     borderColor: "#BBF7D0",
   },
+  errorCard: {
+    borderWidth: 1,
+    borderColor: "#fecaca",
+  },
+
+  errorIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fee2e2",
+  },
+
+  errorTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#991b1b",
+    marginBottom: 6,
+  },
+
+  errorMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#7f1d1d",
+  },
+
+  tryAgainButton: {
+    marginTop: 14,
+    alignSelf: "flex-start",
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 8,
+    backgroundColor: "#991b1b",
+  },
+
+  tryAgainText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
   loadingRow: {
     flexDirection: "row",
     alignItems: "center",
