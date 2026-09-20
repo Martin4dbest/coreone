@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.role import Role
 from app.models.teacher import Teacher
 from app.models.staff import Staff
+from app.models.user import User
 from app.modules.teachers.repository import TeacherRepository
 from app.modules.teachers.schemas import (
     TeacherCreateRequest,
