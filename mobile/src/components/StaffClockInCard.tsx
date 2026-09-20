@@ -66,12 +66,24 @@ function getErrorMessage(error: any): string {
     ),
   );
 
+  const detail =
+    typeof responseData?.detail === "string"
+      ? responseData.detail.trim()
+      : "";
+
+  if (
+    error?.response?.status === 403 &&
+    detail.toLowerCase().includes("outside the school's attendance area")
+  ) {
+    return "You cannot clock in from this area. Please move closer to the school premises and try again.";
+  }
+
   if (typeof responseData === "string" && responseData.trim()) {
     return responseData;
   }
 
-  if (typeof responseData?.detail === "string" && responseData.detail.trim()) {
-    return responseData.detail;
+  if (detail) {
+    return detail;
   }
 
   if (Array.isArray(responseData?.detail)) {
