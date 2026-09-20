@@ -26,6 +26,13 @@ import {
   UserRound,
   Users,
   Wallet,
+  MonitorPlay,
+  Globe,
+  FileQuestion,
+  LibraryBig,
+  CalendarDays,
+  Settings,
+  UserCog,
 } from "lucide-react";
 import api from "@/lib/api";
 
@@ -2646,6 +2653,16 @@ export default function School360Dashboard() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
+                title: "Registered Users",
+                href: `/dashboard/schools/${schoolId}/registered-users`,
+                icon: UserCog,
+              },
+              {
+                title: "School Admins",
+                href: `/dashboard/schools/${schoolId}/admins`,
+                icon: Settings,
+              },
+              {
                 title: "Students",
                 href: `/dashboard/schools/${schoolId}/students`,
                 icon: GraduationCap,
@@ -2666,9 +2683,49 @@ export default function School360Dashboard() {
                 icon: HeartHandshake,
               },
               {
+                title: "Academics",
+                href: `/dashboard/schools/${schoolId}/academics`,
+                icon: BookOpen,
+              },
+              {
                 title: "Attendance",
                 href: `/dashboard/schools/${schoolId}/attendance`,
                 icon: CalendarCheck2,
+              },
+              {
+                title: "Results",
+                href: `/dashboard/schools/${schoolId}/results`,
+                icon: BookOpen,
+              },
+              {
+                title: "Events",
+                href: `/dashboard/schools/${schoolId}/events`,
+                icon: CalendarDays,
+              },
+              {
+                title: "Learning Centre",
+                href: `/dashboard/schools/${schoolId}/learning`,
+                icon: LibraryBig,
+              },
+              {
+                title: "CBT",
+                href: `/dashboard/schools/${schoolId}/cbt`,
+                icon: FileQuestion,
+              },
+              {
+                title: "Ebooks",
+                href: `/dashboard/schools/${schoolId}/ebooks`,
+                icon: BookOpen,
+              },
+              {
+                title: "Internal Browser",
+                href: `/dashboard/schools/${schoolId}/browser`,
+                icon: Globe,
+              },
+              {
+                title: "YouTube Learning",
+                href: `/dashboard/schools/${schoolId}/youtube-learning`,
+                icon: MonitorPlay,
               },
               {
                 title: "Fees & Payments",
