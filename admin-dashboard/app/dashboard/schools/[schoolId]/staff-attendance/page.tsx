@@ -345,12 +345,20 @@ export default function StaffAttendancePage({
         },
       );
 
+      setRecords((currentRecords) =>
+        currentRecords.filter(
+          (record) =>
+            record.attendance_date < clearStartDate ||
+            record.attendance_date > clearEndDate,
+        ),
+      );
+
       setClearMessage(
         response.data?.message ||
           `${response.data?.deleted_count || 0} attendance records deleted.`,
       );
 
-      await loadData();
+      setShowClearHistory(false);
     } catch (error: any) {
       setClearMessage(getErrorMessage(error));
     } finally {
