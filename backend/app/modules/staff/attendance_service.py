@@ -478,6 +478,14 @@ class StaffAttendanceService:
                     "You are outside the school's attendance area. "
                     "Please move to the school premises and try again."
                 ),
+                headers={
+                    "X-Attendance-Distance": f"{distance:.2f}",
+                    "X-Attendance-Radius": f"{radius:.2f}",
+                    "X-Attendance-User-Latitude": f"{payload.latitude:.8f}",
+                    "X-Attendance-User-Longitude": f"{payload.longitude:.8f}",
+                    "X-Attendance-School-Latitude": f"{school.staff_attendance_latitude:.8f}",
+                    "X-Attendance-School-Longitude": f"{school.staff_attendance_longitude:.8f}",
+                },
             )
 
         # Obtain a real human-readable address.
