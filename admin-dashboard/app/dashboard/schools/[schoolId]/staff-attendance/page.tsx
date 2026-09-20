@@ -8,6 +8,7 @@ import {
   LocateFixed,
   MapPin,
   Save,
+  Trash2,
   UserRound,
   XCircle,
 } from "lucide-react";
@@ -90,6 +91,11 @@ export default function StaffAttendancePage({
   const [usingLocation, setUsingLocation] = useState(false);
   const [savingMessage, setSavingMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [showClearHistory, setShowClearHistory] = useState(false);
+  const [clearStartDate, setClearStartDate] = useState("");
+  const [clearEndDate, setClearEndDate] = useState("");
+  const [clearingHistory, setClearingHistory] = useState(false);
+  const [clearMessage, setClearMessage] = useState("");
 
   const loadData = async () => {
     try {
@@ -303,6 +309,52 @@ export default function StaffAttendancePage({
       setErrorMessage(getErrorMessage(error));
     } finally {
       setSavingLocation(false);
+    }
+  };
+
+  const clearAttendanceHistory = async () => {
+    if (!clearStartDate || !clearEndDate) {
+      setClearMessage("Please select both a start date and an end date.");
+      return;
+    }
+
+    if (clearStartDate > clearEndDate) {
+      setClearMessage("Start date cannot be later than end date.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete all staff attendance records from ${clearStartDate} to ${clearEndDate}? This action cannot be undone.`,
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setClearingHistory(true);
+      setClearMessage("");
+      setErrorMessage("");
+
+      const response = await api.delete(
+        "/staff/attendance/history",
+        {
+          params: {
+            school_id: schoolId,
+            start_date: clearStartDate,
+            end_date: clearEndDate,
+          },
+        },
+      );
+
+      setClearMessage(
+        response.data?.message ||
+          `${response.data?.deleted_count || 0} attendance records deleted.`,
+      );
+
+      await loadData();
+    } catch (error: any) {
+      setClearMessage(getErrorMessage(error));
+    } finally {
+      setClearingHistory(false);
     }
   };
 
@@ -530,6 +582,18 @@ export default function StaffAttendancePage({
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setClearMessage("");
+                  setShowClearHistory(true);
+                }}
+                className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+              >
+                <Trash2 className="h-4 w-4" />
+                Clear Attendance History
+              </button>
+
               <CalendarDays className="h-4 w-4 text-slate-400" />
               <input
                 type="date"
@@ -540,7 +604,96 @@ export default function StaffAttendancePage({
             </div>
           </div>
 
-          {loading ? (
+          {showClearHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  Clear Attendance History
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Select the date range whose staff attendance records you want to permanently remove.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowClearHistory(false)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  From Date
+                </label>
+                <input
+                  type="date"
+                  value={clearStartDate}
+                  onChange={(event) => setClearStartDate(event.target.value)}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  To Date
+                </label>
+                <input
+                  type="date"
+                  value={clearEndDate}
+                  onChange={(event) => setClearEndDate(event.target.value)}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-red-500"
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-800">
+                Permanent deletion
+              </p>
+              <p className="mt-1 text-sm text-amber-700">
+                All staff attendance records for this school within the selected dates will be deleted. This cannot be undone.
+              </p>
+            </div>
+
+            {clearMessage && (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                {clearMessage}
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowClearHistory(false)}
+                disabled={clearingHistory}
+                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={clearAttendanceHistory}
+                disabled={clearingHistory}
+                className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {clearingHistory && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
+                {clearingHistory ? "Clearing..." : "Clear Attendance"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
             <div className="flex min-h-[250px] items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
             </div>

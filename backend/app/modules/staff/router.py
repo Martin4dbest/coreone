@@ -143,6 +143,26 @@ async def get_staff_clock_in_status(
     )
 
 
+@router.delete(
+    "/attendance/history",
+)
+async def delete_staff_attendance_history(
+    school_id: int,
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await StaffAttendanceService(
+        db
+    ).delete_attendance_history(
+        school_id,
+        start_date,
+        end_date,
+        current_user,
+    )
+
+
 @router.get(
     "/attendance/report",
     response_model=list[StaffAttendanceReportItem],
