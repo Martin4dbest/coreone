@@ -101,7 +101,7 @@ export default function StaffAttendancePage({
           `/staff/attendance/location/${schoolId}`,
         ),
         api.get<AttendanceItem[]>(
-          `/staff/attendance/report?school_id=${schoolId}&attendance_date=${attendanceDate}`,
+          `/staff/attendance/report?school_id=${schoolId}`,
         ),
       ]);
 
@@ -153,7 +153,7 @@ export default function StaffAttendancePage({
 
       try {
         const response = await api.get<AttendanceItem[]>(
-          `/staff/attendance/report?school_id=${schoolId}&attendance_date=${attendanceDate}`,
+          `/staff/attendance/report?school_id=${schoolId}`,
         );
 
         if (active) {
