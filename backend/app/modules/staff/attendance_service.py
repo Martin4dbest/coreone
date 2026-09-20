@@ -673,7 +673,7 @@ class StaffAttendanceService:
             )
 
         result = await self.db.execute(
-            sql_text(
+            text(
                 """
                 DELETE FROM staff_attendance
                 WHERE school_id = :school_id
