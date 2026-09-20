@@ -480,10 +480,9 @@ class StaffAttendanceService:
             school.staff_attendance_longitude,
         )
 
-        # Conservative geofence validation:
-        # the entire GPS uncertainty circle must remain inside
-        # the configured school radius.
-        if distance + payload.accuracy > radius:
+        # Geofence validation uses the actual calculated distance.
+        # GPS accuracy is recorded for audit but does not expand the rejection area.
+        if distance > radius:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=(
