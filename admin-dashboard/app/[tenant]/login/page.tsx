@@ -148,6 +148,28 @@ export default function TenantLoginPage() {
         return;
       }
 
+      // A Staff user can also have a linked Teacher profile.
+      // Keep the user's STAFF role so Staff Dashboard access remains intact,
+      // but send the user directly to the Teacher Dashboard when linked.
+      if (user.role?.name === "STAFF") {
+        try {
+          const teacherAccess = await api.get<{
+            has_teacher_profile: boolean;
+          }>("/teachers/me/access", {
+            headers: {
+              "X-Tenant": tenant.code,
+            },
+          });
+
+          if (teacherAccess.data?.has_teacher_profile) {
+            router.replace(`/${tenant.slug}/teacher/dashboard`);
+            return;
+          }
+        } catch {
+          // If no Teacher profile is available, continue with normal Staff routing.
+        }
+      }
+
       if (user.role?.name === "SCHOOL_ADMIN") {
         router.replace(`/${tenant.slug}/dashboard`);
         return;
