@@ -64,7 +64,12 @@ async def class_teacher_broadsheet(
     )
     role_name = str(role_name).upper()
 
-    if role_name != "TEACHER":
+    is_linked_staff_teacher = (
+        role_name == "STAFF"
+        and getattr(current_user, "teacher", None) is not None
+    )
+
+    if role_name != "TEACHER" and not is_linked_staff_teacher:
         raise HTTPException(
             status_code=403,
             detail="Teacher access only.",
