@@ -1811,7 +1811,7 @@ export default function School360Dashboard() {
                     School Code
                   </p>
                   <p className="mt-1 text-sm font-black text-white">
-                    {school?.school_code || "�"}
+                    {school?.school_code || ""}
                   </p>
                 </div>
 
@@ -1824,7 +1824,7 @@ export default function School360Dashboard() {
                       ? `https://coreone-one.vercel.app/${String(
                           school.school_code,
                         ).toLowerCase()}`
-                      : "�"}
+                      : ""}
                   </p>
                 </div>
               </div>
@@ -1869,7 +1869,7 @@ export default function School360Dashboard() {
       </div>
 
       <main className="mx-auto max-w-[1600px] space-y-8 px-5 py-7 md:px-8">
-        {/* POPULATION */}
+        {/* POPULATION - Forced Horizontal Multi-column Grid */}
         <section>
           <SectionTitle
             icon={Users}
@@ -1877,7 +1877,7 @@ export default function School360Dashboard() {
             description="360° view of the people who make up the school community"
           />
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             <StatCard
               title="Students"
               value={data.students.toLocaleString()}
@@ -2165,7 +2165,7 @@ export default function School360Dashboard() {
           </div>
         </section>
 
-        {/* ACADEMICS */}
+        {/* ACADEMICS - Forced Horizontal Multi-column Grid */}
         <section>
           <SectionTitle
             icon={GraduationCap}
@@ -2173,7 +2173,7 @@ export default function School360Dashboard() {
             description="Examinations, digital assessments and academic activity"
           />
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
             <StatCard
               title="CBT Exams"
               value={data.cbtExams}
@@ -2210,14 +2210,15 @@ export default function School360Dashboard() {
 
         {/* BOOKS + LEAVE */}
         <section className="grid gap-6 xl:grid-cols-2">
-                    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <SectionTitle
               icon={BookOpen}
               title="School Books"
               description="Publisher receipts and student book issues"
             />
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            {/* Forced Horizontal 2-column Grid */}
+            <div className="grid grid-cols-2 gap-4">
               <div className="rounded-3xl bg-emerald-50 p-5">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-emerald-500 shadow-sm">
                   <BookOpen size={22} />
@@ -2263,6 +2264,7 @@ export default function School360Dashboard() {
               description="Current staff leave activity"
             />
 
+            {/* Forced Horizontal 2-column Grid */}
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-3xl bg-amber-50 p-5">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-amber-500 shadow-sm">
@@ -2493,7 +2495,7 @@ export default function School360Dashboard() {
             description="Relative size of the major school populations"
           />
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               {
                 label: "Students",
