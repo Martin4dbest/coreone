@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import {
   Activity,
   AlertCircle,
-  ArrowDownRight,
   ArrowUpRight,
   BookOpen,
   BriefcaseBusiness,
@@ -328,17 +327,6 @@ function extractDashboard(
     Math.max(0, feesExpected - feesPaid),
   );
 
-  const booksIssued = firstNumber(
-    merged,
-    [
-      "books_issued",
-      "issued_books",
-      "total_books_issued",
-    ],
-  );
-
-
-
   const cbtExams = firstNumber(
     merged,
     [
@@ -441,7 +429,7 @@ function extractDashboard(
     feesPaid,
     feesOutstanding,
 
-    booksIssued,
+    booksIssued: 0,
     booksReceived: 0,
 
     cbtExams,
@@ -640,7 +628,7 @@ function Donut({
 
       const colour =
         segment.className.includes("rose")
-          ? "primaryColor"
+          ? "#f43f5e"
           : segment.className.includes("blue")
             ? "#3b82f6"
             : segment.className.includes("amber")
@@ -688,43 +676,13 @@ function Donut({
   );
 }
 
-
-function extractArray(value: any): any[] {
-  if (Array.isArray(value)) return value;
-  if (Array.isArray(value?.items)) return value.items;
-  if (Array.isArray(value?.data)) return value.data;
-  if (Array.isArray(value?.results)) return value.results;
-  return [];
-}
-
-function normalizeGender(value: any): "male" | "female" | null {
-  const gender = String(value ?? "").trim().toLowerCase();
-
-  if (gender === "male" || gender === "m") return "male";
-  if (gender === "female" || gender === "f") return "female";
-
-  return null;
-}
-
-function getSchoolPrimaryColor(school: any): string {
-  return (
-    school?.school_branding?.primary_color ||
-    school?.school_branding?.primaryColor ||
-    school?.branding?.primary_color ||
-    school?.branding?.primaryColor ||
-    school?.primary_color ||
-    school?.primaryColor ||
-    "primaryColor"
-  );
-}
-
 export default function School360Dashboard() {
   const params = useParams();
   const schoolId = String(params?.schoolId ?? "");
 
   const [data, setData] = useState<DashboardData>(emptyData);
   const [school, setSchool] = useState<AnyRecord | null>(null);
-  const [primaryColor, setPrimaryColor] = useState("primaryColor");
+  const [primaryColor, setPrimaryColor] = useState("#4f46e5");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -742,59 +700,22 @@ export default function School360Dashboard() {
 
     try {
       const requests = [
-        // School-level dashboard. This endpoint resolves the school
-        // from the authenticated SCHOOL_ADMIN account.
         api.get(`/dashboard/school-360?school_id=${schoolId}`).catch(() => null),
-
         api.get(`/schools/${schoolId}`).catch(() => null),
-
-        // Students endpoint is tenant-scoped; it does not accept school_id.
         api.get(`/students`).catch(() => null),
-
         api.get(`/teachers?school_id=${schoolId}`).catch(() => null),
-
         api.get(`/staff?school_id=${schoolId}`).catch(() => null),
-
         api.get(`/parents?school_id=${schoolId}`).catch(() => null),
-
         api.get(`/classes?school_id=${schoolId}`).catch(() => null),
-
-        // Attendance is tenant-scoped and supports classroom/date filters.
         api.get(`/attendance`).catch(() => null),
-
-        // Fees are exposed through student-fees, not /fees.
         api.get(`/fees/student-fees`).catch(() => null),
-
-        api
-          .get(`/cbt/schools/${schoolId}/exams`)
-          .catch(() => null),
-
-        api
-          .get(`/cbt/schools/${schoolId}/results`)
-          .catch(() => null),
-
-        api
-          .get(`/cbt/results/dashboard?school_id=${schoolId}`)
-          .catch(() => null),
-
-        // School Books
-        api
-          .get(`/school-books/${schoolId}`)
-          .catch(() => null),
-
-        api
-          .get(`/school-books/${schoolId}/distribution-records`)
-          .catch(() => null),
-
-        // Staff Leave
-        api
-          .get(`/staff/leave?school_id=${schoolId}`)
-          .catch(() => null),
-
-        // Departments
-        api
-          .get(`/departments?school_id=${schoolId}`)
-          .catch(() => null),
+        api.get(`/cbt/schools/${schoolId}/exams`).catch(() => null),
+        api.get(`/cbt/schools/${schoolId}/results`).catch(() => null),
+        api.get(`/cbt/results/dashboard?school_id=${schoolId}`).catch(() => null),
+        api.get(`/school-books/${schoolId}`).catch(() => null),
+        api.get(`/school-books/${schoolId}/distribution-records`).catch(() => null),
+        api.get(`/staff/leave?school_id=${schoolId}`).catch(() => null),
+        api.get(`/departments?school_id=${schoolId}`).catch(() => null),
       ];
 
       const results = await Promise.all(requests);
@@ -820,7 +741,7 @@ export default function School360Dashboard() {
           branding?.primaryColor ??
           schoolResponse?.primary_color ??
           schoolResponse?.primaryColor ??
-          "primaryColor";
+          "#4f46e5";
 
         if (
           typeof brandPrimary === "string" &&
@@ -837,29 +758,19 @@ export default function School360Dashboard() {
             count: item.length,
           };
         }
-
         return item;
       });
 
       const extracted = extractDashboard(peopleResponses);
-      // ============================================================
-      // DIRECT SCHOOL 360 DATA NORMALIZATION
-      // Do not guess response shapes. Each metric below is tied to
-      // the exact endpoint used above.
-      // ============================================================
 
       const unwrap = (index: number): any =>
         results[index]?.data ?? null;
 
       const toList = (value: any): any[] => {
         if (Array.isArray(value)) return value;
-
         if (Array.isArray(value?.items)) return value.items;
-
         if (Array.isArray(value?.data)) return value.data;
-
         if (Array.isArray(value?.results)) return value.results;
-
         return [];
       };
 
@@ -874,40 +785,27 @@ export default function School360Dashboard() {
       const cbtExams360 = toList(unwrap(9));
       const cbtResults360 = toList(unwrap(10));
       const cbtDashboard360 = unwrap(11) || {};
-      const books360 = toList(unwrap(12));
       const bookDistribution360 = toList(unwrap(13));
 
-      // School Books:
-      // publisher receipts are the source of truth for books received.
       let bookReceipts360: any[] = [];
-
       try {
         const bookReceiptsResponse = await api.get(
           `/school-books/${schoolId}/receipts`
         );
-
-        bookReceipts360 = toList(
-          bookReceiptsResponse.data
-        );
+        bookReceipts360 = toList(bookReceiptsResponse.data);
       } catch {
         bookReceipts360 = [];
       }
+
       const leave360 = toList(unwrap(14));
       const departments360 = toList(unwrap(15));
 
       const numericValue = (...values: any[]): number => {
         for (const value of values) {
-          if (value === null || value === undefined || value === "") {
-            continue;
-          }
-
+          if (value === null || value === undefined || value === "") continue;
           const number = Number(value);
-
-          if (Number.isFinite(number)) {
-            return number;
-          }
+          if (Number.isFinite(number)) return number;
         }
-
         return 0;
       };
 
@@ -946,32 +844,18 @@ export default function School360Dashboard() {
           dashboardResponse.classes,
         );
 
-      // ------------------------------------------------------------
-      // GENDER
-      // ------------------------------------------------------------
-
       const maleCount = students360.filter((student: any) => {
         const gender = String(student?.gender || "").trim().toLowerCase();
-
         return gender === "male" || gender === "m";
       }).length;
 
       const femaleCount = students360.filter((student: any) => {
         const gender = String(student?.gender || "").trim().toLowerCase();
-
         return gender === "female" || gender === "f";
       }).length;
 
-      // ------------------------------------------------------------
-      // ATTENDANCE
-      // ------------------------------------------------------------
-
       const attendanceStatus = (item: any): string =>
-        String(
-          item?.status ??
-          item?.attendance_status ??
-          "",
-        )
+        String(item?.status ?? item?.attendance_status ?? "")
           .trim()
           .toLowerCase();
 
@@ -993,19 +877,11 @@ export default function School360Dashboard() {
           attendanceStatus(item) === "l",
       ).length;
 
-      const attendanceTotal =
-        presentCount + absentCount + lateCount;
-
+      const attendanceTotal = presentCount + absentCount + lateCount;
       const attendanceRate =
         attendanceTotal > 0
-          ? Number(
-              ((presentCount / attendanceTotal) * 100).toFixed(1),
-            )
+          ? Number(((presentCount / attendanceTotal) * 100).toFixed(1))
           : 0;
-
-      // ------------------------------------------------------------
-      // ATTENDANCE MONTHLY TREND - JANUARY TO CURRENT MONTH
-      // ------------------------------------------------------------
 
       const currentDate = new Date();
       const currentYear = currentDate.getFullYear();
@@ -1016,16 +892,10 @@ export default function School360Dashboard() {
         (_, monthIndex) => {
           const monthRows = attendance360.filter((item: any) => {
             const rawDate =
-              item?.attendance_date ??
-              item?.attendanceDate ??
-              item?.date;
-
+              item?.attendance_date ?? item?.attendanceDate ?? item?.date;
             if (!rawDate) return false;
-
             const parsed = new Date(rawDate);
-
             if (Number.isNaN(parsed.getTime())) return false;
-
             return (
               parsed.getFullYear() === currentYear &&
               parsed.getMonth() === monthIndex
@@ -1040,20 +910,14 @@ export default function School360Dashboard() {
               attendanceStatus(item) === "p",
           ).length;
 
-          return Number(
-            ((present / monthRows.length) * 100).toFixed(1),
-          );
+          return Number(((present / monthRows.length) * 100).toFixed(1));
         },
       );
 
-      // ------------------------------------------------------------
-      // STUDENT GROWTH - JANUARY TO CURRENT MONTH
-      // ------------------------------------------------------------
-
       const dashboardMonthlyStudents =
         Array.isArray(dashboardResponse.monthly_students)
-          ? dashboardResponse.monthly_students.map(
-              (value: any) => numericValue(value),
+          ? dashboardResponse.monthly_students.map((value: any) =>
+              numericValue(value),
             )
           : [];
 
@@ -1069,13 +933,9 @@ export default function School360Dashboard() {
                     student?.createdAt ??
                     student?.admission_date ??
                     student?.date_admitted;
-
                   if (!rawDate) return false;
-
                   const parsed = new Date(rawDate);
-
                   if (Number.isNaN(parsed.getTime())) return false;
-
                   return (
                     parsed.getFullYear() === currentYear &&
                     parsed.getMonth() === monthIndex
@@ -1084,27 +944,15 @@ export default function School360Dashboard() {
               },
             );
 
-      // ------------------------------------------------------------
-      // FEES
-      // ------------------------------------------------------------
-
       const feesExpected = fees360.reduce(
         (sum: number, item: any) =>
-          sum +
-          numericValue(
-            item?.amount_due,
-            item?.amountDue,
-          ),
+          sum + numericValue(item?.amount_due, item?.amountDue),
         0,
       );
 
       const feesPaid = fees360.reduce(
         (sum: number, item: any) =>
-          sum +
-          numericValue(
-            item?.amount_paid,
-            item?.amountPaid,
-          ),
+          sum + numericValue(item?.amount_paid, item?.amountPaid),
         0,
       );
 
@@ -1116,14 +964,8 @@ export default function School360Dashboard() {
               item?.balance,
               item?.outstanding_balance,
               item?.outstandingBalance,
-              numericValue(
-                item?.amount_due,
-                item?.amountDue,
-              ) -
-                numericValue(
-                  item?.amount_paid,
-                  item?.amountPaid,
-                ),
+              numericValue(item?.amount_due, item?.amountDue) -
+                numericValue(item?.amount_paid, item?.amountPaid),
             ),
           0,
         ),
@@ -1132,14 +974,8 @@ export default function School360Dashboard() {
 
       const feeCollectionRate =
         feesExpected > 0
-          ? Number(
-              ((feesPaid / feesExpected) * 100).toFixed(1),
-            )
+          ? Number(((feesPaid / feesExpected) * 100).toFixed(1))
           : 0;
-
-      // ------------------------------------------------------------
-      // CBT
-      // ------------------------------------------------------------
 
       const cbtExams =
         cbtExams360.length ||
@@ -1176,142 +1012,76 @@ export default function School360Dashboard() {
         if (scores.length) {
           averageScore = Number(
             (
-              scores.reduce(
-                (sum: number, score: number) =>
-                  sum + score,
-                0,
-              ) / scores.length
+              scores.reduce((sum: number, score: number) => sum + score, 0) /
+              scores.length
             ).toFixed(1),
           );
         }
       }
 
-      // ------------------------------------------------------------
-      // SCHOOL BOOKS
-      // ------------------------------------------------------------
-
-      // Total quantity received from publishers.
       const booksReceived = bookReceipts360.reduce(
         (sum: number, item: any) =>
-          sum +
-          numericValue(
-            item?.quantity_received,
-            item?.quantityReceived,
-          ),
+          sum + numericValue(item?.quantity_received, item?.quantityReceived),
         0,
       );
 
-      // Total quantity issued out to students.
       const booksIssued = bookDistribution360.reduce(
         (sum: number, item: any) =>
-          sum +
-          numericValue(
-            item?.quantity_issued,
-            item?.quantityIssued,
-          ),
+          sum + numericValue(item?.quantity_issued, item?.quantityIssued),
         0,
       );
 
-      // ------------------------------------------------------------
-      // STAFF LEAVE
-      // ------------------------------------------------------------
-
       const leaveStatus = (item: any): string =>
-        String(
-          item?.status ??
-          item?.leave_status ??
-          "",
-        )
+        String(item?.status ?? item?.leave_status ?? "")
           .trim()
           .toLowerCase();
 
       const leavePending = leave360.filter(
-        (item: any) =>
-          leaveStatus(item) === "pending",
+        (item: any) => leaveStatus(item) === "pending",
       ).length;
 
       const leaveApproved = leave360.filter(
         (item: any) =>
-          leaveStatus(item) === "approved" ||
-          leaveStatus(item) === "approve",
+          leaveStatus(item) === "approved" || leaveStatus(item) === "approve",
       ).length;
 
-      // ------------------------------------------------------------
-      // CLASS DISTRIBUTION
-      // ------------------------------------------------------------
-
       const classNameMap = new Map<string, number>();
-
       for (const classroom of classes360) {
         const name = String(
           classroom?.name ??
-          classroom?.title ??
-          `Class ${classroom?.id ?? ""}`,
+            classroom?.title ??
+            `Class ${classroom?.id ?? ""}`,
         ).trim();
-
-        if (name) {
-          classNameMap.set(name, 0);
-        }
+        if (name) classNameMap.set(name, 0);
       }
 
       for (const student of students360) {
-        let className =
-          student?.class_name ??
-          student?.className ??
-          "";
-
+        let className = student?.class_name ?? student?.className ?? "";
         if (!className) {
-          const classroomId =
-            student?.classroom_id ??
-            student?.class_id ??
-            null;
-
+          const classroomId = student?.classroom_id ?? student?.class_id ?? null;
           const classroom = classes360.find(
-            (item: any) =>
-              String(item?.id) === String(classroomId),
+            (item: any) => String(item?.id) === String(classroomId),
           );
-
-          className =
-            classroom?.name ??
-            classroom?.title ??
-            "";
+          className = classroom?.name ?? classroom?.title ?? "";
         }
-
         className = String(className).trim();
-
         if (className) {
-          classNameMap.set(
-            className,
-            (classNameMap.get(className) || 0) + 1,
-          );
+          classNameMap.set(className, (classNameMap.get(className) || 0) + 1);
         }
       }
 
-      const classDistribution = Array.from(
-        classNameMap.entries(),
-      )
+      const classDistribution = Array.from(classNameMap.entries())
         .filter(([, value]) => value > 0)
-        .map(([name, value]) => ({
-          name,
-          value,
-        }));
-
-      // ------------------------------------------------------------
-      // DEPARTMENT DISTRIBUTION
-      // ------------------------------------------------------------
+        .map(([name, value]) => ({ name, value }));
 
       const departmentNameMap = new Map<string, number>();
-
       for (const department of departments360) {
         const name = String(
           department?.name ??
-          department?.title ??
-          `Department ${department?.id ?? ""}`,
+            department?.title ??
+            `Department ${department?.id ?? ""}`,
         ).trim();
-
-        if (name) {
-          departmentNameMap.set(name, 0);
-        }
+        if (name) departmentNameMap.set(name, 0);
       }
 
       for (const student of students360) {
@@ -1320,70 +1090,39 @@ export default function School360Dashboard() {
           student?.departmentName ??
           student?.department ??
           "";
-
         if (!departmentName) {
-          const departmentId =
-            student?.department_id ??
-            null;
-
+          const departmentId = student?.department_id ?? null;
           const department = departments360.find(
-            (item: any) =>
-              String(item?.id) ===
-              String(departmentId),
+            (item: any) => String(item?.id) === String(departmentId),
           );
-
-          departmentName =
-            department?.name ??
-            department?.title ??
-            "";
+          departmentName = department?.name ?? department?.title ?? "";
         }
-
-        departmentName = String(
-          departmentName,
-        ).trim();
-
+        departmentName = String(departmentName).trim();
         if (departmentName) {
           departmentNameMap.set(
             departmentName,
-            (departmentNameMap.get(departmentName) || 0) +
-              1,
+            (departmentNameMap.get(departmentName) || 0) + 1,
           );
         }
       }
 
-      const departmentDistribution = Array.from(
-        departmentNameMap.entries(),
-      )
+      const departmentDistribution = Array.from(departmentNameMap.entries())
         .filter(([, value]) => value > 0)
-        .map(([name, value]) => ({
-          name,
-          value,
-        }));
-
-      // ------------------------------------------------------------
-      // OVERRIDE THE GENERIC INFERENCE WITH VERIFIED ENDPOINT DATA
-      // ------------------------------------------------------------
-
-      // ------------------------------------------------------------
-      // STUDENTS BY CLASS + GENDER
-      // ------------------------------------------------------------
+        .map(([name, value]) => ({ name, value }));
 
       const classNameById = new Map<string, string>();
-
       for (const classroom of classes360) {
         const id =
           classroom?.id ??
           classroom?.classroom_id ??
           classroom?.class_id;
-
         const name = String(
           classroom?.name ??
-          classroom?.title ??
-          classroom?.class_name ??
-          classroom?.classroom_name ??
-          "",
+            classroom?.title ??
+            classroom?.class_name ??
+            classroom?.classroom_name ??
+            "",
         ).trim();
-
         if (id !== undefined && id !== null && name) {
           classNameById.set(String(id), name);
         }
@@ -1408,15 +1147,15 @@ export default function School360Dashboard() {
 
         const className = String(
           student?.class_name ??
-          student?.className ??
-          student?.classroom_name ??
-          student?.classroomName ??
-          student?.classroom?.name ??
-          student?.class?.name ??
-          (rawClassId !== undefined && rawClassId !== null
-            ? classNameById.get(String(rawClassId))
-            : undefined) ??
-          "Unassigned",
+            student?.className ??
+            student?.classroom_name ??
+            student?.classroomName ??
+            student?.classroom?.name ??
+            student?.class?.name ??
+            (rawClassId !== undefined && rawClassId !== null
+              ? classNameById.get(String(rawClassId))
+              : undefined) ??
+            "Unassigned",
         ).trim();
 
         const key = className || "Unassigned";
@@ -1431,20 +1170,11 @@ export default function School360Dashboard() {
         }
 
         const entry = classGenderMap.get(key)!;
-
-        const gender = String(
-          student?.gender ??
-          student?.sex ??
-          "",
-        )
+        const gender = String(student?.gender ?? student?.sex ?? "")
           .trim()
           .toLowerCase();
 
-        if (
-          gender === "male" ||
-          gender === "m" ||
-          gender === "boy"
-        ) {
+        if (gender === "male" || gender === "m" || gender === "boy") {
           entry.male += 1;
         } else if (
           gender === "female" ||
@@ -1457,13 +1187,12 @@ export default function School360Dashboard() {
         entry.total += 1;
       }
 
-      const classGenderDistribution = Array.from(
-        classGenderMap.values(),
-      ).sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, {
-          numeric: true,
-          sensitivity: "base",
-        }),
+      const classGenderDistribution = Array.from(classGenderMap.values()).sort(
+        (a, b) =>
+          a.name.localeCompare(b.name, undefined, {
+            numeric: true,
+            sensitivity: "base",
+          }),
       );
 
       Object.assign(extracted, {
@@ -1504,14 +1233,12 @@ export default function School360Dashboard() {
         attendanceRate,
         feeCollectionRate,
 
-        // Preserve useful backend totals when available.
         totalSchools: numericValue(
           dashboardResponse.total_schools,
           dashboardResponse.totalSchools,
           1,
         ),
       });
-
 
       const studentList = successful.find(
         (item: any) =>
@@ -1529,8 +1256,7 @@ export default function School360Dashboard() {
           Array.isArray(item) &&
           item.some(
             (row: any) =>
-              row?.teacher_id !== undefined ||
-              row?.teacherId !== undefined,
+              row?.teacher_id !== undefined || row?.teacherId !== undefined,
           ),
       );
 
@@ -1549,8 +1275,7 @@ export default function School360Dashboard() {
           Array.isArray(item) &&
           item.some(
             (row: any) =>
-              row?.parent_id !== undefined ||
-              row?.parentId !== undefined,
+              row?.parent_id !== undefined || row?.parentId !== undefined,
           ),
       );
 
@@ -1566,95 +1291,51 @@ export default function School360Dashboard() {
       );
 
       const rawStudentResponse = results[2]?.data ?? [];
-
       const rawStudents = Array.isArray(rawStudentResponse)
         ? rawStudentResponse
-        : arrayFrom(rawStudentResponse, [
-            "students",
-            "items",
-            "data",
-            "results",
-          ]);
+        : arrayFrom(rawStudentResponse, ["students", "items", "data", "results"]);
 
       const derivedMaleStudents = rawStudents.filter((student: AnyRecord) => {
         const gender = String(
-          student?.gender ??
-            student?.sex ??
-            student?.student_gender ??
-            "",
+          student?.gender ?? student?.sex ?? student?.student_gender ?? "",
         )
           .trim()
           .toLowerCase();
-
-        return (
-          gender === "male" ||
-          gender === "m" ||
-          gender === "boy"
-        );
+        return gender === "male" || gender === "m" || gender === "boy";
       }).length;
 
-      const derivedFemaleStudents = rawStudents.filter(
-        (student: AnyRecord) => {
-          const gender = String(
-            student?.gender ??
-              student?.sex ??
-              student?.student_gender ??
-              "",
-          )
-            .trim()
-            .toLowerCase();
-
-          return (
-            gender === "female" ||
-            gender === "f" ||
-            gender === "girl"
-          );
-        },
-      ).length;
+      const derivedFemaleStudents = rawStudents.filter((student: AnyRecord) => {
+        const gender = String(
+          student?.gender ?? student?.sex ?? student?.student_gender ?? "",
+        )
+          .trim()
+          .toLowerCase();
+        return gender === "female" || gender === "f" || gender === "girl";
+      }).length;
 
       const finalData: DashboardData = {
         ...extracted,
-
         students:
           extracted.students ||
           rawStudents.length ||
           (Array.isArray(studentList) ? studentList.length : 0),
-
         teachers:
           extracted.teachers ||
           (Array.isArray(teacherList) ? teacherList.length : 0),
-
         staff:
-          extracted.staff ||
-          (Array.isArray(staffList) ? staffList.length : 0),
-
+          extracted.staff || (Array.isArray(staffList) ? staffList.length : 0),
         parents:
           extracted.parents ||
           (Array.isArray(parentList) ? parentList.length : 0),
-
         classes:
-          extracted.classes ||
-          (Array.isArray(classList) ? classList.length : 0),
-
+          extracted.classes || (Array.isArray(classList) ? classList.length : 0),
         maleStudents: derivedMaleStudents,
         femaleStudents: derivedFemaleStudents,
       };
 
-      if (
-        finalData.students === 0 &&
-        finalData.teachers === 0 &&
-        finalData.staff === 0 &&
-        finalData.parents === 0
-      ) {
-        setError(
-          "Some analytics endpoints did not return dashboard totals. The dashboard is ready and will populate automatically as the school data endpoints return records.",
-        );
-      }
-
       setData(finalData);
     } catch (err) {
       console.error("School 360 dashboard error:", err);
-
       setError(
         "Unable to load some school analytics. Please refresh and try again.",
       );
@@ -1668,36 +1349,13 @@ export default function School360Dashboard() {
     loadDashboard();
   }, [schoolId]);
 
-  const totalAttendance =
-    data.present + data.absent + data.late;
-
-  const attendanceRate = percentage(
-    data.present,
-    totalAttendance,
-  );
-
-  const feeRate = percentage(
-    data.feesPaid,
-    data.feesExpected,
-  );
-
-  const bookPart = percentage(
-    data.booksIssued,
-    data.booksReceived,
-  );
-
-  const maleFemaleTotal =
-    data.maleStudents + data.femaleStudents;
-
-  const malePercentage = percentage(
-    data.maleStudents,
-    maleFemaleTotal,
-  );
-
-  const femalePercentage = percentage(
-    data.femaleStudents,
-    maleFemaleTotal,
-  );
+  const totalAttendance = data.present + data.absent + data.late;
+  const attendanceRate = percentage(data.present, totalAttendance);
+  const feeRate = percentage(data.feesPaid, data.feesExpected);
+  const bookPart = percentage(data.booksIssued, data.booksReceived);
+  const maleFemaleTotal = data.maleStudents + data.femaleStudents;
+  const malePercentage = percentage(data.maleStudents, maleFemaleTotal);
+  const femalePercentage = percentage(data.femaleStudents, maleFemaleTotal);
 
   const monthlyLabels = [
     "Jan",
@@ -1722,42 +1380,24 @@ export default function School360Dashboard() {
   );
 
   const populationTotal =
-    data.students +
-    data.teachers +
-    data.staff +
-    data.parents;
+    data.students + data.teachers + data.staff + data.parents;
 
   const healthScore = useMemo(() => {
-    const attendancePart = attendanceRate;
-    const feePart = feeRate;
-
     return Math.round(
-      attendancePart * 0.45 +
-        feePart * 0.35 +
-        bookPart * 0.2,
+      attendanceRate * 0.45 + feeRate * 0.35 + bookPart * 0.2,
     );
-  }, [
-    attendanceRate,
-    feeRate,
-    data.booksIssued,
-    data.booksReceived,
-  ]);
+  }, [attendanceRate, feeRate, bookPart]);
 
   if (loading) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center">
         <div className="text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50">
-            <Loader2
-              size={28}
-              className="animate-spin text-rose-500"
-            />
+            <Loader2 size={28} className="animate-spin text-rose-500" />
           </div>
-
           <p className="mt-4 text-sm font-bold text-slate-700">
             Loading School 360° Intelligence...
           </p>
-
           <p className="mt-1 text-xs text-slate-400">
             Preparing your school analytics
           </p>
@@ -1869,7 +1509,7 @@ export default function School360Dashboard() {
       </div>
 
       <main className="mx-auto max-w-[1600px] space-y-8 px-5 py-7 md:px-8">
-        {/* POPULATION - Forced Horizontal Multi-column Grid */}
+        {/* POPULATION */}
         <section>
           <SectionTitle
             icon={Users}
@@ -1877,7 +1517,7 @@ export default function School360Dashboard() {
             description="360° view of the people who make up the school community"
           />
 
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
             <StatCard
               title="Students"
               value={data.students.toLocaleString()}
@@ -2165,7 +1805,7 @@ export default function School360Dashboard() {
           </div>
         </section>
 
-        {/* ACADEMICS - Forced Horizontal Multi-column Grid */}
+        {/* ACADEMICS */}
         <section>
           <SectionTitle
             icon={GraduationCap}
@@ -2173,7 +1813,7 @@ export default function School360Dashboard() {
             description="Examinations, digital assessments and academic activity"
           />
 
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
             <StatCard
               title="CBT Exams"
               value={data.cbtExams}
@@ -2217,8 +1857,7 @@ export default function School360Dashboard() {
               description="Publisher receipts and student book issues"
             />
 
-            {/* Forced Horizontal 2-column Grid */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <div className="rounded-3xl bg-emerald-50 p-5">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-emerald-500 shadow-sm">
                   <BookOpen size={22} />
@@ -2264,7 +1903,6 @@ export default function School360Dashboard() {
               description="Current staff leave activity"
             />
 
-            {/* Forced Horizontal 2-column Grid */}
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-3xl bg-amber-50 p-5">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-amber-500 shadow-sm">
@@ -2495,7 +2133,7 @@ export default function School360Dashboard() {
             description="Relative size of the major school populations"
           />
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {[
               {
                 label: "Students",
@@ -2652,7 +2290,7 @@ export default function School360Dashboard() {
             />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[
               {
                 title: "Registered Users",
@@ -2853,14 +2491,14 @@ export default function School360Dashboard() {
                       <item.icon size={19} />
                     </div>
 
-                    <span className="text-sm font-bold text-slate-700">
+                    <span className="text-sm font-bold text-slate-700 truncate">
                       {item.title}
                     </span>
                   </div>
 
                   <ChevronRight
                     size={17}
-                    className={`transition group-hover:translate-x-1 ${theme.arrow}`}
+                    className={`shrink-0 transition group-hover:translate-x-1 ${theme.arrow}`}
                   />
                 </a>
               );
