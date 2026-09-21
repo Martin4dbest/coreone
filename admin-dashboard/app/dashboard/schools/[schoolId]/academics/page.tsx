@@ -101,7 +101,7 @@ export default function PeoplePage({
         </p>
       </section>
 
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         {modules.map((module) => {
           const Icon = module.icon;
 
@@ -109,19 +109,21 @@ export default function PeoplePage({
             <Link
               key={module.title}
               href={module.href}
-              className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-rose-100 hover:shadow-lg"
+              className="flex items-center gap-5 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-rose-100 hover:shadow-lg"
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 text-rose-500">
-                <Icon size={21} />
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-500">
+                <Icon size={22} />
               </div>
 
-              <h2 className="mt-5 font-bold text-slate-900">
-                {module.title}
-              </h2>
+              <div className="min-w-0 flex-1">
+                <h2 className="font-bold text-slate-900">
+                  {module.title}
+                </h2>
 
-              <p className="mt-2 text-sm text-slate-500">
-                {module.description}
-              </p>
+                <p className="mt-1 text-sm text-slate-500 truncate">
+                  {module.description}
+                </p>
+              </div>
             </Link>
           );
         })}
