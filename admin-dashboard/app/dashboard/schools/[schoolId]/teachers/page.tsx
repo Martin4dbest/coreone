@@ -118,7 +118,7 @@ export default function TeachersPage({
   // Link Staff to Teacher state
   const [isLinkModalOpen, setIsLinkModalOpen] = useState<boolean>(false);
   const [linkableStaff, setLinkableStaff] = useState<LinkableStaff[]>([]);
-  const [selectedStaffId, setSelectedStaffId] = useState<string>("");
+  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
   const [isLoadingLinkableStaff, setIsLoadingLinkableStaff] =
     useState<boolean>(false);
   const [isLinkingStaff, setIsLinkingStaff] = useState<boolean>(false);
@@ -197,7 +197,7 @@ export default function TeachersPage({
 
   const openLinkStaffModal = async () => {
     setIsLinkModalOpen(true);
-    setSelectedStaffId("");
+    setSelectedStaffIds([]);
     setLinkModalError(null);
     setIsLoadingLinkableStaff(true);
 
@@ -221,7 +221,7 @@ export default function TeachersPage({
     if (isLinkingStaff) return;
 
     setIsLinkModalOpen(false);
-    setSelectedStaffId("");
+    setSelectedStaffIds([]);
     setLinkModalError(null);
     setLinkableStaff([]);
   };
@@ -231,7 +231,7 @@ export default function TeachersPage({
 
     if (isLinkingStaff) return;
 
-    if (!selectedStaffId) {
+    if (selectedStaffIds.length === 0) {
       setLinkModalError("Please select a staff member.");
       return;
     }
@@ -240,15 +240,15 @@ export default function TeachersPage({
     setLinkModalError(null);
 
     try {
-      await api.post("/teachers/link-staff", {
-        staff_id: Number(selectedStaffId),
-      }, {
-        params: {
-          school_id: Number(schoolId),
-        },
-      });
+      for (const staffId of selectedStaffIds) {
+        await api.post(
+          "/teachers/link-staff",
+          { staff_id: Number(staffId) },
+          { params: { school_id: Number(schoolId) } }
+        );
+      }
 
-      alert("Staff member linked to Teacher successfully.");
+      alert(`${selectedStaffIds.length} staff member(s) linked successfully.`);
       handleLinkModalClose();
       await fetchTeachers();
     } catch (err: unknown) {
@@ -584,19 +584,49 @@ export default function TeachersPage({
                     Staff Member
                   </label>
 
-                  <select
-                    value={selectedStaffId}
-                    onChange={(e) => setSelectedStaffId(e.target.value)}
-                    disabled={isLinkingStaff}
-                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-colors disabled:opacity-50"
-                  >
-                    <option value="">Select a staff member...</option>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span className="text-xs text-slate-500">
+                      {selectedStaffIds.length} of {linkableStaff.length} selected
+                    </span>
 
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedStaffIds(
+                          selectedStaffIds.length === linkableStaff.length
+                            ? []
+                            : linkableStaff.map((staff) => String(staff.id))
+                        )
+                      }
+                      disabled={isLinkingStaff || linkableStaff.length === 0}
+                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-50"
+                    >
+                      {selectedStaffIds.length === linkableStaff.length
+                        ? "Deselect All"
+                        : "Select All"}
+                    </button>
+                  </div>
+
+                  <select
+                    multiple
+                    value={selectedStaffIds}
+                    onChange={(e) =>
+                      setSelectedStaffIds(
+                        Array.from(
+                          e.target.selectedOptions,
+                          (option) => option.value
+                        )
+                      )
+                    }
+                    disabled={isLinkingStaff}
+                    size={Math.min(Math.max(linkableStaff.length, 4), 8)}
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-colors disabled:opacity-50"
+                  >
                     {linkableStaff.map((staff) => (
                       <option key={staff.id} value={staff.id}>
-                        {staff.first_name} {staff.last_name} â€”{" "}
+                        {staff.first_name} {staff.last_name} —{" "}
                         {staff.employee_number}
-                        {staff.email ? ` â€” ${staff.email}` : ""}
+                        {staff.email ? ` — ${staff.email}` : ""}
                       </option>
                     ))}
                   </select>
@@ -624,7 +654,7 @@ export default function TeachersPage({
                     isLinkingStaff ||
                     isLoadingLinkableStaff ||
                     linkableStaff.length === 0 ||
-                    !selectedStaffId
+                    selectedStaffIds.length === 0
                   }
                   className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none transition-colors disabled:opacity-50 min-w-[150px]"
                 >
