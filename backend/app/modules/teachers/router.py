@@ -14,6 +14,7 @@ from app.core.tenant.dependencies import get_tenant_from_request
 from app.db.database import get_db
 
 from app.modules.auth.dependencies.current_user import get_current_user
+from app.core.teacher_access import is_teacher_user
 
 from app.modules.teachers.schemas import (
     TeacherCreateRequest,
@@ -261,10 +262,7 @@ async def my_class_teacher_status(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if (
-        current_user.role.name != "TEACHER"
-        and current_user.teacher is None
-    ):
+    if not is_teacher_user(current_user):
         raise HTTPException(status_code=403, detail="Teacher access only")
 
     teacher = current_user.teacher

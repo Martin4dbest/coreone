@@ -13,6 +13,7 @@ from app.models.academic_session import AcademicSession
 from app.models.result import Result
 from app.models.teacher import Teacher
 from app.models.teacher_subject import TeacherSubject
+from app.core.teacher_access import is_teacher_user
 from app.models.grading_system import GradingSystem
 from app.models.school import School
 from app.models.school_branding import SchoolBranding
@@ -208,7 +209,7 @@ class ResultService:
             "",
         )
 
-        if role != "TEACHER":
+        if not is_teacher_user(current_user):
             return
 
         teacher = await self.db.get(
@@ -454,7 +455,7 @@ class ResultService:
 
         role = current_user.role.name
 
-        if role == "TEACHER":
+        if is_teacher_user(current_user):
             return await self.repository.get_teacher_results(
                 current_user.id,
                 school_id,
@@ -644,7 +645,7 @@ class ResultService:
             role_name_for_report
         ).upper()
 
-        if role_name_for_report == "TEACHER":
+        if is_teacher_user(current_user):
             teacher_profile = getattr(
                 current_user,
                 "teacher",
@@ -985,7 +986,7 @@ class ResultService:
 
         role = current_user.role.name
 
-        if role == "TEACHER":
+        if is_teacher_user(current_user):
             result.teacher_comment = payload.comment
 
             if hasattr(

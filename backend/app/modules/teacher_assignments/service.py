@@ -8,6 +8,7 @@ from app.core.school_access import check_school_access
 
 from app.models.teacher_subject import TeacherSubject
 from app.models.teacher import Teacher
+from app.core.teacher_access import is_teacher_user
 from app.models.classroom import Classroom
 from app.models.subject import Subject
 
@@ -266,7 +267,7 @@ class TeacherAssignmentService:
         # TEACHER ROLE SECURITY
         # --------------------------------------------------------
 
-        if current_user.role.name == "TEACHER":
+        if is_teacher_user(current_user):
             if current_user.teacher is None:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,

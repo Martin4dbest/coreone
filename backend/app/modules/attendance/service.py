@@ -13,7 +13,7 @@ from app.modules.attendance.schemas import (
     AttendanceCreateRequest,
     AttendanceUpdateRequest,
 )
-from app.core.teacher_access import check_teacher_class_access
+from app.core.teacher_access import check_teacher_class_access, is_teacher_user
 
 
 class AttendanceService:
@@ -78,7 +78,7 @@ class AttendanceService:
                 detail="Class not found in this school.",
             )
 
-        if current_user.role.name == "TEACHER":
+        if is_teacher_user(current_user):
             await check_teacher_class_access(
                 self.db,
                 current_user,
@@ -125,7 +125,7 @@ class AttendanceService:
         # TEACHER can only manage classes where:
         # 1. They are the class teacher, OR
         # 2. They have an active subject assignment.
-        if role == "TEACHER":
+        if is_teacher_user(current_user):
             teacher_id = current_user.teacher.id if current_user.teacher else None
 
             if teacher_id is None:
@@ -326,7 +326,7 @@ class AttendanceService:
             attendance_date=attendance_date,
         )
 
-        if current_user.role.name == "TEACHER":
+        if is_teacher_user(current_user):
             filtered = []
 
             for record in records:

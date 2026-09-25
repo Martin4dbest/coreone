@@ -12,6 +12,7 @@ from app.models.user import User
 from app.models.classroom import Classroom
 from app.models.result import Result
 from app.modules.auth.dependencies.current_user import get_current_user
+from app.core.teacher_access import is_teacher_user
 
 from app.modules.results.schemas import (
     ResultCreateRequest,
@@ -285,7 +286,7 @@ async def update_student_class_teacher_comment(
     )
     role_name = str(role_name).upper()
 
-    if role_name != "TEACHER":
+    if not is_teacher_user(current_user):
         raise HTTPException(
             status_code=403,
             detail="Only a teacher can enter the class-teacher report comment.",

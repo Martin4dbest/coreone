@@ -15,6 +15,7 @@ from app.models.classroom import Classroom
 from app.models.role import Role
 from app.models.student import Student
 from app.models.teacher import Teacher
+from app.core.teacher_access import is_teacher_user
 from app.models.user import User
 
 from app.modules.auth.security import hash_password
@@ -128,7 +129,7 @@ class StudentService:
         if role != "SUPER_ADMIN":
             school_id = tenant.school_id
 
-        if role == "TEACHER":
+        if is_teacher_user(current_user):
             result = await self.db.execute(
                 select(Teacher).where(
                     Teacher.user_id == current_user.id,
@@ -181,7 +182,7 @@ class StudentService:
         return students
 
     async def _get_teacher_profile(self, current_user):
-        if current_user.role.name != "TEACHER":
+        if not is_teacher_user(current_user):
             return None
 
         result = await self.db.execute(
@@ -201,7 +202,7 @@ class StudentService:
         return teacher
 
     def _ensure_teacher_cannot_manage_students(self, current_user):
-        if current_user.role.name == "TEACHER":
+        if is_teacher_user(current_user):
             raise HTTPException(
                 status_code=403,
                 detail="Teachers are not allowed to manage students.",

@@ -6,6 +6,29 @@ from app.models.classroom import Classroom
 from app.models.teacher_subject import TeacherSubject
 
 
+def is_teacher_user(current_user) -> bool:
+    """
+    A normal Teacher account is a TEACHER role.
+
+    A Staff account linked to a Teacher profile must also receive
+    the same teacher-side access while retaining its STAFF role
+    for staff features.
+    """
+    role = getattr(
+        getattr(current_user, "role", None),
+        "name",
+        "",
+    )
+
+    return (
+        role == "TEACHER"
+        or (
+            role == "STAFF"
+            and getattr(current_user, "teacher", None) is not None
+        )
+    )
+
+
 async def get_teacher_id(current_user):
 
     if not current_user.teacher:
@@ -68,7 +91,7 @@ async def check_teacher_class_access(
     # TEACHER
     # -------------------------
 
-    if role == "TEACHER":
+    if is_teacher_user(current_user):
 
         teacher_id = await get_teacher_id(
             current_user

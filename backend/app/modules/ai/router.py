@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_db
 from app.models.classroom import Classroom
 from app.models.teacher import Teacher
+from app.core.teacher_access import is_teacher_user
 from app.models.user import User
 from app.models.school_feature import SchoolFeature
 from app.modules.auth.dependencies.current_user import get_current_user
@@ -88,7 +89,7 @@ async def check_ai_access(
     # Class Teachers have direct access.
     # Other teachers require a redeemed AI CBT access grant.
     # ---------------------------------------------------------
-    if role_name == "TEACHER":
+    if is_teacher_user(current_user):
         teacher_result = await db.execute(
             select(Teacher).where(
                 Teacher.user_id == current_user.id,
@@ -299,7 +300,7 @@ async def check_performance_ai_access(
     }:
         return
 
-    if role_name == "TEACHER":
+    if is_teacher_user(current_user):
         return
 
     raise HTTPException(
@@ -534,7 +535,7 @@ async def ai_cbt_access_status(
             "reason": "school_admin",
         }
 
-    if role_name != "TEACHER":
+    if not is_teacher_user(current_user):
         return {
             "allowed": False,
             "reason": "role_not_allowed",
@@ -607,7 +608,7 @@ async def generate_ai_cbt_teacher_access(
                 role_result.scalar_one_or_none() or ""
             ).upper()
 
-        if role_name != "TEACHER":
+        if not is_teacher_user(current_user):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=(
@@ -656,7 +657,7 @@ async def redeem_ai_cbt_teacher_access(
     )
     role_name = str(role_name).upper()
 
-    if role_name != "TEACHER":
+    if not is_teacher_user(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Teacher access only.",
