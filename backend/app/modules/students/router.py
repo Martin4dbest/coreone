@@ -21,6 +21,7 @@ from app.models.youtube_activity import YoutubeActivity
 from app.models.youtube_learning import YoutubeLearning
 
 from app.core.permissions import require_roles
+from app.core.teacher_access import is_teacher_user
 from app.core.tenant.context import TenantContext
 from app.core.tenant.dependencies import get_tenant_from_request
 from app.db.database import get_db
@@ -35,6 +36,27 @@ router = APIRouter(
     prefix="/students",
     tags=["Students"],
 )
+
+
+async def require_student_list_access(
+    current_user: User = Depends(
+        require_roles(
+            "SUPER_ADMIN",
+            "SCHOOL_ADMIN",
+            "TEACHER",
+            "STAFF",
+        )
+    ),
+):
+    if current_user.role.name == "STAFF" and not is_teacher_user(current_user):
+        from fastapi import HTTPException, status
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view students.",
+        )
+
+    return current_user
 
 
 @router.post("/")
@@ -80,13 +102,7 @@ async def get_students(
     class_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_from_request),
-    current_user: User = Depends(
-        require_roles(
-            "SUPER_ADMIN",
-            "SCHOOL_ADMIN",
-            "TEACHER",
-        )
-    ),
+    current_user: User = Depends(require_student_list_access),
 ):
     return await StudentService(db).get_students(
         tenant,
