@@ -167,8 +167,10 @@ export default function ResultsPage({
   const [ca, setCa] = useState("");
   const [exam, setExam] = useState("");
 
-  const isTeacher = userRole === "TEACHER";
-  const canEnterResults = ["TEACHER", "SCHOOL_ADMIN", "SUPER_ADMIN"].includes(userRole);
+  const [isTeacher, setIsTeacher] = useState(false);
+  const canEnterResults =
+    isTeacher ||
+    ["SCHOOL_ADMIN", "SUPER_ADMIN"].includes(userRole);
 
   const teacherSubjectIds = new Set(subjects.map((s) => Number(s.id)));
 
@@ -268,8 +270,12 @@ export default function ResultsPage({
           : me.data.role?.name || ""
       ).toUpperCase();
 
-      const teacherFlag = role === "TEACHER";
+      let teacherFlag = role === "TEACHER";
       setUserRole(role);
+
+      if (teacherFlag) {
+        setIsTeacher(true);
+      }
 
       let numericSchoolId = Number(me.data?.school_id);
 
@@ -345,7 +351,7 @@ export default function ResultsPage({
       setClasses(fetchedClasses);
 
       let teacherSubjectList: Option[] = [];
-      if (teacherFlag) {
+      if (teacherFlag || role === "STAFF") {
         try {
           const mySubjectsRes = await api.get("/teachers/me/subjects");
           const rawTeacherSubjects = Array.isArray(mySubjectsRes.data)
@@ -353,6 +359,9 @@ export default function ResultsPage({
             : Array.isArray(mySubjectsRes.data?.data)
             ? mySubjectsRes.data.data
             : [];
+
+          teacherFlag = true;
+          setIsTeacher(true);
 
           teacherSubjectList = rawTeacherSubjects
             .map((s: any) => ({
