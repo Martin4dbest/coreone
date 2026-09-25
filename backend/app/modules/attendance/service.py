@@ -122,9 +122,8 @@ class AttendanceService:
 
             return result.scalars().all()
 
-        # TEACHER can only manage classes where:
-        # 1. They are the class teacher, OR
-        # 2. They have an active subject assignment.
+        # TEACHER can only manage classes where they are
+        # explicitly assigned as the class teacher.
         if is_teacher_user(current_user):
             teacher_id = current_user.teacher.id if current_user.teacher else None
 
@@ -136,24 +135,11 @@ class AttendanceService:
 
             result = await self.db.execute(
                 select(Classroom)
-                .outerjoin(
-                    TeacherSubject,
-                    TeacherSubject.classroom_id == Classroom.id,
-                )
                 .where(
                     Classroom.school_id == school_id,
                     Classroom.is_active == True,
-                    (
-                        (Classroom.class_teacher_id == teacher_id)
-                        |
-                        (
-                            (TeacherSubject.teacher_id == teacher_id)
-                            &
-                            (TeacherSubject.is_active == True)
-                        )
-                    ),
+                    Classroom.class_teacher_id == teacher_id,
                 )
-                .distinct()
                 .order_by(Classroom.name.asc())
             )
 
