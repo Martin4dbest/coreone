@@ -203,30 +203,19 @@ class ResultService:
         teacher allocation rules.
         """
 
-        role = getattr(
-            getattr(current_user, "role", None),
-            "name",
-            "",
-        )
-
         if not is_teacher_user(current_user):
             return
 
-        teacher = await self.db.get(
-            Teacher,
-            getattr(current_user, "teacher_id", None),
-        )
-
-        # Some User models do not expose teacher_id directly.
-        # Fall back to the Teacher.user_id relationship.
-        if teacher is None:
-            teacher_result = await self.db.execute(
-                select(Teacher).where(
-                    Teacher.user_id == current_user.id,
-                    Teacher.school_id == school_id,
-                )
+        # User does not have a teacher_id column.
+        # Both normal TEACHER users and STAFF users linked to a
+        # Teacher profile are identified through Teacher.user_id.
+        teacher_result = await self.db.execute(
+            select(Teacher).where(
+                Teacher.user_id == current_user.id,
+                Teacher.school_id == school_id,
             )
-            teacher = teacher_result.scalar_one_or_none()
+        )
+        teacher = teacher_result.scalar_one_or_none()
 
         if not teacher:
             raise HTTPException(
@@ -261,7 +250,6 @@ class ResultService:
                     "and academic session."
                 ),
             )
-
 
 
     def __init__(self, db: AsyncSession):
