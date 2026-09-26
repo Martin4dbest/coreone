@@ -248,33 +248,6 @@ export default function LicensingPage() {
 
   const rows: LicenseRow[] = [
     {
-      key: "super_admin",
-      label: "Super Admin",
-      count: summary.super_admin,
-      price: prices.super_admin,
-      icon: "SA",
-      cardClass: "border-rose-200 bg-rose-50",
-      iconClass: "bg-rose-100 text-rose-700",
-    },
-    {
-      key: "admin",
-      label: "School Admins",
-      count: summary.admin,
-      price: prices.admin,
-      icon: "A",
-      cardClass: "border-purple-200 bg-purple-50",
-      iconClass: "bg-purple-100 text-purple-700",
-    },
-    {
-      key: "teacher",
-      label: "Teachers",
-      count: summary.teacher,
-      price: prices.teacher,
-      icon: "T",
-      cardClass: "border-orange-200 bg-orange-50",
-      iconClass: "bg-orange-100 text-orange-700",
-    },
-    {
       key: "student",
       label: "Students",
       count: summary.student,
@@ -282,24 +255,6 @@ export default function LicensingPage() {
       icon: "S",
       cardClass: "border-blue-200 bg-blue-50",
       iconClass: "bg-blue-100 text-blue-700",
-    },
-    {
-      key: "parent",
-      label: "Parents",
-      count: summary.parent,
-      price: prices.parent,
-      icon: "P",
-      cardClass: "border-emerald-200 bg-emerald-50",
-      iconClass: "bg-emerald-100 text-emerald-700",
-    },
-    {
-      key: "staff",
-      label: "Staff",
-      count: summary.staff,
-      price: prices.staff,
-      icon: "ST",
-      cardClass: "border-cyan-200 bg-cyan-50",
-      iconClass: "bg-cyan-100 text-cyan-700",
     },
   ];
 
