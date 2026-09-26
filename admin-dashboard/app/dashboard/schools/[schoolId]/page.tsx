@@ -775,13 +775,24 @@ export default function School360Dashboard() {
       };
 
       const dashboardResponse = unwrap(0) || {};
-      const students360 = toList(unwrap(2));
+
+      const filterBySchool = (items: any[]) =>
+        items.filter((item) => {
+          const itemSchoolId =
+            item?.school_id ??
+            item?.schoolId ??
+            item?.school?.id;
+
+          return String(itemSchoolId) === String(schoolId);
+        });
+
+      const students360 = filterBySchool(toList(unwrap(2)));
       const teachers360 = toList(unwrap(3));
       const staff360 = toList(unwrap(4));
       const parents360 = toList(unwrap(5));
       const classes360 = toList(unwrap(6));
-      const attendance360 = toList(unwrap(7));
-      const fees360 = toList(unwrap(8));
+      const attendance360 = filterBySchool(toList(unwrap(7)));
+      const fees360 = filterBySchool(toList(unwrap(8)));
       const cbtExams360 = toList(unwrap(9));
       const cbtResults360 = toList(unwrap(10));
       const cbtDashboard360 = unwrap(11) || {};
