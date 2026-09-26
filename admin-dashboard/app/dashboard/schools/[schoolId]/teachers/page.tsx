@@ -366,13 +366,6 @@ export default function TeachersPage({
             Link Staff to Teacher
           </button>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-          >
-            <Plus className="h-4 w-4" />
-            Add Teacher
-          </button>
         </div>
       </div>
 
