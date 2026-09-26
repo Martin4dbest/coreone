@@ -220,15 +220,6 @@ export default function LicensingPage() {
       cardClass: "border-blue-200 bg-blue-50",
       iconClass: "bg-blue-100 text-blue-700",
     },
-    {
-      key: "staff",
-      label: "Staffs",
-      count: summary.staff,
-      price: prices.staff,
-      icon: "ST",
-      cardClass: "border-cyan-200 bg-cyan-50",
-      iconClass: "bg-cyan-100 text-cyan-700",
-    },
   ];
 
   const totalUsers = rows.reduce(
