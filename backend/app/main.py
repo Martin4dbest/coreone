@@ -123,6 +123,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://coreone-one.vercel.app",
+        "https://coreone-mobile.vercel.app",
         "https://presense.expo.app",
         "http://localhost:8081",
         "http://localhost:19006",
