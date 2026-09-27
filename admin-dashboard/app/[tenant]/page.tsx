@@ -131,7 +131,7 @@ export default function TenantLandingPage() {
               </a>
 
               <a
-                href="https://expo.dev/artifacts/eas/QuKunsSSS30c64P3qexpwNhdI303t8qBnMinGZ7Y-SY.apk"
+                href="https://expo.dev/artifacts/eas/i0dF9Xhu327cQalqsbKP3eCXs4oSe8guOlMRUCPPMBc.apk"
                 download="CoreOne.apk"
                 className="block cursor-pointer rounded-2xl border border-slate-200 p-4 hover:bg-slate-50"
               >
