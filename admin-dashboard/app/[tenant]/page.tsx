@@ -88,7 +88,6 @@ export default function TenantLandingPage() {
     <>
       {mobileAppOpen && (
         <div
-          id="coreone-mobile-app-modal"
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 px-4"
           onClick={() => setMobileAppOpen(false)}
         >
@@ -187,7 +186,7 @@ export default function TenantLandingPage() {
               <button
                 type="button"
                 onClick={() => setMobileAppOpen(true)}
-                className="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                className="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
               >
                 Mobile App
               </button>
@@ -233,7 +232,7 @@ export default function TenantLandingPage() {
                     setMobileMenuOpen(false);
                     setMobileAppOpen(true);
                   }}
-                  className="text-left hover:text-slate-900"
+                  className="text-left hover:text-slate-900 cursor-pointer"
                 >
                   Mobile App
                 </button>
@@ -329,7 +328,7 @@ export default function TenantLandingPage() {
               <button
                 type="button"
                 onClick={() => setMobileAppOpen(true)}
-                className="w-full sm:w-auto px-8 py-4 rounded-2xl font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md transition-all text-center text-base"
+                className="w-full sm:w-auto px-8 py-4 rounded-2xl font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md transition-all text-center text-base cursor-pointer"
               >
                 Mobile App
               </button>
@@ -423,5 +422,6 @@ export default function TenantLandingPage() {
         </div>
       </footer>
     </div>
+    </>
   );
 }
