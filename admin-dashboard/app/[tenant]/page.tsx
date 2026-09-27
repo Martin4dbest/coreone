@@ -120,6 +120,14 @@ export default function TenantLandingPage() {
               >
                 Why Choose Us
               </a>
+              <a
+                href="https://coreone-mobile.vercel.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+              >
+                Mobile App
+              </a>
               <Link
                 href={`/${tenant.slug}/login`}
                 className="px-5 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md hover:shadow-xl hover:opacity-95 transition-all transform active:scale-95 flex items-center gap-2"
@@ -155,6 +163,14 @@ export default function TenantLandingPage() {
                   className="hover:text-slate-900"
                 >
                   Why Choose Us
+                </a>
+                <a
+                  href="https://coreone-mobile.vercel.app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-slate-900"
+                >
+                  Mobile App
                 </a>
                 <hr className="border-slate-100 my-1" />
                 <Link
@@ -246,10 +262,12 @@ export default function TenantLandingPage() {
               </Link>
 
               <a
-                href="#features"
+                href="https://coreone-mobile.vercel.app"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-full sm:w-auto px-8 py-4 rounded-2xl font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md transition-all text-center text-base"
               >
-                Learn More
+                Mobile App
               </a>
             </motion.div>
           </motion.div>
