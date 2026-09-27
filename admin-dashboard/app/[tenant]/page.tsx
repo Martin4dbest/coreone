@@ -143,6 +143,67 @@ export default function TenantLandingPage() {
     </div>
   )}
 
+  {mobileAppOpen && (
+    <div
+      id="coreone-mobile-app-modal"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 px-4"
+      onClick={() => setMobileAppOpen(false)}
+    >
+      <div
+        className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-6 flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">
+              CoreOne Mobile App
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Choose how you want to access CoreOne.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMobileAppOpen(false)}
+            className="cursor-pointer rounded-full px-3 py-1 text-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <a
+            href="https://coreone-mobile.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block cursor-pointer rounded-2xl border border-slate-200 p-4 hover:bg-slate-50"
+          >
+            <div className="font-semibold text-slate-900">
+              Web Version
+            </div>
+            <div className="mt-1 text-sm text-slate-500">
+              Open CoreOne in your browser.
+            </div>
+          </a>
+
+          <a
+            href="https://expo.dev/artifacts/eas/QuKunsSSS30c64P3qexpwNhdI303t8qBnMinGZ7Y-SY.apk"
+            download="CoreOne.apk"
+            className="block cursor-pointer rounded-2xl border border-slate-200 p-4 hover:bg-slate-50"
+          >
+            <div className="font-semibold text-slate-900">
+              Mobile App Download
+            </div>
+            <div className="mt-1 text-sm text-slate-500">
+              Download the CoreOne Android app.
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+  )}
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-slate-200 selection:text-slate-900 flex flex-col justify-between">
       <div>
