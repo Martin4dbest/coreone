@@ -73,6 +73,7 @@ const FEATURES = [
 export default function TenantLandingPage() {
   const { tenant } = useTenant();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileAppOpen, setMobileAppOpen] = useState(false);
 
   const { scrollY } = useScroll();
   const heroY = useTransform(scrollY, [0, 500], [0, 150]);
@@ -82,6 +83,65 @@ export default function TenantLandingPage() {
 
   const primaryColor = tenant.primary_color || "#1e3a8a";
   const bgHeroUrl = tenant.login_background_url || FALLBACK_HERO;
+
+  {mobileAppOpen && (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4"
+      onClick={() => setMobileAppOpen(false)}
+    >
+      <div
+        className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">
+              CoreOne Mobile App
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Choose how you want to access CoreOne.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMobileAppOpen(false)}
+            className="rounded-full px-3 py-1 text-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <a
+            href="https://coreone-mobile.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block rounded-2xl border border-slate-200 p-4 hover:bg-slate-50 transition-colors"
+          >
+            <div className="font-semibold text-slate-900">Web Version</div>
+            <div className="mt-1 text-sm text-slate-500">
+              Open CoreOne directly in your browser.
+            </div>
+          </a>
+
+          <a
+            href="https://expo.dev/artifacts/eas/QuKunsSSS30c64P3qexpwNhdI303t8qBnMinGZ7Y-SY.apk"
+            download="CoreOne.apk"
+            className="block rounded-2xl border border-slate-200 p-4 hover:bg-slate-50 transition-colors"
+          >
+            <div className="font-semibold text-slate-900">
+              Mobile App Download
+            </div>
+            <div className="mt-1 text-sm text-slate-500">
+              Download the CoreOne Android app.
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+  )}
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-slate-200 selection:text-slate-900 flex flex-col justify-between">
@@ -120,14 +180,13 @@ export default function TenantLandingPage() {
               >
                 Why Choose Us
               </a>
-              <a
-                href="https://coreone-mobile.vercel.app"
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => setMobileAppOpen(true)}
                 className="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
               >
                 Mobile App
-              </a>
+              </button>
               <Link
                 href={`/${tenant.slug}/login`}
                 className="px-5 py-2.5 rounded-xl font-semibold text-sm text-white shadow-md hover:shadow-xl hover:opacity-95 transition-all transform active:scale-95 flex items-center gap-2"
@@ -164,14 +223,16 @@ export default function TenantLandingPage() {
                 >
                   Why Choose Us
                 </a>
-                <a
-                  href="https://coreone-mobile.vercel.app"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-slate-900"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setMobileAppOpen(true);
+                  }}
+                  className="text-left hover:text-slate-900"
                 >
                   Mobile App
-                </a>
+                </button>
                 <hr className="border-slate-100 my-1" />
                 <Link
                   href={`/${tenant.slug}/login`}
@@ -261,14 +322,13 @@ export default function TenantLandingPage() {
                 <ArrowRight className="w-5 h-5" />
               </Link>
 
-              <a
-                href="https://coreone-mobile.vercel.app"
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => setMobileAppOpen(true)}
                 className="w-full sm:w-auto px-8 py-4 rounded-2xl font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md transition-all text-center text-base"
               >
                 Mobile App
-              </a>
+              </button>
             </motion.div>
           </motion.div>
         </section>
