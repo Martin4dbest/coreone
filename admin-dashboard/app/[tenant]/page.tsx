@@ -88,60 +88,169 @@ export default function TenantLandingPage() {
     <>
       {mobileAppOpen && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 px-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm"
           onClick={() => setMobileAppOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+            className="relative w-full max-w-lg overflow-hidden rounded-[2rem] bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-6 flex items-start justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">
-                  CoreOne Mobile App
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Choose how you want to access CoreOne.
-                </p>
-              </div>
+            <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-6 py-7 sm:px-8">
+              <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-blue-500/20 blur-3xl" />
+              <div className="absolute -bottom-20 -left-10 h-40 w-40 rounded-full bg-violet-500/20 blur-3xl" />
 
               <button
                 type="button"
                 onClick={() => setMobileAppOpen(false)}
-                className="cursor-pointer rounded-full px-3 py-1 text-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                className="absolute right-4 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/10 text-xl text-white/80 backdrop-blur-md transition hover:bg-white/20 hover:text-white"
                 aria-label="Close"
               >
                 ×
               </button>
+
+              <div className="relative">
+                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white shadow-lg ring-1 ring-white/10">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    className="h-6 w-6"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 3v18m9-9H3"
+                    />
+                  </svg>
+                </div>
+
+                <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                  CoreOne Mobile App
+                </h2>
+
+                <p className="mt-2 max-w-sm text-sm leading-6 text-slate-300 sm:text-base">
+                  Choose how you want to access your CoreOne account.
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-7">
+
+              {/* Web Version */}
               <a
                 href="https://coreone-mobile.vercel.app"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block cursor-pointer rounded-2xl border border-slate-200 p-4 hover:bg-slate-50"
+                className="group relative overflow-hidden rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-5 transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-100/70"
               >
-                <div className="font-semibold text-slate-900">
-                  Web Version
-                </div>
-                <div className="mt-1 text-sm text-slate-500">
-                  Open CoreOne in your browser.
+                <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-blue-200/40 blur-2xl transition-transform duration-500 group-hover:scale-150" />
+
+                <div className="relative">
+                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/25 transition-transform duration-300 group-hover:scale-105">
+                    {/* Globe Icon */}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      className="h-7 w-7"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M3 12h18" />
+                      <path d="M12 3c2.3 2.5 3.5 5.5 3.5 9s-1.2 6.5-3.5 9c-2.3-2.5-3.5-5.5-3.5-9S9.7 5.5 12 3Z" />
+                    </svg>
+                  </div>
+
+                  <div className="mb-1 text-xs font-bold uppercase tracking-widest text-blue-600">
+                    Browser Access
+                  </div>
+
+                  <h3 className="text-xl font-bold text-slate-900">
+                    Web Version
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    Open CoreOne instantly in your browser. No installation required.
+                  </p>
+
+                  <div className="mt-5 flex items-center gap-2 text-sm font-bold text-blue-600">
+                    Open Web Version
+                    <span className="transition-transform duration-300 group-hover:translate-x-1">
+                      →
+                    </span>
+                  </div>
                 </div>
               </a>
 
+              {/* Mobile App */}
               <a
                 href="https://expo.dev/artifacts/eas/i0dF9Xhu327cQalqsbKP3eCXs4oSe8guOlMRUCPPMBc.apk"
                 download="CoreOne.apk"
-                className="block cursor-pointer rounded-2xl border border-slate-200 p-4 hover:bg-slate-50"
+                className="group relative overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-5 transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-100/70"
               >
-                <div className="font-semibold text-slate-900">
-                  Mobile App Download
-                </div>
-                <div className="mt-1 text-sm text-slate-500">
-                  Download the CoreOne Android app.
+                <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-emerald-200/40 blur-2xl transition-transform duration-500 group-hover:scale-150" />
+
+                <div className="relative">
+                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-600/25 transition-transform duration-300 group-hover:scale-105">
+                    {/* Smartphone Icon */}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      className="h-7 w-7"
+                    >
+                      <rect
+                        x="6"
+                        y="2.5"
+                        width="12"
+                        height="19"
+                        rx="2"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        d="M10 5h4"
+                      />
+                      <circle
+                        cx="12"
+                        cy="18.5"
+                        r="0.7"
+                        fill="currentColor"
+                        stroke="none"
+                      />
+                    </svg>
+                  </div>
+
+                  <div className="mb-1 text-xs font-bold uppercase tracking-widest text-emerald-600">
+                    Android App
+                  </div>
+
+                  <h3 className="text-xl font-bold text-slate-900">
+                    Mobile App
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    Download and install the CoreOne Android app on your smartphone.
+                  </p>
+
+                  <div className="mt-5 flex items-center gap-2 text-sm font-bold text-emerald-600">
+                    Download App
+                    <span className="transition-transform duration-300 group-hover:translate-x-1">
+                      →
+                    </span>
+                  </div>
                 </div>
               </a>
+            </div>
+
+            <div className="border-t border-slate-100 bg-slate-50 px-6 py-4 text-center">
+              <p className="text-xs text-slate-400">
+                CoreOne — School Management Made Simple
+              </p>
             </div>
           </div>
         </div>
