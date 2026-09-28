@@ -65,7 +65,11 @@ useState(true);
 
 useEffect(() => {
 
+let mounted = true;
+
 async function restoreSession() {
+
+try {
 
 const savedToken =
 await getToken();
@@ -76,17 +80,38 @@ await getUser();
 const savedTenant =
 await getTenant();
 
+if (!mounted) return;
 
 setToken(savedToken);
 setUser(savedUser);
 setTenant(savedTenant);
 
+} catch (error) {
+
+console.log("========== SESSION RESTORE ERROR ==========");
+console.log(error);
+
+if (!mounted) return;
+
+setToken(null);
+setUser(null);
+setTenant(null);
+
+} finally {
+
+if (mounted) {
 setLoading(false);
+}
 
 }
 
+}
 
 restoreSession();
+
+return () => {
+mounted = false;
+};
 
 }, []);
 

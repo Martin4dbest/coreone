@@ -46,7 +46,7 @@
     },
     "updates": {
       "url": "https://u.expo.dev/0989a34a-dce8-4145-8384-b055098c70d1",
-      "checkAutomatically": "ON_LOAD"
+      "checkAutomatically": "NEVER"
     }
   }
 }

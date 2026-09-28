@@ -508,35 +508,35 @@ function StatCard({
   iconClass: string;
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+    <div className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
       <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-slate-50 transition-transform duration-500 group-hover:scale-150" />
 
       <div className="relative flex items-start justify-between">
-        <div>
-          <p className="text-sm font-semibold text-slate-500">{title}</p>
+        <div className="min-w-0 flex-1 pr-2">
+          <p className="text-xs sm:text-sm font-semibold text-slate-500 truncate">{title}</p>
 
-          <p className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+          <p className="mt-2 text-2xl sm:text-3xl font-black tracking-tight text-slate-900 truncate">
             {value}
           </p>
 
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
             {trend && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-600">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-emerald-600">
                 <ArrowUpRight size={12} />
                 {trend}
               </span>
             )}
 
-            <span className="text-xs text-slate-400">
+            <span className="text-[11px] sm:text-xs text-slate-400 truncate max-w-full">
               {description}
             </span>
           </div>
         </div>
 
         <div
-          className={`flex h-12 w-12 items-center justify-center rounded-2xl ${iconClass}`}
+          className={`flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl ${iconClass}`}
         >
-          <Icon size={23} />
+          <Icon size={20} className="sm:w-[23px] sm:h-[23px]" />
         </div>
       </div>
     </div>
@@ -553,14 +553,14 @@ function SectionTitle({
   description: string;
 }) {
   return (
-    <div className="mb-5 flex items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-        <Icon size={19} />
+    <div className="mb-4 sm:mb-5 flex items-center gap-3">
+      <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+        <Icon size={18} className="sm:w-[19px] sm:h-[19px]" />
       </div>
 
-      <div>
-        <h2 className="text-lg font-black text-slate-900">{title}</h2>
-        <p className="text-xs text-slate-400">{description}</p>
+      <div className="min-w-0">
+        <h2 className="text-base sm:text-lg font-black text-slate-900 truncate">{title}</h2>
+        <p className="text-[11px] sm:text-xs text-slate-400 truncate">{description}</p>
       </div>
     </div>
   );
@@ -578,35 +578,37 @@ function BarChart({
   const max = Math.max(...values, 1);
 
   return (
-    <div className="flex h-56 items-end gap-3">
-      {values.map((value, index) => {
-        const height = Math.max(5, (value / max) * 100);
+    <div className="w-full overflow-x-auto pb-2">
+      <div className="flex h-56 min-w-[320px] items-end gap-2 sm:gap-3">
+        {values.map((value, index) => {
+          const height = Math.max(5, (value / max) * 100);
 
-        return (
-          <div
-            key={`${labels[index]}-${index}`}
-            className="flex h-full flex-1 flex-col items-center justify-end gap-2"
-          >
-            <div className="text-[10px] font-bold text-slate-500">
-              {value}
+          return (
+            <div
+              key={`${labels[index]}-${index}`}
+              className="flex h-full flex-1 flex-col items-center justify-end gap-2"
+            >
+              <div className="text-[10px] font-bold text-slate-500 truncate">
+                {value}
+              </div>
+
+              <div className="flex h-40 w-full items-end rounded-t-xl bg-slate-50">
+                <div
+                  className="w-full rounded-t-xl transition-all duration-700"
+                  style={{
+                    height: `${height}%`,
+                    background: `linear-gradient(to top, ${primaryColor}, ${primaryColor}99)`,
+                  }}
+                />
+              </div>
+
+              <span className="text-[10px] font-semibold text-slate-400 truncate">
+                {labels[index]}
+              </span>
             </div>
-
-            <div className="flex h-40 w-full items-end rounded-t-xl bg-slate-50">
-              <div
-                className="w-full rounded-t-xl transition-all duration-700"
-                style={{
-                  height: `${height}%`,
-                  background: `linear-gradient(to top, ${primaryColor}, ${primaryColor}99)`,
-                }}
-              />
-            </div>
-
-            <span className="text-[10px] font-semibold text-slate-400">
-              {labels[index]}
-            </span>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -640,15 +642,15 @@ function Donut({
     .join(", ");
 
   return (
-    <div className="flex items-center gap-7">
+    <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-5 sm:gap-7">
       <div
-        className="relative flex h-40 w-40 shrink-0 items-center justify-center rounded-full"
+        className="relative flex h-36 w-36 sm:h-40 sm:w-40 shrink-0 items-center justify-center rounded-full"
         style={{
           background: `conic-gradient(${gradient || "#e2e8f0 0% 100%"})`,
         }}
       >
-        <div className="flex h-24 w-24 flex-col items-center justify-center rounded-full bg-white shadow-inner">
-          <span className="text-2xl font-black text-slate-900">
+        <div className="flex h-20 w-20 sm:h-24 sm:w-24 flex-col items-center justify-center rounded-full bg-white shadow-inner">
+          <span className="text-xl sm:text-2xl font-black text-slate-900 truncate">
             {total}
           </span>
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -657,15 +659,17 @@ function Donut({
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2.5 sm:space-y-3 w-full sm:w-auto">
         {segments.map((segment) => (
-          <div key={segment.label} className="flex items-center gap-2">
-            <span
-              className={`h-2.5 w-2.5 rounded-full ${segment.className}`}
-            />
-            <span className="text-xs font-semibold text-slate-600">
-              {segment.label}
-            </span>
+          <div key={segment.label} className="flex items-center justify-between sm:justify-start gap-3">
+            <div className="flex items-center gap-2">
+              <span
+                className={`h-2.5 w-2.5 rounded-full shrink-0 ${segment.className}`}
+              />
+              <span className="text-xs font-semibold text-slate-600 truncate">
+                {segment.label}
+              </span>
+            </div>
             <span className="text-xs font-black text-slate-900">
               {segment.value}
             </span>
@@ -1401,7 +1405,7 @@ export default function School360Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[70vh] items-center justify-center">
+      <div className="flex min-h-[70vh] items-center justify-center p-4">
         <div className="text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50">
             <Loader2 size={28} className="animate-spin text-rose-500" />
@@ -1419,7 +1423,7 @@ export default function School360Dashboard() {
 
   return (
     <div
-      className="min-h-screen bg-[#f7f8fc] pb-12"
+      className="min-h-screen bg-[#f7f8fc] pb-12 overflow-x-hidden"
       style={
         {
           "--school-primary": primaryColor,
@@ -1430,47 +1434,47 @@ export default function School360Dashboard() {
     >
       {/* HERO */}
       <div
-        className="relative overflow-hidden px-5 py-8 text-white md:px-8"
+        className="relative overflow-hidden px-4 py-6 sm:px-6 md:px-8 text-white"
         style={{
           background: `linear-gradient(135deg, ${primaryColor}, #111827 72%)`,
         }}
       >
-        <div className="absolute -right-20 -top-32 h-80 w-80 rounded-full bg-rose-500/20 blur-3xl" />
-        <div className="absolute -bottom-40 left-1/3 h-80 w-80 rounded-full bg-orange-400/10 blur-3xl" />
+        <div className="absolute -right-20 -top-32 h-80 w-80 rounded-full bg-rose-500/20 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-40 left-1/3 h-80 w-80 rounded-full bg-orange-400/10 blur-3xl pointer-events-none" />
 
         <div className="relative mx-auto max-w-[1600px]">
           <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-            <div>
+            <div className="min-w-0">
               <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-rose-300">
                 <Sparkles size={15} />
                 CoreOne School Intelligence
               </div>
 
-              <h1 className="text-3xl font-black tracking-tight md:text-4xl">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight truncate">
                 {school?.name || "School"} 360°
               </h1>
 
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+              <p className="mt-2 max-w-2xl text-xs sm:text-sm leading-6 text-slate-300">
                 A complete operational view of students, teachers,
                 staff, parents, academics, attendance, finance and
                 digital school activity.
               </p>
 
-              <div className="mt-5 flex flex-wrap gap-3">
-                <div className="rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 backdrop-blur">
+              <div className="mt-4 sm:mt-5 flex flex-wrap gap-3">
+                <div className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 sm:px-4 sm:py-2.5 backdrop-blur">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     School Code
                   </p>
-                  <p className="mt-1 text-sm font-black text-white">
+                  <p className="mt-1 text-xs sm:text-sm font-black text-white">
                     {school?.school_code || ""}
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 backdrop-blur">
+                <div className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 sm:px-4 sm:py-2.5 backdrop-blur max-w-full">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     School URL
                   </p>
-                  <p className="mt-1 break-all text-sm font-semibold text-white">
+                  <p className="mt-1 break-all text-xs sm:text-sm font-semibold text-white">
                     {school?.school_code
                       ? `https://coreone-one.vercel.app/${String(
                           school.school_code,
@@ -1481,7 +1485,7 @@ export default function School360Dashboard() {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 items-center">
               <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   School Health
@@ -1489,7 +1493,7 @@ export default function School360Dashboard() {
 
                 <div className="mt-1 flex items-center gap-2">
                   <ShieldCheck size={18} className="text-emerald-400" />
-                  <span className="text-xl font-black">
+                  <span className="text-lg sm:text-xl font-black">
                     {healthScore}%
                   </span>
                 </div>
@@ -1499,7 +1503,7 @@ export default function School360Dashboard() {
                 type="button"
                 onClick={() => loadDashboard(true)}
                 disabled={refreshing}
-                className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-bold backdrop-blur transition hover:bg-white/15 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 sm:px-5 py-3 text-xs sm:text-sm font-bold backdrop-blur transition hover:bg-white/15 disabled:opacity-50"
               >
                 <RefreshCw
                   size={17}
@@ -1513,13 +1517,13 @@ export default function School360Dashboard() {
           {error && (
             <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
               <AlertCircle size={18} className="mt-0.5 shrink-0" />
-              <span>{error}</span>
+              <span className="break-all">{error}</span>
             </div>
           )}
         </div>
       </div>
 
-      <main className="mx-auto max-w-[1600px] space-y-8 px-5 py-7 md:px-8">
+      <main className="mx-auto max-w-[1600px] space-y-6 sm:space-y-8 px-4 sm:px-6 md:px-8 py-6 sm:py-7">
         {/* POPULATION */}
         <section>
           <SectionTitle
@@ -1577,7 +1581,7 @@ export default function School360Dashboard() {
 
         {/* GROWTH + GENDER */}
         <section className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm overflow-hidden">
             <SectionTitle
               icon={TrendingUp}
               title="Student Growth"
@@ -1591,7 +1595,7 @@ export default function School360Dashboard() {
             />
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm overflow-hidden">
             <SectionTitle
               icon={UserRound}
               title="Student Gender Distribution"
@@ -1615,18 +1619,18 @@ export default function School360Dashboard() {
             />
 
             <div className="mt-6 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-blue-50 p-4">
+              <div className="rounded-2xl bg-blue-50 p-3 sm:p-4">
                 <p className="text-xs font-bold text-blue-500">MALE</p>
-                <p className="mt-1 text-2xl font-black text-blue-900">
+                <p className="mt-1 text-xl sm:text-2xl font-black text-blue-900 truncate">
                   {data.maleStudents}
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-rose-50 p-4">
+              <div className="rounded-2xl bg-rose-50 p-3 sm:p-4">
                 <p className="text-xs font-bold text-rose-500">
                   FEMALE
                 </p>
-                <p className="mt-1 text-2xl font-black text-rose-900">
+                <p className="mt-1 text-xl sm:text-2xl font-black text-rose-900 truncate">
                   {data.femaleStudents}
                 </p>
               </div>
@@ -1643,20 +1647,20 @@ export default function School360Dashboard() {
           />
 
           <div className="grid gap-6 xl:grid-cols-[1fr_1.6fr]">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                     Attendance Rate
                   </p>
 
-                  <p className="mt-2 text-4xl font-black text-slate-900">
+                  <p className="mt-2 text-3xl sm:text-4xl font-black text-slate-900">
                     {attendanceRate}%
                   </p>
                 </div>
 
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
-                  <Target size={28} />
+                <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 shrink-0">
+                  <Target size={24} className="sm:w-[28px] sm:h-[28px]" />
                 </div>
               </div>
 
@@ -1670,37 +1674,37 @@ export default function School360Dashboard() {
                 />
               </div>
 
-              <div className="mt-6 grid grid-cols-3 gap-3">
-                <div className="rounded-2xl bg-emerald-50 p-3">
-                  <p className="text-[10px] font-bold text-emerald-600">
+              <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
+                <div className="rounded-2xl bg-emerald-50 p-2.5 sm:p-3">
+                  <p className="text-[10px] font-bold text-emerald-600 truncate">
                     PRESENT
                   </p>
-                  <p className="mt-1 text-xl font-black text-emerald-900">
+                  <p className="mt-1 text-lg sm:text-xl font-black text-emerald-900 truncate">
                     {data.present}
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-rose-50 p-3">
-                  <p className="text-[10px] font-bold text-rose-600">
+                <div className="rounded-2xl bg-rose-50 p-2.5 sm:p-3">
+                  <p className="text-[10px] font-bold text-rose-600 truncate">
                     ABSENT
                   </p>
-                  <p className="mt-1 text-xl font-black text-rose-900">
+                  <p className="mt-1 text-lg sm:text-xl font-black text-rose-900 truncate">
                     {data.absent}
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-amber-50 p-3">
-                  <p className="text-[10px] font-bold text-amber-600">
+                <div className="rounded-2xl bg-amber-50 p-2.5 sm:p-3">
+                  <p className="text-[10px] font-bold text-amber-600 truncate">
                     LATE
                   </p>
-                  <p className="mt-1 text-xl font-black text-amber-900">
+                  <p className="mt-1 text-lg sm:text-xl font-black text-amber-900 truncate">
                     {data.late}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm overflow-hidden">
               <SectionTitle
                 icon={Activity}
                 title="Attendance Trend"
@@ -1725,24 +1729,24 @@ export default function School360Dashboard() {
           />
 
           <div className="grid gap-6 lg:grid-cols-3">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm lg:col-span-2">
               <div className="flex flex-col justify-between gap-5 md:flex-row">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                     Fee Collection
                   </p>
 
-                  <p className="mt-2 text-4xl font-black text-slate-900">
+                  <p className="mt-2 text-3xl sm:text-4xl font-black text-slate-900">
                     {feeRate}%
                   </p>
 
-                  <p className="mt-1 text-sm text-slate-400">
+                  <p className="mt-1 text-xs sm:text-sm text-slate-400">
                     of expected fees collected
                   </p>
                 </div>
 
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
-                  <CircleDollarSign size={30} />
+                <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500 shrink-0">
+                  <CircleDollarSign size={26} className="sm:w-[30px] sm:h-[30px]" />
                 </div>
               </div>
 
@@ -1757,36 +1761,36 @@ export default function School360Dashboard() {
               </div>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl bg-slate-50 p-4">
+                <div className="rounded-2xl bg-slate-50 p-3 sm:p-4">
                   <p className="text-xs font-bold text-slate-400">
                     EXPECTED
                   </p>
-                  <p className="mt-1 text-lg font-black text-slate-900">
+                  <p className="mt-1 text-base sm:text-lg font-black text-slate-900 truncate">
                     {currency(data.feesExpected)}
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-emerald-50 p-4">
+                <div className="rounded-2xl bg-emerald-50 p-3 sm:p-4">
                   <p className="text-xs font-bold text-emerald-600">
                     COLLECTED
                   </p>
-                  <p className="mt-1 text-lg font-black text-emerald-900">
+                  <p className="mt-1 text-base sm:text-lg font-black text-emerald-900 truncate">
                     {currency(data.feesPaid)}
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-rose-50 p-4">
+                <div className="rounded-2xl bg-rose-50 p-3 sm:p-4">
                   <p className="text-xs font-bold text-rose-600">
                     OUTSTANDING
                   </p>
-                  <p className="mt-1 text-lg font-black text-rose-900">
+                  <p className="mt-1 text-base sm:text-lg font-black text-rose-900 truncate">
                     {currency(data.feesOutstanding)}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-900 to-slate-800 p-6 text-white shadow-sm">
+            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-900 to-slate-800 p-4 sm:p-6 text-white shadow-sm">
               <div className="flex h-full flex-col justify-between">
                 <div>
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
@@ -1797,7 +1801,7 @@ export default function School360Dashboard() {
                     Outstanding Fees
                   </p>
 
-                  <p className="mt-2 text-3xl font-black">
+                  <p className="mt-2 text-2xl sm:text-3xl font-black truncate">
                     {currency(data.feesOutstanding)}
                   </p>
                 </div>
@@ -1861,7 +1865,7 @@ export default function School360Dashboard() {
 
         {/* BOOKS + LEAVE */}
         <section className="grid gap-6 xl:grid-cols-2">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
             <SectionTitle
               icon={BookOpen}
               title="School Books"
@@ -1869,84 +1873,84 @@ export default function School360Dashboard() {
             />
 
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <div className="rounded-3xl bg-emerald-50 p-5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-emerald-500 shadow-sm">
-                  <BookOpen size={22} />
+              <div className="rounded-3xl bg-emerald-50 p-4 sm:p-5">
+                <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-white text-emerald-500 shadow-sm">
+                  <BookOpen size={20} className="sm:w-[22px] sm:h-[22px]" />
                 </div>
 
-                <p className="mt-5 text-xs font-bold uppercase tracking-wider text-emerald-600">
+                <p className="mt-4 sm:mt-5 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-emerald-600 truncate">
                   Books received
                 </p>
 
-                <p className="mt-1 text-3xl font-black text-emerald-950">
+                <p className="mt-1 text-2xl sm:text-3xl font-black text-emerald-950 truncate">
                   {data.booksReceived}
                 </p>
 
-                <p className="mt-1 text-xs text-emerald-700">
+                <p className="mt-1 text-[11px] sm:text-xs text-emerald-700 truncate">
                   received from publisher
                 </p>
               </div>
 
-              <div className="rounded-3xl bg-indigo-50 p-5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-indigo-500 shadow-sm">
-                  <BookOpen size={22} />
+              <div className="rounded-3xl bg-indigo-50 p-4 sm:p-5">
+                <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-white text-indigo-500 shadow-sm">
+                  <BookOpen size={20} className="sm:w-[22px] sm:h-[22px]" />
                 </div>
 
-                <p className="mt-5 text-xs font-bold uppercase tracking-wider text-indigo-600">
+                <p className="mt-4 sm:mt-5 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-indigo-600 truncate">
                   Books issued
                 </p>
 
-                <p className="mt-1 text-3xl font-black text-indigo-950">
+                <p className="mt-1 text-2xl sm:text-3xl font-black text-indigo-950 truncate">
                   {data.booksIssued}
                 </p>
 
-                <p className="mt-1 text-xs text-indigo-700">
+                <p className="mt-1 text-[11px] sm:text-xs text-indigo-700 truncate">
                   issued out to students
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
             <SectionTitle
               icon={BriefcaseBusiness}
               title="Staff Leave"
               description="Current staff leave activity"
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-3xl bg-amber-50 p-5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-amber-500 shadow-sm">
-                  <CalendarCheck2 size={22} />
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="rounded-3xl bg-amber-50 p-4 sm:p-5">
+                <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-white text-amber-500 shadow-sm">
+                  <CalendarCheck2 size={20} className="sm:w-[22px] sm:h-[22px]" />
                 </div>
 
-                <p className="mt-5 text-xs font-bold uppercase tracking-wider text-amber-600">
+                <p className="mt-4 sm:mt-5 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-amber-600 truncate">
                   Pending
                 </p>
 
-                <p className="mt-1 text-3xl font-black text-amber-950">
+                <p className="mt-1 text-2xl sm:text-3xl font-black text-amber-950 truncate">
                   {data.leavePending}
                 </p>
 
-                <p className="mt-1 text-xs text-amber-700">
+                <p className="mt-1 text-[11px] sm:text-xs text-amber-700 truncate">
                   awaiting review
                 </p>
               </div>
 
-              <div className="rounded-3xl bg-emerald-50 p-5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-emerald-500 shadow-sm">
-                  <UserCheck size={22} />
+              <div className="rounded-3xl bg-emerald-50 p-4 sm:p-5">
+                <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-white text-emerald-500 shadow-sm">
+                  <UserCheck size={20} className="sm:w-[22px] sm:h-[22px]" />
                 </div>
 
-                <p className="mt-5 text-xs font-bold uppercase tracking-wider text-emerald-600">
+                <p className="mt-4 sm:mt-5 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-emerald-600 truncate">
                   Approved
                 </p>
 
-                <p className="mt-1 text-3xl font-black text-emerald-950">
+                <p className="mt-1 text-2xl sm:text-3xl font-black text-emerald-950 truncate">
                   {data.leaveApproved}
                 </p>
 
-                <p className="mt-1 text-xs text-emerald-700">
+                <p className="mt-1 text-[11px] sm:text-xs text-emerald-700 truncate">
                   approved requests
                 </p>
               </div>
@@ -1956,7 +1960,7 @@ export default function School360Dashboard() {
 
         {/* CLASS / DEPARTMENT */}
         <section className="grid gap-6 xl:grid-cols-2">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
             <SectionTitle
               icon={School}
               title="Students by Class"
@@ -1978,11 +1982,11 @@ export default function School360Dashboard() {
                     return (
                       <div key={`${item.name}-${index}`}>
                         <div className="mb-2 flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-600">
+                          <span className="text-xs font-bold text-slate-600 truncate pr-2">
                             {item.name}
                           </span>
 
-                          <span className="text-xs font-black text-slate-900">
+                          <span className="text-xs font-black text-slate-900 shrink-0">
                             {item.value}
                           </span>
                         </div>
@@ -2004,7 +2008,7 @@ export default function School360Dashboard() {
                   })}
               </div>
             ) : (
-              <div className="flex min-h-48 items-center justify-center rounded-2xl bg-slate-50 text-center">
+              <div className="flex min-h-48 items-center justify-center rounded-2xl bg-slate-50 text-center p-4">
                 <div>
                   <School
                     size={28}
@@ -2021,7 +2025,7 @@ export default function School360Dashboard() {
             )}
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
             <SectionTitle
               icon={GraduationCap}
               title="Students by Class — Gender"
@@ -2029,7 +2033,7 @@ export default function School360Dashboard() {
             />
 
             {data.classGenderDistribution.length > 0 ? (
-              <div className="mt-6 overflow-x-auto">
+              <div className="mt-6 overflow-x-auto pb-2">
                 <div className="min-w-[680px]">
                   <div className="mb-5 flex items-center justify-center gap-6 text-xs font-bold text-slate-500">
                     <div className="flex items-center gap-2">
@@ -2105,11 +2109,11 @@ export default function School360Dashboard() {
                           </div>
                         </div>
 
-                        <p className="mt-4 text-center text-xs font-black text-slate-700">
+                        <p className="mt-4 text-center text-xs font-black text-slate-700 truncate max-w-full">
                           {item.name}
                         </p>
 
-                        <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                        <p className="mt-1 text-[11px] font-semibold text-slate-400 truncate">
                           {item.total} students
                         </p>
                       </div>
@@ -2118,7 +2122,7 @@ export default function School360Dashboard() {
                 </div>
               </div>
             ) : (
-              <div className="flex min-h-48 items-center justify-center rounded-2xl bg-slate-50 text-center">
+              <div className="flex min-h-48 items-center justify-center rounded-2xl bg-slate-50 text-center p-4">
                 <div>
                   <GraduationCap
                     size={28}
@@ -2137,7 +2141,7 @@ export default function School360Dashboard() {
         </section>
 
         {/* PEOPLE MIX */}
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
           <SectionTitle
             icon={Users}
             title="School Community Mix"
@@ -2179,13 +2183,13 @@ export default function School360Dashboard() {
               return (
                 <div
                   key={item.label}
-                  className="rounded-3xl border border-slate-100 bg-slate-50/70 p-5"
+                  className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4 sm:p-5"
                 >
                   <div className="flex items-center justify-between">
                     <div
-                      className={`flex h-11 w-11 items-center justify-center rounded-2xl ${item.className}`}
+                      className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl ${item.className}`}
                     >
-                      <item.icon size={21} />
+                      <item.icon size={19} className="sm:w-[21px] sm:h-[21px]" />
                     </div>
 
                     <span className="text-xs font-black text-slate-400">
@@ -2193,11 +2197,11 @@ export default function School360Dashboard() {
                     </span>
                   </div>
 
-                  <p className="mt-5 text-sm font-semibold text-slate-500">
+                  <p className="mt-4 sm:mt-5 text-xs sm:text-sm font-semibold text-slate-500 truncate">
                     {item.label}
                   </p>
 
-                  <p className="mt-1 text-3xl font-black text-slate-900">
+                  <p className="mt-1 text-2xl sm:text-3xl font-black text-slate-900 truncate">
                     {item.value.toLocaleString()}
                   </p>
 
@@ -2218,7 +2222,7 @@ export default function School360Dashboard() {
 
         {/* EXECUTIVE SUMMARY */}
         <section
-          className="overflow-hidden rounded-3xl p-6 text-white shadow-xl"
+          className="overflow-hidden rounded-3xl p-5 sm:p-6 text-white shadow-xl"
           style={{
             background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}CC, #111827)`,
           }}
@@ -2230,11 +2234,11 @@ export default function School360Dashboard() {
                 Executive Snapshot
               </div>
 
-              <h2 className="mt-2 text-2xl font-black">
+              <h2 className="mt-2 text-xl sm:text-2xl font-black">
                 School performance at a glance
               </h2>
 
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-white/80">
+              <p className="mt-2 max-w-3xl text-xs sm:text-sm leading-6 text-white/80">
                 CoreOne brings together the major operational
                 indicators of the school into one management view,
                 helping the School Admin understand population,
@@ -2244,38 +2248,38 @@ export default function School360Dashboard() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+              <div className="rounded-2xl bg-white/10 p-3 sm:p-4 backdrop-blur">
                 <p className="text-[10px] font-bold text-white/60">
                   PEOPLE
                 </p>
-                <p className="mt-1 text-2xl font-black">
+                <p className="mt-1 text-xl sm:text-2xl font-black truncate">
                   {populationTotal.toLocaleString()}
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+              <div className="rounded-2xl bg-white/10 p-3 sm:p-4 backdrop-blur">
                 <p className="text-[10px] font-bold text-white/60">
                   ATTENDANCE
                 </p>
-                <p className="mt-1 text-2xl font-black">
+                <p className="mt-1 text-xl sm:text-2xl font-black truncate">
                   {attendanceRate}%
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+              <div className="rounded-2xl bg-white/10 p-3 sm:p-4 backdrop-blur">
                 <p className="text-[10px] font-bold text-white/60">
                   FEES
                 </p>
-                <p className="mt-1 text-2xl font-black">
+                <p className="mt-1 text-xl sm:text-2xl font-black truncate">
                   {feeRate}%
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+              <div className="rounded-2xl bg-white/10 p-3 sm:p-4 backdrop-blur">
                 <p className="text-[10px] font-bold text-white/60">
                   CBT
                 </p>
-                <p className="mt-1 text-2xl font-black">
+                <p className="mt-1 text-xl sm:text-2xl font-black truncate">
                   {data.averageScore}%
                 </p>
               </div>
@@ -2287,21 +2291,21 @@ export default function School360Dashboard() {
         <section>
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-black text-slate-900">
+              <h2 className="text-base sm:text-lg font-black text-slate-900">
                 Explore School Intelligence
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-[11px] sm:text-xs text-slate-400">
                 Jump into detailed management areas
               </p>
             </div>
 
             <MoreHorizontal
               size={20}
-              className="text-slate-300"
+              className="text-slate-300 shrink-0"
             />
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
               {
                 title: "Registered Users",
@@ -2493,16 +2497,16 @@ export default function School360Dashboard() {
                 <a
                   key={item.title}
                   href={item.href}
-                  className={`group flex items-center justify-between rounded-2xl border p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${theme.card}`}
+                  className={`group flex items-center justify-between rounded-2xl border p-3.5 sm:p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${theme.card}`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0 pr-2">
                     <div
-                      className={`flex h-10 w-10 items-center justify-center rounded-xl transition ${theme.icon}`}
+                      className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl transition ${theme.icon}`}
                     >
-                      <item.icon size={19} />
+                      <item.icon size={18} className="sm:w-[19px] sm:h-[19px]" />
                     </div>
 
-                    <span className="text-sm font-bold text-slate-700 truncate">
+                    <span className="text-xs sm:text-sm font-bold text-slate-700 truncate">
                       {item.title}
                     </span>
                   </div>
