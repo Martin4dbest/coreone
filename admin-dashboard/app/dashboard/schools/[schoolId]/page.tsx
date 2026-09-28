@@ -1555,7 +1555,7 @@ export default function School360Dashboard() {
               title="Staff"
               value={data.staff.toLocaleString()}
               icon={BriefcaseBusiness}
-              description="All staffs"
+              description="non-teaching staff"
               trend="Live"
               iconClass="bg-violet-50 text-violet-500"
             />
@@ -1790,7 +1790,7 @@ export default function School360Dashboard() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-900 to-slate-800 p-4 sm:p-6 text-white shadow-sm">
+            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-900 to-slate-800 p-4 sm:p-6 text-white shadow-sm lg:col-span-1">
               <div className="flex h-full flex-col justify-between">
                 <div>
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
@@ -2307,8 +2307,8 @@ export default function School360Dashboard() {
             />
           </div>
 
-          {/* UPDATED TO 3 CARDS PER ROW */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {/* 3 COLUMNS IN EACH ROW FOR ALL SIZES */}
+          <div className="grid grid-cols-3 gap-3">
             {[
               {
                 title: "Registered Users",
