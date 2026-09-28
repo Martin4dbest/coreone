@@ -1555,7 +1555,7 @@ export default function School360Dashboard() {
               title="Staff"
               value={data.staff.toLocaleString()}
               icon={BriefcaseBusiness}
-              description="non-teaching staff"
+              description="All staffs"
               trend="Live"
               iconClass="bg-violet-50 text-violet-500"
             />
@@ -2025,16 +2025,18 @@ export default function School360Dashboard() {
             )}
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
-            <SectionTitle
-              icon={GraduationCap}
-              title="Students by Class — Gender"
-              description="Male and female students in each class"
-            />
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm flex flex-col items-center">
+            <div className="w-full">
+              <SectionTitle
+                icon={GraduationCap}
+                title="Students by Class — Gender"
+                description="Male and female students in each class"
+              />
+            </div>
 
             {data.classGenderDistribution.length > 0 ? (
-              <div className="mt-6 overflow-x-auto pb-2">
-                <div className="min-w-[680px]">
+              <div className="mt-2 w-full overflow-x-auto pb-2 flex justify-center">
+                <div className="min-w-[680px] w-full flex flex-col items-center">
                   <div className="mb-5 flex items-center justify-center gap-6 text-xs font-bold text-slate-500">
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 rounded-sm bg-sky-500" />
@@ -2047,13 +2049,13 @@ export default function School360Dashboard() {
                     </div>
                   </div>
 
-                  <div className="flex h-80 items-end gap-4 overflow-x-auto border-b border-l border-slate-200 px-4 pt-6">
+                  <div className="flex h-80 items-end justify-center gap-4 overflow-x-auto border-b border-l border-slate-200 px-4 pt-6 w-full">
                     {data.classGenderDistribution.map((item) => (
                       <div
                         key={item.name}
                         className="flex min-w-[84px] flex-1 flex-col items-center justify-end"
                       >
-                        <div className="flex h-64 items-end gap-2">
+                        <div className="flex h-64 items-end gap-2 justify-center">
                           <div className="flex h-full flex-col items-center justify-end">
                             <span className="mb-2 text-xs font-black text-slate-700">
                               {item.male}
@@ -2113,7 +2115,7 @@ export default function School360Dashboard() {
                           {item.name}
                         </p>
 
-                        <p className="mt-1 text-[11px] font-semibold text-slate-400 truncate">
+                        <p className="mt-1 text-[11px] font-semibold text-slate-400 truncate text-center">
                           {item.total} students
                         </p>
                       </div>
@@ -2122,7 +2124,7 @@ export default function School360Dashboard() {
                 </div>
               </div>
             ) : (
-              <div className="flex min-h-48 items-center justify-center rounded-2xl bg-slate-50 text-center p-4">
+              <div className="flex min-h-48 w-full items-center justify-center rounded-2xl bg-slate-50 text-center p-4">
                 <div>
                   <GraduationCap
                     size={28}
@@ -2305,7 +2307,8 @@ export default function School360Dashboard() {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* UPDATED TO 3 CARDS PER ROW */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[
               {
                 title: "Registered Users",
