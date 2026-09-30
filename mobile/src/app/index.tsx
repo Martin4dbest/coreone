@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,29 @@ import { useAuth } from "@/context/AuthContext";
 export default function Landing() {
   const { tenant } = useAuth();
   const { width } = useWindowDimensions();
+
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const formattedTime = currentTime.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
+  const formattedDate = currentTime.toLocaleDateString([], {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   const isDesktopWeb = Platform.OS === "web" && width >= 900;
   const isTablet = width >= 600 && width < 900;
@@ -181,6 +204,57 @@ export default function Landing() {
                   />
                 </Pressable>
               )}
+            </View>
+
+            {/* LIVE DATE & TIME */}
+            <View
+              style={[
+                styles.dateTimeCard,
+                {
+                  backgroundColor: `${primaryColor}0D`,
+                  borderColor: `${primaryColor}22`,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.clockIcon,
+                  {
+                    backgroundColor: primaryColor,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="time-outline"
+                  size={19}
+                  color="#FFFFFF"
+                />
+              </View>
+
+              <View style={styles.dateTimeText}>
+                <Text
+                  style={[
+                    styles.liveTime,
+                    { color: secondaryColor },
+                  ]}
+                >
+                  {formattedTime}
+                </Text>
+
+                <Text style={styles.liveDate}>
+                  {formattedDate}
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.liveIndicator,
+                  { backgroundColor: primaryColor },
+                ]}
+              >
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>LIVE</Text>
+              </View>
             </View>
 
             {/* HERO */}
@@ -620,6 +694,70 @@ const styles = StyleSheet.create({
   headerLoginBtnText: {
     fontSize: 14,
     fontWeight: "800",
+  },
+
+  /* LIVE DATE & TIME */
+
+  dateTimeCard: {
+    width: "100%",
+    minHeight: 66,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+
+  clockIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  dateTimeText: {
+    flex: 1,
+    marginLeft: 11,
+    minWidth: 0,
+  },
+
+  liveTime: {
+    fontSize: 17,
+    fontWeight: "900",
+    letterSpacing: 0.2,
+  },
+
+  liveDate: {
+    color: "#64748B",
+    fontSize: 10.5,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+
+  liveIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 100,
+    gap: 5,
+  },
+
+  liveDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 5,
+    backgroundColor: "#FFFFFF",
+  },
+
+  liveText: {
+    color: "#FFFFFF",
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 0.5,
   },
 
   /* HERO */
