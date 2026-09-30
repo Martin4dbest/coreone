@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -15,142 +15,399 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Landing() {
+  const { tenant } = useAuth();
   const { width } = useWindowDimensions();
+
   const isDesktopWeb = Platform.OS === "web" && width >= 900;
   const isTablet = width >= 600 && width < 900;
+  const isSmallPhone = width < 380;
 
-  const features = [
-    {
-      icon: "analytics-outline",
-      title: "Student Analytics",
-      desc: "Real-time performance tracking & automated gradebooks.",
-      image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=600",
-    },
-    {
-      icon: "document-text-outline",
-      title: "Digital Results",
-      desc: "Instant report cards, transcripts, and secure archives.",
-      image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=600",
-    },
-    {
-      icon: "calendar-outline",
-      title: "Smart Attendance",
-      desc: "Automated daily logs and integrated leave tracking.",
-      image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=600",
-    },
-    {
-      icon: "people-outline",
-      title: "Parent Portal",
-      desc: "Direct home-school communication and portal updates.",
-      image: "https://images.unsplash.com/photo-1577896851231-70ef18881754?q=80&w=600",
-    },
-  ];
+  const primaryColor =
+    tenant?.primary_color ||
+    tenant?.school_branding?.primary_color ||
+    "#2563EB";
+
+  const secondaryColor =
+    tenant?.secondary_color ||
+    tenant?.school_branding?.secondary_color ||
+    "#0F172A";
+
+  const accentColor =
+    tenant?.accent_color ||
+    tenant?.school_branding?.accent_color ||
+    primaryColor;
+
+  const schoolName =
+    tenant?.name ||
+    tenant?.school_name ||
+    tenant?.school_branding?.school_name ||
+    "CoreOne";
+
+  const schoolLogo =
+    tenant?.logo_url ||
+    tenant?.logo ||
+    tenant?.school_logo ||
+    tenant?.brand_logo ||
+    tenant?.school_branding?.logo_url ||
+    tenant?.school_branding?.logo ||
+    tenant?.attributes?.logo ||
+    null;
+
+  const features = useMemo(
+    () => [
+      {
+        icon: "analytics-outline",
+        title: "Student Analytics",
+        desc: "Track academic performance, grades, and student progress.",
+      },
+      {
+        icon: "document-text-outline",
+        title: "Digital Results",
+        desc: "Create and access secure report cards and academic records.",
+      },
+      {
+        icon: "calendar-outline",
+        title: "Smart Attendance",
+        desc: "Record attendance and monitor daily school activities.",
+      },
+      {
+        icon: "people-outline",
+        title: "Parent Portal",
+        desc: "Keep parents connected with their children's school journey.",
+      },
+    ],
+    []
+  );
+
+  const openLogin = () => {
+    router.push("/login");
+  };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+    <View style={[styles.container, { backgroundColor: "#F8FAFC" }]}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#F8FAFC"
+      />
+
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isDesktopWeb && styles.scrollContentDesktop,
+          ]}
           showsVerticalScrollIndicator={false}
+          bounces={true}
         >
-          <View style={[styles.mainWrapper, isDesktopWeb && styles.desktopWrapper]}>
-            {/* Header / Navbar */}
+          <View
+            style={[
+              styles.mainWrapper,
+              isDesktopWeb && styles.desktopWrapper,
+            ]}
+          >
+            {/* HEADER */}
             <View style={styles.header}>
               <View style={styles.logoRow}>
-                <View style={styles.logoContainer}>
-                  <Ionicons name="school-outline" size={24} color="#B91C1C" />
+                <View
+                  style={[
+                    styles.logoContainer,
+                    {
+                      backgroundColor: `${primaryColor}16`,
+                      borderColor: `${primaryColor}30`,
+                    },
+                  ]}
+                >
+                  {schoolLogo ? (
+                    <Image
+                      source={{ uri: schoolLogo }}
+                      style={styles.schoolLogo}
+                      contentFit="contain"
+                    />
+                  ) : (
+                    <Ionicons
+                      name="school-outline"
+                      size={25}
+                      color={primaryColor}
+                    />
+                  )}
                 </View>
-                <Text style={styles.brand}>
-                  Core<Text style={styles.brandAccent}>One</Text>
-                </Text>
+
+                <View style={styles.brandTextContainer}>
+                  <Text
+                    style={[
+                      styles.brand,
+                      {
+                        color: secondaryColor,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {schoolName}
+                  </Text>
+
+                  <Text style={styles.brandCaption}>
+                    Powered by CoreOne
+                  </Text>
+                </View>
               </View>
 
               {isDesktopWeb && (
                 <Pressable
                   style={({ pressed }) => [
                     styles.headerLoginBtn,
+                    {
+                      borderColor: primaryColor,
+                    },
                     pressed && styles.buttonPressed,
                   ]}
-                  onPress={() => router.push("/login")}
+                  onPress={openLogin}
                 >
-                  <Text style={styles.headerLoginBtnText}>Sign In</Text>
+                  <Text
+                    style={[
+                      styles.headerLoginBtnText,
+                      { color: primaryColor },
+                    ]}
+                  >
+                    Sign In
+                  </Text>
+
+                  <Ionicons
+                    name="arrow-forward"
+                    size={17}
+                    color={primaryColor}
+                  />
                 </Pressable>
               )}
             </View>
 
-            {/* Hero Section */}
-            <View style={[styles.heroContainer, isDesktopWeb && styles.heroDesktop]}>
-              {/* Desktop Left Column */}
+            {/* HERO */}
+            <View
+              style={[
+                styles.heroContainer,
+                isDesktopWeb && styles.heroDesktop,
+              ]}
+            >
               {isDesktopWeb && (
                 <View style={styles.heroLeft}>
-                  <View style={styles.heroPill}>
-                    <Ionicons name="sparkles" size={14} color="#DC2626" />
-                    <Text style={styles.heroPillText}>Next-Gen Education ERP</Text>
+                  <View
+                    style={[
+                      styles.heroPill,
+                      {
+                        backgroundColor: `${primaryColor}12`,
+                        borderColor: `${primaryColor}25`,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="sparkles"
+                      size={15}
+                      color={primaryColor}
+                    />
+
+                    <Text
+                      style={[
+                        styles.heroPillText,
+                        { color: primaryColor },
+                      ]}
+                    >
+                      Smart School Management
+                    </Text>
                   </View>
-                  <Text style={styles.heroTitleDesktop}>
-                    Empowering <Text style={styles.brandAccent}>Modern</Text> Learning
+
+                  <Text
+                    style={[
+                      styles.heroTitleDesktop,
+                      { color: secondaryColor },
+                    ]}
+                  >
+                    Everything your school needs,
+                    <Text style={{ color: primaryColor }}>
+                      {" "}in one place.
+                    </Text>
                   </Text>
+
                   <Text style={styles.heroSubtitleDesktop}>
-                    Seamlessly track student analytics, issue digital report cards, and record attendance—all within one unified, powerful portal.
+                    Manage students, results, attendance, communication,
+                    fees, and everyday school operations through one
+                    connected platform.
                   </Text>
 
                   <Pressable
                     style={({ pressed }) => [
                       styles.primaryButton,
+                      {
+                        backgroundColor: primaryColor,
+                      },
                       styles.desktopHeroBtn,
                       pressed && styles.buttonPressed,
                     ]}
-                    onPress={() => router.push("/login")}
+                    onPress={openLogin}
                   >
-                    <Text style={styles.primaryButtonText}>Sign In to Portal</Text>
-                    <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                    <Text style={styles.primaryButtonText}>
+                      Sign In to Portal
+                    </Text>
+
+                    <Ionicons
+                      name="arrow-forward"
+                      size={19}
+                      color="#FFFFFF"
+                    />
                   </Pressable>
                 </View>
               )}
 
-              {/* Hero Image Card */}
-              <View style={[styles.heroCard, isDesktopWeb && styles.heroCardDesktop]}>
+              {/* MOBILE HERO */}
+              {!isDesktopWeb && (
+                <View style={styles.mobileHeroText}>
+                  <View
+                    style={[
+                      styles.heroPill,
+                      {
+                        backgroundColor: `${primaryColor}12`,
+                        borderColor: `${primaryColor}25`,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="sparkles"
+                      size={14}
+                      color={primaryColor}
+                    />
+
+                    <Text
+                      style={[
+                        styles.heroPillText,
+                        { color: primaryColor },
+                      ]}
+                    >
+                      Smart School Management
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.mobileHeroTitle,
+                      {
+                        color: secondaryColor,
+                      },
+                    ]}
+                  >
+                    Your school,
+                    <Text style={{ color: primaryColor }}>
+                      {" "}connected.
+                    </Text>
+                  </Text>
+
+                  <Text style={styles.mobileHeroSubtitle}>
+                    Manage learning, students, results, attendance and
+                    communication from one simple platform.
+                  </Text>
+                </View>
+              )}
+
+              {/* HERO VISUAL */}
+              <View
+                style={[
+                  styles.heroCard,
+                  isDesktopWeb && styles.heroCardDesktop,
+                ]}
+              >
                 <Image
                   source={{
                     uri: "https://images.unsplash.com/photo-1531482615713-2afd69097998?q=80&w=1000",
                   }}
                   style={styles.heroImage}
                   contentFit="cover"
-                  transition={200}
+                  transition={250}
                 />
 
                 <LinearGradient
-                  colors={["transparent", "rgba(15, 23, 42, 0.45)", "rgba(15, 23, 42, 0.92)"]}
+                  colors={[
+                    "transparent",
+                    `${secondaryColor}45`,
+                    `${secondaryColor}D9`,
+                  ]}
                   style={styles.heroGradient}
                 >
-                  {!isDesktopWeb && (
-                    <>
-                      <View style={styles.heroPill}>
-                        <Ionicons name="sparkles" size={12} color="#DC2626" />
-                        <Text style={styles.heroPillText}>Next-Gen Education ERP</Text>
-                      </View>
-                      <Text style={styles.heroTitle}>Empowering Modern Learning</Text>
-                      <Text style={styles.heroSubtitle}>
-                        Seamlessly track analytics, results, and attendance in one portal.
+                  <View style={styles.heroVisualBottom}>
+                    <View
+                      style={[
+                        styles.heroVisualIcon,
+                        {
+                          backgroundColor: primaryColor,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="school"
+                        size={20}
+                        color="#FFFFFF"
+                      />
+                    </View>
+
+                    <View style={styles.heroVisualText}>
+                      <Text style={styles.heroVisualTitle}>
+                        {schoolName}
                       </Text>
-                    </>
-                  )}
+
+                      <Text style={styles.heroVisualSubtitle}>
+                        One platform for your school
+                      </Text>
+                    </View>
+                  </View>
                 </LinearGradient>
               </View>
             </View>
 
-            {/* Section Header */}
+            {/* MOBILE LOGIN */}
+            {!isDesktopWeb && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  styles.mobileLoginButton,
+                  {
+                    backgroundColor: primaryColor,
+                    shadowColor: primaryColor,
+                  },
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={openLogin}
+              >
+                <Text style={styles.primaryButtonText}>
+                  Sign In to Portal
+                </Text>
+
+                <View style={styles.loginArrow}>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={18}
+                    color={primaryColor}
+                  />
+                </View>
+              </Pressable>
+            )}
+
+            {/* CAPABILITIES */}
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Key Capabilities</Text>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  {
+                    color: secondaryColor,
+                  },
+                ]}
+              >
+                Key Capabilities
+              </Text>
+
               <Text style={styles.sectionSub}>
-                Everything your institution needs to operate efficiently
+                Tools that help your institution run smarter every day.
               </Text>
             </View>
 
-            {/* Feature Grid */}
             <View
               style={[
                 styles.featureGrid,
@@ -164,57 +421,104 @@ export default function Landing() {
                   style={({ pressed }) => [
                     styles.featureCard,
                     isDesktopWeb && styles.featureCardDesktop,
+                    isTablet && styles.featureCardTablet,
                     pressed && styles.cardPressed,
                   ]}
                 >
-                  <View style={styles.featureImageContainer}>
-                    <Image
-                      source={{ uri: item.image }}
-                      style={styles.featureBgImage}
-                      contentFit="cover"
-                      transition={200}
+                  <View
+                    style={[
+                      styles.featureIcon,
+                      {
+                        backgroundColor: `${primaryColor}12`,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={item.icon as any}
+                      size={22}
+                      color={primaryColor}
                     />
-                    <LinearGradient
-                      colors={["transparent", "rgba(15, 23, 42, 0.7)"]}
-                      style={styles.featureImageGradient}
-                    >
-                      <View style={styles.iconBadge}>
-                        <Ionicons name={item.icon as any} size={16} color="#B91C1C" />
-                      </View>
-                    </LinearGradient>
                   </View>
 
                   <View style={styles.featureContent}>
-                    <Text style={styles.featureTitle} numberOfLines={1}>
+                    <Text
+                      style={[
+                        styles.featureTitle,
+                        {
+                          color: secondaryColor,
+                        },
+                      ]}
+                    >
                       {item.title}
                     </Text>
-                    <Text style={styles.featureDesc} numberOfLines={2}>
+
+                    <Text style={styles.featureDesc}>
                       {item.desc}
                     </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.featureArrow,
+                      {
+                        backgroundColor: `${primaryColor}10`,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="chevron-forward"
+                      size={15}
+                      color={primaryColor}
+                    />
                   </View>
                 </Pressable>
               ))}
             </View>
 
-            {/* Mobile Action Button */}
+            {/* BOTTOM CTA */}
             {!isDesktopWeb && (
-              <View style={styles.actionContainer}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.primaryButton,
-                    pressed && styles.buttonPressed,
-                  ]}
-                  onPress={() => router.push("/login")}
-                >
-                  <Text style={styles.primaryButtonText}>Sign In to Portal</Text>
-                  <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-                </Pressable>
+              <View
+                style={[
+                  styles.bottomCard,
+                  {
+                    backgroundColor: secondaryColor,
+                  },
+                ]}
+              >
+                <View style={styles.bottomCardIcon}>
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={24}
+                    color={primaryColor}
+                  />
+                </View>
+
+                <View style={styles.bottomCardContent}>
+                  <Text style={styles.bottomCardTitle}>
+                    Secure school access
+                  </Text>
+
+                  <Text style={styles.bottomCardText}>
+                    Sign in to access your school's CoreOne portal.
+                  </Text>
+                </View>
               </View>
             )}
 
-            {/* Footer */}
+            {/* FOOTER */}
             <View style={styles.footerContainer}>
-              <Text style={styles.footer}>Powered by CoreOne Technologies</Text>
+              <View
+                style={[
+                  styles.footerLine,
+                  {
+                    backgroundColor: `${primaryColor}20`,
+                  },
+                ]}
+              />
+
+              <Text style={styles.footer}>
+                Powered by CoreOne Technologies
+              </Text>
             </View>
           </View>
         </ScrollView>
@@ -226,308 +530,455 @@ export default function Landing() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
   },
+
   safeArea: {
     flex: 1,
   },
+
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 24,
-  },
-  mainWrapper: {
-    width: "100%",
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === "ios" ? 8 : 16,
-    alignSelf: "center",
-  },
-  desktopWrapper: {
-    maxWidth: 1120,
-    paddingHorizontal: 32,
-    paddingTop: 24,
+    paddingBottom: 28,
   },
 
-  /* Header */
-  header: {
+  scrollContentDesktop: {
+    paddingBottom: 50,
+  },
+
+  mainWrapper: {
     width: "100%",
+    paddingHorizontal: 18,
+  },
+
+  desktopWrapper: {
+    maxWidth: 1180,
+    alignSelf: "center",
+    width: "100%",
+    paddingHorizontal: 30,
+  },
+
+  /* HEADER */
+
+  header: {
+    minHeight: 72,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 20,
+    paddingVertical: 12,
   },
+
   logoRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-  },
-  logoContainer: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  brand: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#0F172A",
-    letterSpacing: -0.5,
-  },
-  brandAccent: {
-    color: "#B91C1C",
-  },
-  headerLoginBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  headerLoginBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#0F172A",
+    flexShrink: 1,
   },
 
-  /* Hero Layout */
+  logoContainer: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+
+  schoolLogo: {
+    width: 34,
+    height: 34,
+  },
+
+  brandTextContainer: {
+    marginLeft: 11,
+    flexShrink: 1,
+  },
+
+  brand: {
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+    maxWidth: 230,
+  },
+
+  brandCaption: {
+    fontSize: 10,
+    color: "#64748B",
+    marginTop: 2,
+    fontWeight: "600",
+  },
+
+  headerLoginBtn: {
+    minHeight: 42,
+    paddingHorizontal: 17,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+
+  headerLoginBtnText: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  /* HERO */
+
   heroContainer: {
     width: "100%",
-    marginBottom: 28,
+    marginTop: 10,
   },
+
   heroDesktop: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 40,
-    marginVertical: 12,
+    gap: 55,
+    marginTop: 38,
   },
+
   heroLeft: {
-    flex: 1.1,
-    alignItems: "flex-start",
+    flex: 1,
+    paddingVertical: 20,
   },
-  heroTitleDesktop: {
-    fontSize: 38,
+
+  mobileHeroText: {
+    paddingTop: 14,
+    paddingBottom: 18,
+  },
+
+  heroPill: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 100,
+    borderWidth: 1,
+    gap: 6,
+  },
+
+  heroPillText: {
+    fontSize: 11,
     fontWeight: "800",
-    color: "#0F172A",
-    lineHeight: 46,
-    marginVertical: 12,
-    letterSpacing: -0.5,
   },
+
+  mobileHeroTitle: {
+    fontSize: 36,
+    lineHeight: 41,
+    fontWeight: "900",
+    letterSpacing: -1.1,
+    marginTop: 15,
+    maxWidth: 390,
+  },
+
+  mobileHeroSubtitle: {
+    color: "#64748B",
+    fontSize: 15,
+    lineHeight: 23,
+    marginTop: 11,
+    maxWidth: 500,
+  },
+
+  heroTitleDesktop: {
+    fontSize: 51,
+    lineHeight: 57,
+    fontWeight: "900",
+    letterSpacing: -1.7,
+    marginTop: 20,
+    maxWidth: 580,
+  },
+
   heroSubtitleDesktop: {
-    fontSize: 16,
-    color: "#475569",
-    lineHeight: 24,
-    marginBottom: 24,
-  },
-  desktopHeroBtn: {
-    width: 220,
+    color: "#64748B",
+    fontSize: 17,
+    lineHeight: 27,
+    marginTop: 18,
+    maxWidth: 560,
   },
 
   heroCard: {
     width: "100%",
-    height: 200,
-    borderRadius: 20,
+    height: 280,
+    borderRadius: 24,
     overflow: "hidden",
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 4,
     backgroundColor: "#E2E8F0",
-    position: "relative",
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    elevation: 5,
   },
+
   heroCardDesktop: {
     flex: 1,
-    height: 320,
+    height: 430,
+    maxWidth: 560,
+    borderRadius: 30,
   },
+
   heroImage: {
     width: "100%",
     height: "100%",
-    position: "absolute",
-    top: 0,
-    left: 0,
-  },
-  heroGradient: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "flex-end",
-    padding: 16,
-  },
-  heroPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    gap: 6,
-    marginBottom: 8,
-  },
-  heroPillText: {
-    color: "#0F172A",
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.2,
-  },
-  heroTitle: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "800",
-    lineHeight: 24,
-  },
-  heroSubtitle: {
-    color: "#E2E8F0",
-    fontSize: 12,
-    marginTop: 4,
-    lineHeight: 16,
   },
 
-  /* Section Header */
-  sectionHeader: {
-    width: "100%",
-    marginBottom: 16,
+  heroGradient: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "flex-end",
+    padding: 20,
   },
-  sectionTitle: {
-    fontSize: 20,
+
+  heroVisualBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  heroVisualIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  heroVisualText: {
+    marginLeft: 11,
+    flex: 1,
+  },
+
+  heroVisualTitle: {
+    color: "#FFFFFF",
+    fontSize: 15,
     fontWeight: "800",
-    color: "#0F172A",
-    letterSpacing: -0.3,
   },
-  sectionSub: {
-    fontSize: 13,
-    color: "#64748B",
+
+  heroVisualSubtitle: {
+    color: "rgba(255,255,255,0.75)",
+    fontSize: 11,
     marginTop: 2,
   },
 
-  /* Feature Grid */
-  featureGrid: {
-    width: "100%",
+  /* BUTTONS */
+
+  primaryButton: {
+    minHeight: 56,
+    borderRadius: 16,
+    paddingHorizontal: 20,
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    rowGap: 14,
-    marginBottom: 24,
-  },
-  featureGridTablet: {
-    rowGap: 16,
-  },
-  featureGridDesktop: {
-    rowGap: 20,
-  },
-  featureCard: {
-    width: "48%",
-    borderRadius: 14,
-    overflow: "hidden",
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  featureCardDesktop: {
-    width: "23.5%",
-  },
-  cardPressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.98 }],
-  },
-  featureImageContainer: {
-    width: "100%",
-    height: 80,
-    position: "relative",
-  },
-  featureBgImage: {
-    width: "100%",
-    height: "100%",
-  },
-  featureImageGradient: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 8,
-    justifyContent: "flex-end",
-  },
-  iconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  featureContent: {
-    padding: 12,
-  },
-  featureTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-  featureDesc: {
-    fontSize: 11,
-    color: "#64748B",
-    marginTop: 3,
-    lineHeight: 15,
+    justifyContent: "center",
+    gap: 10,
   },
 
-  /* Action Button */
-  actionContainer: {
-    width: "100%",
-    alignItems: "center",
-    marginVertical: 8,
+  desktopHeroBtn: {
+    alignSelf: "flex-start",
+    marginTop: 28,
+    paddingHorizontal: 24,
+    minHeight: 54,
   },
-  primaryButton: {
-    backgroundColor: "#B91C1C",
-    borderRadius: 14,
-    height: 48,
+
+  mobileLoginButton: {
     width: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    shadowColor: "#B91C1C",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: 20,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    elevation: 5,
   },
+
   primaryButtonText: {
     color: "#FFFFFF",
     fontSize: 15,
-    fontWeight: "700",
-  },
-  buttonPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
+    fontWeight: "800",
   },
 
-  /* Footer */
-  footerContainer: {
-    marginTop: 16,
+  loginArrow: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  buttonPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.985 }],
+  },
+
+  /* SECTION */
+
+  sectionHeader: {
+    marginTop: 42,
+    marginBottom: 17,
+  },
+
+  sectionTitle: {
+    fontSize: 23,
+    fontWeight: "900",
+    letterSpacing: -0.5,
+  },
+
+  sectionSub: {
+    color: "#64748B",
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 5,
+    maxWidth: 520,
+  },
+
+  /* FEATURES */
+
+  featureGrid: {
+    width: "100%",
+    gap: 12,
+  },
+
+  featureGridTablet: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+
+  featureGridDesktop: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 16,
+  },
+
+  featureCard: {
+    width: "100%",
+    minHeight: 106,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    elevation: 1,
+  },
+
+  featureCardTablet: {
+    width: "48.5%",
+    flexGrow: 1,
+  },
+
+  featureCardDesktop: {
+    flex: 1,
+    minWidth: 220,
+    minHeight: 125,
+    maxWidth: 285,
+  },
+
+  featureIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+
+  featureContent: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 13,
+    paddingRight: 7,
+  },
+
+  featureTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+
+  featureDesc: {
+    color: "#64748B",
+    fontSize: 11.5,
+    lineHeight: 17,
+  },
+
+  featureArrow: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+
+  cardPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.985 }],
+  },
+
+  /* BOTTOM CARD */
+
+  bottomCard: {
+    marginTop: 30,
+    borderRadius: 20,
+    padding: 17,
+    flexDirection: "row",
     alignItems: "center",
   },
-  footer: {
+
+  bottomCardIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  bottomCardContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+
+  bottomCardTitle: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  bottomCardText: {
+    color: "rgba(255,255,255,0.65)",
     fontSize: 11,
+    lineHeight: 17,
+    marginTop: 3,
+  },
+
+  /* FOOTER */
+
+  footerContainer: {
+    alignItems: "center",
+    marginTop: 35,
+  },
+
+  footerLine: {
+    width: 50,
+    height: 3,
+    borderRadius: 100,
+    marginBottom: 12,
+  },
+
+  footer: {
     color: "#94A3B8",
-    fontWeight: "500",
+    fontSize: 10.5,
+    fontWeight: "600",
+    textAlign: "center",
   },
 });
