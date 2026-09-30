@@ -187,7 +187,7 @@ export default function TenantLandingPage() {
 
               {/* Mobile App */}
               <a
-                href="https://expo.dev/artifacts/eas/i0dF9Xhu327cQalqsbKP3eCXs4oSe8guOlMRUCPPMBc.apk"
+                href="https://expo.dev/artifacts/eas/8r58g8Pl-ZLnHjXP8gC9GUiN1yyBW_bzK7wwQ8WP9DI.apk"
                 download="CoreOne.apk"
                 className="group relative overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-5 transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-100/70"
               >
