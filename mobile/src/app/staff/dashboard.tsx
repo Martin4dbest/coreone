@@ -1,472 +1,583 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Pressable,
+  SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
-  useWindowDimensions,
 } from "react-native";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+
 import { useAuth } from "@/context/AuthContext";
+import StaffClockInCard from "@/components/StaffClockInCard";
+
+const COREONE_GOLD = "#C58A00";
+const COREONE_DARK = "#0F172A";
+const COREONE_SLATE = "#475569";
+const BACKGROUND = "#F8FAFC";
+const WHITE = "#FFFFFF";
+const BORDER = "#E2E8F0";
+const SOFT_GOLD = "#FFF8E7";
 
 export default function StaffDashboard() {
-  const { user, tenant, logout } = useAuth();
-  const { width } = useWindowDimensions();
+  const { user, tenant, logout, loading } = useAuth();
 
-  const isWeb = width >= 768;
+  /*
+   * The existing auth types may not expose every backend field.
+   * Keep the dashboard tolerant of the actual API response shape.
+   */
+  const authUser = user as any;
+  const authTenant = tenant as any;
 
-  const staffName =
-    user?.email?.split("@")[0] || "Staff Member";
+  const [now, setNow] = useState(new Date());
 
-  const primaryColor =
-    (tenant as any)?.school_branding?.primary_color ||
-    (tenant as any)?.branding?.primary_color ||
-    (tenant as any)?.primary_color ||
-    "#F43F5E";
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
 
-  const open = (path: string) => {
-    router.push(path as any);
-  };
+    return () => clearInterval(timer);
+  }, []);
+
+  /*
+   * STAFF ONLY
+   */
+  useEffect(() => {
+    if (loading) return;
+
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
+    const rawRole = authUser?.role;
+
+    const role =
+      typeof rawRole === "string"
+        ? rawRole
+        : rawRole?.name || rawRole?.role || "";
+
+    if (role === "STUDENT") {
+      router.replace("/student/dashboard");
+      return;
+    }
+
+    if (role === "PARENT") {
+      router.replace("/parent/dashboard");
+      return;
+    }
+
+    if (role === "TEACHER") {
+      router.replace("/teacher/dashboard");
+      return;
+    }
+
+    if (role !== "STAFF") {
+      router.replace("/login");
+    }
+  }, [loading, user, authUser]);
+
+  const staffName = useMemo(() => {
+    const first =
+      authUser?.first_name ||
+      authUser?.firstName ||
+      "";
+
+    const last =
+      authUser?.last_name ||
+      authUser?.lastName ||
+      "";
+
+    const fullName = `${first} ${last}`.trim();
+
+    return fullName || "Staff Member";
+  }, [authUser]);
+
+  const schoolName =
+    authTenant?.school_name ||
+    authTenant?.name ||
+    "Your School";
+
+  const dateText = now.toLocaleDateString("en-NG", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
+  const timeText = now.toLocaleTimeString("en-NG", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } finally {
+      router.replace("/login");
+    }
+  }
+
+  if (loading || !user) {
+    return (
+      <SafeAreaView style={styles.loadingScreen}>
+        <ActivityIndicator
+          size="large"
+          color={COREONE_GOLD}
+        />
+
+        <Text style={styles.loadingText}>
+          Loading your workspace...
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
+  const rawRole = authUser?.role;
+
+  const role =
+    typeof rawRole === "string"
+      ? rawRole
+      : rawRole?.name || rawRole?.role || "";
+
+  if (role !== "STAFF") {
+    return (
+      <SafeAreaView style={styles.loadingScreen}>
+        <ActivityIndicator
+          size="small"
+          color={COREONE_GOLD}
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[
-        styles.content,
-        isWeb && styles.webContent,
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={[styles.page, isWeb && styles.webPage]}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={BACKGROUND}
+      />
+
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         {/* HEADER */}
-        <View
-          style={[
-            styles.header,
-            isWeb && styles.webHeader,
-            { borderTopColor: primaryColor },
-          ]}
-        >
-          <View style={styles.headerTop}>
-            <View style={styles.schoolBlock}>
-              <Text style={styles.schoolName} numberOfLines={2}>
-                {tenant?.name || "School"}
+        <View style={styles.header}>
+          <View style={styles.headerTextBlock}>
+            <Text style={styles.brand}>
+              Core<Text style={styles.brandAccent}>One</Text>
+            </Text>
+
+            <Text
+              style={styles.schoolName}
+              numberOfLines={1}
+            >
+              {schoolName}
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={handleLogout}
+            accessibilityRole="button"
+            accessibilityLabel="Log out"
+            style={({ pressed }) => [
+              styles.logoutButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons
+              name="log-out-outline"
+              size={20}
+              color={COREONE_DARK}
+            />
+          </Pressable>
+        </View>
+
+        {/* GREETING */}
+        <View style={styles.greetingCard}>
+          <View style={styles.greetingTop}>
+            <View style={styles.greetingTextBlock}>
+              <Text style={styles.smallLabel}>
+                STAFF WORKSPACE
               </Text>
 
-              <Text style={styles.subtitle}>
-                Staff Portal
+              <Text style={styles.greeting}>
+                Welcome, {staffName}
               </Text>
             </View>
 
-            <View
-              style={[
-                styles.staffBadge,
-                { backgroundColor: `${primaryColor}18` },
-              ]}
-            >
-              <View
-                style={[
-                  styles.statusDot,
-                  { backgroundColor: primaryColor },
-                ]}
+            <View style={styles.clockIcon}>
+              <Ionicons
+                name="time-outline"
+                size={23}
+                color={COREONE_GOLD}
+              />
+            </View>
+          </View>
+
+          <View style={styles.dateRow}>
+            <View style={styles.dateItem}>
+              <Ionicons
+                name="calendar-outline"
+                size={17}
+                color={COREONE_SLATE}
               />
 
               <Text
-                style={[
-                  styles.staffBadgeText,
-                  { color: primaryColor },
-                ]}
+                style={styles.dateText}
+                numberOfLines={2}
               >
-                STAFF
+                {dateText}
+              </Text>
+            </View>
+
+            <View style={styles.timeBox}>
+              <Text style={styles.timeText}>
+                {timeText}
               </Text>
             </View>
           </View>
+        </View>
 
-          <View style={styles.welcomeArea}>
-            <Text style={styles.title}>
-              Welcome back
-            </Text>
+        {/* ATTENDANCE */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            Attendance
+          </Text>
 
-            <Text style={styles.staffName}>
-              {staffName}
-            </Text>
+          <StaffClockInCard />
+        </View>
 
-            <Text style={styles.welcomeText}>
-              Manage your staff activities and access your
-              school resources.
-            </Text>
+        {/* QUICK ACTIONS */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            Quick Actions
+          </Text>
+
+          <View style={styles.actionGrid}>
+            <ActionCard
+              icon="calendar-outline"
+              title="Attendance"
+              subtitle="View my attendance"
+              onPress={() =>
+                router.push("/staff/attendance")
+              }
+            />
+
+            <ActionCard
+              icon="document-text-outline"
+              title="Documents"
+              subtitle="Staff documents"
+              onPress={() =>
+                router.push("/staff/documents")
+              }
+            />
+
+            <ActionCard
+              icon="time-outline"
+              title="Leave"
+              subtitle="Leave requests"
+              onPress={() =>
+                router.push("/staff/leave")
+              }
+            />
+
+            <ActionCard
+              icon="person-outline"
+              title="Profile"
+              subtitle="My staff profile"
+              onPress={() =>
+                router.push("/staff/profile")
+              }
+            />
           </View>
         </View>
 
-        {/* QUICK ACCESS */}
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>
-              Quick Access
-            </Text>
+        {/* FOOTER */}
+        <View style={styles.footer}>
+          <Text style={styles.footerBrand}>
+            CoreOne
+          </Text>
 
-            <Text style={styles.sectionDescription}>
-              Everything you need in one place
-            </Text>
-          </View>
+          <Text style={styles.footerText}>
+            School Management Platform
+          </Text>
         </View>
-
-        <View style={styles.grid}>
-          <DashboardCard
-            title="My Profile"
-            description="View and manage your staff information"
-            icon="👤"
-            primaryColor={primaryColor}
-            onPress={() => open("/staff/profile")}
-          />
-
-          <DashboardCard
-            title="Attendance"
-            description="View your attendance records"
-            icon="📅"
-            primaryColor={primaryColor}
-            onPress={() => open("/staff/attendance")}
-          />
-
-          <DashboardCard
-            title="Leave"
-            description="Submit and manage leave requests"
-            icon="📝"
-            primaryColor={primaryColor}
-            onPress={() => open("/staff/leave")}
-          />
-
-          <DashboardCard
-            title="Documents"
-            description="Access your staff documents"
-            icon="📁"
-            primaryColor={primaryColor}
-            onPress={() => open("/staff/documents")}
-          />
-        </View>
-
-        {/* LOGOUT */}
-        <View style={styles.logoutArea}>
-          <TouchableOpacity
-            style={styles.logoutButton}
-            activeOpacity={0.8}
-            onPress={async () => {
-              await logout();
-              router.replace("/login");
-            }}
-          >
-            <Text style={styles.logoutIcon}>↪</Text>
-            <Text style={styles.logoutText}>
-              Logout
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.footer}>
-          CoreOne • Staff Portal
-        </Text>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-function DashboardCard({
-  title,
-  description,
+function ActionCard({
   icon,
-  primaryColor,
+  title,
+  subtitle,
   onPress,
 }: {
+  icon: keyof typeof Ionicons.glyphMap;
   title: string;
-  description: string;
-  icon: string;
-  primaryColor: string;
+  subtitle: string;
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity
-      style={styles.card}
+    <Pressable
       onPress={onPress}
-      activeOpacity={0.82}
+      accessibilityRole="button"
+      style={({ pressed }) => [
+        styles.actionCard,
+        pressed && styles.pressed,
+      ]}
     >
-      <View
-        style={[
-          styles.iconContainer,
-          { backgroundColor: `${primaryColor}15` },
-        ]}
-      >
-        <Text style={styles.icon}>
-          {icon}
-        </Text>
+      <View style={styles.actionIcon}>
+        <Ionicons
+          name={icon}
+          size={21}
+          color={COREONE_GOLD}
+        />
       </View>
 
-      <Text style={styles.cardTitle}>
+      <Text style={styles.actionTitle}>
         {title}
       </Text>
 
-      <Text style={styles.cardDescription}>
-        {description}
+      <Text style={styles.actionSubtitle}>
+        {subtitle}
       </Text>
-
-      <View style={styles.cardFooter}>
-        <Text
-          style={[
-            styles.openText,
-            { color: primaryColor },
-          ]}
-        >
-          Open
-        </Text>
-
-        <Text
-          style={[
-            styles.arrow,
-            { color: primaryColor },
-          ]}
-        >
-          →
-        </Text>
-      </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: BACKGROUND,
+  },
+
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: BACKGROUND,
   },
 
   content: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 36,
+  },
+
+  loadingScreen: {
+    flex: 1,
+    backgroundColor: BACKGROUND,
     alignItems: "center",
+    justifyContent: "center",
   },
 
-  webContent: {
-    paddingHorizontal: 24,
-  },
-
-  page: {
-    width: "100%",
-    maxWidth: 620,
-  },
-
-  webPage: {
-    maxWidth: 760,
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: COREONE_SLATE,
   },
 
   header: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    borderTopWidth: 4,
-    padding: 20,
-    marginBottom: 26,
-    shadowColor: "#0F172A",
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    elevation: 2,
-  },
-
-  webHeader: {
-    padding: 26,
-  },
-
-  headerTop: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
+    marginBottom: 20,
   },
 
-  schoolBlock: {
+  headerTextBlock: {
     flex: 1,
-    paddingRight: 8,
+    paddingRight: 12,
+  },
+
+  brand: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: COREONE_DARK,
+    letterSpacing: -0.5,
+  },
+
+  brandAccent: {
+    color: COREONE_GOLD,
   },
 
   schoolName: {
-    fontSize: 15,
-    lineHeight: 21,
-    fontWeight: "700",
-    color: "#334155",
-  },
-
-  subtitle: {
+    marginTop: 4,
     fontSize: 12,
-    color: "#94A3B8",
-    marginTop: 2,
+    color: COREONE_SLATE,
+    fontWeight: "600",
   },
 
-  staffBadge: {
+  logoutButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: WHITE,
+    borderWidth: 1,
+    borderColor: BORDER,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  greetingCard: {
+    backgroundColor: WHITE,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: BORDER,
+    marginBottom: 24,
+  },
+
+  greetingTop: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    justifyContent: "space-between",
   },
 
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 99,
-    marginRight: 6,
+  greetingTextBlock: {
+    flex: 1,
+    paddingRight: 12,
   },
 
-  staffBadgeText: {
+  smallLabel: {
     fontSize: 10,
     fontWeight: "800",
-    letterSpacing: 0.7,
+    letterSpacing: 1,
+    color: COREONE_GOLD,
+    marginBottom: 6,
   },
 
-  welcomeArea: {
-    marginTop: 24,
-  },
-
-  title: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#64748B",
-  },
-
-  staffName: {
-    fontSize: 28,
-    lineHeight: 34,
+  greeting: {
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: "800",
-    color: "#0F172A",
-    marginTop: 2,
+    color: COREONE_DARK,
   },
 
-  welcomeText: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: "#64748B",
-    marginTop: 7,
-    maxWidth: 520,
+  clockIcon: {
+    width: 45,
+    height: 45,
+    borderRadius: 14,
+    backgroundColor: SOFT_GOLD,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  sectionHeader: {
-    marginBottom: 14,
+  dateRow: {
+    marginTop: 18,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  dateItem: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingRight: 8,
+  },
+
+  dateText: {
+    flex: 1,
+    marginLeft: 7,
+    fontSize: 12,
+    color: COREONE_SLATE,
+    fontWeight: "600",
+  },
+
+  timeBox: {
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: "#F8FAFC",
+  },
+
+  timeText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: COREONE_DARK,
+  },
+
+  section: {
+    marginBottom: 24,
   },
 
   sectionTitle: {
-    fontSize: 20,
+    marginBottom: 10,
+    fontSize: 15,
     fontWeight: "800",
-    color: "#0F172A",
+    color: COREONE_DARK,
   },
 
-  sectionDescription: {
-    fontSize: 12,
-    color: "#94A3B8",
-    marginTop: 3,
-  },
-
-  grid: {
-    width: "100%",
+  actionGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
   },
 
-  card: {
-    width: "48.2%",
-    minHeight: 180,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 17,
-    marginBottom: 14,
-    shadowColor: "#0F172A",
-    shadowOpacity: 0.045,
-    shadowRadius: 10,
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    elevation: 1,
-  },
-
-  iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 14,
-  },
-
-  icon: {
-    fontSize: 22,
-  },
-
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-
-  cardDescription: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: "#64748B",
-    marginTop: 5,
-    minHeight: 36,
-  },
-
-  cardFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 13,
-  },
-
-  openText: {
-    fontSize: 12,
-    fontWeight: "800",
-  },
-
-  arrow: {
-    fontSize: 16,
-    fontWeight: "800",
-    marginLeft: 5,
-  },
-
-  logoutArea: {
-    alignItems: "center",
-    marginTop: 12,
-  },
-
-  logoutButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
+  actionCard: {
+    width: "48.5%",
+    minHeight: 118,
+    borderRadius: 17,
+    backgroundColor: WHITE,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-    minWidth: 105,
+    borderColor: BORDER,
+    padding: 15,
+    marginBottom: 10,
   },
 
-  logoutIcon: {
-    fontSize: 15,
-    color: "#64748B",
-    marginRight: 6,
+  actionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    backgroundColor: SOFT_GOLD,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
   },
 
-  logoutText: {
-    color: "#475569",
-    fontSize: 12,
-    fontWeight: "700",
+  actionTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: COREONE_DARK,
+  },
+
+  actionSubtitle: {
+    marginTop: 4,
+    fontSize: 11,
+    lineHeight: 16,
+    color: COREONE_SLATE,
   },
 
   footer: {
-    textAlign: "center",
-    color: "#CBD5E1",
-    marginTop: 20,
-    fontSize: 11,
+    alignItems: "center",
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+
+  footerBrand: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: COREONE_GOLD,
+  },
+
+  footerText: {
+    marginTop: 3,
+    fontSize: 10,
+    color: "#94A3B8",
+  },
+
+  pressed: {
+    opacity: 0.72,
   },
 });

@@ -28,7 +28,7 @@ const desktopLoginWidth = Math.min(
 );
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
 
   const [schoolCode, setSchoolCode] = useState("");
   const [email, setEmail] = useState("");
@@ -41,31 +41,72 @@ export default function Login() {
 
   async function handleLogin() {
     if (!schoolCode || !email || !password) {
-      Alert.alert("Missing Details", "Please fill in all fields to sign in.");
+      Alert.alert(
+        "Missing Details",
+        "Please fill in all fields to sign in."
+      );
       return;
     }
 
     try {
       setLoading(true);
 
-      const data = await login(schoolCode.trim(), email.trim(), password);
+      const data = await login(
+        schoolCode.trim(),
+        email.trim(),
+        password
+      );
 
       if (data?.user?.must_change_password) {
         router.replace("/change-password");
         return;
       }
 
-      if (data?.user?.role === "STUDENT") {
-        router.replace("/student/dashboard");
-      } else if (data?.user?.role === "PARENT") {
-        router.replace("/parent/dashboard");
-      } else if (data?.user?.role === "STAFF") {
-        router.replace("/staff/dashboard");
-      } else {
-        router.replace("/");
+      const role =
+        typeof data?.user?.role === "string"
+          ? data.user.role
+          : data?.user?.role?.name || "";
+
+      switch (role) {
+        case "STUDENT":
+          router.replace("/student/dashboard");
+          break;
+
+        case "PARENT":
+          router.replace("/parent/dashboard");
+          break;
+
+        case "TEACHER":
+          router.replace("/teacher/dashboard");
+          break;
+
+        case "STAFF":
+          router.replace("/staff/dashboard");
+          break;
+
+        case "SCHOOL_ADMIN":
+          router.replace("/");
+          break;
+
+        case "ACCOUNTANT":
+        case "BOOK_STOREKEEPER":
+          router.replace("/");
+          break;
+
+        default:
+          await logout();
+          Alert.alert(
+            "Access Restricted",
+            "Your account role is not configured for the CoreOne mobile app."
+          );
+          router.replace("/login");
+          break;
       }
     } catch (error) {
-      Alert.alert("Login Failed", "Invalid school code or account credentials.");
+      Alert.alert(
+        "Login Failed",
+        "Invalid school code or account credentials."
+      );
     } finally {
       setLoading(false);
     }
