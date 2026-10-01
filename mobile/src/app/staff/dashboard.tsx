@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Platform,
   ActivityIndicator,
   Pressable,
   SafeAreaView,
@@ -165,11 +164,12 @@ export default function StaffDashboard() {
         backgroundColor={BACKGROUND}
       />
 
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.desktopFrame}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
         {/* HEADER */}
         <View style={styles.header}>
           <View style={styles.headerTextBlock}>
@@ -312,7 +312,8 @@ export default function StaffDashboard() {
             School Management Platform
           </Text>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -359,6 +360,14 @@ function ActionCard({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    backgroundColor: BACKGROUND,
+  },
+
+  desktopFrame: {
+    flex: 1,
+    width: "100%",
+    maxWidth: 1180,
+    alignSelf: "center",
     backgroundColor: BACKGROUND,
   },
 
