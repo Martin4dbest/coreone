@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Platform,
   ActivityIndicator,
   Pressable,
   SafeAreaView,
