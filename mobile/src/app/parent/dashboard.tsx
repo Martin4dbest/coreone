@@ -566,6 +566,7 @@ export default function ParentDashboard() {
                   title="Schedule"
                   subtitle="Timetable & events"
                   color="#F59E0B"
+                  onPress={() => router.push("/parent/timetable")}
                 />
                 <ServiceTile
                   icon="person-outline"
