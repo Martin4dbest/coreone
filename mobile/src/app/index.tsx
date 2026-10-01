@@ -1,766 +1,566 @@
+// @ts-nocheck
+
 import React from "react";
 import {
   View,
   Text,
-  Image,
   Pressable,
   StyleSheet,
   SafeAreaView,
   StatusBar,
-  Dimensions,
-  Platform,
   ScrollView,
+  useWindowDimensions,
+  Platform,
 } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-const { width } = Dimensions.get("window");
+const COREONE_GOLD = "#C58A00";
+const COREONE_DARK = "#0F172A";
+const COREONE_SLATE = "#475569";
+const PAGE_BACKGROUND = "#F8FAFC";
 
-const HERO_IMAGE =
-  "https://images.unsplash.com/photo-1531482615713-2afd69097998?q=80&w=1000";
+export default function Landing() {
+  const { width } = useWindowDimensions();
 
-const FEATURES = [
-  {
-    title: "Student Analytics",
-    description: "Real-time performance tracking & automated gradebooks.",
-    image:
-      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=600",
-    icon: "analytics-outline" as const,
-  },
-  {
-    title: "Digital Results",
-    description: "Instant report cards, transcripts, and secure archives.",
-    image:
-      "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=600",
-    icon: "document-text-outline" as const,
-  },
-  {
-    title: "Smart Attendance",
-    description: "Automated daily logs and integrated leave tracking.",
-    image:
-      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=600",
-    icon: "calendar-outline" as const,
-  },
-  {
-    title: "Parent Portal",
-    description: "Direct home-school communication and portal updates.",
-    image:
-      "https://images.unsplash.com/photo-1577896851231-70ef18881754?q=80&w=600",
-    icon: "people-outline" as const,
-  },
-];
+  const isDesktopWeb = Platform.OS === "web" && width >= 900;
+  const isTablet = width >= 600 && width < 900;
 
-export default function HomeScreen() {
-  const isDesktop = Platform.OS === "web" && width >= 900;
-  const isTablet =
-    Platform.OS === "web" && width >= 600 && width < 900;
+  const features = [
+    {
+      icon: "analytics-outline",
+      title: "Student Analytics",
+      desc: "Real-time performance tracking & automated gradebooks.",
+      image:
+        "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=600",
+    },
+    {
+      icon: "document-text-outline",
+      title: "Digital Results",
+      desc: "Instant report cards, transcripts, and secure archives.",
+      image:
+        "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=600",
+    },
+    {
+      icon: "calendar-outline",
+      title: "Smart Attendance",
+      desc: "Automated daily logs and integrated leave tracking.",
+      image:
+        "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=600",
+    },
+    {
+      icon: "people-outline",
+      title: "Parent Portal",
+      desc: "Direct home-school communication and portal updates.",
+      image:
+        "https://images.unsplash.com/photo-1577896851231-70ef18881754?q=80&w=600",
+    },
+  ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+    <View style={styles.container}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={PAGE_BACKGROUND}
+      />
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* =========================================================
-            HEADER
-        ========================================================= */}
-
-        <View
-          style={[
-            styles.header,
-            isTablet && styles.headerTablet,
-            isDesktop && styles.headerDesktop,
-          ]}
-        >
-          <Pressable
-            style={styles.brand}
-            onPress={() => router.push("/")}
-          >
-            <Image
-              source={require("../../assets/images/coreone-logo1.jpeg")}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-
-            <Text style={styles.brandName}>CoreOne</Text>
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.signInButton,
-              pressed && styles.pressed,
-            ]}
-            onPress={() => router.push("/login")}
-          >
-            <Text style={styles.signInText}>Sign In</Text>
-
-            <Ionicons
-              name="arrow-forward"
-              size={15}
-              color="#FFFFFF"
-            />
-          </Pressable>
-        </View>
-
-        {/* =========================================================
-            HERO
-        ========================================================= */}
-
-        <View
-          style={[
-            styles.hero,
-            isTablet && styles.heroTablet,
-            isDesktop && styles.heroDesktop,
-          ]}
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
           <View
             style={[
-              styles.heroCopy,
-              isTablet && styles.heroCopyTablet,
-              isDesktop && styles.heroCopyDesktop,
+              styles.mainWrapper,
+              isDesktopWeb && styles.desktopWrapper,
             ]}
           >
-            <View style={styles.eyebrow}>
-              <View style={styles.eyebrowDot} />
+            {/* ===================================================== */}
+            {/* HEADER */}
+            {/* ===================================================== */}
 
-              <Text style={styles.eyebrowText}>
-                NEXT-GENERATION EDUCATION ERP
-              </Text>
-            </View>
-
-            <Text
-              style={[
-                styles.heroTitle,
-                isTablet && styles.heroTitleTablet,
-                isDesktop && styles.heroTitleDesktop,
-              ]}
-            >
-              Next-Gen{"\n"}
-              <Text style={styles.redText}>Education ERP</Text>
-            </Text>
-
-            <Text
-              style={[
-                styles.heroSubtitle,
-                isTablet && styles.heroSubtitleTablet,
-                isDesktop && styles.heroSubtitleDesktop,
-              ]}
-            >
-              Empowering Modern Learning
-            </Text>
-
-            <Text
-              style={[
-                styles.heroDescription,
-                isTablet && styles.heroDescriptionTablet,
-                isDesktop && styles.heroDescriptionDesktop,
-              ]}
-            >
-              Seamlessly track student analytics, issue digital
-              report cards, and record attendance—all within one
-              unified, powerful portal.
-            </Text>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.heroButton,
-                pressed && styles.pressed,
-              ]}
-              onPress={() => router.push("/login")}
-            >
-              <Text style={styles.heroButtonText}>
-                Sign In to Portal
-              </Text>
-
-              <View style={styles.heroButtonIcon}>
-                <Ionicons
-                  name="arrow-forward"
-                  size={16}
-                  color="#FFFFFF"
-                />
-              </View>
-            </Pressable>
-
-            <View style={styles.heroTrust}>
-              <View style={styles.trustLine} />
-
-              <Text style={styles.trustText}>
-                ONE PLATFORM. EVERY SCHOOL.
-              </Text>
-
-              <View style={styles.trustLine} />
-            </View>
-          </View>
-
-          {/* HERO VISUAL */}
-
-          <View
-            style={[
-              styles.heroVisual,
-              isTablet && styles.heroVisualTablet,
-              isDesktop && styles.heroVisualDesktop,
-            ]}
-          >
-            <View style={styles.heroImageCard}>
-              <Image
-                source={{ uri: HERO_IMAGE }}
-                style={styles.heroImage}
-                resizeMode="cover"
-              />
-
-              <LinearGradient
-                colors={[
-                  "transparent",
-                  "rgba(16,28,50,0.04)",
-                  "rgba(16,28,50,0.48)",
-                ]}
-                style={styles.heroImageGradient}
-              />
-
-              <View style={styles.heroImageBadge}>
-                <View style={styles.heroBadgeIcon}>
-                  <Ionicons
-                    name="school-outline"
-                    size={17}
-                    color="#FFFFFF"
-                  />
-                </View>
-
-                <View>
-                  <Text style={styles.heroBadgeTitle}>
-                    Unified Education
-                  </Text>
-
-                  <Text style={styles.heroBadgeSubtitle}>
-                    Management Platform
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.floatingCard}>
-              <View style={styles.floatingIcon}>
-                <Ionicons
-                  name="shield-checkmark-outline"
-                  size={17}
-                  color="#E5395F"
-                />
-              </View>
-
-              <View style={styles.floatingCopy}>
-                <Text style={styles.floatingTitle}>
-                  Everything Connected
-                </Text>
-
-                <Text style={styles.floatingSubtitle}>
-                  Students • Teachers • Parents
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* =========================================================
-            CAPABILITIES
-        ========================================================= */}
-
-        <View
-          style={[
-            styles.capabilities,
-            isDesktop && styles.capabilitiesDesktop,
-          ]}
-        >
-          <View style={styles.sectionHeading}>
-            <View style={styles.sectionLabel}>
-              <View style={styles.sectionLabelLine} />
-
-              <Text style={styles.sectionLabelText}>
-                KEY CAPABILITIES
-              </Text>
-            </View>
-
-            <Text
-              style={[
-                styles.sectionTitle,
-                isTablet && styles.sectionTitleTablet,
-                isDesktop && styles.sectionTitleDesktop,
-              ]}
-            >
-              Everything your institution needs{" "}
-              <Text style={styles.redText}>
-                to operate efficiently
-              </Text>
-            </Text>
-
-            <Text
-              style={[
-                styles.sectionDescription,
-                isDesktop && styles.sectionDescriptionDesktop,
-              ]}
-            >
-              Everything you need to manage learning,
-              administration, communication and student
-              performance in one connected platform.
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.featureGrid,
-              isTablet && styles.featureGridTablet,
-              isDesktop && styles.featureGridDesktop,
-            ]}
-          >
-            {FEATURES.map((feature) => (
-              <View
-                key={feature.title}
-                style={[
-                  styles.featureCard,
-                  isTablet && styles.featureCardTablet,
-                  isDesktop && styles.featureCardDesktop,
-                ]}
-              >
-                <View style={styles.featureImageContainer}>
+            <View style={styles.header}>
+              <View style={styles.logoRow}>
+                <View style={styles.logoContainer}>
                   <Image
-                    source={{ uri: feature.image }}
-                    style={styles.featureImage}
-                    resizeMode="cover"
+                    source={require("../../assets/images/presense-logo.png")}
+                    style={styles.logo}
+                    contentFit="contain"
                   />
-
-                  <View style={styles.featureOverlay} />
-
-                  <View style={styles.featureIcon}>
-                    <Ionicons
-                      name={feature.icon}
-                      size={19}
-                      color="#FFFFFF"
-                    />
-                  </View>
                 </View>
 
-                <View style={styles.featureContent}>
-                  <Text style={styles.featureTitle}>
-                    {feature.title}
+                <Text style={styles.brand}>
+                  Core
+                  <Text style={styles.brandAccent}>One</Text>
+                </Text>
+              </View>
+
+              {isDesktopWeb && (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.headerLoginBtn,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={() => router.push("/login")}
+                >
+                  <Text style={styles.headerLoginBtnText}>
+                    Sign In
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+
+            {/* ===================================================== */}
+            {/* HERO */}
+            {/* ===================================================== */}
+
+            <View
+              style={[
+                styles.heroContainer,
+                isDesktopWeb && styles.heroDesktop,
+              ]}
+            >
+              {/* Desktop text */}
+              {isDesktopWeb && (
+                <View style={styles.heroLeft}>
+                  <View style={styles.heroPill}>
+                    <Ionicons
+                      name="sparkles-outline"
+                      size={11}
+                      color={COREONE_GOLD}
+                    />
+
+                    <Text style={styles.heroPillText}>
+                      Next-Gen Education ERP
+                    </Text>
+                  </View>
+
+                  <Text style={styles.heroTitleDesktop}>
+                    Empowering{" "}
+                    <Text style={styles.brandAccent}>
+                      Modern
+                    </Text>{" "}
+                    Learning
                   </Text>
 
-                  <Text style={styles.featureDescription}>
-                    {feature.description}
+                  <Text style={styles.heroSubtitleDesktop}>
+                    Seamlessly track student analytics, issue digital
+                    report cards, and record attendance—all within one
+                    unified, powerful portal.
                   </Text>
 
-                  <View style={styles.featureArrow}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.primaryButton,
+                      styles.desktopHeroBtn,
+                      pressed && styles.buttonPressed,
+                    ]}
+                    onPress={() => router.push("/login")}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      Sign In to Portal
+                    </Text>
+
                     <Ionicons
                       name="arrow-forward"
-                      size={14}
-                      color="#E5395F"
+                      size={18}
+                      color={COREONE_DARK}
                     />
-                  </View>
+                  </Pressable>
                 </View>
-              </View>
-            ))}
-          </View>
-        </View>
+              )}
 
-        {/* =========================================================
-            CTA
-        ========================================================= */}
-
-        <View
-          style={[
-            styles.ctaSection,
-            isDesktop && styles.ctaSectionDesktop,
-          ]}
-        >
-          <LinearGradient
-            colors={["#101C32", "#182943"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[
-              styles.cta,
-              isDesktop && styles.ctaDesktop,
-            ]}
-          >
-            <View style={styles.ctaCircleOne} />
-            <View style={styles.ctaCircleTwo} />
-
-            <View style={styles.ctaContent}>
-              <Text style={styles.ctaEyebrow}>
-                COREONE EDUCATION PLATFORM
-              </Text>
-
-              <Text
+              {/* Hero image */}
+              <View
                 style={[
-                  styles.ctaTitle,
-                  isTablet && styles.ctaTitleTablet,
-                  isDesktop && styles.ctaTitleDesktop,
+                  styles.heroCard,
+                  isDesktopWeb && styles.heroCardDesktop,
                 ]}
               >
-                Modernise the way{"\n"}your school operates.
-              </Text>
-
-              <Text style={styles.ctaDescription}>
-                Give your school one connected platform for
-                learning, administration, communication and
-                student management.
-              </Text>
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.ctaButton,
-                  pressed && styles.pressed,
-                ]}
-                onPress={() => router.push("/login")}
-              >
-                <Text style={styles.ctaButtonText}>
-                  Sign In to Portal
-                </Text>
-
-                <Ionicons
-                  name="arrow-forward"
-                  size={16}
-                  color="#101C32"
+                <Image
+                  source={{
+                    uri: "https://images.unsplash.com/photo-1531482615713-2afd69097998?q=80&w=1000",
+                  }}
+                  style={styles.heroImage}
+                  contentFit="cover"
+                  transition={200}
                 />
-              </Pressable>
+
+                <LinearGradient
+                  colors={[
+                    "transparent",
+                    "rgba(15, 23, 42, 0.45)",
+                    "rgba(15, 23, 42, 0.92)",
+                  ]}
+                  style={styles.heroGradient}
+                >
+                  {!isDesktopWeb && (
+                    <>
+                      <View style={styles.heroPill}>
+                        <Ionicons
+                          name="sparkles-outline"
+                          size={10}
+                          color={COREONE_GOLD}
+                        />
+
+                        <Text style={styles.heroPillText}>
+                          Next-Gen Education ERP
+                        </Text>
+                      </View>
+
+                      <Text style={styles.heroTitle}>
+                        Empowering{" "}
+                        <Text style={styles.brandAccent}>
+                          Modern
+                        </Text>{" "}
+                        Learning
+                      </Text>
+
+                      <Text style={styles.heroSubtitle}>
+                        Seamlessly track analytics, results, and
+                        attendance in one portal.
+                      </Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </View>
             </View>
-          </LinearGradient>
-        </View>
 
-        {/* =========================================================
-            FOOTER
-        ========================================================= */}
+            {/* ===================================================== */}
+            {/* SECTION HEADER */}
+            {/* ===================================================== */}
 
-        <View style={styles.footer}>
-          <Image
-            source={require("../../assets/images/coreone-logo1.jpeg")}
-            style={styles.footerLogo}
-            resizeMode="contain"
-          />
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
+                Key Capabilities
+              </Text>
 
-          <Text style={styles.footerBrand}>CoreOne</Text>
+              <Text style={styles.sectionSub}>
+                Everything your institution needs to operate
+                efficiently
+              </Text>
+            </View>
 
-          <Text style={styles.footerTagline}>
-            Modern education management, unified.
-          </Text>
+            {/* ===================================================== */}
+            {/* FEATURE GRID */}
+            {/* ===================================================== */}
 
-          <Text style={styles.footerCopyright}>
-            © {new Date().getFullYear()} CoreOne. All rights reserved.
-          </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+            <View
+              style={[
+                styles.featureGrid,
+                isDesktopWeb && styles.featureGridDesktop,
+                isTablet && styles.featureGridTablet,
+              ]}
+            >
+              {features.map((item, index) => (
+                <Pressable
+                  key={index}
+                  style={({ pressed }) => [
+                    styles.featureCard,
+                    isDesktopWeb && styles.featureCardDesktop,
+                    pressed && styles.cardPressed,
+                  ]}
+                >
+                  <View style={styles.featureImageContainer}>
+                    <Image
+                      source={{ uri: item.image }}
+                      style={styles.featureBgImage}
+                      contentFit="cover"
+                      transition={200}
+                    />
+
+                    <LinearGradient
+                      colors={[
+                        "transparent",
+                        "rgba(15, 23, 42, 0.72)",
+                      ]}
+                      style={styles.featureImageGradient}
+                    >
+                      <View style={styles.iconBadge}>
+                        <Ionicons
+                          name={item.icon as any}
+                          size={16}
+                          color={COREONE_GOLD}
+                        />
+                      </View>
+                    </LinearGradient>
+                  </View>
+
+                  <View style={styles.featureContent}>
+                    <Text
+                      style={styles.featureTitle}
+                      numberOfLines={1}
+                    >
+                      {item.title}
+                    </Text>
+
+                    <Text
+                      style={styles.featureDesc}
+                      numberOfLines={2}
+                    >
+                      {item.desc}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* ===================================================== */}
+            {/* MOBILE BUTTON */}
+            {/* ===================================================== */}
+
+            {!isDesktopWeb && (
+              <View style={styles.actionContainer}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={() => router.push("/login")}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    Sign In to Portal
+                  </Text>
+
+                  <Ionicons
+                    name="arrow-forward"
+                    size={18}
+                    color={COREONE_DARK}
+                  />
+                </Pressable>
+              </View>
+            )}
+
+            {/* ===================================================== */}
+            {/* FOOTER */}
+            {/* ===================================================== */}
+
+            <View style={styles.footerContainer}>
+              <Text style={styles.footer}>
+                Powered by CoreOne Technologies
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  /* =========================================================
-     GLOBAL
-  ========================================================= */
+  /* ========================================================= */
+  /* GLOBAL */
+  /* ========================================================= */
+
+  container: {
+    flex: 1,
+    backgroundColor: PAGE_BACKGROUND,
+  },
 
   safeArea: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
-  },
-
-  scroll: {
-    flex: 1,
-    backgroundColor: "#F8FAFC",
   },
 
   scrollContent: {
-    paddingBottom: 0,
+    flexGrow: 1,
+    paddingBottom: 24,
   },
 
-  pressed: {
-    opacity: 0.82,
+  mainWrapper: {
+    width: "100%",
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "ios" ? 8 : 16,
+    paddingBottom: 20,
+    alignSelf: "center",
   },
 
-  /* =========================================================
-     HEADER
-  ========================================================= */
+  desktopWrapper: {
+    maxWidth: 1120,
+    paddingHorizontal: 32,
+    paddingTop: 24,
+  },
+
+  /* ========================================================= */
+  /* HEADER */
+  /* ========================================================= */
 
   header: {
-    minHeight: 70,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEF1F5",
+    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: 20,
   },
 
-  headerTablet: {
-    paddingHorizontal: 32,
-  },
-
-  headerDesktop: {
-    width: "100%",
-    maxWidth: 1180,
-    minHeight: 76,
-    alignSelf: "center",
-    paddingHorizontal: 0,
-    borderBottomWidth: 0,
-    backgroundColor: "#F8FAFC",
-  },
-
-  brand: {
+  logoRow: {
     flexDirection: "row",
     alignItems: "center",
+  },
+
+  logoContainer: {
+    width: 46,
+    height: 46,
+    borderRadius: 13,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+
+    shadowColor: "#0F172A",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+
+    elevation: 2,
   },
 
   logo: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+    width: 34,
+    height: 34,
   },
 
-  brandName: {
-    marginLeft: 9,
-    color: "#101C32",
-    fontSize: 20,
+  brand: {
+    marginLeft: 12,
+    fontSize: 22,
     fontWeight: "800",
+    color: COREONE_DARK,
     letterSpacing: -0.5,
   },
 
-  signInButton: {
-    minHeight: 39,
-    paddingHorizontal: 14,
+  brandAccent: {
+    color: COREONE_GOLD,
+  },
+
+  headerLoginBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: "#101C32",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
+
+    backgroundColor: "#FFFFFF",
+
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
 
-  signInText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "700",
+  headerLoginBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COREONE_DARK,
   },
 
-  /* =========================================================
-     HERO
-  ========================================================= */
+  /* ========================================================= */
+  /* HERO */
+  /* ========================================================= */
 
-  hero: {
-    paddingHorizontal: 20,
-    paddingTop: 36,
-    paddingBottom: 60,
-  },
-
-  heroTablet: {
-    paddingHorizontal: 32,
-    paddingTop: 50,
+  heroContainer: {
+    width: "100%",
+    marginBottom: 28,
   },
 
   heroDesktop: {
-    width: "100%",
-    maxWidth: 1180,
-    alignSelf: "center",
-    paddingHorizontal: 0,
-    paddingTop: 66,
-    paddingBottom: 92,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 65,
+    gap: 40,
+    marginVertical: 12,
   },
 
-  heroCopy: {
-    width: "100%",
-  },
-
-  heroCopyTablet: {
-    maxWidth: 650,
-    alignSelf: "center",
-  },
-
-  heroCopyDesktop: {
+  heroLeft: {
     flex: 1,
-    maxWidth: 525,
+    alignItems: "flex-start",
   },
 
-  eyebrow: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    borderRadius: 25,
-    backgroundColor: "#FFF0F3",
+  /*
+   * VERY SMALL ERP LABEL
+   */
+
+  heroPill: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    alignSelf: "flex-start",
+
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+
+    borderRadius: 999,
+
+    backgroundColor: "rgba(197, 138, 0, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(197, 138, 0, 0.22)",
+
+    marginBottom: 10,
   },
 
-  eyebrowDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 10,
-    backgroundColor: "#E5395F",
-    marginRight: 7,
-  },
-
-  eyebrowText: {
-    color: "#C82D4D",
+  heroPillText: {
+    marginLeft: 4,
     fontSize: 9,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-  },
-
-  heroTitle: {
-    color: "#101C32",
-    fontSize: 36,
-    lineHeight: 41,
-    fontWeight: "900",
-    letterSpacing: -1.2,
-  },
-
-  heroTitleTablet: {
-    fontSize: 42,
-    lineHeight: 47,
+    lineHeight: 11,
+    fontWeight: "600",
+    color: COREONE_GOLD,
+    letterSpacing: 0,
   },
 
   heroTitleDesktop: {
-    fontSize: 51,
-    lineHeight: 56,
-    letterSpacing: -1.9,
-  },
-
-  redText: {
-    color: "#E5395F",
-  },
-
-  heroSubtitle: {
-    marginTop: 12,
-    color: "#26364E",
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: "700",
-  },
-
-  heroSubtitleTablet: {
-    fontSize: 20,
-    lineHeight: 26,
+    fontSize: 38,
+    fontWeight: "800",
+    color: COREONE_DARK,
+    lineHeight: 46,
+    letterSpacing: -1,
+    marginBottom: 12,
   },
 
   heroSubtitleDesktop: {
-    fontSize: 21,
-    lineHeight: 27,
-  },
-
-  heroDescription: {
-    marginTop: 12,
-    maxWidth: 490,
-    color: "#667085",
-    fontSize: 14,
-    lineHeight: 22,
-  },
-
-  heroDescriptionTablet: {
+    maxWidth: 520,
     fontSize: 15,
     lineHeight: 24,
+    color: COREONE_SLATE,
+    marginBottom: 22,
   },
 
-  heroDescriptionDesktop: {
-    fontSize: 14.5,
-    lineHeight: 24,
-  },
-
-  heroButton: {
-    marginTop: 23,
-    alignSelf: "flex-start",
-    minHeight: 47,
-    paddingLeft: 18,
-    paddingRight: 6,
-    borderRadius: 13,
-    backgroundColor: "#E5395F",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 11,
-    shadowColor: "#E5395F",
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    elevation: 4,
-  },
-
-  heroButtonText: {
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: "800",
     color: "#FFFFFF",
+    lineHeight: 34,
+    letterSpacing: -0.6,
+    marginBottom: 8,
+  },
+
+  heroSubtitle: {
     fontSize: 13,
-    fontWeight: "800",
+    lineHeight: 19,
+    color: "#E2E8F0",
+    maxWidth: 440,
   },
 
-  heroButtonIcon: {
-    width: 35,
-    height: 35,
-    borderRadius: 10,
-    backgroundColor: "rgba(255,255,255,0.16)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  heroTrust: {
-    marginTop: 21,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-
-  trustLine: {
-    width: 22,
-    height: 1,
-    backgroundColor: "#D5DAE2",
-  },
-
-  trustText: {
-    color: "#98A2B3",
-    fontSize: 8,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-  },
-
-  /* =========================================================
-     HERO VISUAL
-  ========================================================= */
-
-  heroVisual: {
+  heroCard: {
     width: "100%",
-    marginTop: 43,
-    paddingBottom: 19,
-    position: "relative",
-  },
-
-  heroVisualTablet: {
-    maxWidth: 650,
-    alignSelf: "center",
-  },
-
-  heroVisualDesktop: {
-    flex: 1,
-    maxWidth: 535,
-    marginTop: 0,
-  },
-
-  heroImageCard: {
-    width: "100%",
-    height: width < 500 ? 290 : 360,
-    borderRadius: 24,
+    height: 290,
+    borderRadius: 22,
     overflow: "hidden",
-    backgroundColor: "#DDE3EB",
-    shadowColor: "#101C32",
-    shadowOpacity: 0.1,
-    shadowRadius: 25,
+    backgroundColor: "#E2E8F0",
+
+    shadowColor: "#0F172A",
     shadowOffset: {
       width: 0,
-      height: 15,
+      height: 8,
     },
-    elevation: 7,
+    shadowOpacity: 0.10,
+    shadowRadius: 18,
+
+    elevation: 5,
+  },
+
+  heroCardDesktop: {
+    flex: 1,
+    minHeight: 360,
+    height: 360,
   },
 
   heroImage: {
@@ -768,427 +568,224 @@ const styles = StyleSheet.create({
     height: "100%",
   },
 
-  heroImageGradient: {
+  heroGradient: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    height: "55%",
+    top: 0,
+
+    justifyContent: "flex-end",
+
+    padding: 22,
   },
 
-  heroImageBadge: {
-    position: "absolute",
-    left: 15,
-    bottom: 15,
-    paddingHorizontal: 11,
-    paddingVertical: 10,
-    borderRadius: 13,
-    backgroundColor: "rgba(16,28,50,0.92)",
+  /* ========================================================= */
+  /* BUTTONS */
+  /* ========================================================= */
+
+  primaryButton: {
+    minHeight: 48,
+
     flexDirection: "row",
-    alignItems: "center",
-  },
-
-  heroBadgeIcon: {
-    width: 31,
-    height: 31,
-    borderRadius: 9,
-    backgroundColor: "#E5395F",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 9,
-  },
 
-  heroBadgeTitle: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "800",
-  },
+    paddingHorizontal: 20,
 
-  heroBadgeSubtitle: {
-    marginTop: 2,
-    color: "#C8D0DC",
-    fontSize: 8,
-  },
+    borderRadius: 12,
 
-  floatingCard: {
-    position: "absolute",
-    right: 0,
-    bottom: 0,
-    maxWidth: 220,
-    paddingHorizontal: 11,
-    paddingVertical: 10,
-    borderRadius: 13,
-    backgroundColor: "#FFFFFF",
-    flexDirection: "row",
-    alignItems: "center",
-    shadowColor: "#101C32",
-    shadowOpacity: 0.1,
-    shadowRadius: 17,
+    backgroundColor: COREONE_GOLD,
+
+    shadowColor: COREONE_GOLD,
     shadowOffset: {
       width: 0,
-      height: 8,
+      height: 4,
     },
-    elevation: 6,
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+
+    elevation: 3,
   },
 
-  floatingIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: "#FFF0F3",
-    alignItems: "center",
-    justifyContent: "center",
+  desktopHeroBtn: {
+    minWidth: 190,
+    alignSelf: "flex-start",
+  },
+
+  primaryButtonText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: COREONE_DARK,
     marginRight: 8,
   },
 
-  floatingCopy: {
-    flexShrink: 1,
+  buttonPressed: {
+    opacity: 0.78,
+    transform: [{ scale: 0.98 }],
   },
 
-  floatingTitle: {
-    color: "#101C32",
-    fontSize: 10,
-    fontWeight: "800",
-  },
+  /* ========================================================= */
+  /* SECTION */
+  /* ========================================================= */
 
-  floatingSubtitle: {
-    marginTop: 2,
-    color: "#98A2B3",
-    fontSize: 8,
-  },
-
-  /* =========================================================
-     CAPABILITIES
-  ========================================================= */
-
-  capabilities: {
-    paddingHorizontal: 20,
-    paddingTop: 65,
-    paddingBottom: 72,
-    backgroundColor: "#FFFFFF",
-  },
-
-  capabilitiesDesktop: {
-    paddingHorizontal: 0,
-  },
-
-  sectionHeading: {
+  sectionHeader: {
     width: "100%",
-    maxWidth: 650,
-    alignSelf: "center",
     alignItems: "center",
-  },
-
-  sectionLabel: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    marginBottom: 13,
-  },
-
-  sectionLabelLine: {
-    width: 22,
-    height: 2,
-    backgroundColor: "#E5395F",
-  },
-
-  sectionLabelText: {
-    color: "#E5395F",
-    fontSize: 9,
-    fontWeight: "900",
-    letterSpacing: 1.1,
+    marginBottom: 18,
   },
 
   sectionTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: COREONE_DARK,
     textAlign: "center",
-    color: "#101C32",
-    fontSize: 26,
-    lineHeight: 32,
-    fontWeight: "900",
-    letterSpacing: -0.7,
+    marginBottom: 5,
   },
 
-  sectionTitleTablet: {
-    fontSize: 30,
-    lineHeight: 36,
-  },
-
-  sectionTitleDesktop: {
-    fontSize: 35,
-    lineHeight: 41,
-    letterSpacing: -1,
-  },
-
-  sectionDescription: {
-    marginTop: 12,
-    maxWidth: 570,
-    textAlign: "center",
-    color: "#667085",
+  sectionSub: {
     fontSize: 13,
-    lineHeight: 21,
+    lineHeight: 19,
+    color: COREONE_SLATE,
+    textAlign: "center",
+    maxWidth: 520,
   },
 
-  sectionDescriptionDesktop: {
-    fontSize: 14,
-    lineHeight: 22,
-  },
+  /* ========================================================= */
+  /* FEATURE GRID */
+  /* ========================================================= */
 
   featureGrid: {
     width: "100%",
-    maxWidth: 1180,
-    alignSelf: "center",
-    marginTop: 37,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
 
   featureGridTablet: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     justifyContent: "space-between",
   },
 
   featureGridDesktop: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+    gap: 18,
   },
 
   featureCard: {
-    width: "100%",
-    marginBottom: 21,
-    borderRadius: 19,
-    overflow: "hidden",
+    width: "48.5%",
+
     backgroundColor: "#FFFFFF",
+
+    borderRadius: 14,
+    overflow: "hidden",
+
     borderWidth: 1,
-    borderColor: "#E9EDF2",
-    shadowColor: "#101C32",
-    shadowOpacity: 0.05,
-    shadowRadius: 15,
+    borderColor: "#E2E8F0",
+
+    marginBottom: 14,
+
+    shadowColor: "#0F172A",
     shadowOffset: {
       width: 0,
-      height: 7,
+      height: 3,
     },
+    shadowOpacity: 0.045,
+    shadowRadius: 7,
+
     elevation: 2,
   },
 
-  featureCardTablet: {
-    width: "48%",
+  featureCardDesktop: {
+    flex: 1,
+    width: "auto",
+    minWidth: 220,
+    marginBottom: 0,
   },
 
-  featureCardDesktop: {
-    width: "48%",
-    marginBottom: 28,
+  cardPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.985 }],
   },
 
   featureImageContainer: {
     width: "100%",
-    height: 185,
+    height: 130,
     position: "relative",
-    backgroundColor: "#E8EDF3",
+    overflow: "hidden",
   },
 
-  featureImage: {
+  featureBgImage: {
     width: "100%",
     height: "100%",
   },
 
-  featureOverlay: {
+  featureImageGradient: {
     position: "absolute",
     left: 0,
     right: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: "rgba(16,28,50,0.12)",
+
+    justifyContent: "flex-end",
+    alignItems: "flex-start",
+
+    padding: 12,
   },
 
-  featureIcon: {
-    position: "absolute",
-    left: 14,
-    bottom: 14,
-    width: 39,
-    height: 39,
-    borderRadius: 11,
-    backgroundColor: "#101C32",
-    alignItems: "center",
+  iconBadge: {
+    width: 34,
+    height: 34,
+
+    borderRadius: 10,
+
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
+
     justifyContent: "center",
+    alignItems: "center",
+
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.8)",
   },
 
   featureContent: {
-    minHeight: 125,
-    padding: 17,
-    position: "relative",
+    padding: 14,
   },
 
   featureTitle: {
-    color: "#101C32",
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: "800",
-    letterSpacing: -0.3,
+    color: COREONE_DARK,
+    marginBottom: 5,
   },
 
-  featureDescription: {
-    marginTop: 7,
-    paddingRight: 34,
-    color: "#667085",
-    fontSize: 12.5,
-    lineHeight: 20,
+  featureDesc: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: COREONE_SLATE,
   },
 
-  featureArrow: {
-    position: "absolute",
-    right: 16,
-    bottom: 17,
-    width: 31,
-    height: 31,
-    borderRadius: 9,
-    backgroundColor: "#FFF0F3",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  /* ========================================================= */
+  /* ACTION */
+  /* ========================================================= */
 
-  /* =========================================================
-     CTA
-  ========================================================= */
-
-  ctaSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 58,
-    backgroundColor: "#F8FAFC",
-  },
-
-  ctaSectionDesktop: {
-    paddingHorizontal: 0,
-  },
-
-  cta: {
+  actionContainer: {
     width: "100%",
-    maxWidth: 1180,
-    minHeight: 300,
-    alignSelf: "center",
-    borderRadius: 25,
-    overflow: "hidden",
-    position: "relative",
-    justifyContent: "center",
-  },
-
-  ctaDesktop: {
-    minHeight: 330,
-  },
-
-  ctaContent: {
-    maxWidth: 650,
-    paddingHorizontal: 25,
-    paddingVertical: 37,
-    zIndex: 2,
-  },
-
-  ctaEyebrow: {
-    color: "#F58AA1",
-    fontSize: 9,
-    fontWeight: "900",
-    letterSpacing: 1.2,
-  },
-
-  ctaTitle: {
-    marginTop: 11,
-    color: "#FFFFFF",
-    fontSize: 27,
-    lineHeight: 33,
-    fontWeight: "900",
-    letterSpacing: -0.8,
-  },
-
-  ctaTitleTablet: {
-    fontSize: 31,
-    lineHeight: 37,
-  },
-
-  ctaTitleDesktop: {
-    fontSize: 38,
-    lineHeight: 44,
-  },
-
-  ctaDescription: {
-    marginTop: 12,
-    maxWidth: 520,
-    color: "#B9C3D2",
-    fontSize: 13,
-    lineHeight: 21,
-  },
-
-  ctaButton: {
-    marginTop: 21,
-    alignSelf: "flex-start",
-    minHeight: 45,
-    paddingHorizontal: 16,
-    borderRadius: 11,
-    backgroundColor: "#FFFFFF",
-    flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    marginTop: 22,
   },
 
-  ctaButtonText: {
-    color: "#101C32",
-    fontSize: 13,
-    fontWeight: "800",
-  },
+  /* ========================================================= */
+  /* FOOTER */
+  /* ========================================================= */
 
-  ctaCircleOne: {
-    position: "absolute",
-    width: 290,
-    height: 290,
-    borderRadius: 200,
-    right: -90,
-    top: -110,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+  footerContainer: {
+    width: "100%",
+    alignItems: "center",
+    marginTop: 24,
   },
-
-  ctaCircleTwo: {
-    position: "absolute",
-    width: 190,
-    height: 190,
-    borderRadius: 200,
-    right: 45,
-    bottom: -115,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-  },
-
-  /* =========================================================
-     FOOTER
-  ========================================================= */
 
   footer: {
-    paddingHorizontal: 20,
-    paddingTop: 32,
-    paddingBottom: 38,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-  },
-
-  footerLogo: {
-    width: 35,
-    height: 35,
-    borderRadius: 8,
-  },
-
-  footerBrand: {
-    marginTop: 8,
-    color: "#101C32",
-    fontSize: 17,
-    fontWeight: "800",
-  },
-
-  footerTagline: {
-    marginTop: 8,
-    color: "#667085",
-    fontSize: 12,
-  },
-
-  footerCopyright: {
-    marginTop: 13,
-    color: "#98A2B3",
-    fontSize: 10,
+    fontSize: 11,
+    color: "#94A3B8",
+    textAlign: "center",
   },
 });
