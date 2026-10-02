@@ -917,6 +917,7 @@ export default function TimetablePage({
                       }))
                     }
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-[#C58A00]"
+                    style={{ color: "#0F172A", colorScheme: "light" }}
                     required
                   >
                     <option
