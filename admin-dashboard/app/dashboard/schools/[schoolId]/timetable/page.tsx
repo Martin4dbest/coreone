@@ -916,7 +916,7 @@ export default function TimetablePage({
                           event.target.value,
                       }))
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#C58A00]"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-slate-900 outline-none focus:border-[#C58A00]"
                     required
                   >
                     <option value="">
