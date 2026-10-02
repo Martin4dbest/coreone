@@ -546,7 +546,7 @@ export default function TimetablePage({
                 term_id: "",
               }));
             }}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-[#C58A00]"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
           >
             <option value="">All Sessions</option>
             {sessions.map((session) => (
@@ -566,7 +566,7 @@ export default function TimetablePage({
                 term_id: value,
               }));
             }}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-[#C58A00]"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
           >
             <option value="">All Terms</option>
             {terms.map((term) => (
@@ -586,7 +586,7 @@ export default function TimetablePage({
                 classroom_id: value,
               }));
             }}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-[#C58A00]"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
           >
             <option value="">All Classes</option>
             {classes.map((item) => (
@@ -599,7 +599,7 @@ export default function TimetablePage({
           <select
             value={selectedDay}
             onChange={(event) => setSelectedDay(event.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-[#C58A00]"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
           >
             <option value="">All Days</option>
             {DAYS.map((day) => (
@@ -791,7 +791,7 @@ export default function TimetablePage({
                         term_id: "",
                       }))
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#C58A00]"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
                     required
                   >
                     <option value="">
@@ -822,7 +822,7 @@ export default function TimetablePage({
                         term_id: event.target.value,
                       }))
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#C58A00]"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
                     required
                   >
                     <option value="">
@@ -854,7 +854,7 @@ export default function TimetablePage({
                           event.target.value,
                       }))
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#C58A00]"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
                     required
                   >
                     <option value="">
@@ -886,7 +886,7 @@ export default function TimetablePage({
                           event.target.value,
                       }))
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#C58A00]"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
                     required
                   >
                     <option value="">
@@ -915,7 +915,7 @@ export default function TimetablePage({
                       onClick={() =>
                         setTeacherDropdownOpen((open) => !open)
                       }
-                      className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-[#C58A00] focus:ring-2 focus:ring-[#C58A00]/10"
+                      className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-sm text-black outline-none transition hover:border-slate-300 focus:border-[#C58A00] focus:ring-2 focus:ring-[#C58A00]/10"
                     >
                       <span className="truncate">
                         {form.teacher_id
@@ -960,11 +960,11 @@ export default function TimetablePage({
                                 }}
                                 className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition ${
                                   selected
-                                    ? "bg-[#C58A00]/10 font-semibold text-[#8F5D00]"
+                                    ? "bg-[#C58A00]/10 font-bold text-black"
                                     : "text-black hover:bg-slate-50"
                                 }`}
                               >
-                                <span className="truncate">
+                                <span className="truncate text-black">
                                   {teacher.name}
                                 </span>
 
@@ -996,7 +996,7 @@ export default function TimetablePage({
                           event.target.value,
                       }))
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#C58A00]"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
                     required
                   >
                     {DAYS.map((day) => (
@@ -1022,7 +1022,7 @@ export default function TimetablePage({
                           event.target.value,
                       }))
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#C58A00]"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
                     required
                   />
                 </div>
@@ -1042,7 +1042,7 @@ export default function TimetablePage({
                           event.target.value,
                       }))
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#C58A00]"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
                     required
                   />
                 </div>
