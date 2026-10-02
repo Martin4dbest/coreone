@@ -961,7 +961,7 @@ export default function TimetablePage({
                                 className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition ${
                                   selected
                                     ? "bg-[#C58A00]/10 font-semibold text-[#8F5D00]"
-                                    : "text-slate-800 hover:bg-slate-50"
+                                    : "text-black hover:bg-slate-50"
                                 }`}
                               >
                                 <span className="truncate">
