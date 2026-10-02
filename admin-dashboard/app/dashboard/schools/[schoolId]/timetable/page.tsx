@@ -3,6 +3,7 @@
 import { FormEvent, use, useEffect, useMemo, useState } from "react";
 import {
   CalendarClock,
+  ChevronDown,
   Clock3,
   Pencil,
   Plus,
@@ -139,6 +140,7 @@ export default function TimetablePage({
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [teacherDropdownOpen, setTeacherDropdownOpen] = useState(false);
 
   const [form, setForm] = useState({
     academic_session_id: "",
@@ -903,40 +905,81 @@ export default function TimetablePage({
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Teacher
-                  </label>
+                  <div className="relative">
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      Teacher
+                    </label>
 
-                  <select
-                    value={form.teacher_id}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        teacher_id:
-                          event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-[#C58A00]"
-                    style={{ color: "#0F172A", colorScheme: "light" }}
-                    required
-                  >
-                    <option
-                      value=""
-                      style={{ color: "#0F172A", backgroundColor: "#FFFFFF" }}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTeacherDropdownOpen((open) => !open)
+                      }
+                      className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-[#C58A00] focus:ring-2 focus:ring-[#C58A00]/10"
                     >
-                      Select teacher
-                    </option>
+                      <span className="truncate">
+                        {form.teacher_id
+                          ? teachers.find(
+                              (teacher) =>
+                                String(teacher.id) ===
+                                String(form.teacher_id)
+                            )?.name || "Select teacher"
+                          : "Select teacher"}
+                      </span>
 
-                    {teachers.map((teacher) => (
-                      <option
-                        key={teacher.id}
-                        value={teacher.id}
-                        style={{ color: "#0F172A", backgroundColor: "#FFFFFF" }}
-                      >
-                        {teacher.name}
-                      </option>
-                    ))}
-                  </select>
+                      <ChevronDown
+                        size={17}
+                        className={`ml-2 shrink-0 text-slate-500 transition-transform ${
+                          teacherDropdownOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {teacherDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full z-[60] mt-2 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                        {teachers.length === 0 ? (
+                          <div className="px-3 py-3 text-sm text-slate-500">
+                            No teachers available
+                          </div>
+                        ) : (
+                          teachers.map((teacher) => {
+                            const selected =
+                              String(form.teacher_id) ===
+                              String(teacher.id);
+
+                            return (
+                              <button
+                                key={teacher.id}
+                                type="button"
+                                onClick={() => {
+                                  setForm((current) => ({
+                                    ...current,
+                                    teacher_id: String(teacher.id),
+                                  }));
+                                  setTeacherDropdownOpen(false);
+                                }}
+                                className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition ${
+                                  selected
+                                    ? "bg-[#C58A00]/10 font-semibold text-[#8F5D00]"
+                                    : "text-slate-800 hover:bg-slate-50"
+                                }`}
+                              >
+                                <span className="truncate">
+                                  {teacher.name}
+                                </span>
+
+                                {selected && (
+                                  <span className="ml-2 shrink-0 text-xs font-bold text-[#C58A00]">
+                                    ✓
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div>
