@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   LogIn,
@@ -39,6 +39,7 @@ interface MenuItem {
 
 export default function Sidebar() {
   const router = useRouter();
+  const pathname = usePathname();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [role, setRole] = useState("");
@@ -332,7 +333,24 @@ export default function Sidebar() {
     return featureEnabled(item.feature);
   });
 
-  let menu = superAdminMenu;
+  // Super Admin has a global sidebar, but when viewing a specific
+  // school workspace, expose that school's Timetable directly.
+  const schoolWorkspaceMatch = pathname.match(
+    /\/dashboard\/schools\/(\d+)/
+  );
+
+  const superAdminSchoolMenu: MenuItem[] = schoolWorkspaceMatch
+    ? [
+        {
+          name: "Timetable",
+          href: `/dashboard/schools/${schoolWorkspaceMatch[1]}/timetable`,
+          icon: CalendarClock,
+          color: "text-amber-400",
+        },
+      ]
+    : [];
+
+  let menu = [...superAdminMenu, ...superAdminSchoolMenu];
 
   if (role === "SCHOOL_ADMIN") {
     menu = filteredSchoolAdminMenu;
