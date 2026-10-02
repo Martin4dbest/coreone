@@ -916,10 +916,14 @@ export default function TimetablePage({
                           event.target.value,
                       }))
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-slate-900 outline-none focus:border-[#C58A00]"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-[#C58A00]"
+                    style={{ color: "#0F172A", WebkitTextFillColor: "#0F172A" }}
                     required
                   >
-                    <option value="">
+                    <option
+                      value=""
+                      style={{ color: "#0F172A", backgroundColor: "#FFFFFF" }}
+                    >
                       Select teacher
                     </option>
 
@@ -927,6 +931,7 @@ export default function TimetablePage({
                       <option
                         key={teacher.id}
                         value={teacher.id}
+                        style={{ color: "#0F172A", backgroundColor: "#FFFFFF" }}
                       >
                         {teacher.name}
                       </option>
