@@ -1119,95 +1119,264 @@ export default function Page({
       </section>
 
       {selectedStaff && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-7 shadow-xl">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
-                  <UserRound size={26} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-3 sm:p-4">
+          <div className="flex max-h-[95vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-xl">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-slate-100 px-5 py-5 sm:px-7 sm:py-6">
+              <div className="flex min-w-0 items-center gap-4">
+                {selectedStaff.profile_photo ? (
+                  <img
+                    src={selectedStaff.profile_photo}
+                    alt={`${selectedStaff.first_name} ${selectedStaff.last_name}`}
+                    className="h-14 w-14 shrink-0 rounded-2xl object-cover ring-1 ring-slate-200"
+                  />
+                ) : (
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
+                    <UserRound size={26} />
+                  </div>
+                )}
+
+                <div className="min-w-0">
+                  <h2 className="truncate text-xl font-bold text-slate-900 sm:text-2xl">
+                    {selectedStaff.first_name}{" "}
+                    {selectedStaff.middle_name
+                      ? `${selectedStaff.middle_name} `
+                      : ""}
+                    {selectedStaff.last_name}
+                  </h2>
+
+                  <p className="mt-1 truncate text-sm text-slate-500">
+                    {selectedStaff.job_title || "Staff Member"}
+                    {selectedStaff.department
+                      ? ` • ${selectedStaff.department}`
+                      : ""}
+                  </p>
                 </div>
-
-                <h2 className="mt-5 text-2xl font-bold text-slate-900">
-                  {selectedStaff.first_name}{" "}
-                  {selectedStaff.last_name}
-                </h2>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Staff Profile
-                </p>
               </div>
 
               <button
                 type="button"
                 onClick={() => setSelectedStaff(null)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"
+                className="ml-3 shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="mt-7 space-y-4">
-              <ProfileRow
-                icon={<IdCard size={18} />}
-                label="Employee Number"
-                value={selectedStaff.employee_number}
-              />
+            {/* Profile Content */}
+            <div className="overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
+              {/* Personal Information */}
+              <ProfileSection title="Personal Information">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <ProfileRow
+                    icon={<UserRound size={18} />}
+                    label="First Name"
+                    value={selectedStaff.first_name}
+                  />
 
-              <ProfileRow
-                icon={<Mail size={18} />}
-                label="Email"
-                value={selectedStaff.email}
-              />
+                  <ProfileRow
+                    icon={<UserRound size={18} />}
+                    label="Middle Name"
+                    value={selectedStaff.middle_name || "—"}
+                  />
 
-              <ProfileRow
-                icon={<Power size={18} />}
-                label="Account Status"
-                value={
-                  selectedStaff.is_active
-                    ? "Active"
-                    : "Inactive"
-                }
-              />
+                  <ProfileRow
+                    icon={<UserRound size={18} />}
+                    label="Last Name"
+                    value={selectedStaff.last_name}
+                  />
+
+                  <ProfileRow
+                    icon={<UserRound size={18} />}
+                    label="Gender"
+                    value={selectedStaff.gender || "—"}
+                  />
+
+                  <ProfileRow
+                    icon={<CalendarDays size={18} />}
+                    label="Date of Birth"
+                    value={selectedStaff.date_of_birth || "—"}
+                  />
+
+                  <ProfileRow
+                    icon={<Phone size={18} />}
+                    label="Phone"
+                    value={selectedStaff.phone || "—"}
+                  />
+
+                  <div className="sm:col-span-2">
+                    <ProfileRow
+                      icon={<MapPin size={18} />}
+                      label="Address"
+                      value={selectedStaff.address || "—"}
+                    />
+                  </div>
+                </div>
+              </ProfileSection>
+
+              {/* Employment Information */}
+              <ProfileSection title="Employment Information">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <ProfileRow
+                    icon={<IdCard size={18} />}
+                    label="Employee Number"
+                    value={selectedStaff.employee_number}
+                  />
+
+                  <ProfileRow
+                    icon={<BriefcaseBusiness size={18} />}
+                    label="Job Title"
+                    value={selectedStaff.job_title || "—"}
+                  />
+
+                  <ProfileRow
+                    icon={<Building2 size={18} />}
+                    label="Department"
+                    value={selectedStaff.department || "—"}
+                  />
+
+                  <ProfileRow
+                    icon={<BriefcaseBusiness size={18} />}
+                    label="Employment Type"
+                    value={selectedStaff.employment_type || "—"}
+                  />
+
+                  <ProfileRow
+                    icon={<CalendarDays size={18} />}
+                    label="Date Employed"
+                    value={selectedStaff.date_employed || "—"}
+                  />
+
+                  <ProfileRow
+                    icon={<GraduationCap size={18} />}
+                    label="Qualification"
+                    value={selectedStaff.qualification || "—"}
+                  />
+                </div>
+              </ProfileSection>
+
+              {/* Account Information */}
+              <ProfileSection title="Account Information">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <ProfileRow
+                    icon={<Mail size={18} />}
+                    label="Email"
+                    value={selectedStaff.email}
+                  />
+
+                  <ProfileRow
+                    icon={<Power size={18} />}
+                    label="Account Status"
+                    value={
+                      selectedStaff.is_active
+                        ? "Active"
+                        : "Inactive"
+                    }
+                  />
+                </div>
+              </ProfileSection>
+
+              {/* Emergency Contact */}
+              <ProfileSection title="Emergency Contact">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <ProfileRow
+                    icon={<UserRound size={18} />}
+                    label="Contact Name"
+                    value={
+                      selectedStaff.emergency_contact_name || "—"
+                    }
+                  />
+
+                  <ProfileRow
+                    icon={<Users size={18} />}
+                    label="Relationship"
+                    value={
+                      selectedStaff.emergency_contact_relationship ||
+                      "—"
+                    }
+                  />
+
+                  <div className="sm:col-span-2">
+                    <ProfileRow
+                      icon={<Phone size={18} />}
+                      label="Contact Phone"
+                      value={
+                        selectedStaff.emergency_contact_phone || "—"
+                      }
+                    />
+                  </div>
+                </div>
+              </ProfileSection>
+
+              {/* Notes */}
+              <ProfileSection title="Additional Information">
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">
+                    Notes
+                  </p>
+                  <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+                    {selectedStaff.notes || "No notes added."}
+                  </p>
+                </div>
+              </ProfileSection>
             </div>
 
-            <div className="mt-7 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() =>
-                  toggleStatus(selectedStaff)
-                }
-                className={`rounded-xl px-5 py-3 text-sm font-bold ${
-                  selectedStaff.is_active
-                    ? "bg-red-50 text-red-600 hover:bg-red-100"
-                    : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                }`}
-              >
-                {selectedStaff.is_active
-                  ? "Deactivate"
-                  : "Activate"}
-              </button>
+            {/* Actions */}
+            <div className="border-t border-slate-100 bg-white px-5 py-4 sm:px-7">
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => toggleStatus(selectedStaff)}
+                  className={`rounded-xl px-5 py-3 text-sm font-bold ${
+                    selectedStaff.is_active
+                      ? "bg-red-50 text-red-600 hover:bg-red-100"
+                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  }`}
+                >
+                  {selectedStaff.is_active
+                    ? "Deactivate"
+                    : "Activate"}
+                </button>
 
-              <button
-                type="button"
-                onClick={() => deleteStaff(selectedStaff)}
-                className="inline-flex items-center gap-2 rounded-xl bg-red-50 px-5 py-3 text-sm font-bold text-red-600 hover:bg-red-100"
-              >
-                <Trash2 size={16} />
-                Delete Staff
-              </button>
+                <button
+                  type="button"
+                  onClick={() => deleteStaff(selectedStaff)}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-50 px-5 py-3 text-sm font-bold text-red-600 hover:bg-red-100"
+                >
+                  <Trash2 size={16} />
+                  Delete Staff
+                </button>
 
-              <button
-                type="button"
-                onClick={() => openEdit(selectedStaff)}
-                className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800"
-              >
-                Edit Staff
-              </button>
+                <button
+                  type="button"
+                  onClick={() => openEdit(selectedStaff)}
+                  className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800"
+                >
+                  Edit Staff
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function ProfileSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mb-6 last:mb-0">
+      <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
+        {title}
+      </h3>
+      {children}
+    </section>
   );
 }
 
