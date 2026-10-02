@@ -41,6 +41,7 @@ import {
 
 
   CalendarDays,
+  CalendarClock,
 
 
   ClipboardCheck,
@@ -836,6 +837,11 @@ export default function SchoolWorkspaceLayout({
 
 
     },
+    {
+      name: "Timetable",
+      href: `${basePath}/timetable`,
+      icon: CalendarClock,
+    },
 
 
     {
@@ -1342,7 +1348,7 @@ export default function SchoolWorkspaceLayout({
             size={28}
 
 
-            className="mx-auto animate-spin text-rose-500"
+            className="mx-auto animate-spin text-[#C58A00]"
 
 
           />
@@ -1726,10 +1732,10 @@ export default function SchoolWorkspaceLayout({
                   active
 
 
-                    ? "bg-rose-500 text-white shadow-sm"
+                    ? "bg-[#C58A00] text-white shadow-sm"
 
 
-                    : "text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+                    : "text-slate-500 hover:bg-[#C58A00]/10 hover:text-[#A96F00]"
 
 
                 }

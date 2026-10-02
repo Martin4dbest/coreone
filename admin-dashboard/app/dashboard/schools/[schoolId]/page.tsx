@@ -30,6 +30,7 @@ import {
   FileQuestion,
   LibraryBig,
   CalendarDays,
+  CalendarClock,
   Settings,
   UserCog,
 } from "lucide-react";
@@ -2346,6 +2347,11 @@ export default function School360Dashboard() {
                 icon: BookOpen,
               },
               {
+                title: "Timetable",
+                href: `/dashboard/schools/${schoolId}/timetable`,
+                icon: CalendarClock,
+              },
+              {
                 title: "Attendance",
                 href: `/dashboard/schools/${schoolId}/attendance`,
                 icon: CalendarCheck2,
@@ -2476,7 +2482,15 @@ export default function School360Dashboard() {
                 },
               ];
 
-              const theme = cardThemes[index % cardThemes.length];
+              const theme =
+                item.title === "Timetable"
+                  ? {
+                      card:
+                        "border-[#C58A00]/25 bg-[#C58A00]/5 hover:border-[#C58A00]/40 hover:bg-[#C58A00]/10",
+                      icon:
+                        "bg-[#C58A00]/10 text-[#A96F00] group-hover:bg-[#C58A00]/20 group-hover:text-[#8F5D00]",
+                    }
+                  : cardThemes[index % cardThemes.length];
 
               return (
                 <a

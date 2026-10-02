@@ -8,6 +8,7 @@ import { LockKeyhole,
   Bell,
   Search,
   ChevronDown,
+  CalendarClock,
   LogOut,
   UserRound,
 } from "lucide-react";
@@ -234,6 +235,10 @@ export default function Topbar() {
             href: `/dashboard/schools/${schoolId}/attendance`,
           },
           {
+            keywords: ["timetable", "schedule", "class timetable", "class schedule"],
+            href: `/dashboard/schools/${schoolId}/timetable`,
+          },
+          {
             keywords: ["event", "events"],
             href: `/dashboard/schools/${schoolId}/events`,
           },
@@ -324,6 +329,17 @@ const initials = displayName
             <Bell size={20} />
             <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
           </button>
+        )}
+
+        {partnerSchoolsMatch && (
+          <Link
+            href={`/dashboard/schools/${partnerSchoolsMatch[1]}/timetable`}
+            className="hidden sm:inline-flex items-center gap-2 rounded-xl border border-[#C58A00]/25 bg-[#C58A00]/5 px-3.5 py-2.5 text-sm font-semibold text-[#A96F00] transition hover:bg-[#C58A00]/10"
+            title="Open Timetable"
+          >
+            <CalendarClock size={17} />
+            <span>Timetable</span>
+          </Link>
         )}
 
         <div className="relative">

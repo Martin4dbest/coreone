@@ -16,6 +16,7 @@ import {
   UserRound,
   BookOpen,
   CalendarDays,
+  CalendarClock,
   ClipboardCheck,
   LogOut,
   Menu,
@@ -251,6 +252,12 @@ export default function Sidebar() {
       icon: BookOpen,
       color: "text-rose-400",
       feature: "academics",
+    },
+    {
+      name: "Timetable",
+      href: `${schoolBase}/timetable`,
+      icon: CalendarClock,
+      color: "text-amber-400",
     },
     {
       name: "Results",
