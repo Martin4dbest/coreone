@@ -15,7 +15,11 @@ import api from "@/lib/api";
 
 type Option = {
   id: number;
-  name: string;
+  name?: string;
+  full_name?: string;
+  first_name?: string;
+  last_name?: string;
+  user?: { name?: string };
   is_active?: boolean;
 };
 
@@ -47,6 +51,17 @@ const DAYS = [
   "Friday",
   "Saturday",
 ];
+
+function getTeacherName(teacher: Option | undefined) {
+  if (!teacher) return "";
+  return (
+    teacher.name ||
+    teacher.full_name ||
+    [teacher.first_name, teacher.last_name].filter(Boolean).join(" ") ||
+    teacher.user?.name ||
+    `Teacher #${teacher.id}`
+  );
+}
 
 function unwrapArray<T>(value: unknown): T[] {
   if (Array.isArray(value)) {
@@ -684,11 +699,12 @@ export default function TimetablePage({
                     )?.name ||
                     `Subject #${entry.subject_id}`;
 
+                  const foundTeacher = teachers.find(
+                    (item) => item.id === entry.teacher_id
+                  );
                   const teacherName =
                     entry.teacher_name ||
-                    teachers.find(
-                      (item) => item.id === entry.teacher_id
-                    )?.name ||
+                    getTeacherName(foundTeacher) ||
                     `Teacher #${entry.teacher_id}`;
 
                   return (
@@ -917,13 +933,15 @@ export default function TimetablePage({
                       }
                       className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-sm text-black outline-none transition hover:border-slate-300 focus:border-[#C58A00] focus:ring-2 focus:ring-[#C58A00]/10"
                     >
-                      <span className="truncate">
+                      <span className="truncate text-black">
                         {form.teacher_id
-                          ? teachers.find(
-                              (teacher) =>
-                                String(teacher.id) ===
-                                String(form.teacher_id)
-                            )?.name || "Select teacher"
+                          ? getTeacherName(
+                              teachers.find(
+                                (teacher) =>
+                                  String(teacher.id) ===
+                                  String(form.teacher_id)
+                              )
+                            ) || "Select teacher"
                           : "Select teacher"}
                       </span>
 
@@ -965,7 +983,7 @@ export default function TimetablePage({
                                 }`}
                               >
                                 <span className="truncate text-black">
-                                  {teacher.name}
+                                  {getTeacherName(teacher)}
                                 </span>
 
                                 {selected && (
