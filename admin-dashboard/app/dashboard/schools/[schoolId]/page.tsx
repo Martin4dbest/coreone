@@ -31,6 +31,7 @@ import {
   LibraryBig,
   CalendarDays,
   CalendarClock,
+  Clock3,
   Settings,
   UserCog,
 } from "lucide-react";
@@ -687,6 +688,8 @@ export default function School360Dashboard() {
 
   const [data, setData] = useState<DashboardData>(emptyData);
   const [school, setSchool] = useState<AnyRecord | null>(null);
+  const [earlyComersToday, setEarlyComersToday] = useState(0);
+  const [earlyComerLeader, setEarlyComerLeader] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#4f46e5");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -721,6 +724,7 @@ export default function School360Dashboard() {
         api.get(`/school-books/${schoolId}/distribution-records`).catch(() => null),
         api.get(`/staff/leave?school_id=${schoolId}`).catch(() => null),
         api.get(`/departments?school_id=${schoolId}`).catch(() => null),
+        api.get(`/staff/attendance/report?school_id=${schoolId}`).catch(() => null),
       ];
 
       const results = await Promise.all(requests);
@@ -815,6 +819,63 @@ export default function School360Dashboard() {
 
       const leave360 = toList(unwrap(14));
       const departments360 = toList(unwrap(15));
+
+      // Early Comers — admin dashboard summary only.
+      // Uses the existing staff attendance report; no attendance data is changed.
+      const earlyAttendance360 = toList(unwrap(16));
+
+      const todayKey = new Date().toLocaleDateString("en-CA", {
+        timeZone: "Africa/Lagos",
+      });
+
+      const staffTodayEarly = earlyAttendance360
+        .filter((item: any) => {
+          const rawDate =
+            item?.attendance_date ??
+            item?.attendanceDate ??
+            item?.date;
+
+          const rawCheckIn =
+            item?.check_in_at ??
+            item?.checkInAt ??
+            item?.clock_in_at ??
+            item?.clockInAt;
+
+          if (!rawDate || !rawCheckIn) return false;
+
+          const dateKey = String(rawDate).slice(0, 10);
+          if (dateKey !== todayKey) return false;
+
+          const checkIn = new Date(rawCheckIn);
+          if (Number.isNaN(checkIn.getTime())) return false;
+
+          const lagosTime = new Intl.DateTimeFormat("en-GB", {
+            timeZone: "Africa/Lagos",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }).format(checkIn);
+
+          return lagosTime < "08:00";
+        })
+        .sort((a: any, b: any) => {
+          const aTime = new Date(
+            a?.check_in_at ?? a?.checkInAt ?? a?.clock_in_at ?? a?.clockInAt,
+          ).getTime();
+
+          const bTime = new Date(
+            b?.check_in_at ?? b?.checkInAt ?? b?.clock_in_at ?? b?.clockInAt,
+          ).getTime();
+
+          return aTime - bTime;
+        });
+
+      setEarlyComersToday(staffTodayEarly.length);
+      setEarlyComerLeader(
+        staffTodayEarly[0]?.staff_name ??
+          staffTodayEarly[0]?.staffName ??
+          "",
+      );
 
       const numericValue = (...values: any[]): number => {
         for (const value of values) {
@@ -1487,6 +1548,46 @@ export default function School360Dashboard() {
             </div>
 
             <div className="flex flex-wrap gap-3 items-center">
+              <button
+                type="button"
+                onClick={() =>
+                  (window.location.href = `/dashboard/schools/${schoolId}/staff/early-comers`)
+                }
+                className="group rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-left backdrop-blur transition hover:bg-white/15"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400/15">
+                    <Clock3 size={18} className="text-amber-300" />
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Early Comers
+                    </p>
+
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <span className="text-lg sm:text-xl font-black text-white">
+                        {earlyComersToday}
+                      </span>
+
+                      <span className="text-[10px] font-bold text-amber-200">
+                        Today
+                      </span>
+                    </div>
+
+                    {earlyComerLeader ? (
+                      <p className="mt-0.5 max-w-[150px] truncate text-[10px] font-semibold text-slate-300">
+                        First: {earlyComerLeader}
+                      </p>
+                    ) : (
+                      <p className="mt-0.5 text-[10px] font-semibold text-slate-400">
+                        View leaderboard
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </button>
+
               <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   School Health
