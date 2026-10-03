@@ -1148,7 +1148,7 @@ export default function Page({
                   <p className="mt-1 truncate text-sm text-slate-500">
                     {selectedStaff.job_title || "Staff Member"}
                     {selectedStaff.department
-                      ? ` • ${selectedStaff.department}`
+                      ? ` â€¢ ${selectedStaff.department}`
                       : ""}
                   </p>
                 </div>
@@ -1177,7 +1177,7 @@ export default function Page({
                   <ProfileRow
                     icon={<UserRound size={18} />}
                     label="Middle Name"
-                    value={selectedStaff.middle_name || "—"}
+                    value={selectedStaff.middle_name || "â€”"}
                   />
 
                   <ProfileRow
@@ -1189,26 +1189,26 @@ export default function Page({
                   <ProfileRow
                     icon={<UserRound size={18} />}
                     label="Gender"
-                    value={selectedStaff.gender || "—"}
+                    value={selectedStaff.gender || "â€”"}
                   />
 
                   <ProfileRow
                     icon={<CalendarDays size={18} />}
                     label="Date of Birth"
-                    value={selectedStaff.date_of_birth || "—"}
+                    value={selectedStaff.date_of_birth || "â€”"}
                   />
 
                   <ProfileRow
                     icon={<Phone size={18} />}
                     label="Phone"
-                    value={selectedStaff.phone || "—"}
+                    value={selectedStaff.phone || "â€”"}
                   />
 
                   <div className="sm:col-span-2">
                     <ProfileRow
                       icon={<MapPin size={18} />}
                       label="Address"
-                      value={selectedStaff.address || "—"}
+                      value={selectedStaff.address || "â€”"}
                     />
                   </div>
                 </div>
@@ -1226,31 +1226,31 @@ export default function Page({
                   <ProfileRow
                     icon={<BriefcaseBusiness size={18} />}
                     label="Job Title"
-                    value={selectedStaff.job_title || "—"}
+                    value={selectedStaff.job_title || "â€”"}
                   />
 
                   <ProfileRow
                     icon={<Building2 size={18} />}
                     label="Department"
-                    value={selectedStaff.department || "—"}
+                    value={selectedStaff.department || "â€”"}
                   />
 
                   <ProfileRow
                     icon={<BriefcaseBusiness size={18} />}
                     label="Employment Type"
-                    value={selectedStaff.employment_type || "—"}
+                    value={selectedStaff.employment_type || "â€”"}
                   />
 
                   <ProfileRow
                     icon={<CalendarDays size={18} />}
                     label="Date Employed"
-                    value={selectedStaff.date_employed || "—"}
+                    value={selectedStaff.date_employed || "â€”"}
                   />
 
                   <ProfileRow
                     icon={<GraduationCap size={18} />}
                     label="Qualification"
-                    value={selectedStaff.qualification || "—"}
+                    value={selectedStaff.qualification || "â€”"}
                   />
                 </div>
               </ProfileSection>
@@ -1283,7 +1283,7 @@ export default function Page({
                     icon={<UserRound size={18} />}
                     label="Contact Name"
                     value={
-                      selectedStaff.emergency_contact_name || "—"
+                      selectedStaff.emergency_contact_name || "â€”"
                     }
                   />
 
@@ -1292,7 +1292,7 @@ export default function Page({
                     label="Relationship"
                     value={
                       selectedStaff.emergency_contact_relationship ||
-                      "—"
+                      "â€”"
                     }
                   />
 
@@ -1301,7 +1301,7 @@ export default function Page({
                       icon={<Phone size={18} />}
                       label="Contact Phone"
                       value={
-                        selectedStaff.emergency_contact_phone || "—"
+                        selectedStaff.emergency_contact_phone || "â€”"
                       }
                     />
                   </div>
