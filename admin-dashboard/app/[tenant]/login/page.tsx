@@ -94,6 +94,17 @@ export default function TenantLoginPage() {
 
       const user = userResponse.data;
 
+      // First login: force password change before dashboard routing.
+      if (
+        user.must_change_password === true &&
+        (user.role?.name === "TEACHER" ||
+          user.role?.name === "SCHOOL_ADMIN")
+      ) {
+        router.replace("/change-password");
+        return;
+      }
+
+
   if (user.role?.name === "SUPER_ADMIN") {
     localStorage.removeItem("access_token");
     localStorage.removeItem("tenant_slug");
@@ -130,19 +141,6 @@ export default function TenantLoginPage() {
 
     return;
   }
-      // Teachers and school admins marked for a required
-      // password change must not enter the dashboard.
-      if (
-        user.must_change_password === true &&
-        (user.role?.name === "TEACHER" ||
-          user.role?.name === "SCHOOL_ADMIN")
-      ) {
-        router.replace("/change-password");
-        return;
-      }
-
-
-
       if (user.role?.name === "TEACHER") {
         router.replace(`/${tenant.slug}/teacher/dashboard`);
         return;
