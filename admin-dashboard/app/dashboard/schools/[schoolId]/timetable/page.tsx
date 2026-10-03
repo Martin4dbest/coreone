@@ -52,8 +52,17 @@ const DAYS = [
   "Saturday",
 ];
 
+const OVERVIEW_DAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+];
+
 function getTeacherName(teacher: Option | undefined) {
   if (!teacher) return "";
+
   return (
     teacher.name ||
     teacher.full_name ||
@@ -147,6 +156,7 @@ export default function TimetablePage({
   const [subjects, setSubjects] = useState<Option[]>([]);
   const [teachers, setTeachers] = useState<Option[]>([]);
   const [entries, setEntries] = useState<TimetableEntry[]>([]);
+  const [overviewEntries, setOverviewEntries] = useState<TimetableEntry[]>([]);
 
   const [selectedSession, setSelectedSession] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
@@ -169,6 +179,7 @@ export default function TimetablePage({
   });
 
   const [loading, setLoading] = useState(true);
+  const [overviewLoading, setOverviewLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -202,48 +213,21 @@ export default function TimetablePage({
       const subjectData = unwrapArray<Option>(subjectsResponse.data);
       const teacherData = unwrapArray<Option>(teachersResponse.data);
 
-      setSessions(
-        sessionData.filter(
-          (item) =>
-            !item.is_active ||
-            item.is_active === true
-        )
-      );
-
-      setClasses(
-        classData.filter(
-          (item) =>
-            !item.is_active ||
-            item.is_active === true
-        )
-      );
-
-      setSubjects(
-        subjectData.filter(
-          (item) =>
-            !item.is_active ||
-            item.is_active === true
-        )
-      );
-
-      setTeachers(
-        teacherData.filter(
-          (item) =>
-            !item.is_active ||
-            item.is_active === true
-        )
-      );
+      setSessions(sessionData);
+      setClasses(classData);
+      setSubjects(subjectData);
+      setTeachers(teacherData);
 
       const currentSession =
-        sessionData.find(
-          (session) =>
-            Boolean(
-              (session as Option & { is_current?: boolean }).is_current
-            )
+        sessionData.find((session) =>
+          Boolean(
+            (session as Option & { is_current?: boolean }).is_current
+          )
         ) || sessionData[0];
 
       if (currentSession) {
         const sessionId = String(currentSession.id);
+
         setSelectedSession((current) => current || sessionId);
 
         setForm((current) => ({
@@ -278,11 +262,10 @@ export default function TimetablePage({
       setTerms(data);
 
       const currentTerm =
-        data.find(
-          (term) =>
-            Boolean(
-              (term as Option & { is_current?: boolean }).is_current
-            )
+        data.find((term) =>
+          Boolean(
+            (term as Option & { is_current?: boolean }).is_current
+          )
         ) || data[0];
 
       if (currentTerm) {
@@ -329,6 +312,33 @@ export default function TimetablePage({
     }
   }
 
+  async function loadOverviewEntries() {
+    try {
+      setOverviewLoading(true);
+
+      const response = await api.get("/timetable", {
+        params: {
+          school_id: numericSchoolId,
+          ...(selectedSession
+            ? { academic_session_id: Number(selectedSession) }
+            : {}),
+          ...(selectedTerm
+            ? { term_id: Number(selectedTerm) }
+            : {}),
+        },
+      });
+
+      setOverviewEntries(
+        unwrapArray<TimetableEntry>(response.data)
+      );
+    } catch (err) {
+      console.error("Failed to load timetable overview:", err);
+      setOverviewEntries([]);
+    } finally {
+      setOverviewLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadBaseData();
   }, [schoolId]);
@@ -342,6 +352,7 @@ export default function TimetablePage({
   useEffect(() => {
     if (!loading) {
       loadEntries();
+      loadOverviewEntries();
     }
   }, [
     selectedSession,
@@ -350,6 +361,78 @@ export default function TimetablePage({
     selectedDay,
     loading,
   ]);
+
+  const overviewPeriods = useMemo(() => {
+    const periodMap = new Map<
+      string,
+      { start: string; end: string }
+    >();
+
+    for (const entry of overviewEntries) {
+      if (!OVERVIEW_DAYS.includes(entry.day_of_week)) {
+        continue;
+      }
+
+      const key = `${entry.start_time}|${entry.end_time}`;
+
+      if (!periodMap.has(key)) {
+        periodMap.set(key, {
+          start: entry.start_time,
+          end: entry.end_time,
+        });
+      }
+    }
+
+    return Array.from(periodMap.values()).sort((a, b) => {
+      const startCompare = a.start.localeCompare(b.start);
+
+      if (startCompare !== 0) {
+        return startCompare;
+      }
+
+      return a.end.localeCompare(b.end);
+    });
+  }, [overviewEntries]);
+
+  const overviewByDayAndPeriod = useMemo(() => {
+    const map = new Map<string, TimetableEntry[]>();
+
+    for (const entry of overviewEntries) {
+      const day = entry.day_of_week?.trim();
+
+      if (!day || !OVERVIEW_DAYS.includes(day)) {
+        continue;
+      }
+
+      const key = `${day}|${entry.start_time}|${entry.end_time}`;
+
+      const current = map.get(key) || [];
+      current.push(entry);
+      map.set(key, current);
+    }
+
+    for (const items of map.values()) {
+      items.sort((a, b) => {
+        const classA =
+          a.classroom_name ||
+          classes.find(
+            (item) => item.id === a.classroom_id
+          )?.name ||
+          "";
+
+        const classB =
+          b.classroom_name ||
+          classes.find(
+            (item) => item.id === b.classroom_id
+          )?.name ||
+          "";
+
+        return classA.localeCompare(classB);
+      });
+    }
+
+    return map;
+  }, [overviewEntries, classes]);
 
   const groupedEntries = useMemo(() => {
     const groups = new Map<string, TimetableEntry[]>();
@@ -373,16 +456,52 @@ export default function TimetablePage({
       items.sort((a, b) =>
         a.start_time.localeCompare(b.start_time)
       );
+
       groups.set(day, items);
     }
 
     return Array.from(groups.entries())
       .filter(([, items]) => items.length > 0)
-      .map(([day, items]) => [
-        day.charAt(0) + day.slice(1).toLowerCase(),
-        items,
-      ] as [string, TimetableEntry[]]);
+      .map(
+        ([day, items]) =>
+          [
+            day.charAt(0) + day.slice(1).toLowerCase(),
+            items,
+          ] as [string, TimetableEntry[]]
+      );
   }, [entries]);
+
+  function getEntryClassName(entry: TimetableEntry) {
+    return (
+      entry.classroom_name ||
+      classes.find(
+        (item) => item.id === entry.classroom_id
+      )?.name ||
+      `Class #${entry.classroom_id}`
+    );
+  }
+
+  function getEntrySubjectName(entry: TimetableEntry) {
+    return (
+      entry.subject_name ||
+      subjects.find(
+        (item) => item.id === entry.subject_id
+      )?.name ||
+      `Subject #${entry.subject_id}`
+    );
+  }
+
+  function getEntryTeacherName(entry: TimetableEntry) {
+    const foundTeacher = teachers.find(
+      (item) => item.id === entry.teacher_id
+    );
+
+    return (
+      entry.teacher_name ||
+      getTeacherName(foundTeacher) ||
+      `Teacher #${entry.teacher_id}`
+    );
+  }
 
   function openCreateForm() {
     setEditingId(null);
@@ -407,6 +526,7 @@ export default function TimetablePage({
     });
 
     setError("");
+    setTeacherDropdownOpen(false);
     setFormOpen(true);
   }
 
@@ -425,6 +545,7 @@ export default function TimetablePage({
     });
 
     setError("");
+    setTeacherDropdownOpen(false);
     setFormOpen(true);
   }
 
@@ -433,6 +554,7 @@ export default function TimetablePage({
 
     setFormOpen(false);
     setEditingId(null);
+    setTeacherDropdownOpen(false);
   }
 
   async function submitForm(event: FormEvent) {
@@ -481,8 +603,12 @@ export default function TimetablePage({
 
       setFormOpen(false);
       setEditingId(null);
+      setTeacherDropdownOpen(false);
 
-      await loadEntries();
+      await Promise.all([
+        loadEntries(),
+        loadOverviewEntries(),
+      ]);
     } catch (err) {
       console.error("Failed to save timetable entry:", err);
       setError(extractError(err));
@@ -504,6 +630,10 @@ export default function TimetablePage({
       await api.delete(`/timetable/${id}`);
 
       setEntries((current) =>
+        current.filter((entry) => entry.id !== id)
+      );
+
+      setOverviewEntries((current) =>
         current.filter((entry) => entry.id !== id)
       );
     } catch (err) {
@@ -548,13 +678,26 @@ export default function TimetablePage({
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3">
+          <p className="text-sm font-bold text-slate-900">
+            Timetable Filters
+          </p>
+
+          <p className="text-xs text-slate-500">
+            Session and term control the school-wide overview.
+            Class and day filter the detailed list below.
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <select
             value={selectedSession}
             onChange={(event) => {
               const value = event.target.value;
+
               setSelectedSession(value);
               setSelectedTerm("");
+
               setForm((current) => ({
                 ...current,
                 academic_session_id: value,
@@ -564,6 +707,7 @@ export default function TimetablePage({
             className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
           >
             <option value="">All Sessions</option>
+
             {sessions.map((session) => (
               <option key={session.id} value={session.id}>
                 {session.name}
@@ -575,7 +719,9 @@ export default function TimetablePage({
             value={selectedTerm}
             onChange={(event) => {
               const value = event.target.value;
+
               setSelectedTerm(value);
+
               setForm((current) => ({
                 ...current,
                 term_id: value,
@@ -584,6 +730,7 @@ export default function TimetablePage({
             className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
           >
             <option value="">All Terms</option>
+
             {terms.map((term) => (
               <option key={term.id} value={term.id}>
                 {term.name}
@@ -595,7 +742,9 @@ export default function TimetablePage({
             value={selectedClass}
             onChange={(event) => {
               const value = event.target.value;
+
               setSelectedClass(value);
+
               setForm((current) => ({
                 ...current,
                 classroom_id: value,
@@ -604,6 +753,7 @@ export default function TimetablePage({
             className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
           >
             <option value="">All Classes</option>
+
             {classes.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
@@ -613,10 +763,13 @@ export default function TimetablePage({
 
           <select
             value={selectedDay}
-            onChange={(event) => setSelectedDay(event.target.value)}
+            onChange={(event) =>
+              setSelectedDay(event.target.value)
+            }
             className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
           >
             <option value="">All Days</option>
+
             {DAYS.map((day) => (
               <option key={day} value={day}>
                 {day}
@@ -632,13 +785,148 @@ export default function TimetablePage({
         </div>
       )}
 
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 px-5 py-5">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <CalendarClock
+                  size={18}
+                  className="text-[#C58A00]"
+                />
+
+                <h2 className="text-lg font-bold text-slate-900">
+                  School-wide Timetable Overview
+                </h2>
+              </div>
+
+              <p className="mt-1 text-sm text-slate-500">
+                View all classes, subjects and teachers across the school week.
+              </p>
+            </div>
+
+            <div className="w-fit rounded-full bg-[#C58A00]/10 px-3 py-1.5 text-xs font-bold text-[#A96F00]">
+              {overviewEntries.length}{" "}
+              {overviewEntries.length === 1
+                ? "scheduled entry"
+                : "scheduled entries"}
+            </div>
+          </div>
+        </div>
+
+        {overviewLoading ? (
+          <div className="p-10 text-center text-sm text-slate-500">
+            Loading school-wide timetable...
+          </div>
+        ) : overviewEntries.length === 0 ? (
+          <div className="p-10 text-center">
+            <Clock3
+              className="mx-auto text-slate-400"
+              size={30}
+            />
+
+            <p className="mt-3 font-semibold text-slate-900">
+              No school-wide timetable available
+            </p>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Add timetable entries to see the complete school overview.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1100px] border-collapse">
+              <thead>
+                <tr>
+                  <th className="sticky left-0 z-20 w-[150px] border-b border-r border-slate-200 bg-slate-50 px-4 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-600">
+                    Time
+                  </th>
+
+                  {OVERVIEW_DAYS.map((day) => (
+                    <th
+                      key={day}
+                      className="border-b border-r border-slate-200 bg-slate-50 px-4 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-600 last:border-r-0"
+                    >
+                      {day}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              <tbody>
+                {overviewPeriods.map((period) => (
+                  <tr
+                    key={`${period.start}-${period.end}`}
+                    className="align-top"
+                  >
+                    <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-4 py-4 align-top">
+                      <div className="whitespace-nowrap text-sm font-bold text-slate-800">
+                        {formatTime(period.start)}
+                      </div>
+
+                      <div className="mt-1 whitespace-nowrap text-xs text-slate-500">
+                        {formatTime(period.end)}
+                      </div>
+                    </td>
+
+                    {OVERVIEW_DAYS.map((day) => {
+                      const key = `${day}|${period.start}|${period.end}`;
+
+                      const cellEntries =
+                        overviewByDayAndPeriod.get(key) || [];
+
+                      return (
+                        <td
+                          key={key}
+                          className="min-w-[190px] border-b border-r border-slate-200 p-2 align-top last:border-r-0"
+                        >
+                          {cellEntries.length === 0 ? (
+                            <div className="flex min-h-[90px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-xs text-slate-400">
+                              Free
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {cellEntries.map((entry) => (
+                                <div
+                                  key={entry.id}
+                                  className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+                                >
+                                  <p className="text-sm font-bold text-slate-900">
+                                    {getEntryClassName(entry)}
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-semibold text-[#A96F00]">
+                                    {getEntrySubjectName(entry)}
+                                  </p>
+
+                                  <p className="mt-1 text-xs font-medium text-slate-500">
+                                    {getEntryTeacherName(entry)}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       {loading ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
           Loading timetable...
         </div>
       ) : groupedEntries.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-          <Clock3 className="mx-auto text-slate-400" size={30} />
+          <Clock3
+            className="mx-auto text-slate-400"
+            size={30}
+          />
 
           <h3 className="mt-3 font-semibold text-slate-900">
             No timetable entries
@@ -684,78 +972,51 @@ export default function TimetablePage({
               </div>
 
               <div className="divide-y divide-slate-100">
-                {dayEntries.map((entry) => {
-                  const className =
-                    entry.classroom_name ||
-                    classes.find(
-                      (item) => item.id === entry.classroom_id
-                    )?.name ||
-                    `Class #${entry.classroom_id}`;
-
-                  const subjectName =
-                    entry.subject_name ||
-                    subjects.find(
-                      (item) => item.id === entry.subject_id
-                    )?.name ||
-                    `Subject #${entry.subject_id}`;
-
-                  const foundTeacher = teachers.find(
-                    (item) => item.id === entry.teacher_id
-                  );
-                  const teacherName =
-                    entry.teacher_name ||
-                    getTeacherName(foundTeacher) ||
-                    `Teacher #${entry.teacher_id}`;
-
-                  return (
-                    <div
-                      key={entry.id}
-                      className="flex flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center lg:justify-between"
-                    >
-                      <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
-                        <div className="w-fit rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700">
-                          {formatTime(entry.start_time)}
-                          {" - "}
-                          {formatTime(entry.end_time)}
-                        </div>
-
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-900">
-                            {subjectName}
-                          </p>
-
-                          <p className="mt-1 text-sm text-slate-500">
-                            {className} · {teacherName}
-                          </p>
-                        </div>
+                {dayEntries.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center lg:justify-between"
+                  >
+                    <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+                      <div className="w-fit rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700">
+                        {formatTime(entry.start_time)}
+                        {" - "}
+                        {formatTime(entry.end_time)}
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            openEditForm(entry)
-                          }
-                          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                        >
-                          <Pencil size={15} />
-                          Edit
-                        </button>
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-900">
+                          {getEntrySubjectName(entry)}
+                        </p>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            removeEntry(entry.id)
-                          }
-                          className="inline-flex items-center gap-2 rounded-lg border border-red-100 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
-                        >
-                          <Trash2 size={15} />
-                          Remove
-                        </button>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {getEntryClassName(entry)} ·{" "}
+                          {getEntryTeacherName(entry)}
+                        </p>
                       </div>
                     </div>
-                  );
-                })}
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEditForm(entry)}
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                      >
+                        <Pencil size={15} />
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => removeEntry(entry.id)}
+                        className="inline-flex items-center gap-2 rounded-lg border border-red-100 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                      >
+                        <Trash2 size={15} />
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </section>
           ))}
@@ -787,10 +1048,7 @@ export default function TimetablePage({
               </button>
             </div>
 
-            <form
-              onSubmit={submitForm}
-              className="space-y-5 p-5"
-            >
+            <form onSubmit={submitForm} className="space-y-5 p-5">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-700">
@@ -802,23 +1060,17 @@ export default function TimetablePage({
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        academic_session_id:
-                          event.target.value,
+                        academic_session_id: event.target.value,
                         term_id: "",
                       }))
                     }
                     className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
                     required
                   >
-                    <option value="">
-                      Select session
-                    </option>
+                    <option value="">Select session</option>
 
                     {sessions.map((session) => (
-                      <option
-                        key={session.id}
-                        value={session.id}
-                      >
+                      <option key={session.id} value={session.id}>
                         {session.name}
                       </option>
                     ))}
@@ -841,15 +1093,10 @@ export default function TimetablePage({
                     className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
                     required
                   >
-                    <option value="">
-                      Select term
-                    </option>
+                    <option value="">Select term</option>
 
                     {terms.map((term) => (
-                      <option
-                        key={term.id}
-                        value={term.id}
-                      >
+                      <option key={term.id} value={term.id}>
                         {term.name}
                       </option>
                     ))}
@@ -866,22 +1113,16 @@ export default function TimetablePage({
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        classroom_id:
-                          event.target.value,
+                        classroom_id: event.target.value,
                       }))
                     }
                     className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
                     required
                   >
-                    <option value="">
-                      Select class
-                    </option>
+                    <option value="">Select class</option>
 
                     {classes.map((item) => (
-                      <option
-                        key={item.id}
-                        value={item.id}
-                      >
+                      <option key={item.id} value={item.id}>
                         {item.name}
                       </option>
                     ))}
@@ -898,22 +1139,16 @@ export default function TimetablePage({
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        subject_id:
-                          event.target.value,
+                        subject_id: event.target.value,
                       }))
                     }
                     className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
                     required
                   >
-                    <option value="">
-                      Select subject
-                    </option>
+                    <option value="">Select subject</option>
 
                     {subjects.map((subject) => (
-                      <option
-                        key={subject.id}
-                        value={subject.id}
-                      >
+                      <option key={subject.id} value={subject.id}>
                         {subject.name}
                       </option>
                     ))}
@@ -974,6 +1209,7 @@ export default function TimetablePage({
                                     ...current,
                                     teacher_id: String(teacher.id),
                                   }));
+
                                   setTeacherDropdownOpen(false);
                                 }}
                                 className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition ${
@@ -1010,8 +1246,7 @@ export default function TimetablePage({
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        day_of_week:
-                          event.target.value,
+                        day_of_week: event.target.value,
                       }))
                     }
                     className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
@@ -1036,8 +1271,7 @@ export default function TimetablePage({
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        start_time:
-                          event.target.value,
+                        start_time: event.target.value,
                       }))
                     }
                     className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
@@ -1056,8 +1290,7 @@ export default function TimetablePage({
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        end_time:
-                          event.target.value,
+                        end_time: event.target.value,
                       }))
                     }
                     className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-black outline-none focus:border-[#C58A00]"
