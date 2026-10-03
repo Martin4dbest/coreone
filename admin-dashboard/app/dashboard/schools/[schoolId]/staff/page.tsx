@@ -1,7 +1,6 @@
 "use client";
 
-import {
-  Phone, use, useEffect, useRef, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -17,7 +16,8 @@ import {
   Trash2,
   Upload,
   CalendarDays,
-} from "lucide-react";
+
+  Phone,} from "lucide-react";
 import api from "@/lib/api";
 
 type Staff = {
