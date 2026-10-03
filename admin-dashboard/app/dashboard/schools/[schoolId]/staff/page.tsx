@@ -1,7 +1,5 @@
 "use client";
 
-import { use, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import {
   ArrowLeft,
   Loader2,
@@ -16,8 +14,13 @@ import {
   Trash2,
   Upload,
   CalendarDays,
-
-  Phone,} from "lucide-react";
+  Phone,
+  BriefcaseBusiness,
+  Building2,
+  GraduationCap,
+  MapPin,
+  Users,
+} from "lucide-react";
 import api from "@/lib/api";
 
 type Staff = {
