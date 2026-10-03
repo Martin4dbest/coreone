@@ -26,10 +26,6 @@ const SOFT_GOLD = "#FFF8E7";
 export default function StaffDashboard() {
   const { user, tenant, logout, loading } = useAuth();
 
-  /*
-   * The existing auth types may not expose every backend field.
-   * Keep the dashboard tolerant of the actual API response shape.
-   */
   const authUser = user as any;
   const authTenant = tenant as any;
 
@@ -39,13 +35,9 @@ export default function StaffDashboard() {
     const timer = setInterval(() => {
       setNow(new Date());
     }, 1000);
-
     return () => clearInterval(timer);
   }, []);
 
-  /*
-   * STAFF ONLY
-   */
   useEffect(() => {
     if (loading) return;
 
@@ -55,7 +47,6 @@ export default function StaffDashboard() {
     }
 
     const rawRole = authUser?.role;
-
     const role =
       typeof rawRole === "string"
         ? rawRole
@@ -65,37 +56,59 @@ export default function StaffDashboard() {
       router.replace("/student/dashboard");
       return;
     }
-
     if (role === "PARENT") {
       router.replace("/parent/dashboard");
       return;
     }
-
     if (role === "TEACHER") {
       router.replace("/teacher/dashboard");
       return;
     }
-
     if (role !== "STAFF") {
       router.replace("/login");
     }
   }, [loading, user, authUser]);
 
+  // Guaranteed exact name resolution across all common schema variants
   const staffName = useMemo(() => {
+    if (!authUser) return "Staff Member";
+
+    const explicitFullName =
+      authUser.full_name ||
+      authUser.fullName ||
+      authUser.name;
+
+    if (explicitFullName && typeof explicitFullName === "string") {
+      return explicitFullName.trim();
+    }
+
     const first =
-      authUser?.first_name ||
-      authUser?.firstName ||
+      authUser.first_name ||
+      authUser.firstName ||
       "";
 
     const last =
-      authUser?.last_name ||
-      authUser?.lastName ||
+      authUser.last_name ||
+      authUser.lastName ||
       "";
 
-    const fullName = `${first} ${last}`.trim();
+    const combined = `${first} ${last}`.trim();
+    if (combined) return combined;
 
-    return fullName || "Staff Member";
+    if (authUser.email) {
+      return authUser.email.split("@")[0];
+    }
+
+    return "Staff Member";
   }, [authUser]);
+
+  const staffInitials = useMemo(() => {
+    const parts = staffName.split(" ");
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return staffName.substring(0, 2).toUpperCase();
+  }, [staffName]);
 
   const schoolName =
     authTenant?.school_name ||
@@ -104,7 +117,7 @@ export default function StaffDashboard() {
 
   const dateText = now.toLocaleDateString("en-NG", {
     weekday: "long",
-    day: "2-digit",
+    day: "numeric",
     month: "long",
     year: "numeric",
   });
@@ -127,42 +140,15 @@ export default function StaffDashboard() {
   if (loading || !user) {
     return (
       <SafeAreaView style={styles.loadingScreen}>
-        <ActivityIndicator
-          size="large"
-          color={COREONE_GOLD}
-        />
-
-        <Text style={styles.loadingText}>
-          Loading your workspace...
-        </Text>
-      </SafeAreaView>
-    );
-  }
-
-  const rawRole = authUser?.role;
-
-  const role =
-    typeof rawRole === "string"
-      ? rawRole
-      : rawRole?.name || rawRole?.role || "";
-
-  if (role !== "STAFF") {
-    return (
-      <SafeAreaView style={styles.loadingScreen}>
-        <ActivityIndicator
-          size="small"
-          color={COREONE_GOLD}
-        />
+        <ActivityIndicator size="large" color={COREONE_GOLD} />
+        <Text style={styles.loadingText}>Loading your workspace...</Text>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor={BACKGROUND}
-      />
+      <StatusBar barStyle="dark-content" backgroundColor={BACKGROUND} />
 
       <View style={styles.desktopFrame}>
         <ScrollView
@@ -170,148 +156,120 @@ export default function StaffDashboard() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-        {/* HEADER */}
-        <View style={styles.header}>
-          <View style={styles.headerTextBlock}>
-            <Text style={styles.brand}>
-              Core<Text style={styles.brandAccent}>One</Text>
-            </Text>
-
-            <Text
-              style={styles.schoolName}
-              numberOfLines={1}
-            >
-              {schoolName}
-            </Text>
-          </View>
-
-          <Pressable
-            onPress={handleLogout}
-            accessibilityRole="button"
-            accessibilityLabel="Log out"
-            style={({ pressed }) => [
-              styles.logoutButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Ionicons
-              name="log-out-outline"
-              size={20}
-              color={COREONE_DARK}
-            />
-          </Pressable>
-        </View>
-
-        {/* GREETING */}
-        <View style={styles.greetingCard}>
-          <View style={styles.greetingTop}>
-            <View style={styles.greetingTextBlock}>
-              <Text style={styles.smallLabel}>
-                STAFF WORKSPACE
-              </Text>
-
-              <Text style={styles.greeting}>
-                Welcome, {staffName}
+          {/* HEADER WITH COREONE BRANDING */}
+          <View style={styles.header}>
+            <View style={styles.headerTextBlock}>
+              <View style={styles.brandRow}>
+                <View style={styles.coreOneLogoMark}>
+                  <Text style={styles.logoMarkText}>C1</Text>
+                </View>
+                <Text style={styles.brand}>
+                  Core<Text style={styles.brandAccent}>One</Text>
+                </Text>
+              </View>
+              <Text style={styles.schoolName} numberOfLines={1}>
+                {schoolName}
               </Text>
             </View>
 
-            <View style={styles.clockIcon}>
-              <Ionicons
-                name="time-outline"
-                size={23}
-                color={COREONE_GOLD}
-              />
-            </View>
-          </View>
-
-          <View style={styles.dateRow}>
-            <View style={styles.dateItem}>
-              <Ionicons
-                name="calendar-outline"
-                size={17}
-                color={COREONE_SLATE}
-              />
-
-              <Text
-                style={styles.dateText}
-                numberOfLines={2}
+            <View style={styles.headerRightActions}>
+              <Pressable
+                onPress={() => router.push("/staff/profile")}
+                style={({ pressed }) => [
+                  styles.profileButton,
+                  pressed && styles.pressed,
+                ]}
               >
-                {dateText}
-              </Text>
-            </View>
+                <Text style={styles.profileInitials}>{staffInitials}</Text>
+              </Pressable>
 
-            <View style={styles.timeBox}>
-              <Text style={styles.timeText}>
-                {timeText}
-              </Text>
+              <Pressable
+                onPress={handleLogout}
+                accessibilityRole="button"
+                accessibilityLabel="Log out"
+                style={({ pressed }) => [
+                  styles.logoutButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons name="log-out-outline" size={18} color={COREONE_DARK} />
+              </Pressable>
             </View>
           </View>
-        </View>
 
-        {/* ATTENDANCE */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Attendance
-          </Text>
+          {/* GREETING / HERO CARD */}
+          <View style={styles.greetingCard}>
+            <View style={styles.greetingTop}>
+              <View style={styles.greetingTextBlock}>
+                <Text style={styles.smallLabel}>STAFF WORKSPACE</Text>
+                <Text style={styles.greeting}>Welcome, {staffName}</Text>
+              </View>
 
-          <StaffClockInCard />
-        </View>
+              <View style={styles.clockIcon}>
+                <Ionicons name="time-outline" size={23} color={COREONE_GOLD} />
+              </View>
+            </View>
 
-        {/* QUICK ACTIONS */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Quick Actions
-          </Text>
+            <View style={styles.dateRow}>
+              <View style={styles.dateItem}>
+                <Ionicons name="calendar-outline" size={17} color={COREONE_SLATE} />
+                <Text style={styles.dateText} numberOfLines={2}>
+                  {dateText}
+                </Text>
+              </View>
 
-          <View style={styles.actionGrid}>
-            <ActionCard
-              icon="calendar-outline"
-              title="Attendance"
-              subtitle="View my attendance"
-              onPress={() =>
-                router.push("/staff/attendance")
-              }
-            />
-
-            <ActionCard
-              icon="document-text-outline"
-              title="Documents"
-              subtitle="Staff documents"
-              onPress={() =>
-                router.push("/staff/documents")
-              }
-            />
-
-            <ActionCard
-              icon="time-outline"
-              title="Leave"
-              subtitle="Leave requests"
-              onPress={() =>
-                router.push("/staff/leave")
-              }
-            />
-
-            <ActionCard
-              icon="person-outline"
-              title="Profile"
-              subtitle="My staff profile"
-              onPress={() =>
-                router.push("/staff/profile")
-              }
-            />
+              <View style={styles.timeBox}>
+                <Text style={styles.timeText}>{timeText}</Text>
+              </View>
+            </View>
           </View>
-        </View>
 
-        {/* FOOTER */}
-        <View style={styles.footer}>
-          <Text style={styles.footerBrand}>
-            CoreOne
-          </Text>
+          {/* ATTENDANCE */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Attendance</Text>
+            <StaffClockInCard />
+          </View>
 
-          <Text style={styles.footerText}>
-            School Management Platform
-          </Text>
-        </View>
+          {/* QUICK ACTIONS */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+
+            <View style={styles.actionGrid}>
+              <ActionCard
+                icon="calendar-outline"
+                title="Attendance"
+                subtitle="View my attendance"
+                onPress={() => router.push("/staff/attendance")}
+              />
+
+              <ActionCard
+                icon="document-text-outline"
+                title="Documents"
+                subtitle="Staff documents"
+                onPress={() => router.push("/staff/documents")}
+              />
+
+              <ActionCard
+                icon="time-outline"
+                title="Leave"
+                subtitle="Leave requests"
+                onPress={() => router.push("/staff/leave")}
+              />
+
+              <ActionCard
+                icon="person-outline"
+                title="Profile"
+                subtitle="My staff profile"
+                onPress={() => router.push("/staff/profile")}
+              />
+            </View>
+          </View>
+
+          {/* FOOTER */}
+          <View style={styles.footer}>
+            <Text style={styles.footerBrand}>CoreOne</Text>
+            <Text style={styles.footerText}>School Management Platform</Text>
+          </View>
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -339,20 +297,11 @@ function ActionCard({
       ]}
     >
       <View style={styles.actionIcon}>
-        <Ionicons
-          name={icon}
-          size={21}
-          color={COREONE_GOLD}
-        />
+        <Ionicons name={icon} size={21} color={COREONE_GOLD} />
       </View>
 
-      <Text style={styles.actionTitle}>
-        {title}
-      </Text>
-
-      <Text style={styles.actionSubtitle}>
-        {subtitle}
-      </Text>
+      <Text style={styles.actionTitle}>{title}</Text>
+      <Text style={styles.actionSubtitle}>{subtitle}</Text>
     </Pressable>
   );
 }
@@ -362,7 +311,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BACKGROUND,
   },
-
   desktopFrame: {
     flex: 1,
     width: "100%",
@@ -370,61 +318,90 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     backgroundColor: BACKGROUND,
   },
-
   container: {
     flex: 1,
     backgroundColor: BACKGROUND,
   },
-
   content: {
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 36,
   },
-
   loadingScreen: {
     flex: 1,
     backgroundColor: BACKGROUND,
     alignItems: "center",
     justifyContent: "center",
   },
-
   loadingText: {
     marginTop: 10,
     fontSize: 14,
     color: COREONE_SLATE,
   },
-
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 20,
   },
-
   headerTextBlock: {
     flex: 1,
     paddingRight: 12,
   },
-
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  coreOneLogoMark: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: COREONE_GOLD,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoMarkText: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: WHITE,
+    letterSpacing: -0.5,
+  },
   brand: {
     fontSize: 22,
     fontWeight: "800",
     color: COREONE_DARK,
     letterSpacing: -0.5,
   },
-
   brandAccent: {
     color: COREONE_GOLD,
   },
-
   schoolName: {
     marginTop: 4,
     fontSize: 12,
     color: COREONE_SLATE,
     fontWeight: "600",
   },
-
+  headerRightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  profileButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: SOFT_GOLD,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileInitials: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: COREONE_GOLD,
+  },
   logoutButton: {
     width: 42,
     height: 42,
@@ -435,7 +412,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   greetingCard: {
     backgroundColor: WHITE,
     borderRadius: 20,
@@ -444,18 +420,15 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
     marginBottom: 24,
   },
-
   greetingTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-
   greetingTextBlock: {
     flex: 1,
     paddingRight: 12,
   },
-
   smallLabel: {
     fontSize: 10,
     fontWeight: "800",
@@ -463,14 +436,12 @@ const styles = StyleSheet.create({
     color: COREONE_GOLD,
     marginBottom: 6,
   },
-
   greeting: {
     fontSize: 22,
     lineHeight: 28,
     fontWeight: "800",
     color: COREONE_DARK,
   },
-
   clockIcon: {
     width: 45,
     height: 45,
@@ -479,7 +450,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   dateRow: {
     marginTop: 18,
     paddingTop: 15,
@@ -489,14 +459,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-
   dateItem: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     paddingRight: 8,
   },
-
   dateText: {
     flex: 1,
     marginLeft: 7,
@@ -504,37 +472,31 @@ const styles = StyleSheet.create({
     color: COREONE_SLATE,
     fontWeight: "600",
   },
-
   timeBox: {
     paddingHorizontal: 11,
     paddingVertical: 7,
     borderRadius: 10,
     backgroundColor: "#F8FAFC",
   },
-
   timeText: {
     fontSize: 12,
     fontWeight: "800",
     color: COREONE_DARK,
   },
-
   section: {
     marginBottom: 24,
   },
-
   sectionTitle: {
     marginBottom: 10,
     fontSize: 15,
     fontWeight: "800",
     color: COREONE_DARK,
   },
-
   actionGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
   },
-
   actionCard: {
     width: "48.5%",
     minHeight: 118,
@@ -545,7 +507,6 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 10,
   },
-
   actionIcon: {
     width: 38,
     height: 38,
@@ -555,38 +516,32 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 10,
   },
-
   actionTitle: {
     fontSize: 13,
     fontWeight: "800",
     color: COREONE_DARK,
   },
-
   actionSubtitle: {
     marginTop: 4,
     fontSize: 11,
     lineHeight: 16,
     color: COREONE_SLATE,
   },
-
   footer: {
     alignItems: "center",
     paddingTop: 4,
     paddingBottom: 8,
   },
-
   footerBrand: {
     fontSize: 13,
     fontWeight: "800",
     color: COREONE_GOLD,
   },
-
   footerText: {
     marginTop: 3,
     fontSize: 10,
     color: "#94A3B8",
   },
-
   pressed: {
     opacity: 0.72,
   },

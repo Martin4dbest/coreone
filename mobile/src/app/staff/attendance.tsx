@@ -47,7 +47,7 @@ export default function StaffAttendanceScreen() {
       setError("");
 
       const baseUrl =
-        process.env.EXPO_PUBLIC_API_URL || "http://127.0.0.1:8000";
+        process.env.EXPO_PUBLIC_API_URL || "https://coreone.onrender.com";
 
       const response = await fetch(
         `${baseUrl}/api/v1/staff/me/attendance`,
