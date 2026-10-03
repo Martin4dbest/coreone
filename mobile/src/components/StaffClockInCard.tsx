@@ -58,6 +58,7 @@ function getErrorMessage(error: any): string {
         message: error?.message,
         status: error?.response?.status,
         data: responseData,
+        headers: error?.response?.headers,
         detail: responseData?.detail,
         serverMessage: responseData?.message,
       },
