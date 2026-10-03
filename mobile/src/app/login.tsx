@@ -57,6 +57,12 @@ export default function Login() {
         password
       );
 
+      // New users must change their temporary password before accessing any dashboard.
+      if (data?.user?.must_change_password === true) {
+        router.replace("/change-password");
+        return;
+      }
+
       const rawRole = data?.user?.role;
 
       const role =
