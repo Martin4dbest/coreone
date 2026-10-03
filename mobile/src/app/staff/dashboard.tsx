@@ -15,13 +15,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/context/AuthContext";
 import StaffClockInCard from "@/components/StaffClockInCard";
 
-const COREONE_GOLD = "#C58A00";
-const COREONE_DARK = "#0F172A";
-const COREONE_SLATE = "#475569";
+const PRIMARY_GOLD = "#D97706";
+const PRIMARY_GOLD_LIGHT = "#FEF3C7";
+const DARK_SLATE = "#0F172A";
+const BODY_SLATE = "#334155";
+const MUTED_SLATE = "#64748B";
 const BACKGROUND = "#F8FAFC";
 const WHITE = "#FFFFFF";
 const BORDER = "#E2E8F0";
-const SOFT_GOLD = "#FFF8E7";
 
 export default function StaffDashboard() {
   const { user, tenant, logout, loading } = useAuth();
@@ -69,7 +70,7 @@ export default function StaffDashboard() {
     }
   }, [loading, user, authUser]);
 
-  // Guaranteed exact name resolution across all common schema variants
+  // Robust staff name check to guarantee the exact name is shown
   const staffName = useMemo(() => {
     if (!authUser) return "Staff Member";
 
@@ -113,12 +114,12 @@ export default function StaffDashboard() {
   const schoolName =
     authTenant?.school_name ||
     authTenant?.name ||
-    "Your School";
+    "Your Institution";
 
   const dateText = now.toLocaleDateString("en-NG", {
     weekday: "long",
     day: "numeric",
-    month: "long",
+    month: "short",
     year: "numeric",
   });
 
@@ -140,8 +141,8 @@ export default function StaffDashboard() {
   if (loading || !user) {
     return (
       <SafeAreaView style={styles.loadingScreen}>
-        <ActivityIndicator size="large" color={COREONE_GOLD} />
-        <Text style={styles.loadingText}>Loading your workspace...</Text>
+        <ActivityIndicator size="large" color={PRIMARY_GOLD} />
+        <Text style={styles.loadingText}>Preparing your workspace...</Text>
       </SafeAreaView>
     );
   }
@@ -156,20 +157,20 @@ export default function StaffDashboard() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          {/* HEADER WITH COREONE BRANDING */}
+          {/* MODERN HEADER */}
           <View style={styles.header}>
-            <View style={styles.headerTextBlock}>
-              <View style={styles.brandRow}>
-                <View style={styles.coreOneLogoMark}>
-                  <Text style={styles.logoMarkText}>C1</Text>
-                </View>
+            <View style={styles.brandContainer}>
+              <View style={styles.brandIconBox}>
+                <Ionicons name="grid" size={18} color={WHITE} />
+              </View>
+              <View>
                 <Text style={styles.brand}>
                   Core<Text style={styles.brandAccent}>One</Text>
                 </Text>
+                <Text style={styles.schoolName} numberOfLines={1}>
+                  {schoolName}
+                </Text>
               </View>
-              <Text style={styles.schoolName} numberOfLines={1}>
-                {schoolName}
-              </Text>
             </View>
 
             <View style={styles.headerRightActions}>
@@ -192,74 +193,86 @@ export default function StaffDashboard() {
                   pressed && styles.pressed,
                 ]}
               >
-                <Ionicons name="log-out-outline" size={18} color={COREONE_DARK} />
+                <Ionicons name="log-out-outline" size={18} color={MUTED_SLATE} />
               </Pressable>
             </View>
           </View>
 
-          {/* GREETING / HERO CARD */}
-          <View style={styles.greetingCard}>
-            <View style={styles.greetingTop}>
-              <View style={styles.greetingTextBlock}>
-                <Text style={styles.smallLabel}>STAFF WORKSPACE</Text>
-                <Text style={styles.greeting}>Welcome, {staffName}</Text>
+          {/* WELCOME / GREETING HERO CARD */}
+          <View style={styles.heroCard}>
+            <View style={styles.heroBackgroundPattern} />
+            <View style={styles.heroContent}>
+              <View style={styles.heroTopRow}>
+                <View style={styles.badgeContainer}>
+                  <Ionicons name="shield-checkmark" size={12} color={PRIMARY_GOLD} />
+                  <Text style={styles.badgeText}>VERIFIED STAFF</Text>
+                </View>
+
+                <View style={styles.liveClockBadge}>
+                  <Ionicons name="time" size={13} color={MUTED_SLATE} />
+                  <Text style={styles.liveClockText}>{timeText}</Text>
+                </View>
               </View>
 
-              <View style={styles.clockIcon}>
-                <Ionicons name="time-outline" size={23} color={COREONE_GOLD} />
-              </View>
-            </View>
+              <Text style={styles.greetingTitle}>Welcome back, {staffName}!</Text>
+              <Text style={styles.greetingSubtitle}>
+                Here is an overview of your schedule and operational tools for today.
+              </Text>
 
-            <View style={styles.dateRow}>
-              <View style={styles.dateItem}>
-                <Ionicons name="calendar-outline" size={17} color={COREONE_SLATE} />
-                <Text style={styles.dateText} numberOfLines={2}>
-                  {dateText}
-                </Text>
-              </View>
-
-              <View style={styles.timeBox}>
-                <Text style={styles.timeText}>{timeText}</Text>
+              <View style={styles.heroDateRow}>
+                <Ionicons name="calendar-clear-outline" size={15} color={PRIMARY_GOLD} />
+                <Text style={styles.heroDateText}>{dateText}</Text>
               </View>
             </View>
           </View>
 
-          {/* ATTENDANCE */}
+          {/* ATTENDANCE MODULE */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Attendance</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Daily Attendance</Text>
+              <Text style={styles.sectionCaption}>Clock-in & Out</Text>
+            </View>
             <StaffClockInCard />
           </View>
 
-          {/* QUICK ACTIONS */}
+          {/* QUICK ACTIONS GRID */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <Text style={styles.sectionTitle}>Quick Navigation</Text>
 
             <View style={styles.actionGrid}>
               <ActionCard
                 icon="calendar-outline"
-                title="Attendance"
-                subtitle="View my attendance"
+                title="Attendance Log"
+                subtitle="View history"
+                color="#0284C7"
+                bgColor="#E0F2FE"
                 onPress={() => router.push("/staff/attendance")}
               />
 
               <ActionCard
-                icon="document-text-outline"
+                icon="folder-open-outline"
                 title="Documents"
-                subtitle="Staff documents"
+                subtitle="Staff files"
+                color="#7C3AED"
+                bgColor="#F3E8FF"
                 onPress={() => router.push("/staff/documents")}
               />
 
               <ActionCard
-                icon="time-outline"
-                title="Leave"
-                subtitle="Leave requests"
+                icon="airplane-outline"
+                title="Leave Request"
+                subtitle="Apply & track"
+                color="#059669"
+                bgColor="#D1FAE5"
                 onPress={() => router.push("/staff/leave")}
               />
 
               <ActionCard
-                icon="person-outline"
-                title="Profile"
-                subtitle="My staff profile"
+                icon="person-circle-outline"
+                title="My Profile"
+                subtitle="Account settings"
+                color={PRIMARY_GOLD}
+                bgColor={PRIMARY_GOLD_LIGHT}
                 onPress={() => router.push("/staff/profile")}
               />
             </View>
@@ -267,8 +280,8 @@ export default function StaffDashboard() {
 
           {/* FOOTER */}
           <View style={styles.footer}>
-            <Text style={styles.footerBrand}>CoreOne</Text>
-            <Text style={styles.footerText}>School Management Platform</Text>
+            <Text style={styles.footerBrand}>CoreOne Platform</Text>
+            <Text style={styles.footerText}>Secure Staff Portal • Version 2.4</Text>
           </View>
         </ScrollView>
       </View>
@@ -280,11 +293,15 @@ function ActionCard({
   icon,
   title,
   subtitle,
+  color,
+  bgColor,
   onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   subtitle: string;
+  color: string;
+  bgColor: string;
   onPress: () => void;
 }) {
   return (
@@ -293,15 +310,17 @@ function ActionCard({
       accessibilityRole="button"
       style={({ pressed }) => [
         styles.actionCard,
-        pressed && styles.pressed,
+        pressed && styles.pressedCard,
       ]}
     >
-      <View style={styles.actionIcon}>
-        <Ionicons name={icon} size={21} color={COREONE_GOLD} />
+      <View style={[styles.actionIconBox, { backgroundColor: bgColor }]}>
+        <Ionicons name={icon} size={20} color={color} />
       </View>
-
-      <Text style={styles.actionTitle}>{title}</Text>
-      <Text style={styles.actionSubtitle}>{subtitle}</Text>
+      <View style={styles.actionTextContainer}>
+        <Text style={styles.actionTitle} numberOfLines={1}>{title}</Text>
+        <Text style={styles.actionSubtitle} numberOfLines={1}>{subtitle}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
     </Pressable>
   );
 }
@@ -314,7 +333,7 @@ const styles = StyleSheet.create({
   desktopFrame: {
     flex: 1,
     width: "100%",
-    maxWidth: 1180,
+    maxWidth: 1000,
     alignSelf: "center",
     backgroundColor: BACKGROUND,
   },
@@ -325,7 +344,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 36,
+    paddingBottom: 40,
   },
   loadingScreen: {
     flex: 1,
@@ -334,9 +353,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 12,
     fontSize: 14,
-    color: COREONE_SLATE,
+    color: MUTED_SLATE,
+    fontWeight: "500",
   },
   header: {
     flexDirection: "row",
@@ -344,42 +364,32 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 20,
   },
-  headerTextBlock: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  brandRow: {
+  brandContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    flex: 1,
   },
-  coreOneLogoMark: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: COREONE_GOLD,
+  brandIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: DARK_SLATE,
     alignItems: "center",
     justifyContent: "center",
-  },
-  logoMarkText: {
-    fontSize: 12,
-    fontWeight: "900",
-    color: WHITE,
-    letterSpacing: -0.5,
+    marginRight: 10,
   },
   brand: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "800",
-    color: COREONE_DARK,
+    color: DARK_SLATE,
     letterSpacing: -0.5,
   },
   brandAccent: {
-    color: COREONE_GOLD,
+    color: PRIMARY_GOLD,
   },
   schoolName: {
-    marginTop: 4,
-    fontSize: 12,
-    color: COREONE_SLATE,
+    fontSize: 11,
+    color: MUTED_SLATE,
     fontWeight: "600",
   },
   headerRightActions: {
@@ -388,154 +398,187 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   profileButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    backgroundColor: SOFT_GOLD,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: PRIMARY_GOLD_LIGHT,
     borderWidth: 1,
     borderColor: "#FDE68A",
     alignItems: "center",
     justifyContent: "center",
   },
   profileInitials: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "800",
-    color: COREONE_GOLD,
+    color: PRIMARY_GOLD,
   },
   logoutButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     backgroundColor: WHITE,
     borderWidth: 1,
     borderColor: BORDER,
     alignItems: "center",
     justifyContent: "center",
   },
-  greetingCard: {
-    backgroundColor: WHITE,
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: BORDER,
+  heroCard: {
+    backgroundColor: DARK_SLATE,
+    borderRadius: 24,
+    padding: 22,
     marginBottom: 24,
+    overflow: "hidden",
+    position: "relative",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  greetingTop: {
+  heroBackgroundPattern: {
+    position: "absolute",
+    right: -30,
+    bottom: -30,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "rgba(217, 119, 6, 0.12)",
+  },
+  heroContent: {
+    zIndex: 1,
+  },
+  heroTopRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: 14,
   },
-  greetingTextBlock: {
-    flex: 1,
-    paddingRight: 12,
+  badgeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(217, 119, 6, 0.18)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    gap: 5,
   },
-  smallLabel: {
+  badgeText: {
     fontSize: 10,
     fontWeight: "800",
-    letterSpacing: 1,
-    color: COREONE_GOLD,
-    marginBottom: 6,
+    color: PRIMARY_GOLD,
+    letterSpacing: 0.8,
   },
-  greeting: {
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: "800",
-    color: COREONE_DARK,
-  },
-  clockIcon: {
-    width: 45,
-    height: 45,
-    borderRadius: 14,
-    backgroundColor: SOFT_GOLD,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dateRow: {
-    marginTop: 18,
-    paddingTop: 15,
-    borderTopWidth: 1,
-    borderTopColor: "#F1F5F9",
+  liveClockBadge: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    gap: 5,
   },
-  dateItem: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingRight: 8,
-  },
-  dateText: {
-    flex: 1,
-    marginLeft: 7,
-    fontSize: 12,
-    color: COREONE_SLATE,
+  liveClockText: {
+    fontSize: 11,
     fontWeight: "600",
+    color: "#CBD5E1",
   },
-  timeBox: {
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    borderRadius: 10,
-    backgroundColor: "#F8FAFC",
-  },
-  timeText: {
-    fontSize: 12,
+  greetingTitle: {
+    fontSize: 22,
     fontWeight: "800",
-    color: COREONE_DARK,
+    color: WHITE,
+    marginBottom: 6,
+    letterSpacing: -0.3,
+  },
+  greetingSubtitle: {
+    fontSize: 13,
+    color: "#94A3B8",
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  heroDateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
+    paddingTop: 12,
+  },
+  heroDateText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#E2E8F0",
   },
   section: {
     marginBottom: 24,
   },
-  sectionTitle: {
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
     marginBottom: 10,
+  },
+  sectionTitle: {
     fontSize: 15,
     fontWeight: "800",
-    color: COREONE_DARK,
+    color: DARK_SLATE,
+    marginBottom: 10,
+  },
+  sectionCaption: {
+    fontSize: 11,
+    color: MUTED_SLATE,
+    fontWeight: "600",
   },
   actionGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
+    gap: 12,
   },
   actionCard: {
     width: "48.5%",
-    minHeight: 118,
-    borderRadius: 17,
     backgroundColor: WHITE,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: BORDER,
-    padding: 15,
-    marginBottom: 10,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#64748B",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  actionIcon: {
+  actionIconBox: {
     width: 38,
     height: 38,
-    borderRadius: 11,
-    backgroundColor: SOFT_GOLD,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
+    marginRight: 10,
+  },
+  actionTextContainer: {
+    flex: 1,
+    marginRight: 4,
   },
   actionTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: COREONE_DARK,
+    fontSize: 12,
+    fontWeight: "700",
+    color: DARK_SLATE,
   },
   actionSubtitle: {
-    marginTop: 4,
-    fontSize: 11,
-    lineHeight: 16,
-    color: COREONE_SLATE,
+    fontSize: 10,
+    color: MUTED_SLATE,
+    marginTop: 2,
   },
   footer: {
     alignItems: "center",
-    paddingTop: 4,
-    paddingBottom: 8,
+    paddingTop: 10,
   },
   footerBrand: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: COREONE_GOLD,
+    fontSize: 12,
+    fontWeight: "700",
+    color: MUTED_SLATE,
   },
   footerText: {
     marginTop: 3,
@@ -543,6 +586,10 @@ const styles = StyleSheet.create({
     color: "#94A3B8",
   },
   pressed: {
-    opacity: 0.72,
+    opacity: 0.7,
+  },
+  pressedCard: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
   },
 });
