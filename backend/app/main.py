@@ -40,6 +40,7 @@ from app.modules.notifications.router import router as notifications_router
 from app.modules.messages.router import router as messages_router
 from app.modules.assessments.router import router as assessments_router
 from app.modules.results.router import router as results_router
+from app.modules.principal_comments.router import router as principal_comments_router
 from app.modules.ebooks.router import router as ebooks_router
 from app.modules.ebooks.upload_router import router as ebooks_upload_router
 from app.modules.browser.router import router as browser_router
@@ -322,6 +323,11 @@ app.include_router(
 
 app.include_router(
     results_router,
+    prefix=settings.API_V1_STR,
+)
+
+app.include_router(
+    principal_comments_router,
     prefix=settings.API_V1_STR,
 )
 

@@ -85,6 +85,7 @@ export default function ResultsPage({
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<Option[]>([]);
+  const [resultClassFilter, setResultClassFilter] = useState("");
   const [subjects, setSubjects] = useState<Option[]>([]);
   const [terms, setTerms] = useState<Option[]>([]);
   const [sessions, setSessions] = useState<Option[]>([]);
@@ -1001,22 +1002,62 @@ export default function ResultsPage({
         return acc;
       }, {});
 
+  const selectedResultClassName =
+
+    resultClassFilter
+
+      ? classes.find(
+
+          (item) => String(item.id) === String(resultClassFilter)
+
+        )?.name?.trim() || ""
+
+      : "";
+
+
   const groupedStudents = Object.values(groupedStudentsMap).filter(
+
     (item) => {
+
+      if (
+
+        selectedResultClassName &&
+
+        String(item.class_name || "").trim() !== selectedResultClassName
+
+      ) {
+
+        return false;
+
+      }
+
+
       const q = searchQuery.toLowerCase().trim();
+
 
       if (!q) return true;
 
+
       return (
+
         (item.student_name &&
+
           item.student_name.toLowerCase().includes(q)) ||
+
         (item.admission_number &&
+
           item.admission_number.toLowerCase().includes(q)) ||
+
         (item.class_name &&
+
           item.class_name.toLowerCase().includes(q))
+
       );
+
     },
+
   );
+
 
   const filteredBulkStudents = bulkStudents.filter((student) => {
     const q = bulkSearchQuery.toLowerCase().trim();
@@ -1189,7 +1230,58 @@ export default function ResultsPage({
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-red-950">Academic Results</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold text-red-950">Academic Results</h1>
+            {!isTeacher && (
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <label
+                  htmlFor="results-class-filter"
+                  className="text-sm font-bold text-slate-700"
+                >
+                  View Results by Class:
+                </label>
+
+                <select
+                  id="results-class-filter"
+                  value={resultClassFilter}
+                  onChange={(event) => setResultClassFilter(event.target.value)}
+                  className="w-full min-w-[220px] rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400 sm:w-auto"
+                >
+                  <option value="">All Classes</option>
+
+                  {classes
+                    .slice()
+                    .sort((a, b) =>
+                      String(a.name || "").localeCompare(String(b.name || ""))
+                    )
+                    .map((item) => (
+                      <option key={item.id} value={String(item.id)}>
+                        {item.name}
+                      </option>
+                    ))}
+                </select>
+
+                {resultClassFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setResultClassFilter("")}
+                    className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    Show All Classes
+                  </button>
+                )}
+              </div>
+            )}
+
+            {!isTeacher && (
+              <a
+                href={`/dashboard/schools/${schoolId}/principal-comments`}
+                className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                Principal Comments
+              </a>
+            )}
+          </div>
           {isTeacher && (
             <p className="text-sm text-slate-500">
               Teacher Results Management Portal
