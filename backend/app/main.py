@@ -134,7 +134,7 @@ app.add_middleware(
         "http://127.0.0.1:8081",
         "http://127.0.0.1:19006",
     ],
-    allow_origin_regex=r"https://([a-zA-Z0-9-]+\.)*presense\.com$|http://(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+):[0-9]+$",
+    allow_origin_regex=r"https://([a-zA-Z0-9-]+\.)*(presense\.com|core1enterprisesolution\.com)$|http://(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+):[0-9]+$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
