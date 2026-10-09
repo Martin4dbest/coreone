@@ -222,6 +222,35 @@ class AuthService:
         return reset_token
 
 
+    async def reset_password(
+        self,
+        token: str,
+        new_password: str,
+    ) -> bool:
+        from app.modules.auth.jwt import decode_access_token
+
+        payload = decode_access_token(token)
+
+        if not payload or payload.get("token_type") != "password_reset":
+            return False
+
+        try:
+            user_id = int(payload.get("sub", ""))
+        except (TypeError, ValueError):
+            return False
+
+        user = await self.repository.get_user_by_id(user_id)
+
+        if user is None:
+            return False
+
+        user.hashed_password = hash_password(new_password)
+        user.must_change_password = False
+
+        await self.repository.update_user(user)
+
+        return True
+
     async def mobile_login(
         self,
         school_code: str,
