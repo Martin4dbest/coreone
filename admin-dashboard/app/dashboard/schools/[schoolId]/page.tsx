@@ -1538,9 +1538,9 @@ export default function School360Dashboard() {
                   </p>
                   <p className="mt-1 break-all text-xs sm:text-sm font-semibold text-white">
                     {school?.school_code
-                      ? `https://coreone-one.vercel.app/${String(
+                      ? `https://${String(
                           school.school_code,
-                        ).toLowerCase()}`
+                        ).trim().toLowerCase()}.core1enterprisesolution.com`
                       : ""}
                   </p>
                 </div>

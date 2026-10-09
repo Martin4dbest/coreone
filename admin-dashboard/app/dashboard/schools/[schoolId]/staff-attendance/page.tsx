@@ -81,6 +81,7 @@ export default function StaffAttendancePage({
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [radius, setRadius] = useState("100");
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [locationName, setLocationName] = useState("");
   const [attendanceDate, setAttendanceDate] = useState(
     new Date().toISOString().slice(0, 10),
@@ -216,7 +217,7 @@ export default function StaffAttendancePage({
     }
   };
 
-  const useCurrentLocation = () => {
+  const useCurrentLocation = async () => {
     if (!navigator.geolocation) {
       setErrorMessage("Geolocation is not supported by this browser.");
       return;
@@ -224,44 +225,117 @@ export default function StaffAttendancePage({
 
     setUsingLocation(true);
     setErrorMessage("");
-    setSavingMessage("");
+    setSavingMessage("Getting a fresh high-accuracy GPS position...");
+    setLocationAccuracy(null);
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
+    const readings: GeolocationPosition[] = [];
 
-        setLatitude(lat.toFixed(8));
-        setLongitude(lng.toFixed(8));
+    const getReading = () =>
+      new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 20000,
+          maximumAge: 0,
+        });
+      });
 
-        const address = await reverseGeocode(lat, lng);
+    try {
+      // Take several fresh readings and use the most accurate one.
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        try {
+          const reading = await getReading();
+          readings.push(reading);
 
-        if (address) {
-          setLocationName(address);
-          setSavingMessage(
-            "Current location and address detected. Click Save Location to apply it.",
+          console.log(
+            `[STAFF ATTENDANCE GPS] Reading ${attempt + 1}/5:`,
+            JSON.stringify({
+              latitude: reading.coords.latitude,
+              longitude: reading.coords.longitude,
+              accuracy: reading.coords.accuracy,
+              timestamp: reading.timestamp,
+            }),
           );
-        } else {
-          setLocationName("");
-          setSavingMessage(
-            "Current location loaded. The address could not be resolved automatically. Click Save Location to continue.",
+
+          // Stop early when the browser gives us a very good reading.
+          if (
+            Number.isFinite(reading.coords.accuracy) &&
+            reading.coords.accuracy > 0 &&
+            reading.coords.accuracy <= 15
+          ) {
+            break;
+          }
+        } catch (error) {
+          console.error(
+            `[STAFF ATTENDANCE GPS] Reading ${attempt + 1} failed:`,
+            error,
           );
         }
 
-        setUsingLocation(false);
-      },
-      (error) => {
-        setUsingLocation(false);
-        setErrorMessage(
-          error.message || "Unable to retrieve the current location.",
+        if (attempt < 4) {
+          await new Promise((resolve) => setTimeout(resolve, 800));
+        }
+      }
+
+      if (!readings.length) {
+        throw new Error(
+          "Unable to obtain your current location. Please turn on device location services and try again.",
         );
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0,
-      },
-    );
+      }
+
+      readings.sort(
+        (a, b) =>
+          (a.coords.accuracy ?? Number.POSITIVE_INFINITY) -
+          (b.coords.accuracy ?? Number.POSITIVE_INFINITY),
+      );
+
+      const best = readings[0];
+
+      const lat = best.coords.latitude;
+      const lng = best.coords.longitude;
+      const accuracy = best.coords.accuracy;
+
+      setLatitude(lat.toFixed(8));
+      setLongitude(lng.toFixed(8));
+
+      if (Number.isFinite(accuracy)) {
+        setLocationAccuracy(accuracy);
+      }
+
+      const address = await reverseGeocode(lat, lng);
+
+      if (address) {
+        setLocationName(address);
+      } else {
+        setLocationName("");
+      }
+
+      if (Number.isFinite(accuracy) && accuracy > 50) {
+        setSavingMessage(
+          `GPS accuracy is approximately ±${Math.round(
+            accuracy,
+          )}m. The signal is weak. Try "Use Current Location" again before saving.`,
+        );
+      } else if (address) {
+        setSavingMessage(
+          `GPS accuracy is approximately ±${Math.round(
+            accuracy,
+          )}m. Location detected successfully. Verify it before saving.`,
+        );
+      } else {
+        setSavingMessage(
+          `GPS accuracy is approximately ±${Math.round(
+            accuracy,
+          )}m. Coordinates detected, but no readable address was returned.`,
+        );
+      }
+    } catch (error: any) {
+      setErrorMessage(
+        error?.message || "Unable to retrieve the current location.",
+      );
+      setSavingMessage("");
+    } finally {
+      setUsingLocation(false);
+    }
   };
 
   const saveLocation = async () => {
@@ -295,6 +369,7 @@ export default function StaffAttendancePage({
           latitude: lat,
           longitude: lng,
           radius_meters: radiusValue,
+          location_name: locationName.trim() || null,
         },
       );
 
@@ -502,6 +577,37 @@ export default function StaffAttendancePage({
               : "Use Current Location"}
           </button>
 
+          {latitude && longitude && (
+            <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+              <div className="text-xs font-bold uppercase tracking-wide text-blue-800">
+                Selected GPS Point
+              </div>
+
+              <div className="mt-1 break-all font-mono text-sm text-blue-900">
+                {latitude}, {longitude}
+              </div>
+
+              {locationAccuracy !== null && (
+                <div className="mt-1 text-xs font-semibold text-blue-700">
+                  GPS accuracy: ±{Math.round(locationAccuracy)}m
+                </div>
+              )}
+
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+              >
+                Verify This Point on Google Maps
+              </a>
+
+              <p className="mt-2 text-xs text-blue-700">
+                Confirm that this point is physically at the school before clicking Save Location.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
@@ -509,12 +615,14 @@ export default function StaffAttendancePage({
               </label>
               <input
                 value={locationName}
-                readOnly
+                onChange={(event) => setLocationName(event.target.value)}
                 placeholder="Address will appear after detecting the location"
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500"
               />
               <p className="mt-1 text-xs text-slate-500">
-                This is the readable address resolved from the selected GPS location.
+                Review this address before saving. You can correct the readable
+                address if the map provider returns an inaccurate description.
+                The GPS coordinates remain the actual geofence point.
               </p>
             </div>
 
