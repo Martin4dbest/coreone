@@ -99,11 +99,57 @@ async def me(
 )
 async def forgot_password(
     payload: ForgotPasswordRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    from urllib.parse import urlsplit
+
+    frontend_url = None
+    origin = request.headers.get("origin")
+
+    if origin:
+        try:
+            parsed = urlsplit(origin)
+            hostname = (parsed.hostname or "").lower()
+            port = parsed.port
+
+            is_local = (
+                parsed.scheme == "http"
+                and hostname in {"localhost", "127.0.0.1"}
+                and port in {None, 3000, 3001}
+            )
+
+            is_trusted_domain = (
+                parsed.scheme == "https"
+                and (
+                    hostname == "core1enterprisesolution.com"
+                    or hostname.endswith(".core1enterprisesolution.com")
+                    or hostname == "presense.com"
+                    or hostname.endswith(".presense.com")
+                    or hostname == "coreone-one.vercel.app"
+                    or hostname == "presense.expo.app"
+                )
+                and port in {None, 443}
+            )
+
+            if (
+                (is_local or is_trusted_domain)
+                and not parsed.username
+                and not parsed.password
+                and not parsed.path
+                and not parsed.query
+                and not parsed.fragment
+            ):
+                frontend_url = f"{parsed.scheme}://{parsed.netloc}"
+        except ValueError:
+            frontend_url = None
+
     service = AuthService(db)
 
-    await service.create_password_reset(payload.email)
+    await service.create_password_reset(
+        payload.email,
+        frontend_url=frontend_url,
+    )
 
     return {
         "message": (

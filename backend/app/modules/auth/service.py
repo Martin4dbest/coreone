@@ -203,6 +203,7 @@ class AuthService:
     async def create_password_reset(
         self,
         email: str,
+        frontend_url: str | None = None,
     ) -> str | None:
 
         user = await self.repository.get_user_by_email(email)
@@ -215,6 +216,7 @@ class AuthService:
         send_password_reset_email(
             user.email,
             reset_token,
+            frontend_url=frontend_url,
         )
 
         return reset_token
