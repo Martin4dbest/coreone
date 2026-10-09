@@ -40,6 +40,12 @@ export function proxy(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
+  // Serve the existing school-details page directly on tenant subdomains.
+  // The tenant dashboard redirects here using /dashboard/schools/{schoolId}.
+  if (pathname.startsWith("/dashboard/schools/")) {
+    return NextResponse.next();
+  }
+
   // Keep Next.js assets, API endpoints and files out of tenant routing.
   if (
     pathname.startsWith("/_next/") ||
