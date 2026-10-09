@@ -18,10 +18,10 @@ def send_password_reset_email(
         {
             "from": settings.EMAIL_FROM,
             "to": [email],
-            "subject": "Reset your PreSense password",
+            "subject": "Reset your CoreOne password",
             "html": f"""
                 <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-                    <h2>Reset your PreSense password</h2>
+                    <h2>Reset your CoreOne password</h2>
 
                     <p>
                         We received a request to reset your password.
