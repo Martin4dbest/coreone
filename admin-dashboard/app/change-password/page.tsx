@@ -20,6 +20,8 @@ type CurrentUser = {
   school_id: number | null;
   must_change_password?: boolean;
   role?: string | { name?: string };
+  role_name?: string;
+  roleName?: string;
 };
 
 export default function ChangePasswordPage() {
@@ -70,16 +72,22 @@ export default function ChangePasswordPage() {
   }, [router]);
 
   function getRoleName() {
-    if (!user?.role) return "";
+    const rawRole =
+      typeof user?.role === "string"
+        ? user.role
+        : user?.role?.name || user?.role_name || user?.roleName || "";
 
-    return typeof user.role === "string"
-      ? user.role
-      : user.role.name || "";
+    return rawRole.trim().toUpperCase();
   }
 
-  function getAfterChangePasswordRoute() {
+  function getAfterChangePasswordRoute(): string {
     const tenantSlug = localStorage.getItem("tenant_slug");
     const role = getRoleName();
+
+    // Never send a non-Super Admin to the master dashboard by default.
+    if (role === "SUPER_ADMIN") {
+      return "/dashboard";
+    }
 
     if (role === "TEACHER") {
       return tenantSlug
@@ -87,13 +95,29 @@ export default function ChangePasswordPage() {
         : "/teacher/dashboard";
     }
 
-    if (role === "SCHOOL_ADMIN" && user?.school_id) {
-      return tenantSlug
-        ? `/${tenantSlug}/dashboard`
-        : `/dashboard/schools/${user.school_id}`;
+    if (role === "SCHOOL_ADMIN") {
+      if (tenantSlug) return `/${tenantSlug}/dashboard`;
+      if (user?.school_id) return `/dashboard/schools/${user.school_id}`;
+      return "/login";
     }
 
-    return "/dashboard";
+    if (role === "ACCOUNTANT" || role === "BOOK_STOREKEEPER") {
+      if (tenantSlug && user?.school_id) {
+        return `/dashboard/schools/${user.school_id}/school-books`;
+      }
+      return "/login";
+    }
+
+    // Keep other known school users inside their tenant, if available.
+    if (
+      ["STAFF", "STUDENT", "PARENT"].includes(role) &&
+      tenantSlug
+    ) {
+      return `/${tenantSlug}/dashboard`;
+    }
+
+    // Unknown or missing role: fail closed instead of opening the master dashboard.
+    return "/login";
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

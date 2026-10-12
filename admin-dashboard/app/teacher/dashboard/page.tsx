@@ -68,6 +68,7 @@ const tenant = params.tenant as string;
   const [data, setData] = useState<TeacherDashboard | null>(null);
   const [school, setSchool] = useState<SchoolBranding | null>(null);
   const [canUseAI, setCanUseAI] = useState(false);
+  const [canUseALOC, setCanUseALOC] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -115,6 +116,23 @@ const tenant = params.tenant as string;
             );
           } catch {
             setCanUseAI(false);
+          }
+
+          try {
+            const featuresResponse = await api.get(
+              `/school-features/${schoolData.id}`
+            );
+            const features = featuresResponse.data;
+            const alocFeature = Array.isArray(features)
+              ? features.find(
+                  (item: { feature_key?: string }) =>
+                    item.feature_key === "aloc_question_bank"
+                )
+              : undefined;
+
+            setCanUseALOC(alocFeature?.enabled === true);
+          } catch {
+            setCanUseALOC(false);
           }
         }
       } catch (err: unknown) {
@@ -368,6 +386,23 @@ const tenant = params.tenant as string;
             <span className="mt-3 text-sm font-bold text-slate-800">Learning</span>
             <span className="text-xs text-slate-400 mt-0.5">Digital Learning Centre</span>
           </Link>
+
+          {canUseALOC ? (
+            <Link
+              href={`/${tenant}/teacher/aloc-question-bank`}
+              className="group flex flex-col items-center justify-center rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80 hover:border-indigo-300 hover:shadow-md transition-all text-center"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 group-hover:scale-110 transition-transform">
+                <FileQuestion className="h-6 w-6" />
+              </div>
+              <span className="mt-3 text-sm font-bold text-slate-800">
+                ALOC Question Bank
+              </span>
+              <span className="text-xs text-slate-400 mt-0.5">
+                Browse and manage questions
+              </span>
+            </Link>
+          ) : null}
 
           {canUseAI ? (
             <Link
