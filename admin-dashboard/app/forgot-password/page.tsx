@@ -57,8 +57,8 @@ export default function ForgotPasswordPage() {
           <div className="mb-8 text-center">
             <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border border-rose-100 bg-white shadow-lg">
               <Image
-                src="/logo.png"
-                alt="PreSense"
+                src="/core1.png"
+                alt="CoreOne"
                 width={80}
                 height={80}
                 priority

@@ -25,8 +25,8 @@ height:size
 >
 
 <Image
-src="/logo.png"
-alt="PreSense"
+src="/core1.png"
+alt="CoreOne"
 fill
 sizes={`${size}px`}
 className="object-contain"

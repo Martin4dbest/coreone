@@ -113,6 +113,125 @@ function questionPrompt(question: Question): string {
   return "Question details";
 }
 
+
+function formatExamText(value: string): string {
+  const superscripts: Record<string, string> = {
+    "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
+    "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
+    "+": "⁺", "-": "⁻",
+  };
+
+  const subscripts: Record<string, string> = {
+    "0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄",
+    "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉",
+  };
+
+  return value
+    // Convert explicit degree notation, e.g. 180o -> 180°.
+    .replace(/(\d+(?:\.\d+)?)\s*o\b/g, "$1°")
+    // Normalize common squared/cubed units.
+    .replace(/\b(cm|mm|km|m)\s*3\b/gi, (_, unit: string) => `${unit}³`)
+    .replace(/\b(cm|mm|km|m)\s*2\b/gi, (_, unit: string) => `${unit}²`)
+    .replace(/\b(cm|mm|km|m)3\b/gi, (_, unit: string) => `${unit}³`)
+    .replace(/\b(cm|mm|km|m)2\b/gi, (_, unit: string) => `${unit}²`)
+    // Render explicit numeric powers and subscripts.
+    .replace(/\^([0-9+-]+)/g, (_, power: string) =>
+      [...power].map((char) => superscripts[char] ?? char).join("")
+    )
+    .replace(/_([0-9]+)/g, (_, subscript: string) =>
+      [...subscript].map((char) => subscripts[char] ?? char).join("")
+    )
+    .replace(/[ \t]+/g, " ")
+    .trim();
+}
+
+function getQuestionImages(question: Question): Array<{
+  url: string;
+  alt: string;
+}> {
+  const found = new Map<string, string>();
+  const imageKey =
+    /image|diagram|figure|illustration|attachment|media|picture|graphic/i;
+  const urlKey = /^(src|url|href|imageurl|image_url|srcurl|src_url)$/i;
+  const imageExtension = /\.(png|jpe?g|gif|webp|svg)(?:[?#].*)?$/i;
+
+  function walk(
+    value: unknown,
+    key = "",
+    imageContext = false,
+    depth = 0
+  ): void {
+    if (depth > 6 || value == null) return;
+
+    if (typeof value === "string") {
+      const candidate = value.trim();
+      const isHttpUrl = /^https?:\/\/\S+$/i.test(candidate);
+      const looksLikeImage =
+        imageExtension.test(candidate) ||
+        (imageContext && urlKey.test(key));
+
+      if (isHttpUrl && (looksLikeImage || imageContext)) {
+        found.set(candidate, key || "Question diagram");
+      }
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((item) =>
+        walk(item, key, imageContext || imageKey.test(key), depth + 1)
+      );
+      return;
+    }
+
+    if (typeof value === "object") {
+      for (const [childKey, childValue] of Object.entries(
+        value as Record<string, unknown>
+      )) {
+        const context =
+          imageContext ||
+          imageKey.test(childKey) ||
+          (urlKey.test(childKey) && imageContext);
+
+        walk(childValue, childKey, context, depth + 1);
+      }
+    }
+  }
+
+  walk(question);
+
+  return Array.from(found, ([url, label]) => ({
+    url,
+    alt: label.replace(/[_-]+/g, " "),
+  }));
+}
+
+function QuestionMedia({ question }: { question: Question }) {
+  const images = getQuestionImages(question);
+
+  if (!images.length) return null;
+
+  return (
+    <div className="mt-5 space-y-4">
+      {images.map((image) => (
+        <figure
+          key={image.url}
+          className="overflow-hidden rounded-xl border border-slate-200 bg-white p-3"
+        >
+          <img
+            src={image.url}
+            alt={image.alt}
+            loading="lazy"
+            className="mx-auto h-auto max-h-[480px] max-w-full object-contain"
+          />
+          <figcaption className="mt-2 text-center text-xs text-slate-500">
+            {image.alt}
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+  );
+}
+
 const EXAM_TYPES = [
   { value: "waec", label: "WAEC" },
   { value: "neco", label: "NECO" },
@@ -618,8 +737,10 @@ export default function ALOCQuestionBank({ schoolId }: Props) {
 
               <div className="p-5 sm:p-6">
                 <h3 className="whitespace-pre-wrap break-words text-base font-semibold leading-7 text-slate-900 sm:text-lg">
-                  {questionPrompt(question)}
+                  {formatExamText(questionPrompt(question))}
                 </h3>
+
+                <QuestionMedia question={raw} />
 
                 {optionEntries.length > 0 && (
                   <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -647,7 +768,7 @@ export default function ALOCQuestionBank({ schoolId }: Props) {
                             {key}
                           </span>
                           <div className="min-w-0 flex-1 whitespace-pre-wrap break-words pt-1 text-sm leading-6 text-slate-800">
-                            {displayValue(value)}
+                            {formatExamText(displayValue(value))}
                           </div>
                         </div>
                       );
