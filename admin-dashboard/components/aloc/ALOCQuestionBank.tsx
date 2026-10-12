@@ -1,0 +1,703 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import {
+  Search,
+  BookOpen,
+  Loader2,
+  AlertCircle,
+  ExternalLink,
+  LibraryBig,
+} from "lucide-react";
+import api from "@/lib/api";
+
+type SubjectOption = {
+  name: string;
+  displayName?: string;
+  questionCount?: number;
+  examTypes?: string[];
+  yearRange?: { min?: number; max?: number };
+};
+
+type TopicOption = {
+  name: string;
+  displayName?: string;
+  questionCount?: number;
+};
+
+type Question = Record<string, unknown>;
+
+type Props = {
+  schoolId?: string;
+};
+
+function getQuestions(payload: unknown): Question[] {
+  if (Array.isArray(payload)) {
+    return payload.filter(
+      (item): item is Question =>
+        typeof item === "object" && item !== null && !Array.isArray(item)
+    );
+  }
+
+  if (!payload || typeof payload !== "object") return [];
+
+  const response = payload as Record<string, unknown>;
+  const data = response.data;
+
+  if (Array.isArray(data)) {
+    return data.filter(
+      (item): item is Question =>
+        typeof item === "object" && item !== null && !Array.isArray(item)
+    );
+  }
+
+  if (data && typeof data === "object") {
+    const nested = data as Record<string, unknown>;
+
+    for (const key of ["questions", "results", "items"]) {
+      if (Array.isArray(nested[key])) {
+        return (nested[key] as unknown[]).filter(
+          (item): item is Question =>
+            typeof item === "object" &&
+            item !== null &&
+            !Array.isArray(item)
+        );
+      }
+    }
+  }
+
+  for (const key of ["questions", "results", "items"]) {
+    if (Array.isArray(response[key])) {
+      return (response[key] as unknown[]).filter(
+        (item): item is Question =>
+          typeof item === "object" &&
+          item !== null &&
+          !Array.isArray(item)
+      );
+    }
+  }
+
+  return [];
+}
+
+function displayValue(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function questionPrompt(question: Question): string {
+  const candidates = [
+    "question",
+    "questionText",
+    "question_text",
+    "text",
+    "content",
+    "prompt",
+    "body",
+  ];
+
+  for (const key of candidates) {
+    const value = question[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+
+  return "Question details";
+}
+
+const EXAM_TYPES = [
+  { value: "waec", label: "WAEC" },
+  { value: "neco", label: "NECO" },
+  { value: "jamb", label: "JAMB" },
+  { value: "post_utme", label: "Post-UTME" },
+  { value: "state", label: "State Examination" },
+];
+
+export default function ALOCQuestionBank({ schoolId }: Props) {
+  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [topics, setTopics] = useState<TopicOption[]>([]);
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
+  const [topicsLoading, setTopicsLoading] = useState(false);
+  const [catalogueError, setCatalogueError] = useState("");
+
+  const [subject, setSubject] = useState("");
+  useEffect(() => {
+    let active = true;
+
+    async function loadSubjects() {
+      setSubjectsLoading(true);
+      setCatalogueError("");
+      try {
+        const response = await api.get("/aloc/subjects", {
+          params: schoolId ? { school_id: Number(schoolId) } : {},
+        });
+        const rows = response.data?.data;
+        if (active) {
+          setSubjects(Array.isArray(rows) ? rows : []);
+          if (!Array.isArray(rows)) {
+            setCatalogueError("ALOC returned an unexpected subject catalogue.");
+          }
+        }
+      } catch (err: unknown) {
+        const message =
+          typeof err === "object" && err !== null && "response" in err
+            ? String(
+                (err as { response?: { data?: { detail?: unknown } } })
+                  .response?.data?.detail || "Could not load ALOC subjects."
+              )
+            : "Could not load ALOC subjects.";
+        if (active) setCatalogueError(message);
+      } finally {
+        if (active) setSubjectsLoading(false);
+      }
+    }
+
+    void loadSubjects();
+    return () => {
+      active = false;
+    };
+  }, [schoolId]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadTopics() {
+      setTopics([]);
+      setTopic("");
+      if (!subject) {
+        setTopicsLoading(false);
+        return;
+      }
+
+      setTopicsLoading(true);
+      try {
+        const response = await api.get(
+          `/aloc/subjects/${encodeURIComponent(subject)}/topics`,
+          { params: schoolId ? { school_id: Number(schoolId) } : {} }
+        );
+        const rows = response.data?.data;
+        if (active) setTopics(Array.isArray(rows) ? rows : []);
+      } catch {
+        if (active) setTopics([]);
+      } finally {
+        if (active) setTopicsLoading(false);
+      }
+    }
+
+    void loadTopics();
+    return () => {
+      active = false;
+    };
+  }, [subject, schoolId]);
+  const [examType, setExamType] = useState("");
+  const [year, setYear] = useState("");
+  const [topic, setTopic] = useState("");
+  const [difficulty, setDifficulty] = useState("");
+  const [limit, setLimit] = useState("15");
+
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [pagination, setPagination] = useState<unknown>(null);
+  const [searched, setSearched] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // Derive available years from ALOC's subject catalogue.
+  // ALOC currently exposes a subject year range, not a separate range per exam.
+  const availableYears = Array.from(
+    new Set(
+      subjects
+        .filter((item) => {
+          if (!examType) return false;
+          if (
+            subject &&
+            item.name.trim().toLowerCase() !== subject.trim().toLowerCase()
+          ) {
+            return false;
+          }
+          return (item.examTypes ?? []).some(
+            (exam) => exam.toLowerCase() === examType.toLowerCase()
+          );
+        })
+        .flatMap((item) => {
+          const min = item.yearRange?.min;
+          const max = item.yearRange?.max;
+          if (typeof min !== "number" || typeof max !== "number") return [];
+          const start = Math.min(min, max);
+          const end = Math.max(min, max);
+          return Array.from(
+            { length: Math.min(end - start + 1, 100) },
+            (_, index) => end - index
+          );
+        })
+    )
+  ).sort((a, b) => b - a);
+
+  async function searchQuestions(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!subject.trim() && !examType && !year) {
+      setError("Enter a subject, choose an examination type, or select a year.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setSearched(false);
+    setQuestions([]);
+    setPagination(null);
+
+    const params: Record<string, string | number> = {
+      limit: Number(limit),
+    };
+
+    if (subject.trim()) params.subject = subject.trim();
+    if (examType) params.examType = examType;
+    if (year) params.year = Number(year);
+    if (topic.trim()) params.topic = topic.trim();
+    if (difficulty) params.difficulty = Number(difficulty);
+
+    // Super Admin searches within the selected school workspace.
+    if (schoolId) params.school_id = Number(schoolId);
+
+    try {
+      const response = await api.get("/aloc/questions", { params });
+      const payload = response.data;
+
+      setQuestions(getQuestions(payload));
+
+      if (payload && typeof payload === "object") {
+        const root = payload as Record<string, unknown>;
+        const data =
+          root.data && typeof root.data === "object"
+            ? (root.data as Record<string, unknown>)
+            : null;
+
+        setPagination(root.pagination ?? data?.pagination ?? null);
+      }
+
+      setSearched(true);
+    } catch (err: unknown) {
+      const responseData =
+        typeof err === "object" && err !== null && "response" in err
+          ? (
+              err as {
+                response?: {
+                  data?: { detail?: unknown; message?: unknown };
+                };
+              }
+            ).response?.data
+          : undefined;
+
+      setError(
+        String(
+          responseData?.detail ||
+            responseData?.message ||
+            "Unable to search ALOC. Check the connection and try again."
+        )
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <main className="min-h-screen space-y-6 bg-slate-50/70 p-4 text-slate-800 sm:p-6 lg:p-8">
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-indigo-950 to-blue-950 p-6 text-white shadow-lg sm:p-8">
+        <div className="relative z-10 flex items-start gap-4">
+          <div className="rounded-2xl border border-white/15 bg-white/10 p-3">
+            <LibraryBig size={28} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-200">
+              External Examination Library
+            </p>
+            <h1 className="mt-2 text-2xl font-bold sm:text-3xl">
+              ALOC Question Bank
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+              Search examination questions by subject, exam type, year and topic.
+              This is a separate workspace and does not modify CoreOne CBT.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="rounded-xl bg-indigo-50 p-2.5 text-indigo-700">
+            <Search size={20} />
+          </div>
+          <div>
+            <h2 className="font-bold text-slate-900">Search questions</h2>
+            <p className="text-sm text-slate-500">
+              Provide at least one of subject, exam type or year.
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={searchQuestions} className="space-y-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <label className="space-y-1.5 text-sm font-medium">
+              <span>Subject</span>
+              <select
+                value={subject}
+                onChange={(event) => {
+                  setSubject(event.target.value);
+                  setTopic("");
+                  setQuestions([]);
+                  setSearched(false);
+                }}
+                disabled={subjectsLoading}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
+              >
+                <option value="">
+                  {subjectsLoading ? "Loading subjects..." : "Select a subject"}
+                </option>
+                {subjects.map((item) => (
+                  <option key={item.name} value={item.name}>
+                    {item.displayName || item.name}
+                    {typeof item.questionCount === "number"
+                      ? ` (${item.questionCount.toLocaleString()} questions)`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-1.5 text-sm font-medium">
+              <span>Examination type</span>
+              <select
+                value={examType}
+                onChange={(event) => {
+                  setExamType(event.target.value);
+                  setYear("");
+                  setQuestions([]);
+                  setPagination(null);
+                  setSearched(false);
+                  setError("");
+                }}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+              >
+                <option value="">Any supported exam</option>
+                {EXAM_TYPES.map((exam) => (
+                  <option key={exam.value} value={exam.value}>
+                    {exam.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-1.5 text-sm font-medium">
+              <span>Year</span>
+              <select
+                value={year}
+                onChange={(event) => setYear(event.target.value)}
+                disabled={!examType || availableYears.length === 0}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
+              >
+                <option value="">
+                  {!examType
+                    ? "Select an exam first"
+                    : availableYears.length === 0
+                      ? "No catalogue years available"
+                      : "Any available year"}
+                </option>
+                {availableYears.map((availableYear) => (
+                  <option key={availableYear} value={String(availableYear)}>
+                    {availableYear}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-1.5 text-sm font-medium">
+              <span>Topic (optional)</span>
+              <select
+                value={topic}
+                onChange={(event) => setTopic(event.target.value)}
+                disabled={!subject || topicsLoading || topics.length === 0}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
+              >
+                <option value="">
+                  {!subject
+                    ? "Select a subject first"
+                    : topicsLoading
+                      ? "Loading topics..."
+                      : topics.length
+                        ? "All topics"
+                        : "No topic list available"}
+                </option>
+                {topics.map((item) => (
+                  <option key={item.name} value={item.name}>
+                    {item.displayName || item.name}
+                    {typeof item.questionCount === "number"
+                      ? ` (${item.questionCount.toLocaleString()} questions)`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-1.5 text-sm font-medium">
+              <span>Difficulty (optional)</span>
+              <select
+                value={difficulty}
+                onChange={(event) => setDifficulty(event.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+              >
+                <option value="">Any difficulty</option>
+                <option value="1">Easy</option>
+                <option value="3">Medium</option>
+                <option value="5">Hard</option>
+              </select>
+            </label>
+
+            <label className="space-y-1.5 text-sm font-medium">
+              <span>Results per search</span>
+              <select
+                value={limit}
+                onChange={(event) => setLimit(event.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+              >
+                <option value="5">5 questions</option>
+                <option value="10">10 questions</option>
+                <option value="15">15 questions</option>
+              </select>
+            </label>
+          </div>
+
+          {catalogueError && (
+            <div
+              role="status"
+              className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+            >
+              {catalogueError}
+            </div>
+          )}
+
+          {error && (
+            <div
+              role="alert"
+              className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+            >
+              <AlertCircle size={19} className="mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          >
+            {loading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Searching ALOC...
+              </>
+            ) : (
+              <>
+                <Search size={18} />
+                Search question bank
+              </>
+            )}
+          </button>
+        </form>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-bold text-slate-900">Search results</h2>
+          {searched && (
+            <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-700">
+              {questions.length} question{questions.length === 1 ? "" : "s"} returned
+            </span>
+          )}
+        </div>
+
+        {!searched && !loading && !error && (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center">
+            <BookOpen className="mx-auto text-slate-400" size={32} />
+            <p className="mt-3 font-semibold text-slate-800">
+              Your question results will appear here
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              Start a search using the filters above.
+            </p>
+          </div>
+        )}
+
+        {searched && questions.length === 0 && (
+          <div className="rounded-2xl border border-slate-200 bg-white px-5 py-10 text-center">
+            <p className="font-semibold text-slate-800">No questions found</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Try another subject, examination type, year or topic.
+            </p>
+          </div>
+        )}
+
+        {questions.map((question, index) => {
+          const raw = question as Record<string, unknown>;
+
+          const metadata =
+            raw.metadata && typeof raw.metadata === "object"
+              ? (raw.metadata as Record<string, unknown>)
+              : {};
+
+          const rawOptions = raw.options;
+          const optionEntries: Array<[string, unknown]> =
+            Array.isArray(rawOptions)
+              ? rawOptions.map((value, optionIndex) => [
+                  String.fromCharCode(65 + optionIndex),
+                  value,
+                ])
+              : rawOptions && typeof rawOptions === "object"
+                ? Object.entries(rawOptions as Record<string, unknown>)
+                : [];
+
+          const correctAnswer =
+            raw.correctAnswer ??
+            raw.correct_answer ??
+            raw.answerKey ??
+            raw.answer_key;
+
+          const answerLabel =
+            correctAnswer === null || correctAnswer === undefined
+              ? ""
+              : String(correctAnswer);
+
+          const correctOption = optionEntries.find(
+            ([key]) => key.toUpperCase() === answerLabel.toUpperCase()
+          );
+
+          const score = metadata.difficultyScore;
+          const difficultyLabel =
+            typeof score === "number"
+              ? score <= 2
+                ? "Easy"
+                : score <= 3
+                  ? "Medium"
+                  : "Hard"
+              : null;
+
+          const details: Array<[string, unknown]> = (
+            [
+              ["Subject", raw.subject],
+              ["Examination", raw.examType ?? raw.exam_type],
+              ["Year", raw.year],
+              ["Topic", metadata.topic],
+              ["Difficulty", difficultyLabel],
+            ] as Array<[string, unknown]>
+          ).filter(
+            ([, value]) =>
+              value !== null && value !== undefined && value !== ""
+          );
+
+          return (
+            <article
+              key={String(raw.id ?? raw._id ?? index)}
+              className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+            >
+              <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-5 py-3 sm:px-6">
+                <span className="text-xs font-bold uppercase tracking-wider text-indigo-700">
+                  Question {index + 1}
+                </span>
+                <span className="text-xs text-slate-500">
+                  {String(raw.examType ?? raw.exam_type ?? "Examination question")}
+                  {raw.year ? ` · ${String(raw.year)}` : ""}
+                </span>
+              </div>
+
+              <div className="p-5 sm:p-6">
+                <h3 className="whitespace-pre-wrap break-words text-base font-semibold leading-7 text-slate-900 sm:text-lg">
+                  {questionPrompt(question)}
+                </h3>
+
+                {optionEntries.length > 0 && (
+                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {optionEntries.map(([key, value]) => {
+                      const isCorrect =
+                        answerLabel !== "" &&
+                        key.toUpperCase() === answerLabel.toUpperCase();
+
+                      return (
+                        <div
+                          key={key}
+                          className={`flex min-w-0 items-start gap-3 rounded-xl border p-3 ${
+                            isCorrect
+                              ? "border-emerald-300 bg-emerald-50"
+                              : "border-slate-200 bg-white"
+                          }`}
+                        >
+                          <span
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
+                              isCorrect
+                                ? "bg-emerald-600 text-white"
+                                : "bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            {key}
+                          </span>
+                          <div className="min-w-0 flex-1 whitespace-pre-wrap break-words pt-1 text-sm leading-6 text-slate-800">
+                            {displayValue(value)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {answerLabel && (
+                  <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                    <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
+                      Correct answer
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-emerald-900">
+                      {answerLabel}
+                      {correctOption
+                        ? ` — ${String(correctOption[1])}`
+                        : ""}
+                    </p>
+                  </div>
+                )}
+
+                {details.length > 0 && (
+                  <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+                    {details.map(([label, value]) => (
+                      <span
+                        key={label}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-700"
+                      >
+                        <span className="font-semibold">{label}:</span>
+                        {String(value)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </article>
+          );
+        })}
+
+        {pagination !== null && pagination !== undefined && (
+          <p className="text-center text-xs text-slate-500">
+            Showing the questions returned for this search.
+          </p>
+        )}
+      </section>
+
+      <p className="text-xs leading-5 text-slate-500">
+        Questions are retrieved from the external ALOC API. This interface does
+        not create, publish, or alter CoreOne CBT examinations.
+      </p>
+    </main>
+  );
+}

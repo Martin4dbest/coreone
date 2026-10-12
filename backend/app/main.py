@@ -48,6 +48,7 @@ from app.modules.browser.activity_router import router as browser_activity_route
 from app.modules.youtube_learning.router import router as youtube_learning_router
 from app.modules.youtube_learning.activity_router import router as youtube_activity_router
 from app.modules.cbt.router import router as cbt_router
+from app.modules.aloc.router import router as aloc_router
 from app.modules.ai.router import router as ai_router
 from app.modules.performance_intelligence.router import router as performance_intelligence_router
 from app.modules.gallery.router import router as gallery_router
@@ -361,6 +362,11 @@ app.include_router(
 
 app.include_router(
     cbt_router,
+    prefix=settings.API_V1_STR,
+)
+
+app.include_router(
+    aloc_router,
     prefix=settings.API_V1_STR,
 )
 

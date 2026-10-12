@@ -100,6 +100,12 @@ const FEATURES: FeatureDefinition[] = [
     description: "Computer Based Tests and online examinations.",
   },
   {
+    key: "aloc_question_bank",
+    name: "ALOC Question Bank",
+    description:
+      "Search ALOC's examination question library and prepare separate question sets without changing CoreOne CBT.",
+  },
+  {
     key: "results",
     name: "Results",
     description: "Student results and academic reporting.",
@@ -215,7 +221,8 @@ export default function SchoolFeaturesPage({
      */
     if (
       featureKey === "ai" ||
-      featureKey === "performance_intelligence"
+      featureKey === "performance_intelligence" ||
+      featureKey === "aloc_question_bank"
     ) {
       return feature?.enabled === true;
     }

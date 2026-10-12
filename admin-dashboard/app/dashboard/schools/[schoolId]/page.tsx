@@ -2503,6 +2503,11 @@ export default function School360Dashboard() {
                 icon: Target,
               },
               {
+                title: "ALOC Question Bank",
+                href: `/dashboard/schools/${schoolId}/aloc-question-bank`,
+                icon: LibraryBig,
+              },
+              {
                 title: "School Books",
                 href: `/dashboard/schools/${schoolId}/school-books`,
                 icon: BookOpen,

@@ -1147,6 +1147,13 @@ export default function SchoolWorkspaceLayout({
 
     },
 
+    {
+      name: "ALOC Question Bank",
+      href: `${basePath}/aloc-question-bank`,
+      icon: LibraryBig,
+      feature: "aloc_question_bank",
+    },
+
 
   ];
 

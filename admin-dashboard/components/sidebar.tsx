@@ -24,7 +24,7 @@ import {
   LucideIcon,
 } from "lucide-react";
 
-import Logo from "./logo";
+
 import api from "@/lib/api";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 
@@ -235,6 +235,13 @@ export default function Sidebar() {
 
   const schoolAdminMenu: MenuItem[] = [
     {
+      name: "ALOC Question Bank",
+      href: `${schoolBase}/aloc-question-bank`,
+      icon: BookOpen,
+      color: "text-indigo-400",
+      feature: "aloc_question_bank",
+    },
+    {
       name: "School Dashboard",
       href: schoolBase,
       icon: LayoutDashboard,
@@ -301,6 +308,13 @@ export default function Sidebar() {
       icon: BookOpen,
       color: "text-cyan-400",
     },
+    {
+      name: "ALOC Question Bank",
+      href: "/teacher/aloc-question-bank",
+      icon: BookOpen,
+      color: "text-indigo-400",
+      feature: "aloc_question_bank",
+    },
   ];
 
   const featureEnabled = (featureKey: string) => {
@@ -357,7 +371,7 @@ export default function Sidebar() {
   }
 
   if (role === "TEACHER" || hasTeacherProfile) {
-    menu = teacherMenu;
+    menu = teacherMenu.filter((item) => !item.feature || featureEnabled(item.feature));
   }
 
   function handleLogout() {
@@ -426,12 +440,20 @@ export default function Sidebar() {
                   className="object-contain p-2"
                 />
               ) : (
-                <Logo />
+                <Image
+                  src={role === "SUPER_ADMIN" ? "/core1.png" : "/logo.png"}
+                  alt={role === "SUPER_ADMIN" ? "CoreOne" : "PreSense"}
+                  fill
+                  unoptimized
+                  className="object-contain p-2"
+                />
               )}
             </div>
 
             <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-indigo-200">
-              {schoolName || "Smart School Platform"}
+              {role === "SUPER_ADMIN"
+                ? "CoreOne"
+                : schoolName || "Smart School Platform"}
             </p>
           </div>
 

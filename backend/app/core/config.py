@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     APP_NAME: str = "PreSense"
     API_V1_STR: str = "/api/v1"
 
+    # Server-side ALOC credentials; never expose them to the frontend.
+    ALOC_API_KEY: str = ""
+    ALOC_BASE_URL: str = "https://dev.aloc.com.ng/api/v1"
+
     DATABASE_URL: str
     SECRET_KEY: str
     PAYMENT_ENCRYPTION_KEY: str = ""
