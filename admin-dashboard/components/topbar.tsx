@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { LockKeyhole,
   Bell,
+  BookOpen,
   Search,
   ChevronDown,
   CalendarClock,
@@ -31,6 +32,7 @@ type CurrentUser = {
 export default function Topbar() {
   const pathname = usePathname();
   const [partnerSchoolsEnabled, setPartnerSchoolsEnabled] = useState(false);
+  const [alocEnabled, setAlocEnabled] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   useEffect(() => {
@@ -329,6 +331,17 @@ const initials = displayName
             <Bell size={20} />
             <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
           </button>
+        )}
+
+        {partnerSchoolsMatch && (
+          <Link
+            href={`/dashboard/schools/${partnerSchoolsMatch[1]}/aloc-question-bank`}
+            className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
+            title="Open ALOC Question Bank"
+          >
+            <BookOpen size={17} />
+            <span>ALOC Question Bank</span>
+          </Link>
         )}
 
         {partnerSchoolsMatch && (

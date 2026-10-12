@@ -234,13 +234,7 @@ export default function Sidebar() {
   ];
 
   const schoolAdminMenu: MenuItem[] = [
-    {
-      name: "ALOC Question Bank",
-      href: `${schoolBase}/aloc-question-bank`,
-      icon: BookOpen,
-      color: "text-indigo-400",
-      feature: "aloc_question_bank",
-    },
+    
     {
       name: "School Dashboard",
       href: schoolBase,

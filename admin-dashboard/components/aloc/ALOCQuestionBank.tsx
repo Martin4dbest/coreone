@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import katex from "katex";
+import { jsPDF } from "jspdf";
 import "katex/dist/katex.min.css";
 import {
   Search,
@@ -228,9 +229,11 @@ function getQuestionImages(question: Question): Array<{
 }> {
   const found = new Map<string, string>();
   const imageKey =
-    /image|diagram|figure|illustration|attachment|media|picture|graphic/i;
-  const urlKey = /^(src|url|href|imageurl|image_url|srcurl|src_url)$/i;
-  const imageExtension = /\.(png|jpe?g|gif|webp|svg)(?:[?#].*)?$/i;
+    /image|diagram|figure|illustration|attachment|media|picture|graphic|chart/i;
+  const urlKey =
+    /^(src|url|href|imageurl|image_url|srcurl|src_url|downloadurl|download_url|imagepath|image_path)$/i;
+  const imageExtension =
+    /\.(png|jpe?g|gif|webp|svg|bmp|avif)(?:[?#].*)?$/i;
 
   function walk(
     value: unknown,
@@ -238,18 +241,31 @@ function getQuestionImages(question: Question): Array<{
     imageContext = false,
     depth = 0
   ): void {
-    if (depth > 6 || value == null) return;
+    if (depth > 10 || value == null) return;
 
     if (typeof value === "string") {
       const candidate = value.trim();
-      const isHttpUrl = /^https?:\/\/\S+$/i.test(candidate);
+      const isUsableUrl =
+        /^(https?:\/\/|data:image\/|blob:|\/)/i.test(candidate);
       const looksLikeImage =
         imageExtension.test(candidate) ||
         (imageContext && urlKey.test(key));
 
-      if (isHttpUrl && (looksLikeImage || imageContext)) {
+      if (isUsableUrl && (looksLikeImage || imageContext)) {
         found.set(candidate, key || "Question diagram");
       }
+
+      const htmlImage = candidate.match(
+        /<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i
+      );
+
+      if (htmlImage?.[1]) {
+        const imageUrl = htmlImage[1].trim();
+        if (/^(https?:\/\/|data:image\/|\/)/i.test(imageUrl)) {
+          found.set(imageUrl, key || "Question diagram");
+        }
+      }
+
       return;
     }
 
@@ -264,12 +280,12 @@ function getQuestionImages(question: Question): Array<{
       for (const [childKey, childValue] of Object.entries(
         value as Record<string, unknown>
       )) {
-        const context =
-          imageContext ||
-          imageKey.test(childKey) ||
-          (urlKey.test(childKey) && imageContext);
-
-        walk(childValue, childKey, context, depth + 1);
+        walk(
+          childValue,
+          childKey,
+          imageContext || imageKey.test(childKey) || urlKey.test(childKey),
+          depth + 1
+        );
       }
     }
   }
@@ -280,6 +296,29 @@ function getQuestionImages(question: Question): Array<{
     url,
     alt: label.replace(/[_-]+/g, " "),
   }));
+}
+
+async function imageUrlToDataUri(url: string): Promise<string | null> {
+  if (url.startsWith("data:image/")) return url;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+
+    const blob = await response.blob();
+    if (!blob.type.startsWith("image/")) return null;
+
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        resolve(typeof reader.result === "string" ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    // External servers may block browser access through CORS.
+    return null;
+  }
 }
 
 function QuestionMedia({ question }: { question: Question }) {
@@ -420,10 +459,272 @@ export default function ALOCQuestionBank({ schoolId }: Props) {
   const [limit, setLimit] = useState("15");
 
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
+  const [showSelectedQuestions, setShowSelectedQuestions] = useState(false);
+
+  const toggleQuestionSelection = (question: Question) => {
+    const id = question.id ?? question._id ?? question.questionId;
+    const key = id != null
+      ? String(id)
+      : questionPrompt(question) + '-' + displayValue(question.options);
+
+    setSelectedQuestions((current) => {
+      const getKey = (item: Question) => {
+        const itemId = item.id ?? item._id ?? item.questionId;
+        return itemId != null
+          ? String(itemId)
+          : questionPrompt(item) + '-' + displayValue(item.options);
+      };
+
+      const exists = current.some((item) => getKey(item) === key);
+      return exists
+        ? current.filter((item) => getKey(item) !== key)
+        : [...current, question];
+    });
+  };
+
   const [pagination, setPagination] = useState<unknown>(null);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const selectedQuestionText = () => selectedQuestions.map((question, index) => {
+    const raw = question as Record<string, unknown>;
+    const options = Array.isArray(raw.options)
+      ? raw.options.map((value, i) => `${String.fromCharCode(65 + i)}. ${displayValue(value)}`)
+      : raw.options && typeof raw.options === "object"
+        ? Object.entries(raw.options as Record<string, unknown>).map(([key, value]) => `${key}. ${displayValue(value)}`)
+        : [];
+    const answer = raw.correctAnswer ?? raw.correct_answer ?? raw.answerKey ?? raw.answer_key ?? raw.answer;
+    const exam = raw.examType ?? raw.exam_type ?? "ALOC";
+    const yearValue = raw.year ? ` (${String(raw.year)})` : "";
+    return [
+      `${index + 1}. ${questionPrompt(question)}` ,
+      `Subject: ${displayValue(raw.subject) || "Not specified"} | Examination: ${String(exam)}${yearValue}`,
+      ...options,
+      answer !== undefined && answer !== null && String(answer).trim() !== "" ? `Correct answer: ${displayValue(answer)}` : "",
+    ].filter(Boolean).join("\n");
+  }).join("\n\n");
+
+  const copySelectedQuestions = async () => {
+    if (!selectedQuestions.length) return;
+    try {
+      await navigator.clipboard.writeText(selectedQuestionText());
+      window.alert("Your question collection has been copied.");
+    } catch {
+      setError("Copy failed. Please allow clipboard access in your browser and try again.");
+    }
+  };
+
+  const exportSelectedQuestionsPdf = async () => {
+    if (!selectedQuestions.length) return;
+
+    const pdf = new jsPDF({ unit: "mm", format: "a4" });
+    const margin = 15;
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const maxWidth = pageWidth - margin * 2;
+    let y = 18;
+
+    const ensureSpace = (height: number) => {
+      if (y + height > pageHeight - margin) {
+        pdf.addPage();
+        y = margin;
+      }
+    };
+
+    const writeText = (value: string, bold = false) => {
+      const wrapped = pdf.splitTextToSize(value, maxWidth);
+      const lineHeight = 5;
+      ensureSpace(wrapped.length * lineHeight + 1);
+      pdf.setFont("helvetica", bold ? "bold" : "normal");
+      pdf.text(wrapped, margin, y);
+      y += wrapped.length * lineHeight + 1;
+    };
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(16);
+    pdf.text("My ALOC Question Collection", margin, y);
+    y += 9;
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`Questions: ${selectedQuestions.length}`, margin, y);
+    y += 9;
+
+    for (let index = 0; index < selectedQuestions.length; index++) {
+      const question = selectedQuestions[index];
+      const raw = question as Record<string, unknown>;
+      const options = Array.isArray(raw.options)
+        ? raw.options.map((value, i) =>
+            `${String.fromCharCode(65 + i)}. ${displayValue(value)}`
+          )
+        : raw.options && typeof raw.options === "object"
+          ? Object.entries(raw.options as Record<string, unknown>).map(
+              ([key, value]) => `${key}. ${displayValue(value)}`
+            )
+          : [];
+
+      const answer =
+        raw.correctAnswer ??
+        raw.correct_answer ??
+        raw.answerKey ??
+        raw.answer_key ??
+        raw.answer;
+
+      ensureSpace(15);
+      if (index > 0) y += 4;
+      writeText(`${index + 1}. ${questionPrompt(question)}`, true);
+      writeText(
+        `Subject: ${displayValue(raw.subject) || "Not specified"} | Exam: ${
+          displayValue(raw.examType ?? raw.exam_type) || "ALOC"
+        }${raw.year ? ` | Year: ${String(raw.year)}` : ""}`
+      );
+
+      const images = getQuestionImages(question);
+      for (const image of images) {
+        const dataUri = await imageUrlToDataUri(image.url);
+
+        if (dataUri) {
+          try {
+            const mime = dataUri.slice(5, dataUri.indexOf(";")).toLowerCase();
+            const format = mime.includes("jpeg") || mime.includes("jpg")
+              ? "JPEG"
+              : mime.includes("webp")
+                ? "WEBP"
+                : mime.includes("svg")
+                  ? "SVG"
+                  : "PNG";
+
+            const properties = pdf.getImageProperties(dataUri);
+            const availableWidth = maxWidth;
+            const availableHeight = 65;
+            const scale = Math.min(
+              availableWidth / properties.width,
+              availableHeight / properties.height,
+              1
+            );
+            const imageWidth = properties.width * scale;
+            const imageHeight = properties.height * scale;
+
+            ensureSpace(imageHeight + 5);
+            pdf.addImage(
+              dataUri,
+              format,
+              margin + (maxWidth - imageWidth) / 2,
+              y,
+              imageWidth,
+              imageHeight
+            );
+            y += imageHeight + 4;
+          } catch {
+            writeText(`[Diagram could not be embedded: ${image.url}]`);
+          }
+        } else {
+          writeText(`Diagram link: ${image.url}`);
+        }
+      }
+
+      options.forEach((option) => writeText(option));
+      if (answer !== undefined && answer !== null && String(answer).trim()) {
+        writeText(`Correct answer: ${displayValue(answer)}`, true);
+      }
+      y += 3;
+    }
+
+    pdf.save("my-aloc-question-collection.pdf");
+  };
+
+  const exportSelectedQuestionsWord = async () => {
+    if (!selectedQuestions.length) return;
+
+    const escapeHtml = (value: string) =>
+      value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+    const content = await Promise.all(
+      selectedQuestions.map(async (question, index) => {
+        const raw = question as Record<string, unknown>;
+        const options = Array.isArray(raw.options)
+          ? raw.options.map((value, i) =>
+              `${String.fromCharCode(65 + i)}. ${displayValue(value)}`
+            )
+          : raw.options && typeof raw.options === "object"
+            ? Object.entries(raw.options as Record<string, unknown>).map(
+                ([key, value]) => `${key}. ${displayValue(value)}`
+              )
+            : [];
+
+        const answer =
+          raw.correctAnswer ??
+          raw.correct_answer ??
+          raw.answerKey ??
+          raw.answer_key ??
+          raw.answer;
+
+        const images = await Promise.all(
+          getQuestionImages(question).map(async (image) => {
+            const dataUri = await imageUrlToDataUri(image.url);
+
+            if (dataUri) {
+              return `<figure style="margin:16px 0;text-align:center">
+                <img src="${escapeHtml(dataUri)}"
+                  alt="${escapeHtml(image.alt)}"
+                  style="max-width:100%;height:auto;max-height:500px"/>
+              </figure>`;
+            }
+
+            return `<p><b>Question diagram:</b>
+              <a href="${escapeHtml(image.url)}">Open diagram</a></p>`;
+          })
+        );
+
+        return `<section style="page-break-inside:avoid">
+          <h3>${index + 1}. ${escapeHtml(questionPrompt(question))}</h3>
+          <p><b>Subject:</b> ${escapeHtml(displayValue(raw.subject) || "Not specified")}
+          &nbsp; <b>Exam:</b> ${escapeHtml(displayValue(raw.examType ?? raw.exam_type) || "ALOC")}
+          &nbsp; <b>Year:</b> ${escapeHtml(displayValue(raw.year) || "Not specified")}</p>
+          ${images.join("")}
+          ${options.length
+            ? `<ol type="A">${options.map((option) =>
+                `<li>${escapeHtml(option.replace(/^[A-Z]\.\s*/, ""))}</li>`
+              ).join("")}</ol>`
+            : ""}
+          ${answer !== undefined && answer !== null && String(answer).trim()
+            ? `<p><b>Correct answer:</b> ${escapeHtml(displayValue(answer))}</p>`
+            : ""}
+        </section>`;
+      })
+    );
+
+    const html = `<html><head><meta charset="utf-8">
+      <title>My ALOC Question Collection</title>
+      <style>
+        body{font-family:Arial,sans-serif;line-height:1.5}
+        h1{color:#263780}h3{margin-top:24px}
+        li{margin:5px 0}img{object-fit:contain}
+      </style></head><body>
+      <h1>My ALOC Question Collection</h1>
+      <p>Total questions: ${selectedQuestions.length}</p>
+      ${content.join("\n")}
+      <p><small>Collected from the external ALOC question library.
+      This document does not publish questions to CoreOne CBT.</small></p>
+      </body></html>`;
+
+    const blob = new Blob(["\ufeff", html], {
+      type: "application/msword;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "my-aloc-question-collection.doc";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
 
   // Derive available years from ALOC's subject catalogue.
   // ALOC currently exposes a subject year range, not a separate range per exam.
@@ -730,6 +1031,55 @@ export default function ALOCQuestionBank({ schoolId }: Props) {
         </form>
       </section>
 
+      <section className="overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-indigo-50 px-5 py-4">
+          <div>
+            <h2 className="font-bold text-slate-900">My Question Collection</h2>
+            <p className="mt-1 text-sm text-slate-600">{selectedQuestions.length} question{selectedQuestions.length === 1 ? "" : "s"} selected across your searches</p>
+          </div>
+          <button type="button" onClick={() => setShowSelectedQuestions((value) => !value)} className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100">
+            {showSelectedQuestions ? "Hide preview" : "Preview collection"}
+          </button>
+        </div>
+        {selectedQuestions.length > 0 && (
+          <div className="flex flex-wrap gap-2 border-b border-slate-100 p-4">
+            <button type="button" onClick={copySelectedQuestions} className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700">Copy questions</button>
+            <button type="button" onClick={exportSelectedQuestionsPdf} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Export PDF</button>
+            <button type="button" onClick={exportSelectedQuestionsWord} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Export Word document</button>
+            <button type="button" onClick={() => { if (window.confirm("Clear all questions from your collection?")) setSelectedQuestions([]); }} className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Clear collection</button>
+          </div>
+        )}
+        {selectedQuestions.length === 0 && <p className="p-5 text-sm text-slate-500">Use “Select question” on any search result. Your collection remains available when you run another search.</p>}
+        {showSelectedQuestions && selectedQuestions.length > 0 && (
+          <ol className="divide-y divide-slate-100">
+            {selectedQuestions.map((question, index) => {
+              const raw = question as Record<string, unknown>;
+              const options = Array.isArray(raw.options)
+                ? raw.options.map((value, i) => `${String.fromCharCode(65 + i)}. ${displayValue(value)}`)
+                : raw.options && typeof raw.options === "object"
+                  ? Object.entries(raw.options as Record<string, unknown>).map(([key, value]) => `${key}. ${displayValue(value)}`)
+                  : [];
+              const answer = raw.correctAnswer ?? raw.correct_answer ?? raw.answerKey ?? raw.answer_key ?? raw.answer;
+              return (
+                <li key={String(raw.id ?? raw._id ?? raw.questionId ?? `${index}-${questionPrompt(question)}`)} className="p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="whitespace-pre-wrap break-words font-semibold text-slate-900">{index + 1}. {questionPrompt(question)}</p>
+                      <p className="mt-1 text-xs text-slate-500">{displayValue(raw.subject) || "Subject not specified"} · {displayValue(raw.examType ?? raw.exam_type) || "ALOC"}{raw.year ? ` · ${String(raw.year)}` : ""}</p>
+                    </div>
+                    <button type="button" onClick={() => toggleQuestionSelection(question)} className="shrink-0 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50">Remove</button>
+                  </div>
+                  <QuestionMedia question={question} />
+                  {options.length > 0 && <ul className="mt-3 space-y-1 pl-4 text-sm text-slate-700">{options.map((option, optionIndex) => <li key={`${optionIndex}-${option}`}>{option}</li>)}</ul>}
+                  {answer !== undefined && answer !== null && String(answer).trim() !== "" && <p className="mt-3 text-sm font-semibold text-emerald-800">Correct answer: {displayValue(answer)}</p>}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+        <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">Exports are generated in your browser. The Word option creates a Word-compatible .doc file, not a .docx file. Nothing is published to CoreOne CBT.</p>
+      </section>
+
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-bold text-slate-900">Search results</h2>
@@ -823,16 +1173,40 @@ export default function ALOCQuestionBank({ schoolId }: Props) {
               key={String(raw.id ?? raw._id ?? index)}
               className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
             >
-              <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-5 py-3 sm:px-6">
-                <span className="text-xs font-bold uppercase tracking-wider text-indigo-700">
-                  Question {index + 1}
-                </span>
-                <span className="text-xs text-slate-500">
-                  {String(raw.examType ?? raw.exam_type ?? "Examination question")}
-                  {raw.year ? ` · ${String(raw.year)}` : ""}
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-5 py-3 sm:px-6">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-700">
+                    Question {index + 1}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {String(raw.examType ?? raw.exam_type ?? "Examination question")}
+                    {raw.year ? ` · ${String(raw.year)}` : ""}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toggleQuestionSelection(question)}
+                  className={`inline-flex shrink-0 items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                    selectedQuestions.some((item) => {
+                      const itemId = item.id ?? item._id ?? item.questionId;
+                      const questionId = raw.id ?? raw._id ?? raw.questionId;
+                      return itemId != null && questionId != null
+                        ? String(itemId) === String(questionId)
+                        : questionPrompt(item) === questionPrompt(question);
+                    })
+                      ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                      : "bg-indigo-600 text-white hover:bg-indigo-700"
+                  }`}
+                >
+                  {selectedQuestions.some((item) => {
+                    const itemId = item.id ?? item._id ?? item.questionId;
+                    const questionId = raw.id ?? raw._id ?? raw.questionId;
+                    return itemId != null && questionId != null
+                      ? String(itemId) === String(questionId)
+                      : questionPrompt(item) === questionPrompt(question);
+                  }) ? "Remove selection" : "Select question"}
+                </button>
               </div>
-
               <div className="p-5 sm:p-6">
                 <h3 className="whitespace-pre-wrap break-words text-base font-semibold leading-7 text-slate-900 sm:text-lg">
                   <MathText value={questionPrompt(question)} />

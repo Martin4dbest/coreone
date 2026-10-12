@@ -875,6 +875,12 @@ export default function SchoolWorkspaceLayout({
 
 
     },
+    {
+      name: "ALOC Question Bank",
+      href: `${basePath}/aloc-question-bank`,
+      icon: BookOpen,
+      feature: "aloc_question_bank",
+    },
 
 
     {
@@ -1145,14 +1151,7 @@ export default function SchoolWorkspaceLayout({
       feature: "cbt",
 
 
-    },
-
-    {
-      name: "ALOC Question Bank",
-      href: `${basePath}/aloc-question-bank`,
-      icon: LibraryBig,
-      feature: "aloc_question_bank",
-    },
+    },
 
 
   ];
