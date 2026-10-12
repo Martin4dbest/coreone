@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 import {
   Search,
   BookOpen,
@@ -145,6 +147,81 @@ function formatExamText(value: string): string {
     .trim();
 }
 
+
+function MathText({ value }: { value: string }) {
+  const source = value
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<sup\b[^>]*>([\s\S]*?)<\/sup>/gi, "^{$1}")
+    .replace(/<sub\b[^>]*>([\s\S]*?)<\/sub>/gi, "_{$1}")
+    .replace(/&times;/gi, "×")
+    .replace(/&minus;/gi, "−")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&amp;/gi, "&")
+    .replace(/<[^>]*>/g, "")
+    .trim();
+
+  const hasMathMarkup =
+    /<sup\b|<sub\b|\^\{|_\{|\\\(|\\\[|\$/.test(value) ||
+    /\^\s*[+-]?\d/.test(source);
+
+  if (!hasMathMarkup) {
+    return <>{formatExamText(source)}</>;
+  }
+
+  const instruction =
+    /^(.*?\b(?:evaluate|simplify|solve|calculate|find|determine|express)\s+)(.+)$/i
+      .exec(source);
+
+  const prefix = instruction?.[1] ?? "";
+  let formula = instruction?.[2] ?? source;
+
+  formula = formula
+    .replace(/−/g, "-")
+    .replace(/×/g, "\\times ")
+    .replace(/÷/g, "\\div ")
+    .replace(/π/g, "\\pi ")
+    .replace(
+      /\((\d+)\s*\/\s*(\d+)\)/g,
+      "\\left(\\frac{$1}{$2}\\right)"
+    )
+    .replace(
+      /\^\{([+-]?\d+)\s*\/\s*(\d+)\}/g,
+      (_, numerator: string, denominator: string) =>
+        `^{${numerator.startsWith("-") ? "-" : numerator.startsWith("+") ? "+" : ""}\\frac{${numerator.replace(/^[+-]/, "")}}{${denominator}}}`
+    )
+    .replace(
+      /\^\{([+-]?\d+)\}/g,
+      (_, power: string) => `^{${power}}`
+    )
+    .replace(
+      /(?<![A-Za-z\\])(\d+)\s*\/\s*(\d+)/g,
+      "\\frac{$1}{$2}"
+    );
+
+  const latex =
+    (prefix ? `\\text{${prefix.trim().replace(/[{}\\]/g, "")}}\\;` : "") +
+    formula;
+
+  try {
+    const html = katex.renderToString(latex, {
+      throwOnError: false,
+      strict: "ignore",
+      output: "htmlAndMathml",
+    });
+
+    return (
+      <span
+        className="aloc-math inline-block max-w-full align-middle"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  } catch {
+    return <>{formatExamText(source)}</>;
+  }
+}
+
 function getQuestionImages(question: Question): Array<{
   url: string;
   alt: string;
@@ -211,21 +288,41 @@ function QuestionMedia({ question }: { question: Question }) {
   if (!images.length) return null;
 
   return (
-    <div className="mt-5 space-y-4">
-      {images.map((image) => (
+    <div className="my-6 space-y-5">
+      {images.map((image, index) => (
         <figure
           key={image.url}
-          className="overflow-hidden rounded-xl border border-slate-200 bg-white p-3"
+          className="overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-sky-50 shadow-sm"
         >
-          <img
-            src={image.url}
-            alt={image.alt}
-            loading="lazy"
-            className="mx-auto h-auto max-h-[480px] max-w-full object-contain"
-          />
-          <figcaption className="mt-2 text-center text-xs text-slate-500">
-            {image.alt}
-          </figcaption>
+          <div className="flex items-center gap-2 border-b border-indigo-100 bg-white/80 px-4 py-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+              <BookOpen size={15} aria-hidden="true" />
+            </span>
+            <span className="text-xs font-bold uppercase tracking-wider text-indigo-800">
+              {images.length > 1
+                ? `Question diagram ${index + 1}`
+                : "Question diagram"}
+            </span>
+          </div>
+
+          <div className="flex min-h-40 items-center justify-center overflow-x-auto p-3 sm:min-h-52 sm:p-6">
+            <img
+              src={image.url}
+              alt={image.alt || `Diagram for question ${index + 1}`}
+              loading="lazy"
+              decoding="async"
+              className="block h-auto max-h-[620px] w-auto max-w-full rounded-lg object-contain"
+              onError={(event) => {
+                event.currentTarget.style.display = "none";
+              }}
+            />
+          </div>
+
+          {image.alt && !/^(image|diagram|figure|illustration|attachment|media|picture|graphic)$/i.test(image.alt.trim()) && (
+            <figcaption className="border-t border-indigo-100 bg-white/70 px-4 py-2 text-center text-xs leading-5 text-slate-600">
+              {image.alt}
+            </figcaption>
+          )}
         </figure>
       ))}
     </div>
@@ -737,7 +834,7 @@ export default function ALOCQuestionBank({ schoolId }: Props) {
 
               <div className="p-5 sm:p-6">
                 <h3 className="whitespace-pre-wrap break-words text-base font-semibold leading-7 text-slate-900 sm:text-lg">
-                  {formatExamText(questionPrompt(question))}
+                  <MathText value={questionPrompt(question)} />
                 </h3>
 
                 <QuestionMedia question={raw} />
@@ -768,7 +865,7 @@ export default function ALOCQuestionBank({ schoolId }: Props) {
                             {key}
                           </span>
                           <div className="min-w-0 flex-1 whitespace-pre-wrap break-words pt-1 text-sm leading-6 text-slate-800">
-                            {formatExamText(displayValue(value))}
+                            <MathText value={displayValue(value)} />
                           </div>
                         </div>
                       );
