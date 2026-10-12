@@ -470,8 +470,9 @@ export default function ALOCQuestionBank({ schoolId }: Props) {
     setQuestions([]);
     setPagination(null);
 
-    const params: Record<string, string | number> = {
+    const params: Record<string, string | number | boolean> = {
       limit: Number(limit),
+      random: true,
     };
 
     if (subject.trim()) params.subject = subject.trim();
