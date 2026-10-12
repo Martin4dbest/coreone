@@ -12,10 +12,35 @@ from app.core.school_access import check_school_access
 from app.db.database import get_db
 from app.models.school_feature import SchoolFeature
 from app.models.user import User
+from app.modules.auth.dependencies.current_user import get_current_user
 
 router = APIRouter(prefix="/aloc", tags=["ALOC Question Bank"])
 
 ALOC_ROLES = ("SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER")
+
+
+async def require_aloc_access(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    role_name = (
+        current_user.role.name.strip().upper()
+        if current_user.role and current_user.role.name
+        else ""
+    )
+
+    # Keep the existing permitted roles.
+    if role_name in ALOC_ROLES:
+        return current_user
+
+    # Some teacher accounts may be linked to a teacher profile
+    # without having the canonical TEACHER role name.
+    if current_user.teacher is not None:
+        return current_user
+
+    raise HTTPException(
+        status_code=403,
+        detail="ALOC Question Bank is available to teachers and school administrators.",
+    )
 
 
 def _fetch_questions(
@@ -181,7 +206,7 @@ async def _check_aloc_catalogue_access(
 async def get_aloc_subjects(
     school_id: int | None = Query(default=None, ge=1),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(*ALOC_ROLES)),
+    current_user: User = Depends(require_aloc_access),
 ):
     api_key = await _check_aloc_catalogue_access(school_id, db, current_user)
     url = f"{settings.ALOC_BASE_URL.rstrip('/')}/subjects"
@@ -198,7 +223,7 @@ async def get_aloc_topics(
     subject: str,
     school_id: int | None = Query(default=None, ge=1),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(*ALOC_ROLES)),
+    current_user: User = Depends(require_aloc_access),
 ):
     api_key = await _check_aloc_catalogue_access(school_id, db, current_user)
     from urllib.parse import quote
@@ -226,7 +251,7 @@ async def search_aloc_questions(
     cursor: str | None = Query(default=None, max_length=500),
     limit: int = Query(default=15, ge=1, le=15),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(*ALOC_ROLES)),
+    current_user: User = Depends(require_aloc_access),
 ):
     role_name = current_user.role.name if current_user.role else ""
 
