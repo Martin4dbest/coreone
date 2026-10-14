@@ -114,21 +114,20 @@ export default function LoginPage() {
               router.replace("/teacher/dashboard");
               return;
             }
-
-            break;
           } catch (error) {
             console.error(
               `Teacher profile check failed (attempt ${attempt + 1}):`,
               error
             );
+          }
 
-            if (attempt < 2) {
-              await new Promise((resolve) => setTimeout(resolve, 700));
-            }
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
           }
         }
 
-        router.replace("/login");
+        // Preserve access for imported STAFF accounts not linked to a Teacher.
+        router.replace("/dashboard");
         return;
       }
 
