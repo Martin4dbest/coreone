@@ -50,7 +50,11 @@ api.interceptors.request.use((config) => {
   /*
    * Cache GET requests for 30 seconds.
    */
-  if (config.method?.toLowerCase() === "get") {
+  if (
+    config.method?.toLowerCase() === "get" &&
+    !config.url?.includes("/auth/me") &&
+    !config.url?.includes("/teachers/me/access")
+  ) {
     const key =
       config.url +
       JSON.stringify(config.params || {});
@@ -77,7 +81,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => {
     if (
-      response.config.method?.toLowerCase() === "get"
+      response.config.method?.toLowerCase() === "get" &&
+      !response.config.url?.includes("/auth/me") &&
+      !response.config.url?.includes("/teachers/me/access")
     ) {
       const key =
         response.config.url +
