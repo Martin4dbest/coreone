@@ -1333,7 +1333,7 @@ export default function SchoolWorkspaceLayout({
   // ----------------------------------------------------------
 
 
-  if (teacherLearning && !accessDenied) {
+  if (!loading && teacherLearning && !accessDenied) {
 
 
     return <>{children}</>;
