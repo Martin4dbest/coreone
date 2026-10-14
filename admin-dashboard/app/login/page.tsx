@@ -132,7 +132,7 @@ export default function LoginPage() {
         }
 
         // Preserve access for imported STAFF accounts not linked to a Teacher.
-        router.replace("/login");
+        router.replace("/staff/dashboard");
         return;
       }
 
