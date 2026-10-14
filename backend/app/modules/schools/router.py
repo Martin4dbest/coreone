@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.teacher_access import is_teacher_user
 from app.core.permissions import require_roles
 from app.db.database import get_db
 from app.modules.auth.dependencies.current_user import get_current_user
@@ -133,6 +134,13 @@ async def get_school(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You cannot access another school",
             )
+
+    elif (
+        role_name == "STAFF"
+        and is_teacher_user(current_user)
+        and current_user.school_id == school_id
+    ):
+        pass
 
     else:
         raise HTTPException(

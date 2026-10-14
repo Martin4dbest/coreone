@@ -98,6 +98,21 @@ export default function LoginPage() {
         return;
       }
 
+      if (user.role?.name === "STAFF") {
+        try {
+          const teacherAccess = await api.get<{
+            has_teacher_profile: boolean;
+          }>("/teachers/me/access");
+
+          if (teacherAccess.data?.has_teacher_profile) {
+            router.replace("/teacher/dashboard");
+            return;
+          }
+        } catch (error) {
+          console.error("Unable to check linked Teacher profile:", error);
+        }
+      }
+
       if (user.role?.name === "TEACHER") {
         router.replace("/teacher/dashboard");
         return;
