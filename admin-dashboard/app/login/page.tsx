@@ -99,18 +99,37 @@ export default function LoginPage() {
       }
 
       if (user.role?.name === "STAFF") {
-        try {
-          const teacherAccess = await api.get<{
-            has_teacher_profile: boolean;
-          }>("/teachers/me/access");
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const teacherAccess = await api.get<{
+              has_teacher_profile: boolean;
+            }>("/teachers/me/access", {
+              headers: {
+                "Cache-Control": "no-cache",
+                Pragma: "no-cache",
+              },
+            });
 
-          if (teacherAccess.data?.has_teacher_profile) {
-            router.replace("/teacher/dashboard");
-            return;
+            if (teacherAccess.data?.has_teacher_profile === true) {
+              router.replace("/teacher/dashboard");
+              return;
+            }
+
+            break;
+          } catch (error) {
+            console.error(
+              `Teacher profile check failed (attempt ${attempt + 1}):`,
+              error
+            );
+
+            if (attempt < 2) {
+              await new Promise((resolve) => setTimeout(resolve, 700));
+            }
           }
-        } catch (error) {
-          console.error("Unable to check linked Teacher profile:", error);
         }
+
+        router.replace("/login");
+        return;
       }
 
       if (user.role?.name === "TEACHER") {
