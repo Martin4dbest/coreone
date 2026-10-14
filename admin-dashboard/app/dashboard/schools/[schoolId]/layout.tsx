@@ -282,7 +282,9 @@ export default function SchoolWorkspaceLayout({
 
         const role = user?.role?.name;
 
-        if (String(role ?? "").trim().toUpperCase() === "STAFF") {
+        const normalizedRole = String(role ?? "").trim().toUpperCase();
+
+        if (["STAFF", "TEACHER", "STUDENT"].includes(normalizedRole)) {
           if (mounted) setAccessDenied(true);
           return;
         }
