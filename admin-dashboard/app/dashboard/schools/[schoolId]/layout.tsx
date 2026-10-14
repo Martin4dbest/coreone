@@ -253,6 +253,7 @@ export default function SchoolWorkspaceLayout({
 
 
   const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
 
 
 
@@ -280,6 +281,11 @@ export default function SchoolWorkspaceLayout({
 
 
         const role = user?.role?.name;
+
+        if (String(role ?? "").trim().toUpperCase() === "STAFF") {
+          if (mounted) setAccessDenied(true);
+          return;
+        }
 
 
 
@@ -1325,7 +1331,7 @@ export default function SchoolWorkspaceLayout({
   // ----------------------------------------------------------
 
 
-  if (teacherLearning) {
+  if (teacherLearning && !accessDenied) {
 
 
     return <>{children}</>;
@@ -1336,6 +1342,22 @@ export default function SchoolWorkspaceLayout({
 
 
 
+
+  // STAFF_WORKSPACE_ACCESS_DENIED
+  if (accessDenied) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="rounded-2xl border border-red-200 bg-white p-8 text-center shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900">Access denied</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Your Staff account cannot access the school administration workspace.
+            Use the Staff portal or sign in through the Teacher portal if your
+            account is linked to a Teacher profile.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
 
