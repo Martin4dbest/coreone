@@ -69,6 +69,7 @@ export default function LoginPage() {
         await api.get<CurrentUser>("/auth/me");
 
       const user = userResponse.data;
+      const roleName = String(user.role?.name ?? "").trim().toUpperCase();
 
       // Teachers and school admins who must change their password
       // must complete the password change before entering the dashboard.
@@ -82,13 +83,13 @@ export default function LoginPage() {
       // SUPER_ADMIN MUST ALWAYS ENTER THE MASTER DASHBOARD.
       // SUPER_ADMIN is NOT tenant-bound for frontend routing.
       // ========================================================
-      if (user.role?.name === "SUPER_ADMIN") {
+      if (roleName === "SUPER_ADMIN") {
         router.replace("/dashboard");
         return;
       }
 
       if (
-        user.role?.name === "SCHOOL_ADMIN" &&
+        roleName === "SCHOOL_ADMIN" &&
         user.school_id
       ) {
         router.replace(
@@ -98,12 +99,12 @@ export default function LoginPage() {
         return;
       }
 
-      if (user.role?.name === "TEACHER") {
+      if (roleName === "TEACHER") {
         router.replace("/teacher/dashboard");
         return;
       }
 
-      if (user.role?.name === "STAFF") {
+      if (roleName === "STAFF") {
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
             const teacherAccess = await api.get<{
@@ -131,8 +132,8 @@ export default function LoginPage() {
           }
         }
 
-        // Preserve access for imported STAFF accounts not linked to a Teacher.
-        router.replace("/staff/dashboard");
+        localStorage.removeItem("access_token");
+        setError("You cannot access this portal with a Staff account.");
         return;
       }
 
