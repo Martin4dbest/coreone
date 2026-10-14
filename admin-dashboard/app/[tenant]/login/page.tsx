@@ -93,6 +93,7 @@ export default function TenantLoginPage() {
       );
 
       const user = userResponse.data;
+      const roleName = String(user.role?.name ?? "").trim().toUpperCase();
 
       // First login: force password change before dashboard routing.
       if (user.must_change_password === true) {
@@ -101,7 +102,7 @@ export default function TenantLoginPage() {
       }
 
 
-  if (user.role?.name === "SUPER_ADMIN") {
+  if (roleName === "SUPER_ADMIN") {
     localStorage.removeItem("access_token");
     localStorage.removeItem("tenant_slug");
 
@@ -127,7 +128,7 @@ export default function TenantLoginPage() {
     return;
   }
 
-  if (user.role?.name === "SUPER_ADMIN") {
+  if (roleName === "SUPER_ADMIN") {
     localStorage.removeItem("access_token");
     localStorage.removeItem("tenant_slug");
 
@@ -137,7 +138,7 @@ export default function TenantLoginPage() {
 
     return;
   }
-      if (user.role?.name === "TEACHER") {
+      if (roleName === "TEACHER") {
         router.replace(`/${tenant.slug}/teacher/dashboard`);
         return;
       }
@@ -145,7 +146,7 @@ export default function TenantLoginPage() {
       // A Staff user can also have a linked Teacher profile.
       // Keep the user's STAFF role so Staff Dashboard access remains intact,
       // but send the user directly to the Teacher Dashboard when linked.
-      if (user.role?.name === "STAFF") {
+      if (roleName === "STAFF") {
         try {
           const teacherAccess = await api.get<{
             has_teacher_profile: boolean;
@@ -170,7 +171,7 @@ export default function TenantLoginPage() {
         return;
       }
 
-      if (user.role?.name === "SCHOOL_ADMIN") {
+      if (roleName === "SCHOOL_ADMIN") {
         router.replace(`/${tenant.slug}/dashboard`);
         return;
       }
@@ -178,8 +179,8 @@ export default function TenantLoginPage() {
       // ACCOUNTANT / BOOK_STOREKEEPER = SCHOOL BOOKKEEPING
       // Send both roles directly to the School Books workspace after login.
       if (
-        user.role?.name === "ACCOUNTANT" ||
-        user.role?.name === "BOOK_STOREKEEPER"
+        roleName === "ACCOUNTANT" ||
+        roleName === "BOOK_STOREKEEPER"
       ) {
         router.replace(
           `/dashboard/schools/${tenant.id}/school-books`
@@ -187,7 +188,9 @@ export default function TenantLoginPage() {
         return;
       }
 
-      router.replace(`/${tenant.slug}/dashboard`);
+      localStorage.removeItem("access_token");
+      setError("Access denied. Your account is not authorised to access this portal.");
+      return;
 
     } catch (err: unknown) {
       const apiErr = err as ApiErrorResponse;
