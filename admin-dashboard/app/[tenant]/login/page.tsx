@@ -152,16 +152,22 @@ export default function TenantLoginPage() {
           }>("/teachers/me/access", {
             headers: {
               "X-Tenant": tenant.code,
+              "Cache-Control": "no-cache",
+              Pragma: "no-cache",
             },
           });
 
-          if (teacherAccess.data?.has_teacher_profile) {
+          if (teacherAccess.data?.has_teacher_profile === true) {
             router.replace(`/${tenant.slug}/teacher/dashboard`);
             return;
           }
-        } catch {
-          // If no Teacher profile is available, continue with normal Staff routing.
+        } catch (error) {
+          console.error("STAFF teacher-access check failed:", error);
         }
+
+        localStorage.removeItem("access_token");
+        setError("Access denied. Your Staff account is not linked to a Teacher.");
+        return;
       }
 
       if (user.role?.name === "SCHOOL_ADMIN") {
