@@ -98,6 +98,11 @@ export default function LoginPage() {
         return;
       }
 
+      if (user.role?.name === "TEACHER") {
+        router.replace("/teacher/dashboard");
+        return;
+      }
+
       if (user.role?.name === "STAFF") {
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
@@ -127,12 +132,7 @@ export default function LoginPage() {
         }
 
         // Preserve access for imported STAFF accounts not linked to a Teacher.
-        router.replace("/dashboard");
-        return;
-      }
-
-      if (user.role?.name === "TEACHER") {
-        router.replace("/teacher/dashboard");
+        router.replace("/login");
         return;
       }
 
