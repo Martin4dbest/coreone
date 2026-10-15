@@ -119,6 +119,29 @@ export default function TeachersPage({
   const [isLinkModalOpen, setIsLinkModalOpen] = useState<boolean>(false);
   const [linkableStaff, setLinkableStaff] = useState<LinkableStaff[]>([]);
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
+  const [staffSearchQuery, setStaffSearchQuery] = useState("");
+  const normalizeStaffSearch = (value: unknown) =>
+    String(value ?? "")
+      .normalize("NFKC")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const query = normalizeStaffSearch(staffSearchQuery);
+
+  const matchesStaffSearch = (staff: LinkableStaff) => {
+    if (!query) return true;
+
+    const name = normalizeStaffSearch(
+      (staff as LinkableStaff & { name?: string }).name
+    );
+    const email = normalizeStaffSearch(staff.email);
+
+    return name.includes(query) || email.includes(query);
+  };
+
+  const filteredLinkableStaff = linkableStaff.filter(matchesStaffSearch);
+
   const [isLoadingLinkableStaff, setIsLoadingLinkableStaff] =
     useState<boolean>(false);
   const [isLinkingStaff, setIsLinkingStaff] = useState<boolean>(false);
@@ -573,6 +596,22 @@ export default function TeachersPage({
                 </div>
               ) : (
                 <div>
+                  <label htmlFor="link-staff-search" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                    Search Staff
+                  </label>
+                  <div className="relative mb-4">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      id="link-staff-search"
+                      type="search"
+                      value={staffSearchQuery}
+                      onChange={(e) => setStaffSearchQuery(e.target.value)}
+                      placeholder="Search first name or email..."
+                      disabled={isLinkingStaff}
+                      className="block w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+                    />
+                  </div>
+
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
                     Staff Member
                   </label>
@@ -584,38 +623,61 @@ export default function TeachersPage({
 
                     <button
                       type="button"
-                      onClick={() =>
-                        setSelectedStaffIds(
-                          selectedStaffIds.length === linkableStaff.length
-                            ? []
-                            : linkableStaff.map((staff) => String(staff.id))
-                        )
-                      }
+                      onClick={() => {
+                        const query = staffSearchQuery.trim().toLowerCase().replace(/\s+/g, " ");
+                        const visibleIds = linkableStaff
+                          .filter(matchesStaffSearch)
+                          .map((staff) => String(staff.id));
+                        const allVisibleSelected =
+                          visibleIds.length > 0 &&
+                          visibleIds.every((id) => selectedStaffIds.includes(id));
+
+                        setSelectedStaffIds((current) =>
+                          allVisibleSelected
+                            ? current.filter((id) => !visibleIds.includes(id))
+                            : [...new Set([...current, ...visibleIds])]
+                        );
+                      }}
                       disabled={isLinkingStaff || linkableStaff.length === 0}
                       className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-50"
                     >
-                      {selectedStaffIds.length === linkableStaff.length
-                        ? "Deselect All"
-                        : "Select All"}
+                      {(() => {
+                        const query = staffSearchQuery.trim().toLowerCase().replace(/\s+/g, " ");
+                        const visibleIds = linkableStaff
+                          .filter(matchesStaffSearch)
+                          .map((staff) => String(staff.id));
+                        return visibleIds.length > 0 &&
+                          visibleIds.every((id) => selectedStaffIds.includes(id))
+                          ? "Deselect All"
+                          : "Select All";
+                      })()}
                     </button>
                   </div>
 
                   <select
                     multiple
                     value={selectedStaffIds}
-                    onChange={(e) =>
-                      setSelectedStaffIds(
-                        Array.from(
-                          e.target.selectedOptions,
-                          (option) => option.value
-                        )
-                      )
-                    }
+                    onChange={(e) => {
+                      const query = staffSearchQuery.trim().toLowerCase().replace(/\s+/g, " ");
+                      const visibleIds = linkableStaff
+                        .filter(matchesStaffSearch)
+                        .map((staff) => String(staff.id));
+                      const selectedVisible = Array.from(
+                        e.target.selectedOptions,
+                        (option) => option.value
+                      );
+                      setSelectedStaffIds((current) => [
+                        ...new Set([
+                          ...current.filter((id) => !visibleIds.includes(id)),
+                          ...selectedVisible,
+                        ]),
+                      ]);
+                    }}
                     disabled={isLinkingStaff}
-                    size={Math.min(Math.max(linkableStaff.length, 4), 8)}
+                    size={Math.min(Math.max(filteredLinkableStaff.length, 1), 8)}
                     className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-colors disabled:opacity-50"
                   >
-                    {linkableStaff.map((staff) => (
+                    {filteredLinkableStaff.map((staff) => (
                       <option key={staff.id} value={staff.id}>
                         {staff.first_name} {staff.last_name} —{" "}
                         {staff.employee_number}
@@ -623,6 +685,13 @@ export default function TeachersPage({
                       </option>
                     ))}
                   </select>
+
+                  {staffSearchQuery.trim() &&
+                    filteredLinkableStaff.length === 0 && (
+                      <p className="mt-2 text-xs text-slate-500">
+                        No staff members match your search.
+                      </p>
+                    )}
 
                   <p className="mt-2 text-xs text-slate-500">
                     The existing Staff account will remain intact and will

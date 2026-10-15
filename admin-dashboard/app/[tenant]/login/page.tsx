@@ -96,7 +96,7 @@ export default function TenantLoginPage() {
       const roleName = String(user.role?.name ?? "").trim().toUpperCase();
 
       // First login: force password change before dashboard routing.
-      if (user.must_change_password === true) {
+      if (user.must_change_password === true && roleName !== "STAFF") {
         window.location.href = "/change-password";
         return;
       }

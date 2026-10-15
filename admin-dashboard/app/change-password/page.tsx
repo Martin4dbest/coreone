@@ -51,7 +51,24 @@ export default function ChangePasswordPage() {
 
         if (!mounted) return;
 
-        setUser(response.data);
+        const currentUser = response.data;
+        const rawRole =
+          typeof currentUser.role === "string"
+            ? currentUser.role
+            : currentUser.role?.name ||
+              currentUser.role_name ||
+              currentUser.roleName ||
+              "";
+
+        if (String(rawRole).trim().toUpperCase() === "STAFF") {
+          const tenantSlug = localStorage.getItem("tenant_slug");
+          router.replace(
+            tenantSlug ? `/${tenantSlug}/teacher/dashboard` : "/login"
+          );
+          return;
+        }
+
+        setUser(currentUser);
       } catch {
         if (!mounted) return;
 

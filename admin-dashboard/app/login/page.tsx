@@ -73,7 +73,7 @@ export default function LoginPage() {
 
       // Teachers and school admins who must change their password
       // must complete the password change before entering the dashboard.
-      if (user.must_change_password === true) {
+      if (user.must_change_password === true && roleName !== "STAFF") {
         window.location.href = "/change-password";
         return;
       }

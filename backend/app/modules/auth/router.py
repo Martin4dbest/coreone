@@ -218,3 +218,63 @@ async def change_password(
         payload.current_password,
         payload.new_password,
     )
+
+@router.post("/mobile-reset-password")
+async def mobile_reset_password(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+):
+    """Reset a mobile user's password using their school code and email."""
+    from app.modules.auth.repository import AuthRepository
+    from app.modules.auth.security import hash_password
+    from app.modules.schools.repository import SchoolRepository
+
+    school_code = str(payload.get("school_code", "")).strip().upper()
+    email = str(payload.get("email", "")).strip().lower()
+    new_password = payload.get("new_password", "")
+    confirm_password = payload.get("confirm_password", "")
+
+    if not school_code or not email:
+        raise HTTPException(
+            status_code=400,
+            detail="Enter your school code and registered email.",
+        )
+
+    if not isinstance(new_password, str) or len(new_password) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="Your new password must contain at least 8 characters.",
+        )
+
+    if new_password != confirm_password:
+        raise HTTPException(
+            status_code=400,
+            detail="The passwords do not match.",
+        )
+
+    school_repository = SchoolRepository(db)
+    school = await school_repository.get_by_code(school_code)
+
+    if school is None:
+        raise HTTPException(
+            status_code=400,
+            detail="The school code or registered email is incorrect.",
+        )
+
+    auth_repository = AuthRepository(db)
+    user = await auth_repository.get_user_by_email(
+        email=email,
+        school_id=school.id,
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=400,
+            detail="The school code or registered email is incorrect.",
+        )
+
+    user.hashed_password = hash_password(new_password)
+    user.must_change_password = False
+    await auth_repository.update_user(user)
+
+    return {"message": "Password updated successfully. You can now sign in."}

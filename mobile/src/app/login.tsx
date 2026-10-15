@@ -252,6 +252,22 @@ export default function Login() {
                 </View>
               </View>
 
+              {/* Forgot Password */}
+              <Pressable
+                onPress={() => router.push("/forgot-password")}
+                style={({ pressed }) => ({
+                  alignSelf: "flex-end",
+                  paddingVertical: 10,
+                  opacity: pressed ? 0.7 : 1,
+                })}
+                accessibilityRole="link"
+                accessibilityLabel="Forgot Password"
+              >
+                <Text style={{ color: "#B91C1C", fontSize: 12, fontWeight: "700" }}>
+                  Forgot Password?
+                </Text>
+              </Pressable>
+
               {/* Action Button */}
               <Pressable
                 style={({ pressed }) => [
