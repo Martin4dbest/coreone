@@ -16,6 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import api from "@/services/api";
+import { setPasswordResetLoginDetails } from "@/utils/passwordResetRedirect";
 
 export default function ForgotPasswordScreen() {
   const [schoolCode, setSchoolCode] = useState("");
@@ -59,11 +60,22 @@ export default function ForgotPasswordScreen() {
         confirm_password: confirmPassword,
       });
 
-      Alert.alert(
-        "Password Updated",
-        response.data?.message || "You can now sign in with your new password.",
-        [{ text: "Continue to Login", onPress: () => router.replace("/login") }]
-      );
+      setPasswordResetLoginDetails({
+        schoolCode: schoolCode.trim().toUpperCase(),
+        email: email.trim().toLowerCase(),
+        password: newPassword,
+      });
+
+      const successMessage = "Password changed successfully! You can now sign in with your new password.";
+
+      if (Platform.OS === "web") {
+        window.alert(successMessage);
+        router.replace("/login");
+      } else {
+        Alert.alert("Password Updated", successMessage, [
+          { text: "Continue to Login", onPress: () => router.replace("/login") },
+        ]);
+      }
     } catch (error: any) {
       Alert.alert(
         "Unable to Reset Password",

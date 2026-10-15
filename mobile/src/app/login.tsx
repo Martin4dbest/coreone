@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/context/AuthContext";
+import { consumePasswordResetLoginDetails } from "@/utils/passwordResetRedirect";
 
 const { width } = Dimensions.get("window");
 const isDesktopWeb = Platform.OS === "web" && width >= 900;
@@ -35,6 +36,15 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const details = consumePasswordResetLoginDetails();
+    if (details) {
+      setSchoolCode(details.schoolCode);
+      setEmail(details.email);
+      setPassword(details.password);
+    }
+  }, []);
 
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
