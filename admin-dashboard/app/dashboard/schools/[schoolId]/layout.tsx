@@ -791,15 +791,16 @@ export default function SchoolWorkspaceLayout({
     {
 
 
+      name: "Admissions & Lifecycle",
+      href: `${basePath}/admissions`,
+      icon: GraduationCap,
+      feature: "admissions_lifecycle",
+    },
+
+    {
       name: "Parents",
-
-
       href: `${basePath}/parents`,
-
-
       icon: UserRound,
-
-
     },
 
 
@@ -1159,7 +1160,8 @@ export default function SchoolWorkspaceLayout({
       feature: "cbt",
 
 
-    },
+    },
+
 
 
   ];

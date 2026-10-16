@@ -40,6 +40,12 @@ const FEATURES: FeatureDefinition[] = [
     description: "Student enrollment and learner management.",
   },
   {
+    key: "admissions_lifecycle",
+    name: "Admissions & Student Lifecycle",
+    description:
+      "Independent access to admissions, student lifecycle tracking, promotion, graduation, transfers and archival.",
+  },
+  {
     key: "teachers",
     name: "Teachers",
     description: "Teacher management and teaching assignments.",
@@ -222,7 +228,8 @@ export default function SchoolFeaturesPage({
     if (
       featureKey === "ai" ||
       featureKey === "performance_intelligence" ||
-      featureKey === "aloc_question_bank"
+      featureKey === "aloc_question_bank" ||
+      featureKey === "admissions_lifecycle"
     ) {
       return feature?.enabled === true;
     }

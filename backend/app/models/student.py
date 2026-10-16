@@ -66,6 +66,21 @@ class Student(Base, BaseModel, SchoolMixin, ActiveMixin):
         String(255),
     )
 
+    lifecycle_status: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="ACTIVE", server_default="ACTIVE",
+    )
+
+    current_academic_session_id: Mapped[int | None] = mapped_column(
+        ForeignKey("academic_sessions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    current_academic_session = relationship(
+        "AcademicSession",
+        foreign_keys=[current_academic_session_id],
+    )
+
     user = relationship(
         "User",
         back_populates="student",

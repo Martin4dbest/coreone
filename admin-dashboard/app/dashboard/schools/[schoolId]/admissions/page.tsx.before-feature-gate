@@ -1,0 +1,309 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import {
+  Archive,
+  BookOpen,
+  GraduationCap,
+  RefreshCw,
+  Search,
+  Users,
+} from "lucide-react";
+import api from "@/lib/api";
+
+type Student = {
+  id: number;
+  user_id: number;
+  school_id: number;
+  school_name?: string | null;
+  classroom_id?: number | null;
+  class_name?: string | null;
+  admission_number: string;
+  first_name: string;
+  last_name: string;
+  middle_name?: string | null;
+  gender: string;
+  date_of_birth: string;
+  passport?: string | null;
+};
+
+type Classroom = {
+  id: number;
+  name: string;
+};
+
+export default function AdmissionsPage() {
+  const params = useParams<{ schoolId: string }>();
+  const schoolId = String(params.schoolId ?? "");
+
+  const [students, setStudents] = useState<Student[]>([]);
+  const [classes, setClasses] = useState<Classroom[]>([]);
+  const [search, setSearch] = useState("");
+  const [classFilter, setClassFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const [studentResponse, classResponse] = await Promise.all([
+        api.get("/students/"),
+        api.get("/classes/", {
+          params: {
+            school_id: Number(schoolId),
+          },
+        }),
+      ]);
+
+      const studentData = studentResponse.data;
+      const classData = classResponse.data;
+
+      if (!Array.isArray(studentData) || !Array.isArray(classData)) {
+        throw new Error("The server returned an unexpected response.");
+      }
+
+      setStudents(studentData);
+      setClasses(classData);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Unable to load admissions data.";
+      setError(
+        `${message} Please check your access and tenant selection, then try again.`,
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [schoolId]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  const filteredStudents = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return students.filter((student) => {
+      const matchesClass =
+        classFilter === "all" ||
+        String(student.classroom_id ?? "") === classFilter;
+
+      const fullName = [
+        student.first_name,
+        student.middle_name,
+        student.last_name,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const matchesSearch =
+        !term ||
+        fullName.includes(term) ||
+        student.admission_number.toLowerCase().includes(term) ||
+        String(student.id).includes(term);
+
+      return matchesClass && matchesSearch;
+    });
+  }, [students, search, classFilter]);
+
+  const classCount = new Set(
+    students
+      .map((student) => student.classroom_id)
+      .filter((id): id is number => typeof id === "number"),
+  ).size;
+
+  return (
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+            <BookOpen className="h-4 w-4" />
+            Student Records
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+            Admissions & Student Lifecycle
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Review student records and current class placements. Promotion,
+            graduation, transfer, and archive actions will be enabled after
+            lifecycle history and permissions are in place.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => void loadData()}
+          disabled={loading}
+          className="inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh records
+        </button>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="rounded-xl border bg-card p-5">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">Student records</p>
+            <Users className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <p className="mt-3 text-3xl font-semibold">
+            {loading ? "—" : students.length}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Records returned by the existing student API
+          </p>
+        </div>
+
+        <div className="rounded-xl border bg-card p-5">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">Classes represented</p>
+            <GraduationCap className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <p className="mt-3 text-3xl font-semibold">
+            {loading ? "—" : classCount}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Classes with students in the current result
+          </p>
+        </div>
+
+        <div className="rounded-xl border bg-card p-5">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">Lifecycle actions</p>
+            <Archive className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <p className="mt-3 text-lg font-semibold">Not enabled yet</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Student records remain unchanged on this page
+          </p>
+        </div>
+      </div>
+
+      <section className="overflow-hidden rounded-xl border bg-card">
+        <div className="border-b p-4 md:p-5">
+          <h2 className="text-lg font-semibold">Student register</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Search by student name or admission number, or filter by class.
+          </p>
+
+          <div className="mt-4 flex flex-col gap-3 md:flex-row">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search name, admission number, or student ID"
+                className="w-full rounded-lg border bg-background py-2.5 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            <select
+              value={classFilter}
+              onChange={(event) => setClassFilter(event.target.value)}
+              className="rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring md:w-64"
+              aria-label="Filter by class"
+            >
+              <option value="all">All classes</option>
+              {classes.map((classroom) => (
+                <option key={classroom.id} value={String(classroom.id)}>
+                  {classroom.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {error && (
+          <div className="m-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+            <p className="font-medium">Could not load admissions data</p>
+            <p className="mt-1">{error}</p>
+            <button
+              type="button"
+              onClick={() => void loadData()}
+              className="mt-3 rounded-md border border-red-300 px-3 py-1.5 font-medium hover:bg-red-100"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+              <tr>
+                <th className="px-5 py-3 font-medium">Student</th>
+                <th className="px-5 py-3 font-medium">Admission number</th>
+                <th className="px-5 py-3 font-medium">Current class</th>
+                <th className="px-5 py-3 font-medium">Gender</th>
+                <th className="px-5 py-3 font-medium">Date of birth</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-5 py-12 text-center text-muted-foreground"
+                  >
+                    Loading student records…
+                  </td>
+                </tr>
+              ) : !error && filteredStudents.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-5 py-12 text-center text-muted-foreground"
+                  >
+                    No student records match your search.
+                  </td>
+                </tr>
+              ) : (
+                filteredStudents.map((student) => (
+                  <tr key={student.id} className="hover:bg-muted/30">
+                    <td className="px-5 py-4">
+                      <div className="font-medium">
+                        {[
+                          student.first_name,
+                          student.middle_name,
+                          student.last_name,
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Student ID: {student.id}
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      {student.admission_number || "—"}
+                    </td>
+                    <td className="px-5 py-4">
+                      {student.class_name || "Not assigned"}
+                    </td>
+                    <td className="px-5 py-4">{student.gender || "—"}</td>
+                    <td className="px-5 py-4">
+                      {student.date_of_birth
+                        ? new Date(
+                            `${student.date_of_birth}T00:00:00`,
+                          ).toLocaleDateString()
+                        : "—"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="border-t px-5 py-3 text-xs text-muted-foreground">
+          Showing {loading ? "—" : filteredStudents.length} of{" "}
+          {loading ? "—" : students.length} student records
+        </div>
+      </section>
+    </div>
+  );
+}

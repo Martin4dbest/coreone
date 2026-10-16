@@ -15,6 +15,7 @@ from app.modules.admins.router import router as admins_router
 from app.modules.super_admins.router import router as super_admins_router
 from app.modules.schools.router import router as schools_router
 from app.modules.school_features.router import router as school_features_router
+from app.modules.admissions_lifecycle.router import router as admissions_lifecycle_router
 from app.modules.school_books.router import router as school_books_router
 from app.modules.school_bus.router import router as school_bus_router
 from app.modules.partner_schools.router import router as partner_schools_router
@@ -525,5 +526,11 @@ app.include_router(
 
 app.include_router(
     school_bus_router,
+    prefix="/api/v1",
+)
+
+# Admissions & Student Lifecycle is isolated from the existing student API.
+app.include_router(
+    admissions_lifecycle_router,
     prefix="/api/v1",
 )

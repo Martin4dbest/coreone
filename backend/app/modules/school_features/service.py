@@ -34,6 +34,7 @@ OPTIONAL_FEATURES = {
     "ai",
     "performance_intelligence",
     "aloc_question_bank",
+    "admissions_lifecycle",
 }
 
 
