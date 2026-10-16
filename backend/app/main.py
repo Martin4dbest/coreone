@@ -50,6 +50,7 @@ from app.modules.youtube_learning.router import router as youtube_learning_route
 from app.modules.youtube_learning.activity_router import router as youtube_activity_router
 from app.modules.cbt.router import router as cbt_router
 from app.modules.aloc.router import router as aloc_router
+from app.modules.exam_templates.router import router as exam_templates_router
 from app.modules.ai.router import router as ai_router
 from app.modules.performance_intelligence.router import router as performance_intelligence_router
 from app.modules.gallery.router import router as gallery_router
@@ -534,3 +535,5 @@ app.include_router(
     admissions_lifecycle_router,
     prefix="/api/v1",
 )
+
+app.include_router(exam_templates_router, prefix=settings.API_V1_STR)

@@ -890,6 +890,11 @@ export default function SchoolWorkspaceLayout({
       icon: BookOpen,
       feature: "aloc_question_bank",
     },
+    {
+      name: "School Template Centre",
+      href: `${basePath}/exam-templates`,
+      icon: BookOpen,
+    },
 
 
     {

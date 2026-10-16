@@ -109,3 +109,5 @@ from app.models.staff_leave import StaffLeave
 from app.models.timetable_entry import TimetableEntry
 
 from app.models.student_lifecycle_history import StudentLifecycleHistory
+
+from app.models.exam_template import ExamTemplate

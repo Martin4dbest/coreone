@@ -148,12 +148,19 @@ export default function AdmissionsPage() {
     void loadData();
   }, [loadData]);
 
+  const [filterClassId, setFilterClassId] = useState("ALL");
+
   const filtered = students.filter((student) => {
     const term = search.toLowerCase().trim();
     const name = `${student.first_name} ${student.middle_name || ""} ${student.last_name}`.toLowerCase();
-    return !term || name.includes(term) ||
+    const matchesSearch = !term || name.includes(term) ||
       student.admission_number.toLowerCase().includes(term) ||
       String(student.id).includes(term);
+    const matchesClass =
+      filterClassId === "ALL" ||
+      String(student.classroom_id ?? "") === filterClassId;
+
+    return matchesSearch && matchesClass;
   });
 
   const activeStudents = filtered.filter((s) => s.lifecycle_status === "ACTIVE");
@@ -481,10 +488,24 @@ export default function AdmissionsPage() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search name or ID..."
+                placeholder="Search name or admission no..."
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800/80 py-2 pl-9 pr-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500 transition-all"
               />
             </div>
+
+            <select
+              value={filterClassId}
+              onChange={(e) => setFilterClassId(e.target.value)}
+              aria-label="Filter students by class"
+              className="w-full sm:w-48 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800/80 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 transition-all"
+            >
+              <option value="ALL">All Classes</option>
+              {classes.map((classroom) => (
+                <option key={classroom.id} value={String(classroom.id)}>
+                  {classroom.name}
+                </option>
+              ))}
+            </select>
 
             <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
               <input

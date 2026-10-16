@@ -303,12 +303,18 @@ export default function Sidebar() {
       color: "text-cyan-400",
     },
     {
-      name: "ALOC Question Bank",
-      href: "/teacher/aloc-question-bank",
+      name: "School Template Centre",
+      href: pathname.split("/")[2] === "teacher" ? `/${pathname.split("/")[1]}/teacher/exam-templates` : "/teacher/exam-templates",
       icon: BookOpen,
       color: "text-indigo-400",
-      feature: "aloc_question_bank",
     },
+      {
+        name: "ALOC Question Bank",
+        href: "/teacher/aloc-question-bank",
+        icon: BookOpen,
+        color: "text-indigo-400",
+        feature: "aloc_question_bank",
+      },
   ];
 
   const featureEnabled = (featureKey: string) => {
