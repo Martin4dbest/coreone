@@ -290,14 +290,26 @@ export default function AdmissionsPage() {
             Manage bulk class promotions, student status transitions, and audit activity logs.
           </p>
         </div>
-        <button
-          onClick={() => void loadData()}
-          disabled={loading || busy}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 transition-all disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 text-slate-500 ${loading ? "animate-spin" : ""}`} />
-          <span>Refresh Data</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = `/dashboard/schools/${schoolId}/archived-students`;
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700"
+          >
+            <Archive className="h-4 w-4" />
+            <span>Archived Students</span>
+          </button>
+          <button
+            onClick={() => void loadData()}
+            disabled={loading || busy}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 transition-all disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 text-slate-500 ${loading ? "animate-spin" : ""}`} />
+            <span>Refresh Data</span>
+          </button>
+        </div>
       </header>
 
       {/* Notifications */}
