@@ -396,7 +396,7 @@ const tenant = params.tenant as string;
                 <FileQuestion className="h-6 w-6" />
               </div>
               <span className="mt-3 text-sm font-bold text-slate-800">
-                ALOC Question Bank
+                Question Bank
               </span>
               <span className="text-xs text-slate-400 mt-0.5">
                 Browse and manage questions

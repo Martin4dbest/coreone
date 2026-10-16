@@ -885,7 +885,7 @@ export default function SchoolWorkspaceLayout({
 
     },
     {
-      name: "ALOC Question Bank",
+      name: "Question Bank",
       href: `${basePath}/aloc-question-bank`,
       icon: BookOpen,
       feature: "aloc_question_bank",

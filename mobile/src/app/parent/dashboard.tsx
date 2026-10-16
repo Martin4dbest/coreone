@@ -545,6 +545,21 @@ export default function ParentDashboard() {
                 />
 
                 <ServiceTile
+                  icon="pulse-outline"
+                  title="Student Activity"
+                  subtitle="Learning progress & activity"
+                  color="#0F766E"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/parent/activity",
+                      params: {
+                        studentId: String(selectedStudent.id),
+                      },
+                    })
+                  }
+                />
+
+                <ServiceTile
                   icon="book-outline"
                   title="Learning"
                   subtitle="Curriculum & tasks"

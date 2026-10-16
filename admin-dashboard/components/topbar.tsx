@@ -337,10 +337,10 @@ const initials = displayName
           <Link
             href={`/dashboard/schools/${partnerSchoolsMatch[1]}/aloc-question-bank`}
             className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
-            title="Open ALOC Question Bank"
+            title="Open Question Bank"
           >
             <BookOpen size={17} />
-            <span>ALOC Question Bank</span>
+            <span>Question Bank</span>
           </Link>
         )}
 

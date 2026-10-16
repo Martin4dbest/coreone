@@ -11,6 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.models.student import Student
+from app.models.parent import Parent
+from app.models.parent_student import ParentStudent
 from app.models.cbt_attempt import CBTAttempt
 from app.models.cbt_exam import CBTExam
 from app.models.ebook_activity import EbookActivity
@@ -134,6 +136,7 @@ async def get_student_activity(
             "SUPER_ADMIN",
             "SCHOOL_ADMIN",
             "TEACHER",
+            "PARENT",
         )
     ),
 ):
