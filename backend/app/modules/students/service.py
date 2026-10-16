@@ -111,6 +111,12 @@ class StudentService:
             date_of_birth=payload.date_of_birth,
             passport=payload.passport,
             classroom_id=payload.classroom_id,
+            lga=payload.lga,
+            state=payload.state,
+            country=payload.country,
+            address=payload.address,
+            parent_guardian_name=payload.parent_guardian_name,
+            parent_guardian_phone=payload.parent_guardian_phone,
         )
 
         return await self.repository.create(student)
@@ -415,6 +421,10 @@ class StudentService:
             for c in df.columns
         ]
 
+        # Support both the documented legacy column and the backend name.
+        if "classroom_id" not in df.columns and "class_id" in df.columns:
+            df.rename(columns={"class_id": "classroom_id"}, inplace=True)
+
         required = [
             "classroom_id",
             "admission_number",
@@ -594,6 +604,12 @@ class StudentService:
                     ),
                     gender=gender,
                     date_of_birth=date_of_birth,
+                    address=str(row["address"]).strip() if pd.notna(row.get("address")) and str(row["address"]).strip() else None,
+                    lga=str(row["lga"]).strip() if pd.notna(row.get("lga")) and str(row["lga"]).strip() else None,
+                    state=str(row["state"]).strip() if pd.notna(row.get("state")) and str(row["state"]).strip() else None,
+                    country=str(row["country"]).strip() if pd.notna(row.get("country")) and str(row["country"]).strip() else None,
+                    parent_guardian_name=str(row["parent_guardian_name"]).strip() if pd.notna(row.get("parent_guardian_name")) and str(row["parent_guardian_name"]).strip() else None,
+                    parent_guardian_phone=str(row["parent_guardian_phone"]).strip() if pd.notna(row.get("parent_guardian_phone")) and str(row["parent_guardian_phone"]).strip() else None,
                     passport=None,
                     is_active=True,
                 )

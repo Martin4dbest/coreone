@@ -22,6 +22,13 @@ class StudentCreateRequest(BaseModel):
 
     passport: str | None = None
 
+    lga: str | None = None
+    state: str | None = None
+    country: str | None = None
+    address: str | None = None
+    parent_guardian_name: str | None = None
+    parent_guardian_phone: str | None = None
+
 
 class StudentImportResponse(BaseModel):
     success: bool
@@ -63,3 +70,18 @@ class StudentResponse(BaseModel):
     passport: str | None = None
 
     partner_schools: list[PartnerSchoolSummary] = []
+
+
+class StudentUpdateRequest(BaseModel):
+    classroom_id: int | None = None
+    first_name: str | None = None
+    middle_name: str | None = None
+    last_name: str | None = None
+    gender: str | None = None
+    date_of_birth: date | None = None
+    lga: str | None = None
+    state: str | None = None
+    country: str | None = None
+    address: str | None = None
+    parent_guardian_name: str | None = None
+    parent_guardian_phone: str | None = None

@@ -13,6 +13,9 @@ import {
   Loader2,
   Trash2,
   UserRound,
+  Pencil,
+  Save,
+  X,
 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -20,6 +23,7 @@ import api from "@/lib/api";
 type Student = {
   id: number;
   admission_number: string;
+  classroom_id?: number | null;
   first_name: string;
   last_name: string;
   middle_name?: string | null;
@@ -37,6 +41,12 @@ type Student = {
   user?: {
     email?: string;
   } | null;
+  lga?: string | null;
+  state?: string | null;
+  country?: string | null;
+  address?: string | null;
+  parent_guardian_name?: string | null;
+  parent_guardian_phone?: string | null;
 };
 
 export default function StudentProfile({
@@ -54,6 +64,23 @@ export default function StudentProfile({
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [editForm, setEditForm] = useState({
+    classroom_id: "",
+    first_name: "",
+    middle_name: "",
+    last_name: "",
+    gender: "",
+    date_of_birth: "",
+    address: "",
+    lga: "",
+    state: "",
+    country: "",
+    parent_guardian_name: "",
+    parent_guardian_phone: "",
+  });
 
   // Helper function to safely construct image URL for FastAPI static files
   function getImageUrl(studentObj: Student | null): string | null {
@@ -133,6 +160,59 @@ export default function StudentProfile({
     }
   }
 
+  function startEditing() {
+    if (!student) return;
+    setEditError("");
+    setEditForm({
+      classroom_id: student.classroom_id ? String(student.classroom_id) : "",
+      first_name: student.first_name ?? "",
+      middle_name: student.middle_name ?? "",
+      last_name: student.last_name ?? "",
+      gender: student.gender ?? "",
+      date_of_birth: student.date_of_birth?.slice(0, 10) ?? "",
+      address: student.address ?? "",
+      lga: student.lga ?? "",
+      state: student.state ?? "",
+      country: student.country ?? "",
+      parent_guardian_name: student.parent_guardian_name ?? "",
+      parent_guardian_phone: student.parent_guardian_phone ?? "",
+    });
+    setEditing(true);
+  }
+
+  async function saveStudentChanges() {
+    setSaving(true);
+    setEditError("");
+    try {
+      await api.patch(`/students/${studentId}`, {
+        classroom_id: editForm.classroom_id.trim()
+          ? Number(editForm.classroom_id)
+          : null,
+        first_name: editForm.first_name.trim(),
+        middle_name: editForm.middle_name.trim() || null,
+        last_name: editForm.last_name.trim(),
+        gender: editForm.gender,
+        date_of_birth: editForm.date_of_birth,
+        address: editForm.address.trim() || null,
+        lga: editForm.lga.trim() || null,
+        state: editForm.state.trim() || null,
+        country: editForm.country.trim() || null,
+        parent_guardian_name: editForm.parent_guardian_name.trim() || null,
+        parent_guardian_phone: editForm.parent_guardian_phone.trim() || null,
+      });
+      setEditing(false);
+      await loadStudent();
+      window.alert("Student profile updated successfully!");
+    } catch (error: any) {
+      setEditError(
+        error?.response?.data?.detail ??
+        "Could not save student changes. Please check the details and try again."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function deleteStudent() {
     const confirmed = window.confirm(
       "Delete this student permanently?"
@@ -194,6 +274,16 @@ export default function StudentProfile({
           Back
         </Link>
 
+        <div className="flex flex-wrap items-center gap-2">
+        {!editing && (
+          <button
+            onClick={startEditing}
+            className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+          >
+            <Pencil size={16} />
+            Edit Student
+          </button>
+        )}
         <button
           onClick={deleteStudent}
           className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-red-700 transition"
@@ -201,6 +291,7 @@ export default function StudentProfile({
           <Trash2 size={16} />
           Delete Student
         </button>
+        </div>
       </div>
 
       <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
@@ -236,6 +327,72 @@ export default function StudentProfile({
         </div>
       </div>
 
+      {editing && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-bold text-slate-900">Edit Student Details</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Admission number and login credentials are not changed by this form.
+          </p>
+          {editError && (
+            <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+              {String(editError)}
+            </p>
+          )}
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {([
+              ["first_name", "First name"],
+              ["middle_name", "Middle name"],
+              ["last_name", "Last name"],
+              ["gender", "Gender"],
+              ["date_of_birth", "Date of birth"],
+              ["classroom_id", "Class ID (leave blank for unassigned)"],
+              ["address", "Residential address"],
+              ["lga", "LGA"],
+              ["state", "State"],
+              ["country", "Country"],
+              ["parent_guardian_name", "Parent/Guardian name"],
+              ["parent_guardian_phone", "Parent/Guardian phone"],
+            ] as const).map(([name, label]) => (
+              <label key={name} className="block text-sm font-medium text-slate-700">
+                {label}
+                <input
+                  type={name === "date_of_birth" ? "date" : "text"}
+                  value={editForm[name]}
+                  onChange={(event) =>
+                    setEditForm((current) => ({
+                      ...current,
+                      [name]: event.target.value,
+                    }))
+                  }
+                  required={["first_name", "last_name", "gender", "date_of_birth"].includes(name)}
+                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
+                />
+              </label>
+            ))}
+          </div>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={saveStudentChanges}
+              className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              <Save size={16} />
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => { setEditing(false); setEditError(""); }}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700"
+            >
+              <X size={16} />
+              Cancel
+            </button>
+          </div>
+        </section>
+      )}
+
       <div className="grid gap-5 md:grid-cols-2">
         <InfoCard
           icon={<Mail size={20} />}
@@ -263,6 +420,42 @@ export default function StudentProfile({
             student.classroom_name ??
             "Not Assigned"
           }
+        />
+
+        <InfoCard
+          icon={<School size={20} />}
+          title="Residential Address"
+          value={student.address || "Not Provided"}
+        />
+
+        <InfoCard
+          icon={<School size={20} />}
+          title="LGA"
+          value={student.lga || "Not Provided"}
+        />
+
+        <InfoCard
+          icon={<School size={20} />}
+          title="State"
+          value={student.state || "Not Provided"}
+        />
+
+        <InfoCard
+          icon={<School size={20} />}
+          title="Country"
+          value={student.country || "Not Provided"}
+        />
+
+        <InfoCard
+          icon={<Mail size={20} />}
+          title="Parent/Guardian Name"
+          value={student.parent_guardian_name || "Not Provided"}
+        />
+
+        <InfoCard
+          icon={<Mail size={20} />}
+          title="Parent/Guardian Phone"
+          value={student.parent_guardian_phone || "Not Provided"}
         />
       </div>
     </div>

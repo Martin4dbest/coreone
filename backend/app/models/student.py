@@ -66,6 +66,17 @@ class Student(Base, BaseModel, SchoolMixin, ActiveMixin):
         String(255),
     )
 
+    lga: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    state: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    parent_guardian_name: Mapped[str | None] = mapped_column(
+        String(200), nullable=True
+    )
+    parent_guardian_phone: Mapped[str | None] = mapped_column(
+        String(30), nullable=True
+    )
+
     lifecycle_status: Mapped[str] = mapped_column(
         String(30), nullable=False, default="ACTIVE", server_default="ACTIVE",
     )

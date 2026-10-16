@@ -31,6 +31,7 @@ from app.models.user import User
 
 from app.modules.students.schemas import (
     StudentCreateRequest,
+    StudentUpdateRequest,
 )
 from app.modules.students.service import StudentService
 
@@ -356,6 +357,82 @@ async def get_student(
         tenant,
         current_user,
     )
+
+
+
+@router.patch("/{student_id}")
+async def update_student(
+    student_id: int,
+    payload: StudentUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_from_request),
+    current_user: User = Depends(
+        require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
+    ),
+):
+    from fastapi import HTTPException
+    from app.models.classroom import Classroom
+
+    query = select(Student).where(Student.id == student_id)
+    if current_user.role.name != "SUPER_ADMIN":
+        query = query.where(Student.school_id == tenant.school_id)
+
+    result = await db.execute(query)
+    student = result.scalar_one_or_none()
+    if student is None:
+        raise HTTPException(status_code=404, detail="Student not found.")
+
+    changes = payload.model_dump(exclude_unset=True)
+
+    for required in ("first_name", "last_name", "gender", "date_of_birth"):
+        if required in changes and changes[required] is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{required} cannot be empty.",
+            )
+
+    if "classroom_id" in changes and changes["classroom_id"] is not None:
+        classroom_result = await db.execute(
+            select(Classroom).where(
+                Classroom.id == changes["classroom_id"],
+                Classroom.school_id == student.school_id,
+            )
+        )
+        if classroom_result.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=422,
+                detail="The selected class does not belong to this school.",
+            )
+
+    allowed_fields = {
+        "classroom_id", "first_name", "middle_name", "last_name",
+        "gender", "date_of_birth", "lga", "state", "country",
+        "address", "parent_guardian_name", "parent_guardian_phone",
+    }
+    for field, value in changes.items():
+        if field in allowed_fields:
+            setattr(student, field, value.strip() if isinstance(value, str) else value)
+
+    await db.commit()
+    await db.refresh(student)
+
+    return {
+        "id": student.id,
+        "school_id": student.school_id,
+        "classroom_id": student.classroom_id,
+        "admission_number": student.admission_number,
+        "first_name": student.first_name,
+        "middle_name": student.middle_name,
+        "last_name": student.last_name,
+        "gender": student.gender,
+        "date_of_birth": student.date_of_birth,
+        "lga": student.lga,
+        "state": student.state,
+        "country": student.country,
+        "address": student.address,
+        "parent_guardian_name": student.parent_guardian_name,
+        "parent_guardian_phone": student.parent_guardian_phone,
+    }
 
 
 @router.patch("/{student_id}/activate")

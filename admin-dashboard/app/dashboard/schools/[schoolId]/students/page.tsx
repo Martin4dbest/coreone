@@ -60,6 +60,12 @@ type StudentForm = {
   date_of_birth: string;
   email: string;
   password: string;
+  lga: string;
+  state: string;
+  country: string;
+  address: string;
+  parent_guardian_name: string;
+  parent_guardian_phone: string;
 };
 
 const initialForm: StudentForm = {
@@ -72,6 +78,12 @@ const initialForm: StudentForm = {
   date_of_birth: "",
   email: "",
   password: "",
+  lga: "",
+  state: "",
+  country: "",
+  address: "",
+  parent_guardian_name: "",
+  parent_guardian_phone: "",
 };
 
 export default function StudentsPage({
@@ -261,6 +273,12 @@ export default function StudentsPage({
           email: email,
           password: form.password || "Student@123",
           passport: null,
+            lga: form.lga.trim() || null,
+            state: form.state.trim() || null,
+            country: form.country.trim() || null,
+            address: form.address.trim() || null,
+            parent_guardian_name: form.parent_guardian_name.trim() || null,
+            parent_guardian_phone: form.parent_guardian_phone.trim() || null,
         }
       );
 
@@ -323,7 +341,14 @@ export default function StudentsPage({
       alert("Students successfully imported!");
     } catch (err) {
       console.error("Bulk file import failed:", err);
-      setImportError("Failed to parse file or upload records. Check structure guidelines.");
+      const detail = (err as any)?.response?.data?.detail;
+      setImportError(
+        typeof detail === "string"
+          ? detail
+          : Array.isArray(detail)
+            ? detail.map((item: any) => item.msg || String(item)).join("; ")
+            : "Failed to import students. Check the file format and required columns."
+      );
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -1282,6 +1307,53 @@ export default function StudentsPage({
               </div>
 
               <input
+                value={form.address}
+                onChange={(event) => updateField("address", event.target.value)}
+                placeholder="Residential Address"
+                className="rounded-xl border border-slate-200 px-4 py-3 outline-hidden focus:border-rose-400"
+              />
+
+              <input
+                value={form.lga}
+                onChange={(event) => updateField("lga", event.target.value)}
+                placeholder="Local Government Area (LGA)"
+                className="rounded-xl border border-slate-200 px-4 py-3 outline-hidden focus:border-rose-400"
+              />
+
+              <input
+                value={form.state}
+                onChange={(event) => updateField("state", event.target.value)}
+                placeholder="State"
+                className="rounded-xl border border-slate-200 px-4 py-3 outline-hidden focus:border-rose-400"
+              />
+
+              <input
+                value={form.country}
+                onChange={(event) => updateField("country", event.target.value)}
+                placeholder="Country"
+                className="rounded-xl border border-slate-200 px-4 py-3 outline-hidden focus:border-rose-400"
+              />
+
+              <input
+                value={form.parent_guardian_name}
+                onChange={(event) =>
+                  updateField("parent_guardian_name", event.target.value)
+                }
+                placeholder="Parent/Guardian Name"
+                className="rounded-xl border border-slate-200 px-4 py-3 outline-hidden focus:border-rose-400"
+              />
+
+              <input
+                type="tel"
+                value={form.parent_guardian_phone}
+                onChange={(event) =>
+                  updateField("parent_guardian_phone", event.target.value)
+                }
+                placeholder="Parent/Guardian Phone Number"
+                className="rounded-xl border border-slate-200 px-4 py-3 outline-hidden focus:border-rose-400"
+              />
+
+              <input
                 type="email"
                 value={form.email}
                 onChange={(event) =>
@@ -1399,14 +1471,17 @@ export default function StudentsPage({
 
             <div className="mt-6 space-y-4">
               <div className="rounded-xl bg-slate-50 p-4 text-xs text-slate-600 space-y-1">
-                <span className="font-bold text-slate-700 block mb-1">Required Columns Setup:</span>
-                <p>• <code className="bg-white px-1 border rounded">class_id</code> (Target Class ID value)</p>
+                <span className="font-bold text-slate-700 block mb-1">Required Columns:</span>
+                <p>• <code className="bg-white px-1 border rounded">classroom_id</code> (class ID or classroom name; <code>class_id</code> is also accepted)</p>
                 <p>• <code className="bg-white px-1 border rounded">admission_number</code></p>
                 <p>• <code className="bg-white px-1 border rounded">first_name</code>, <code className="bg-white px-1 border rounded">last_name</code></p>
-                <p>• <code className="bg-white px-1 border rounded">middle_name</code> (Optional)</p>
                 <p>• <code className="bg-white px-1 border rounded">gender</code> (Male / Female)</p>
                 <p>• <code className="bg-white px-1 border rounded">date_of_birth</code> (YYYY-MM-DD)</p>
                 <p>• <code className="bg-white px-1 border rounded">email</code>, <code className="bg-white px-1 border rounded">password</code></p>
+                <span className="font-bold text-slate-700 block mt-3 mb-1">Optional Student Profile Columns:</span>
+                <p>• <code className="bg-white px-1 border rounded">middle_name</code></p>
+                <p>• <code className="bg-white px-1 border rounded">address</code>, <code className="bg-white px-1 border rounded">lga</code>, <code className="bg-white px-1 border rounded">state</code>, <code className="bg-white px-1 border rounded">country</code></p>
+                <p>• <code className="bg-white px-1 border rounded">parent_guardian_name</code>, <code className="bg-white px-1 border rounded">parent_guardian_phone</code></p>
               </div>
 
               <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl p-8 cursor-pointer hover:bg-rose-50/20 hover:border-rose-300 transition group">
