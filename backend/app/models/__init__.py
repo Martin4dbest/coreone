@@ -111,3 +111,5 @@ from app.models.timetable_entry import TimetableEntry
 from app.models.student_lifecycle_history import StudentLifecycleHistory
 
 from app.models.exam_template import ExamTemplate
+
+from app.models.exam_paper import ExamPaper, ExamPaperReview

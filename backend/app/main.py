@@ -537,3 +537,6 @@ app.include_router(
 )
 
 app.include_router(exam_templates_router, prefix=settings.API_V1_STR)
+
+from app.modules.exam_builder.router import router as exam_builder_router
+app.include_router(exam_builder_router, prefix=settings.API_V1_STR)

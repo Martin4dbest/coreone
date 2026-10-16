@@ -269,6 +269,18 @@ export default function Sidebar() {
       feature: "results",
     },
     {
+      name: "Exam Builder",
+      href: `${schoolBase}/exam-builder`,
+      icon: BookOpen,
+      color: "text-indigo-400",
+    },
+    {
+      name: "Approval Centre",
+      href: `${schoolBase}/approval-centre`,
+      icon: ShieldCheck,
+      color: "text-emerald-400",
+    },
+    {
       name: "Licensing",
       href: `${schoolBase}/licensing`,
       icon: FileText,
@@ -305,6 +317,12 @@ export default function Sidebar() {
     {
       name: "School Template Centre",
       href: pathname.split("/")[2] === "teacher" ? `/${pathname.split("/")[1]}/teacher/exam-templates` : "/teacher/exam-templates",
+      icon: BookOpen,
+      color: "text-indigo-400",
+    },
+    {
+      name: "Exam Builder",
+      href: pathname.split("/")[2] === "teacher" ? `/${pathname.split("/")[1]}/teacher/exam-builder` : "/teacher/exam-builder",
       icon: BookOpen,
       color: "text-indigo-400",
     },
