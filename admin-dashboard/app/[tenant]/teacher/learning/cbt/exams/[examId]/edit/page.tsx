@@ -12,7 +12,8 @@ type School = {
 };
 
 export default function TeacherEditCBTExamPage() {
-  const params = useParams();
+  const params = useParams<{ tenant: string; examId: string }>();
+  const tenant = params.tenant;
 
   const examId = String(params?.examId || "");
 
@@ -94,7 +95,7 @@ export default function TeacherEditCBTExamPage() {
     <EditCBTExamPage
       schoolIdOverride={String(schoolId)}
       examIdOverride={examId}
-      teacherBackHref="/teko/teacher/learning/cbt/exams"
+      teacherBackHref={`/${tenant}/teacher/learning/cbt/exams`}
     />
   );
 }
