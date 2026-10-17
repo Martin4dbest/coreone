@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
 
 import api from "@/lib/api";
@@ -11,6 +12,8 @@ type School = {
 };
 
 export default function TeacherCBTExamsPage() {
+  const params = useParams<{ tenant: string }>();
+  const tenant = params.tenant;
   const [schoolId, setSchoolId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -85,8 +88,8 @@ export default function TeacherCBTExamsPage() {
   return (
     <CBTExamsPage
       schoolIdOverride={String(schoolId)}
-      teacherBackHref="/teko/teacher/learning/cbt"
-      teacherBase="/teko/teacher/learning/cbt"
+      teacherBackHref={`/${tenant}/teacher/learning/cbt`}
+      teacherBase={`/${tenant}/teacher/learning/cbt`}
     />
   );
 }
