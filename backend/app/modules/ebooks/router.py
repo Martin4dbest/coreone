@@ -530,7 +530,7 @@ async def protected_ebook_file(
 
         download_url = cloudinary.utils.private_download_url(
             public_id,
-            "",
+            Path(public_id).suffix.lstrip(".") or None,
             resource_type="raw",
             type="authenticated",
             attachment=False,
