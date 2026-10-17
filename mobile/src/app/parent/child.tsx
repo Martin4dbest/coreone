@@ -164,7 +164,10 @@ export default function ParentChildScreen() {
             {loadError || "Child profile unavailable"}
           </Text>
           <Pressable
-            style={styles.backButton}
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed && styles.pressedState,
+            ]}
             onPress={() => router.back()}
           >
             <Text style={styles.backButtonText}>Go Back</Text>
@@ -200,15 +203,19 @@ export default function ParentChildScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
+          {/* ================= SCHOOL HEADER BANNER ================= */}
           <View
             style={[
               styles.schoolHeader,
-              { backgroundColor: branding.primary },
+              { backgroundColor: branding.secondary },
             ]}
           >
             <Pressable
               onPress={() => router.back()}
-              style={styles.headerBack}
+              style={({ pressed }) => [
+                styles.headerBack,
+                pressed && styles.pressedState,
+              ]}
             >
               <Ionicons
                 name="chevron-back"
@@ -228,7 +235,7 @@ export default function ParentChildScreen() {
               ) : (
                 <Ionicons
                   name="school-outline"
-                  size={26}
+                  size={24}
                   color="#FFFFFF"
                 />
               )}
@@ -239,10 +246,11 @@ export default function ParentChildScreen() {
             </Text>
 
             <Text style={styles.schoolSubtitle}>
-              Parent Portal
+              Official Student Profile
             </Text>
           </View>
 
+          {/* ================= STUDENT HERO ================= */}
           <View style={styles.hero}>
             <View
               style={[
@@ -273,64 +281,91 @@ export default function ParentChildScreen() {
               {fullName || "Student"}
             </Text>
 
-            <View style={styles.relationshipBadge}>
-              <Text style={styles.relationshipText}>
-                Student
+            <View style={[styles.relationshipBadge, { backgroundColor: `${branding.primary}12` }]}>
+              <Ionicons name="sparkles" size={12} color={branding.primary} />
+              <Text style={[styles.relationshipText, { color: branding.primary }]}>
+                STUDENT
               </Text>
             </View>
           </View>
 
-          <View style={styles.detailsCard}>
-            <Detail
-              label="Admission Number"
-              value={student.admission_number || "N/A"}
-            />
-            <Detail label="Class" value={className} />
-            <Detail
-              label="Gender"
-              value={student.gender || "N/A"}
-            />
-            <Detail
-              label="Date of Birth"
-              value={student.date_of_birth || "Not available"}
-            />
+          {/* ================= ACADEMIC DETAILS ================= */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Academic & Personal Details</Text>
+            <View style={styles.detailsCard}>
+              <Detail
+                icon="card-outline"
+                label="Admission Number"
+                value={student.admission_number || "N/A"}
+                color="#2563EB"
+              />
+              <Detail
+                icon="easel-outline"
+                label="Class Enrolled"
+                value={className}
+                color="#059669"
+              />
+              <Detail
+                icon="person-outline"
+                label="Gender"
+                value={student.gender || "N/A"}
+                color="#7C3AED"
+              />
+              <Detail
+                icon="calendar-outline"
+                label="Date of Birth"
+                value={student.date_of_birth || "Not available"}
+                color="#D97706"
+              />
+            </View>
           </View>
 
+          {/* ================= SCHOOL INFORMATION ================= */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               School Information
             </Text>
 
             <View style={styles.schoolCard}>
-              <Text style={styles.schoolCardName}>
-                {school?.name || "School information unavailable"}
-              </Text>
-
-              {school?.school_code ? (
-                <Text style={styles.schoolCode}>
-                  School Code: {school.school_code}
-                </Text>
-              ) : null}
+              <View style={styles.schoolCardTop}>
+                <View style={[styles.schoolIconContainer, { backgroundColor: `${branding.primary}14` }]}>
+                  <Ionicons name="business" size={20} color={branding.primary} />
+                </View>
+                <View style={styles.schoolMetaGroup}>
+                  <Text style={styles.schoolCardName}>
+                    {school?.name || "School information unavailable"}
+                  </Text>
+                  {school?.school_code ? (
+                    <Text style={styles.schoolCode}>
+                      School Code: {school.school_code}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
 
               {school?.city || school?.state ? (
-                <Text style={styles.schoolLocation}>
-                  {[school?.city, school?.state]
-                    .filter(Boolean)
-                    .join(", ")}
-                </Text>
+                <View style={styles.locationRow}>
+                  <Ionicons name="location-outline" size={14} color="#64748B" />
+                  <Text style={styles.schoolLocation}>
+                    {[school?.city, school?.state]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </Text>
+                </View>
               ) : null}
             </View>
           </View>
 
+          {/* ================= PARENT NOTICE CARD ================= */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               Parent Services
             </Text>
 
             <View style={styles.noticeCard}>
-              <View style={styles.noticeIconCircle}>
+              <View style={[styles.noticeIconCircle, { backgroundColor: `${branding.primary}14` }]}>
                 <Ionicons
-                  name="information-circle-outline"
+                  name="shield-checkmark"
                   size={20}
                   color={branding.primary}
                 />
@@ -338,12 +373,10 @@ export default function ParentChildScreen() {
 
               <View style={styles.noticeText}>
                 <Text style={styles.noticeTitle}>
-                  Child-Specific Access
+                  Child-Specific Portal Access
                 </Text>
                 <Text style={styles.noticeBody}>
-                  Academic results, attendance records, learning
-                  updates, and notifications are filtered
-                  specifically for {student.first_name || "this child"}.
+                  Academic results, attendance tracking, and fee updates are filtered specifically for {student.first_name || "this child"}.
                 </Text>
               </View>
             </View>
@@ -355,16 +388,25 @@ export default function ParentChildScreen() {
 }
 
 function Detail({
+  icon,
   label,
   value,
+  color = "#4F46E5",
 }: {
+  icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
+  color?: string;
 }) {
   return (
     <View style={styles.detail}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+      <View style={[styles.detailIconBox, { backgroundColor: `${color}14` }]}>
+        <Ionicons name={icon} size={16} color={color} />
+      </View>
+      <View style={styles.detailTextContainer}>
+        <Text style={styles.detailLabel}>{label}</Text>
+        <Text style={styles.detailValue}>{value}</Text>
+      </View>
     </View>
   );
 }
@@ -372,16 +414,16 @@ function Detail({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F1F5F9",
+    backgroundColor: "#F8FAFC",
   },
   viewportContainer: {
     flex: 1,
     width: "100%",
-    maxWidth: 680,
+    maxWidth: 480,
     alignSelf: "center",
   },
   scrollContent: {
-    paddingBottom: 32,
+    paddingBottom: 40,
   },
   center: {
     flex: 1,
@@ -407,8 +449,9 @@ const styles = StyleSheet.create({
     marginTop: 18,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 20,
+    borderRadius: 12,
     backgroundColor: "#4F46E5",
+    elevation: 2,
   },
   backButtonText: {
     color: "#FFFFFF",
@@ -416,135 +459,108 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   schoolHeader: {
-    paddingTop: Platform.OS === "ios" ? 18 : 32,
-    paddingBottom: 40,
-    paddingHorizontal: 18,
+    paddingTop: Platform.OS === "android" ? 28 : 16,
+    paddingBottom: 36,
+    paddingHorizontal: 16,
     alignItems: "center",
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   headerBack: {
     alignSelf: "flex-start",
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(255,255,255,0.15)",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   schoolLogoWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.15)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
+    borderColor: "rgba(255,255,255,0.25)",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
   schoolLogo: {
-    width: 48,
-    height: 48,
+    width: 42,
+    height: 42,
     resizeMode: "contain",
   },
   schoolName: {
-    marginTop: 10,
+    marginTop: 8,
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "800",
     textAlign: "center",
   },
   schoolSubtitle: {
     marginTop: 2,
-    color: "rgba(255,255,255,0.8)",
-    fontSize: 11,
+    color: "rgba(255,255,255,0.75)",
+    fontSize: 10,
     fontWeight: "600",
     letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   hero: {
     alignItems: "center",
-    marginTop: -20,
+    marginTop: -26,
     paddingHorizontal: 16,
   },
   avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 30,
+    width: 88,
+    height: 88,
+    borderRadius: 28,
     borderWidth: 3,
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: { elevation: 3 },
-      web: {
-        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
-      },
-    }),
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   avatarImage: {
     width: "100%",
     height: "100%",
   },
   avatarInitials: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "800",
   },
   name: {
-    marginTop: 12,
+    marginTop: 10,
     color: "#0F172A",
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "800",
     textAlign: "center",
+    letterSpacing: -0.2,
   },
   relationshipBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
     marginTop: 6,
-    backgroundColor: "#EEF2FF",
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 100,
   },
   relationshipText: {
-    color: "#4F46E5",
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "capitalize",
-  },
-  detailsCard: {
-    marginHorizontal: 16,
-    marginTop: 18,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    gap: 10,
-  },
-  detail: {
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: "#F8FAFC",
-  },
-  detailLabel: {
-    color: "#64748B",
     fontSize: 10,
-    fontWeight: "700",
-    textTransform: "uppercase",
+    fontWeight: "800",
     letterSpacing: 0.5,
-  },
-  detailValue: {
-    marginTop: 4,
-    color: "#0F172A",
-    fontSize: 14,
-    fontWeight: "700",
   },
   section: {
     paddingHorizontal: 16,
@@ -552,47 +568,126 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: "#0F172A",
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "800",
     marginBottom: 8,
+    letterSpacing: -0.2,
   },
-  schoolCard: {
-    padding: 16,
-    borderRadius: 16,
+  detailsCard: {
+    padding: 12,
+    borderRadius: 18,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E2E8F0",
+    gap: 8,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  detail: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+  },
+  detailIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  detailTextContainer: {
+    flex: 1,
+  },
+  detailLabel: {
+    color: "#64748B",
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  detailValue: {
+    marginTop: 1,
+    color: "#0F172A",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  schoolCard: {
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  schoolCardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  schoolIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  schoolMetaGroup: {
+    flex: 1,
   },
   schoolCardName: {
     color: "#0F172A",
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "800",
   },
   schoolCode: {
-    marginTop: 4,
+    marginTop: 2,
     color: "#64748B",
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
   },
   schoolLocation: {
-    marginTop: 2,
-    color: "#94A3B8",
-    fontSize: 12,
+    color: "#64748B",
+    fontSize: 11,
+    fontWeight: "500",
   },
   noticeCard: {
     flexDirection: "row",
     alignItems: "flex-start",
     padding: 14,
-    borderRadius: 16,
+    borderRadius: 18,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E2E8F0",
     gap: 12,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
   },
   noticeIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#EEF2FF",
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -602,12 +697,16 @@ const styles = StyleSheet.create({
   noticeTitle: {
     color: "#0F172A",
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   noticeBody: {
     marginTop: 2,
     color: "#64748B",
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 17,
+  },
+  pressedState: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
   },
 });

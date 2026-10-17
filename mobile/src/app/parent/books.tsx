@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   RefreshControl,
   SafeAreaView,
@@ -17,6 +18,8 @@ import {
   ParentBookHistory,
   ParentBookHistoryResponse,
 } from "@/services/parent";
+
+const PALETTE = ["#4F46E5", "#059669", "#0D9488", "#7C3AED", "#0284C7", "#D97706"];
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
@@ -130,7 +133,10 @@ export default function ParentBooksScreen() {
           <Text style={styles.errorText}>{error}</Text>
 
           <Pressable
-            style={styles.retryButton}
+            style={({ pressed }) => [
+              styles.retryButton,
+              pressed && styles.pressed,
+            ]}
             onPress={loadBooks}
           >
             <Text style={styles.retryText}>Try Again</Text>
@@ -165,9 +171,13 @@ export default function ParentBooksScreen() {
             />
           }
         >
+          {/* ================= HEADER ================= */}
           <View style={styles.header}>
             <Pressable
-              style={styles.backButton}
+              style={({ pressed }) => [
+                styles.backButton,
+                pressed && styles.pressed,
+              ]}
               onPress={() => router.back()}
             >
               <Ionicons
@@ -181,12 +191,13 @@ export default function ParentBooksScreen() {
               <Text style={styles.headerTitle}>
                 My Child's Books
               </Text>
-              <Text style={styles.headerSubtitle}>
+              <Text style={styles.headerSubtitle} numberOfLines={1}>
                 {data.student.school_name}
               </Text>
             </View>
           </View>
 
+          {/* ================= STUDENT CARD ================= */}
           <View style={styles.studentCard}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
@@ -195,7 +206,7 @@ export default function ParentBooksScreen() {
             </View>
 
             <View style={styles.studentInfo}>
-              <Text style={styles.studentName}>
+              <Text style={styles.studentName} numberOfLines={1}>
                 {studentName}
               </Text>
 
@@ -203,9 +214,12 @@ export default function ParentBooksScreen() {
                 Admission No. {data.student.admission_number}
               </Text>
 
-              <Text style={styles.className}>
-                {data.student.class_name || "Class not assigned"}
-              </Text>
+              <View style={styles.classPill}>
+                <Ionicons name="easel-outline" size={11} color="#4F46E5" />
+                <Text style={styles.className} numberOfLines={1}>
+                  {data.student.class_name || "Class not assigned"}
+                </Text>
+              </View>
             </View>
 
             <View style={styles.countBadge}>
@@ -216,24 +230,27 @@ export default function ParentBooksScreen() {
             </View>
           </View>
 
+          {/* ================= SECTION HEADER ================= */}
           <View style={styles.sectionHeader}>
-            <View>
+            <View style={styles.sectionHeaderTitleRow}>
+              <Ionicons name="library" size={18} color="#4F46E5" />
               <Text style={styles.sectionTitle}>
-                Book History
-              </Text>
-              <Text style={styles.sectionSubtitle}>
-                Books issued to this student
+                Issued Books History
               </Text>
             </View>
+            <Text style={styles.sectionSubtitle}>
+              Books assigned to this student by the school
+            </Text>
           </View>
 
+          {/* ================= BOOK LIST ================= */}
           {data.books.length === 0 ? (
             <View style={styles.emptyCard}>
               <View style={styles.emptyIcon}>
                 <Ionicons
                   name="library-outline"
                   size={32}
-                  color="#6366F1"
+                  color="#4F46E5"
                 />
               </View>
 
@@ -249,16 +266,18 @@ export default function ParentBooksScreen() {
           ) : (
             <View style={styles.list}>
               {data.books.map(
-                (book: ParentBookHistory) => {
+                (book: ParentBookHistory, index: number) => {
                   const returned =
                     book.status.toUpperCase() ===
                     "RETURNED";
+                  const color = PALETTE[index % PALETTE.length];
 
                   return (
                     <Pressable
                       key={book.id}
                       style={({ pressed }) => [
                         styles.bookCard,
+                        { borderLeftColor: color },
                         pressed && styles.pressed,
                       ]}
                       onPress={() =>
@@ -273,11 +292,11 @@ export default function ParentBooksScreen() {
                         })
                       }
                     >
-                      <View style={styles.bookIcon}>
+                      <View style={[styles.bookIcon, { backgroundColor: `${color}14` }]}>
                         <Ionicons
                           name="book"
-                          size={24}
-                          color="#4F46E5"
+                          size={22}
+                          color={color}
                         />
                       </View>
 
@@ -289,17 +308,21 @@ export default function ParentBooksScreen() {
                           {book.book_title}
                         </Text>
 
-                        <Text style={styles.dateLine}>
-                          Issued {formatDate(book.issued_at)}{" "}
-                          • {formatTime(book.issued_at)}
-                        </Text>
+                        <View style={styles.dateRow}>
+                          <Ionicons name="time-outline" size={12} color="#64748B" />
+                          <Text style={styles.dateLine}>
+                            Issued {formatDate(book.issued_at)} • {formatTime(book.issued_at)}
+                          </Text>
+                        </View>
 
                         <Text
                           style={styles.issuedBy}
                           numberOfLines={1}
                         >
                           Issued by{" "}
-                          {book.issued_by || "School Staff"}
+                          <Text style={styles.issuedByHighlight}>
+                            {book.issued_by || "School Staff"}
+                          </Text>
                         </Text>
                       </View>
 
@@ -326,11 +349,13 @@ export default function ParentBooksScreen() {
                           </Text>
                         </View>
 
-                        <Ionicons
-                          name="chevron-forward"
-                          size={18}
-                          color="#94A3B8"
-                        />
+                        <View style={styles.chevronCircle}>
+                          <Ionicons
+                            name="chevron-forward"
+                            size={14}
+                            color="#64748B"
+                          />
+                        </View>
                       </View>
                     </Pressable>
                   );
@@ -351,7 +376,7 @@ const styles = StyleSheet.create({
   },
   viewport: {
     flex: 1,
-    maxWidth: 1100,
+    maxWidth: 480, // Fitted to mobile view threshold
     width: "100%",
     alignSelf: "center",
   },
@@ -359,7 +384,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "android" ? 28 : 16,
     paddingBottom: 40,
   },
   center: {
@@ -372,39 +398,43 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 14,
     color: "#64748B",
+    fontWeight: "600",
   },
   errorTitle: {
     marginTop: 14,
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 18,
+    fontWeight: "800",
     color: "#0F172A",
   },
   errorText: {
     marginTop: 8,
     textAlign: "center",
-    lineHeight: 21,
+    lineHeight: 20,
     color: "#64748B",
-    maxWidth: 420,
+    maxWidth: 320,
+    fontSize: 13,
   },
   retryButton: {
-    marginTop: 18,
-    paddingHorizontal: 22,
+    marginTop: 20,
+    paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: "#4F46E5",
+    elevation: 2,
   },
   retryText: {
     color: "#FFFFFF",
-    fontWeight: "700",
+    fontWeight: "800",
+    fontSize: 14,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 18,
+    marginBottom: 16,
   },
   backButton: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
@@ -412,190 +442,254 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderWidth: 1,
     borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerInfo: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "800",
     color: "#0F172A",
+    letterSpacing: -0.2,
   },
   headerSubtitle: {
-    marginTop: 3,
+    marginTop: 1,
     color: "#64748B",
-    fontSize: 13,
+    fontSize: 12,
   },
   studentCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 20,
+    padding: 16,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 3,
   },
   avatar: {
-    width: 54,
-    height: 54,
+    width: 50,
+    height: 50,
     borderRadius: 16,
     backgroundColor: "#EEF2FF",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
   },
   avatarText: {
     color: "#4F46E5",
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
   },
   studentInfo: {
     flex: 1,
-    marginLeft: 14,
+    marginLeft: 12,
+    marginRight: 8,
   },
   studentName: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: "800",
     color: "#0F172A",
   },
   admission: {
-    marginTop: 4,
-    fontSize: 12,
+    marginTop: 2,
+    fontSize: 11,
     color: "#64748B",
+    fontWeight: "500",
+  },
+  classPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
+    alignSelf: "flex-start",
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   className: {
-    marginTop: 2,
-    fontSize: 12,
-    color: "#64748B",
+    fontSize: 10,
+    color: "#4F46E5",
+    fontWeight: "700",
   },
   countBadge: {
     alignItems: "center",
     justifyContent: "center",
-    minWidth: 58,
+    minWidth: 54,
     paddingVertical: 8,
     paddingHorizontal: 10,
-    borderRadius: 12,
+    borderRadius: 14,
     backgroundColor: "#EEF2FF",
+    borderWidth: 1,
+    borderColor: "#E0E7FF",
   },
   countNumber: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
     color: "#4F46E5",
   },
   countLabel: {
-    marginTop: 1,
-    fontSize: 10,
+    fontSize: 9,
     color: "#6366F1",
+    fontWeight: "700",
+    marginTop: 1,
   },
   sectionHeader: {
-    marginTop: 24,
+    marginTop: 20,
     marginBottom: 12,
   },
+  sectionHeaderTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   sectionTitle: {
-    fontSize: 19,
+    fontSize: 15,
     fontWeight: "800",
     color: "#0F172A",
+    letterSpacing: -0.2,
   },
   sectionSubtitle: {
-    marginTop: 3,
+    marginTop: 2,
     color: "#64748B",
-    fontSize: 13,
+    fontSize: 11,
   },
   list: {
     gap: 12,
   },
   bookCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 15,
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1,
     borderColor: "#E2E8F0",
+    borderLeftWidth: 4,
     flexDirection: "row",
     alignItems: "center",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
   },
   pressed: {
-    opacity: 0.78,
+    opacity: 0.82,
+    transform: [{ scale: 0.98 }],
   },
   bookIcon: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: 14,
-    backgroundColor: "#EEF2FF",
     alignItems: "center",
     justifyContent: "center",
   },
   bookBody: {
     flex: 1,
-    marginLeft: 13,
-    marginRight: 10,
+    marginLeft: 12,
+    marginRight: 8,
   },
   bookTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
     color: "#0F172A",
+    lineHeight: 19,
+  },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
   },
   dateLine: {
-    marginTop: 5,
-    fontSize: 12,
+    fontSize: 11,
     color: "#64748B",
+    fontWeight: "500",
   },
   issuedBy: {
     marginTop: 3,
-    fontSize: 12,
-    color: "#475569",
+    fontSize: 11,
+    color: "#64748B",
+  },
+  issuedByHighlight: {
+    color: "#334155",
+    fontWeight: "700",
   },
   bookRight: {
     alignItems: "flex-end",
-    gap: 9,
+    gap: 10,
   },
   statusBadge: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 100,
   },
   issuedBadge: {
-    backgroundColor: "#DCFCE7",
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
   },
   returnedBadge: {
-    backgroundColor: "#E2E8F0",
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
   statusText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "800",
   },
   issuedText: {
-    color: "#166534",
+    color: "#065F46",
   },
   returnedText: {
     color: "#475569",
   },
+  chevronCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   emptyCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 30,
+    borderRadius: 20,
+    padding: 24,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
   emptyIcon: {
-    width: 64,
-    height: 64,
+    width: 58,
+    height: 58,
     borderRadius: 18,
     backgroundColor: "#EEF2FF",
     alignItems: "center",
     justifyContent: "center",
   },
   emptyTitle: {
-    marginTop: 14,
-    fontSize: 17,
+    marginTop: 12,
+    fontSize: 15,
     fontWeight: "800",
     color: "#0F172A",
   },
   emptyText: {
-    marginTop: 7,
-    maxWidth: 420,
+    marginTop: 6,
+    maxWidth: 300,
     textAlign: "center",
-    lineHeight: 21,
+    lineHeight: 18,
     color: "#64748B",
-    fontSize: 13,
+    fontSize: 12,
   },
 });
