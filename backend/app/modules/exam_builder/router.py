@@ -18,7 +18,13 @@ EDIT_ROLES = {"SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"}
 
 
 def _role(user: User) -> str:
-    return (user.role.name if user.role and user.role.name else "").strip().upper()
+    raw_role = user.role.name if user.role and user.role.name else ""
+    normalized = raw_role.strip().upper().replace("-", "_").replace(" ", "_")
+
+    if normalized in {"TEACHING_STAFF", "TEACHER_STAFF"}:
+        return "TEACHER"
+
+    return normalized
 
 
 def _school_id(user: User, requested: int | None) -> int:
