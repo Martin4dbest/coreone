@@ -112,7 +112,7 @@ function formatCurrentDateTime() {
 }
 
 export default function ParentDashboard() {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const [parent, setParent] = useState<ParentMe | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -493,7 +493,7 @@ export default function ParentDashboard() {
                   icon="analytics-outline"
                   title="Results"
                   subtitle="Grade reports"
-                  color={schoolBranding.primary}
+                  color="#2563EB" // Royal Blue
                   onPress={() =>
                     router.push({
                       pathname: "/student/results",
@@ -508,7 +508,7 @@ export default function ParentDashboard() {
                   icon="calendar-outline"
                   title="Attendance"
                   subtitle="Daily tracking"
-                  color="#10B981"
+                  color="#10B981" // Emerald
                   onPress={() =>
                     router.push({
                       pathname: "/parent/attendance",
@@ -520,7 +520,7 @@ export default function ParentDashboard() {
                   icon="wallet-outline"
                   title="School Fees"
                   subtitle="Fees & payments"
-                  color="#0F766E"
+                  color="#0D9488" // Teal
                   onPress={() =>
                     router.push({
                       pathname: "/parent/fees",
@@ -532,8 +532,8 @@ export default function ParentDashboard() {
                 <ServiceTile
                   icon="library-outline"
                   title="Books"
-                  subtitle="Books issued to child"
-                  color="#4F46E5"
+                  subtitle="Issued books"
+                  color="#4F46E5" // Indigo
                   onPress={() =>
                     router.push({
                       pathname: "/parent/books",
@@ -546,9 +546,9 @@ export default function ParentDashboard() {
 
                 <ServiceTile
                   icon="pulse-outline"
-                  title="Student Activity"
-                  subtitle="Learning progress & activity"
-                  color="#0F766E"
+                  title="Activity"
+                  subtitle="Learning progress"
+                  color="#E11D48" // Rose
                   onPress={() =>
                     router.push({
                       pathname: "/parent/activity",
@@ -562,9 +562,10 @@ export default function ParentDashboard() {
                 <ServiceTile
                   icon="book-outline"
                   title="Learning"
-                  subtitle="Curriculum & tasks"
-                  color="#6366F1"
+                  subtitle="Tasks & syllabus"
+                  color="#7C3AED" // Violet
                 />
+
                 <ServiceTile
                   icon="notifications-outline"
                   title="Notices"
@@ -573,21 +574,23 @@ export default function ParentDashboard() {
                       ? `${unreadNotificationCount} unread`
                       : "School updates"
                   }
-                  color="#8B5CF6"
+                  color="#0284C7" // Light Blue / Sky
                   onPress={() => router.push("/parent/notifications")}
                 />
+
                 <ServiceTile
                   icon="time-outline"
                   title="Schedule"
                   subtitle="Timetable & events"
-                  color="#F59E0B"
+                  color="#D97706" // Amber
                   onPress={() => router.push("/parent/timetable")}
                 />
+
                 <ServiceTile
                   icon="person-outline"
                   title="Profile"
                   subtitle="Bio & details"
-                  color="#64748B"
+                  color="#475569" // Slate
                   onPress={() => openStudentProfile(selectedStudent.id)}
                 />
               </View>
@@ -623,13 +626,26 @@ function ServiceTile({
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.serviceTile, pressed && styles.pressedState]}
+      style={({ pressed }) => [
+        styles.serviceTile,
+        pressed && styles.pressedState,
+      ]}
     >
-      <View style={[styles.serviceIconContainer, { backgroundColor: `${color}12` }]}>
-        <Ionicons name={icon} size={22} color={color} />
+      <View style={styles.serviceTileTop}>
+        <View style={[styles.serviceIconContainer, { backgroundColor: `${color}15` }]}>
+          <Ionicons name={icon} size={20} color={color} />
+        </View>
+        <Ionicons name="chevron-forward" size={14} color="#94A3B8" />
       </View>
-      <Text style={styles.serviceTitle}>{title}</Text>
-      <Text style={styles.serviceSubtitle}>{subtitle}</Text>
+      <View style={styles.serviceTileBottom}>
+        <Text style={styles.serviceTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={styles.serviceSubtitle} numberOfLines={1}>
+          {subtitle}
+        </Text>
+      </View>
+      <View style={[styles.tileAccentBorder, { backgroundColor: color }]} />
     </Pressable>
   );
 }
@@ -637,10 +653,10 @@ function ServiceTile({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F1F5F9",
+    backgroundColor: "#F8FAFC",
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 32,
   },
   desktopScrollContent: {
     minHeight: "100%",
@@ -648,12 +664,15 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingTop: 12,
+    maxWidth: 500, // Fitted standard mobile viewport threshold
+    alignSelf: "center",
+    width: "100%",
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F1F5F9",
+    backgroundColor: "#F8FAFC",
   },
   loadingText: {
     marginTop: 12,
@@ -662,18 +681,18 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   heroHeader: {
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 20,
-    elevation: 3,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 4,
     shadowColor: "#0F172A",
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
   },
   heroTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
   },
   heroActions: {
     flexDirection: "row",
@@ -682,38 +701,37 @@ const styles = StyleSheet.create({
   },
   brandBadge: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.12)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
     flex: 1,
-    marginRight: 12,
+    marginRight: 10,
   },
   schoolLogo: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    marginRight: 10,
-    marginTop: 2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    marginRight: 8,
   },
   brandTitleColumn: {
     flex: 1,
   },
   heroSchoolName: {
     color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
   },
   heroMotto: {
     color: "rgba(255, 255, 255, 0.7)",
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 10,
+    marginTop: 1,
   },
   iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "rgba(255, 255, 255, 0.12)",
     justifyContent: "center",
     alignItems: "center",
@@ -721,54 +739,51 @@ const styles = StyleSheet.create({
   },
   notificationBadge: {
     position: "absolute",
-    top: -4,
-    right: -4,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 4,
-    borderRadius: 9,
+    top: -2,
+    right: -2,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
+    borderRadius: 8,
     backgroundColor: "#EF4444",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.9)",
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
   },
   notificationBadgeText: {
     color: "#FFFFFF",
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: "800",
   },
   heroMain: {
-    marginTop: 16,
+    marginTop: 14,
   },
   heroMetaRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   datePill: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(251, 191, 36, 0.3)",
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 100,
-    gap: 6,
+    gap: 5,
   },
   datePillText: {
     color: "#F8FAFC",
     fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.2,
+    fontWeight: "600",
   },
   greetingText: {
     color: "#FFFFFF",
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "600",
-    letterSpacing: -0.3,
-    lineHeight: 25,
+    letterSpacing: -0.2,
+    lineHeight: 22,
   },
   parentNameHighlight: {
     color: "#FBBF24",
@@ -781,97 +796,103 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: 10,
+    gap: 6,
   },
   sectionTitle: {
     color: "#0F172A",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "800",
   },
   badgeCount: {
     backgroundColor: "#E2E8F0",
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 12,
+    borderRadius: 10,
   },
   badgeCountText: {
     color: "#475569",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
   },
   childrenHorizontalList: {
-    gap: 12,
-    paddingBottom: 8,
-    marginBottom: 12,
+    gap: 10,
+    paddingBottom: 4,
+    marginBottom: 16,
   },
   childPillCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    borderRadius: 16,
-    padding: 10,
-    minWidth: 180,
+    borderRadius: 14,
+    padding: 8,
+    paddingRight: 12,
+    minWidth: 160,
   },
   avatarRing: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 2,
-    padding: 2,
+    padding: 1,
   },
-    avatarImage: {
+  avatarImage: {
     width: "100%",
     height: "100%",
-    borderRadius: 20,
+    borderRadius: 18,
   },
   avatarFallback: {
     width: "100%",
     height: "100%",
-    borderRadius: 20,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
   },
   avatarText: {
     color: "#FFFFFF",
     fontWeight: "800",
-    fontSize: 13,
+    fontSize: 12,
   },
   childPillInfo: {
-    marginLeft: 10,
+    marginLeft: 8,
     flex: 1,
   },
   childPillName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
     color: "#0F172A",
   },
   childPillMeta: {
-    fontSize: 11,
+    fontSize: 10,
     color: "#64748B",
-    marginTop: 2,
+    marginTop: 1,
   },
   activeCheck: {
-    marginLeft: 6,
+    marginLeft: 4,
   },
   profileCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    marginBottom: 20,
+    marginBottom: 16,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
   },
   profileHeader: {
     flexDirection: "row",
     alignItems: "center",
   },
   profileAvatarContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 2,
     overflow: "hidden",
     justifyContent: "center",
@@ -884,67 +905,67 @@ const styles = StyleSheet.create({
   },
   profileBody: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 10,
   },
   roleBadge: {
     alignSelf: "flex-start",
     backgroundColor: "#F1F5F9",
     paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginBottom: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginBottom: 2,
   },
   roleBadgeText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: "800",
     color: "#64748B",
   },
   profileName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "800",
     color: "#0F172A",
   },
   profileSchool: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#64748B",
-    marginTop: 2,
+    marginTop: 1,
   },
   viewDetailButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#F8FAFC",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#F1F5F9",
     justifyContent: "center",
     alignItems: "center",
   },
   divider: {
     height: 1,
     backgroundColor: "#F1F5F9",
-    marginVertical: 14,
+    marginVertical: 12,
   },
   detailGrid: {
     flexDirection: "row",
-    gap: 12,
+    gap: 10,
   },
   detailCard: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F8FAFC",
-    borderRadius: 12,
-    padding: 10,
-    gap: 8,
+    borderRadius: 10,
+    padding: 8,
+    gap: 6,
   },
   detailTextGroup: {
     flex: 1,
   },
   detailLabel: {
-    fontSize: 10,
+    fontSize: 9,
     color: "#94A3B8",
     fontWeight: "700",
   },
   detailValue: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#0F172A",
     fontWeight: "700",
     marginTop: 1,
@@ -952,26 +973,40 @@ const styles = StyleSheet.create({
   serviceGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
-    marginBottom: 28,
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 20,
   },
   serviceTile: {
-    width: "31%",
-    minWidth: 100,
-    flexGrow: 1,
+    width: "48.5%", // Fits exactly 2 cards per row on mobile screens
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 14,
+    borderRadius: 14,
+    padding: 12,
     borderWidth: 1,
     borderColor: "#E2E8F0",
+    position: "relative",
+    overflow: "hidden",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  serviceIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: "center",
+  serviceTileTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 10,
+  },
+  serviceIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  serviceTileBottom: {
+    justifyContent: "center",
   },
   serviceTitle: {
     fontSize: 13,
@@ -980,8 +1015,17 @@ const styles = StyleSheet.create({
   },
   serviceSubtitle: {
     fontSize: 10,
-    color: "#94A3B8",
+    color: "#64748B",
     marginTop: 2,
+  },
+  tileAccentBorder: {
+    position: "absolute",
+    left: 0,
+    top: 12,
+    bottom: 12,
+    width: 3,
+    borderTopRightRadius: 2,
+    borderBottomRightRadius: 2,
   },
   pressedState: {
     opacity: 0.85,
@@ -989,36 +1033,36 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 16,
+    padding: 20,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
     color: "#0F172A",
     marginTop: 8,
   },
   emptyText: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#64748B",
     textAlign: "center",
     marginTop: 4,
   },
   footer: {
     alignItems: "center",
-    paddingVertical: 16,
+    paddingVertical: 12,
   },
   footerTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: "#64748B",
   },
   footerSubText: {
-    fontSize: 10,
+    fontSize: 9,
     color: "#94A3B8",
     marginTop: 2,
   },
