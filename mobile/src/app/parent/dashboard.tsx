@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   RefreshControl,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -223,390 +224,396 @@ export default function ParentDashboard() {
   const students = parent?.students || [];
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          isDesktopWeb && styles.desktopScrollContent,
-        ]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-        showsVerticalScrollIndicator={false}
-      >
-        <View
-          style={[
-            styles.content,
-            isDesktopWeb && {
-              maxWidth: desktopMaxWidth,
-              alignSelf: "center",
-              width: "100%",
-            },
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            isDesktopWeb && styles.desktopScrollContent,
           ]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+          showsVerticalScrollIndicator={false}
         >
-          {/* ================= HERO HEADER ================= */}
-          <View style={[styles.heroHeader, { backgroundColor: schoolBranding.secondary }]}>
-            <View style={styles.heroTopRow}>
-              <View style={styles.brandBadge}>
-                {schoolBranding.logo ? (
-                  <Image
-                    source={{ uri: normalizeImageUrl(schoolBranding.logo) }}
-                    style={styles.schoolLogo}
-                  />
-                ) : (
-                  <Ionicons name="school" size={20} color="#FFFFFF" />
-                )}
-                <View style={styles.brandTitleColumn}>
-                  <Text style={styles.heroSchoolName} numberOfLines={1}>
-                    {selectedStudent?.school?.name || "CoreOne School"}
-                  </Text>
-                  {schoolBranding.motto ? (
-                    <Text style={styles.heroMotto} numberOfLines={1}>
-                      {schoolBranding.motto}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-
-              <View style={styles.heroActions}>
-                <Pressable
-                  onPress={() => router.push("/parent/notifications")}
-                  style={({ pressed }) => [
-                    styles.iconButton,
-                    pressed && styles.pressedState,
-                  ]}
-                >
-                  <Ionicons
-                    name="notifications-outline"
-                    size={20}
-                    color="#FFFFFF"
-                  />
-
-                  {unreadNotificationCount > 0 && (
-                    <View style={styles.notificationBadge}>
-                      <Text style={styles.notificationBadgeText}>
-                        {unreadNotificationCount > 99
-                          ? "99+"
-                          : unreadNotificationCount}
-                      </Text>
-                    </View>
+          <View
+            style={[
+              styles.content,
+              isDesktopWeb && {
+                maxWidth: desktopMaxWidth,
+                alignSelf: "center",
+                width: "100%",
+              },
+            ]}
+          >
+            {/* ================= HERO HEADER ================= */}
+            <View style={[styles.heroHeader, { backgroundColor: schoolBranding.secondary }]}>
+              <View style={styles.heroTopRow}>
+                <View style={styles.brandBadge}>
+                  {schoolBranding.logo ? (
+                    <Image
+                      source={{ uri: normalizeImageUrl(schoolBranding.logo) }}
+                      style={styles.schoolLogo}
+                    />
+                  ) : (
+                    <Ionicons name="school" size={18} color="#FFFFFF" />
                   )}
-                </Pressable>
-
-                <Pressable
-                  onPress={handleLogout}
-                  style={({ pressed }) => [
-                    styles.iconButton,
-                    pressed && styles.pressedState,
-                  ]}
-                >
-                  <Ionicons
-                    name="log-out-outline"
-                    size={20}
-                    color="#FFFFFF"
-                  />
-                </Pressable>
-              </View>
-            </View>
-
-            <View style={styles.heroMain}>
-              <View style={styles.heroMetaRow}>
-                <View style={styles.datePill}>
-                  <Ionicons name="calendar" size={13} color="#FBBF24" />
-                  <Text style={styles.datePillText}>
-                    {dateTimeInfo.dayName}, {dateTimeInfo.dateStr}
-                  </Text>
+                  <View style={styles.brandTitleColumn}>
+                    <Text style={styles.heroSchoolName} numberOfLines={1}>
+                      {selectedStudent?.school?.name || "CoreOne School"}
+                    </Text>
+                    {schoolBranding.motto ? (
+                      <Text style={styles.heroMotto} numberOfLines={1}>
+                        {schoolBranding.motto}
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
-              </View>
 
-              <Text style={styles.greetingText}>
-                {getGreeting()},{" "}
-                <Text style={styles.parentNameHighlight}>{parentName}</Text>{" "}
-                <Text style={styles.roleHighlight}>({relationshipRole})</Text>
-              </Text>
-            </View>
-          </View>
-
-          {/* ================= CHILDREN SELECTION ================= */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Student</Text>
-            <View style={styles.badgeCount}>
-              <Text style={styles.badgeCountText}>{students.length}</Text>
-            </View>
-          </View>
-
-          {students.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Ionicons name="people-outline" size={32} color="#94A3B8" />
-              <Text style={styles.emptyTitle}>No Children Linked</Text>
-              <Text style={styles.emptyText}>
-                Please reach out to your school administrator to link your account.
-              </Text>
-            </View>
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.childrenHorizontalList}
-            >
-              {students.map((student) => {
-                const active = selectedStudent?.id === student.id;
-                const studentBranding = getSchoolBranding(student.school);
-                const initials = `${student.first_name?.[0] || ""}${
-                  student.last_name?.[0] || ""
-                }`.toUpperCase();
-
-                return (
+                <View style={styles.heroActions}>
                   <Pressable
-                    key={student.id}
-                    onPress={() => setSelectedStudentId(student.id)}
+                    onPress={() => router.push("/parent/notifications")}
                     style={({ pressed }) => [
-                      styles.childPillCard,
-                      active && {
-                        borderColor: studentBranding.primary,
-                        backgroundColor: "#FFFFFF",
-                        shadowColor: studentBranding.primary,
-                        shadowOpacity: 0.15,
-                        shadowRadius: 10,
-                        elevation: 4,
-                      },
+                      styles.iconButton,
                       pressed && styles.pressedState,
                     ]}
                   >
-                    <View
-                      style={[
-                        styles.avatarRing,
-                        { borderColor: active ? studentBranding.primary : "#E2E8F0" },
+                    <Ionicons
+                      name="notifications-outline"
+                      size={18}
+                      color="#FFFFFF"
+                    />
+
+                    {unreadNotificationCount > 0 && (
+                      <View style={styles.notificationBadge}>
+                        <Text style={styles.notificationBadgeText}>
+                          {unreadNotificationCount > 99
+                            ? "99+"
+                            : unreadNotificationCount}
+                        </Text>
+                      </View>
+                    )}
+                  </Pressable>
+
+                  <Pressable
+                    onPress={handleLogout}
+                    style={({ pressed }) => [
+                      styles.iconButton,
+                      pressed && styles.pressedState,
+                    ]}
+                  >
+                    <Ionicons
+                      name="log-out-outline"
+                      size={18}
+                      color="#FFFFFF"
+                    />
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.heroMain}>
+                <View style={styles.heroMetaRow}>
+                  <View style={styles.datePill}>
+                    <Ionicons name="calendar-outline" size={12} color="#FBBF24" />
+                    <Text style={styles.datePillText}>
+                      {dateTimeInfo.dayName}, {dateTimeInfo.dateStr}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.greetingText}>
+                  {getGreeting()},{" "}
+                  <Text style={styles.parentNameHighlight}>{parentName}</Text>{" "}
+                  <Text style={styles.roleHighlight}>({relationshipRole})</Text>
+                </Text>
+              </View>
+            </View>
+
+            {/* ================= CHILDREN SELECTION ================= */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Student Dashboard</Text>
+              <View style={styles.badgeCount}>
+                <Text style={styles.badgeCountText}>{students.length}</Text>
+              </View>
+            </View>
+
+            {students.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Ionicons name="people-outline" size={32} color="#94A3B8" />
+                <Text style={styles.emptyTitle}>No Children Linked</Text>
+                <Text style={styles.emptyText}>
+                  Please reach out to your school administrator to link your account.
+                </Text>
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.childrenHorizontalList}
+              >
+                {students.map((student) => {
+                  const active = selectedStudent?.id === student.id;
+                  const studentBranding = getSchoolBranding(student.school);
+                  const initials = `${student.first_name?.[0] || ""}${
+                    student.last_name?.[0] || ""
+                  }`.toUpperCase();
+
+                  return (
+                    <Pressable
+                      key={student.id}
+                      onPress={() => setSelectedStudentId(student.id)}
+                      style={({ pressed }) => [
+                        styles.childPillCard,
+                        active && {
+                          borderColor: studentBranding.primary,
+                          backgroundColor: "#FFFFFF",
+                          shadowColor: studentBranding.primary,
+                          shadowOpacity: 0.2,
+                          shadowRadius: 8,
+                          elevation: 4,
+                        },
+                        pressed && styles.pressedState,
                       ]}
                     >
-                      {student.passport ? (
+                      <View
+                        style={[
+                          styles.avatarRing,
+                          { borderColor: active ? studentBranding.primary : "#E2E8F0" },
+                        ]}
+                      >
+                        {student.passport ? (
+                          <Image
+                            source={{ uri: normalizeImageUrl(student.passport) }}
+                            style={styles.avatarImage}
+                          />
+                        ) : (
+                          <View
+                            style={[
+                              styles.avatarFallback,
+                              { backgroundColor: studentBranding.primary },
+                            ]}
+                          >
+                            <Text style={styles.avatarText}>{initials || "ST"}</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      <View style={styles.childPillInfo}>
+                        <Text style={styles.childPillName} numberOfLines={1}>
+                          {student.first_name} {student.last_name}
+                        </Text>
+                        <Text style={styles.childPillMeta}>{student.admission_number}</Text>
+                      </View>
+
+                      {active && (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={18}
+                          color={studentBranding.primary}
+                          style={styles.activeCheck}
+                        />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            {/* ================= STUDENT OVERVIEW CARD ================= */}
+            {selectedStudent && (
+              <>
+                <Pressable
+                  onPress={() => openStudentProfile(selectedStudent.id)}
+                  style={({ pressed }) => [
+                    styles.profileCard,
+                    pressed && styles.pressedState,
+                  ]}
+                >
+                  <View style={styles.profileHeader}>
+                    <View
+                      style={[
+                        styles.profileAvatarContainer,
+                        { borderColor: schoolBranding.primary },
+                      ]}
+                    >
+                      {selectedStudent.passport ? (
                         <Image
-                          source={{ uri: normalizeImageUrl(student.passport) }}
-                          style={styles.avatarImage}
+                          source={{ uri: normalizeImageUrl(selectedStudent.passport) }}
+                          style={styles.profileAvatarImage}
                         />
                       ) : (
-                        <View
-                          style={[
-                            styles.avatarFallback,
-                            { backgroundColor: studentBranding.primary },
-                          ]}
-                        >
-                          <Text style={styles.avatarText}>{initials || "ST"}</Text>
-                        </View>
+                        <Ionicons name="person" size={28} color={schoolBranding.primary} />
                       )}
                     </View>
 
-                    <View style={styles.childPillInfo}>
-                      <Text style={styles.childPillName} numberOfLines={1}>
-                        {student.first_name} {student.last_name}
+                    <View style={styles.profileBody}>
+                      <View style={styles.roleBadge}>
+                        <Text style={styles.roleBadgeText}>ACTIVE STUDENT</Text>
+                      </View>
+                      <Text style={styles.profileName} numberOfLines={1}>
+                        {selectedStudent.first_name} {selectedStudent.last_name}
                       </Text>
-                      <Text style={styles.childPillMeta}>{student.admission_number}</Text>
+                      <Text style={styles.profileSchool}>{selectedStudent.school.name}</Text>
                     </View>
 
-                    {active && (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={18}
-                        color={studentBranding.primary}
-                        style={styles.activeCheck}
-                      />
-                    )}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          )}
-
-          {/* ================= STUDENT OVERVIEW CARD ================= */}
-          {selectedStudent && (
-            <>
-              <Pressable
-                onPress={() => openStudentProfile(selectedStudent.id)}
-                style={({ pressed }) => [
-                  styles.profileCard,
-                  pressed && styles.pressedState,
-                ]}
-              >
-                <View style={styles.profileHeader}>
-                  <View
-                    style={[
-                      styles.profileAvatarContainer,
-                      { borderColor: schoolBranding.primary },
-                    ]}
-                  >
-                    {selectedStudent.passport ? (
-                      <Image
-                        source={{ uri: normalizeImageUrl(selectedStudent.passport) }}
-                        style={styles.profileAvatarImage}
-                      />
-                    ) : (
-                      <Ionicons name="person" size={32} color={schoolBranding.primary} />
-                    )}
-                  </View>
-
-                  <View style={styles.profileBody}>
-                    <View style={styles.roleBadge}>
-                      <Text style={styles.roleBadgeText}>STUDENT</Text>
+                    <View style={styles.viewDetailButton}>
+                      <Ionicons name="chevron-forward" size={16} color="#64748B" />
                     </View>
-                    <Text style={styles.profileName} numberOfLines={1}>
-                      {selectedStudent.first_name} {selectedStudent.last_name}
-                    </Text>
-                    <Text style={styles.profileSchool}>{selectedStudent.school.name}</Text>
                   </View>
 
-                  <View style={styles.viewDetailButton}>
-                    <Ionicons name="chevron-forward" size={18} color="#64748B" />
+                  <View style={styles.divider} />
+
+                  <View style={styles.detailGrid}>
+                    <View style={styles.detailCard}>
+                      <View style={styles.detailIconCircle}>
+                        <Ionicons name="card-outline" size={14} color="#3B82F6" />
+                      </View>
+                      <View style={styles.detailTextGroup}>
+                        <Text style={styles.detailLabel}>Admission No.</Text>
+                        <Text style={styles.detailValue}>{selectedStudent.admission_number}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.detailCard}>
+                      <View style={styles.detailIconCircle}>
+                        <Ionicons name="easel-outline" size={14} color="#10B981" />
+                      </View>
+                      <View style={styles.detailTextGroup}>
+                        <Text style={styles.detailLabel}>Class Enrolled</Text>
+                        <Text style={styles.detailValue}>
+                          {selectedStudent.class_name ||
+                          (selectedStudent.classroom_id
+                            ? `Class #${selectedStudent.classroom_id}`
+                            : "Unassigned")}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
+                </Pressable>
+
+                {/* ================= SERVICES GRID ================= */}
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Academic Services</Text>
                 </View>
 
-                <View style={styles.divider} />
+                <View style={styles.serviceGrid}>
+                  <ServiceTile
+                    icon="analytics-outline"
+                    title="Results"
+                    subtitle="Grade reports"
+                    color="#2563EB"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/student/results",
+                        params: {
+                          studentId: String(selectedStudent.id),
+                          viewer: "parent",
+                        },
+                      })
+                    }
+                  />
+                  <ServiceTile
+                    icon="calendar-outline"
+                    title="Attendance"
+                    subtitle="Daily tracking"
+                    color="#059669"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/parent/attendance",
+                        params: { studentId: String(selectedStudent.id) },
+                      })
+                    }
+                  />
+                  <ServiceTile
+                    icon="wallet-outline"
+                    title="School Fees"
+                    subtitle="Fees & payments"
+                    color="#0D9488"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/parent/fees",
+                        params: { studentId: String(selectedStudent.id) },
+                      })
+                    }
+                  />
 
-                <View style={styles.detailGrid}>
-                  <View style={styles.detailCard}>
-                    <Ionicons name="card-outline" size={16} color="#64748B" />
-                    <View style={styles.detailTextGroup}>
-                      <Text style={styles.detailLabel}>Admission No.</Text>
-                      <Text style={styles.detailValue}>{selectedStudent.admission_number}</Text>
-                    </View>
-                  </View>
+                  <ServiceTile
+                    icon="library-outline"
+                    title="Books"
+                    subtitle="Issued books"
+                    color="#4F46E5"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/parent/books",
+                        params: {
+                          studentId: String(selectedStudent.id),
+                        },
+                      })
+                    }
+                  />
 
-                  <View style={styles.detailCard}>
-                    <Ionicons name="easel-outline" size={16} color="#64748B" />
-                    <View style={styles.detailTextGroup}>
-                      <Text style={styles.detailLabel}>Class Enrolled</Text>
-                      <Text style={styles.detailValue}>
-                        {selectedStudent.class_name ||
-                        (selectedStudent.classroom_id
-                          ? `Class #${selectedStudent.classroom_id}`
-                          : "Unassigned")}
-                      </Text>
-                    </View>
-                  </View>
+                  <ServiceTile
+                    icon="pulse-outline"
+                    title="Activity"
+                    subtitle="Learning progress"
+                    color="#E11D48"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/parent/activity",
+                        params: {
+                          studentId: String(selectedStudent.id),
+                        },
+                      })
+                    }
+                  />
+
+                  <ServiceTile
+                    icon="book-outline"
+                    title="Learning"
+                    subtitle="Tasks & syllabus"
+                    color="#7C3AED"
+                  />
+
+                  <ServiceTile
+                    icon="notifications-outline"
+                    title="Notices"
+                    subtitle={
+                      unreadNotificationCount > 0
+                        ? `${unreadNotificationCount} unread`
+                        : "School updates"
+                    }
+                    color="#0284C7"
+                    onPress={() => router.push("/parent/notifications")}
+                  />
+
+                  <ServiceTile
+                    icon="time-outline"
+                    title="Schedule"
+                    subtitle="Timetable & events"
+                    color="#D97706"
+                    onPress={() => router.push("/parent/timetable")}
+                  />
+
+                  <ServiceTile
+                    icon="person-outline"
+                    title="Profile"
+                    subtitle="Bio & details"
+                    color="#475569"
+                    onPress={() => openStudentProfile(selectedStudent.id)}
+                  />
                 </View>
-              </Pressable>
+              </>
+            )}
 
-              {/* ================= SERVICES GRID ================= */}
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Academic Service</Text>
-              </View>
-
-              <View style={styles.serviceGrid}>
-                <ServiceTile
-                  icon="analytics-outline"
-                  title="Results"
-                  subtitle="Grade reports"
-                  color="#2563EB" // Royal Blue
-                  onPress={() =>
-                    router.push({
-                      pathname: "/student/results",
-                      params: {
-                        studentId: String(selectedStudent.id),
-                        viewer: "parent",
-                      },
-                    })
-                  }
-                />
-                <ServiceTile
-                  icon="calendar-outline"
-                  title="Attendance"
-                  subtitle="Daily tracking"
-                  color="#10B981" // Emerald
-                  onPress={() =>
-                    router.push({
-                      pathname: "/parent/attendance",
-                      params: { studentId: String(selectedStudent.id) },
-                    })
-                  }
-                />
-                <ServiceTile
-                  icon="wallet-outline"
-                  title="School Fees"
-                  subtitle="Fees & payments"
-                  color="#0D9488" // Teal
-                  onPress={() =>
-                    router.push({
-                      pathname: "/parent/fees",
-                      params: { studentId: String(selectedStudent.id) },
-                    })
-                  }
-                />
-
-                <ServiceTile
-                  icon="library-outline"
-                  title="Books"
-                  subtitle="Issued books"
-                  color="#4F46E5" // Indigo
-                  onPress={() =>
-                    router.push({
-                      pathname: "/parent/books",
-                      params: {
-                        studentId: String(selectedStudent.id),
-                      },
-                    })
-                  }
-                />
-
-                <ServiceTile
-                  icon="pulse-outline"
-                  title="Activity"
-                  subtitle="Learning progress"
-                  color="#E11D48" // Rose
-                  onPress={() =>
-                    router.push({
-                      pathname: "/parent/activity",
-                      params: {
-                        studentId: String(selectedStudent.id),
-                      },
-                    })
-                  }
-                />
-
-                <ServiceTile
-                  icon="book-outline"
-                  title="Learning"
-                  subtitle="Tasks & syllabus"
-                  color="#7C3AED" // Violet
-                />
-
-                <ServiceTile
-                  icon="notifications-outline"
-                  title="Notices"
-                  subtitle={
-                    unreadNotificationCount > 0
-                      ? `${unreadNotificationCount} unread`
-                      : "School updates"
-                  }
-                  color="#0284C7" // Light Blue / Sky
-                  onPress={() => router.push("/parent/notifications")}
-                />
-
-                <ServiceTile
-                  icon="time-outline"
-                  title="Schedule"
-                  subtitle="Timetable & events"
-                  color="#D97706" // Amber
-                  onPress={() => router.push("/parent/timetable")}
-                />
-
-                <ServiceTile
-                  icon="person-outline"
-                  title="Profile"
-                  subtitle="Bio & details"
-                  color="#475569" // Slate
-                  onPress={() => openStudentProfile(selectedStudent.id)}
-                />
-              </View>
-            </>
-          )}
-
-          {/* ================= FOOTER ================= */}
-          <View style={styles.footer}>
-            <Text style={styles.footerTitle}>CoreOne Parent Experience</Text>
-            <Text style={styles.footerSubText}>
-              Empowering parents through real-time communication.
-            </Text>
+            {/* ================= FOOTER ================= */}
+            <View style={styles.footer}>
+              <Text style={styles.footerTitle}>CoreOne Parent Experience</Text>
+              <Text style={styles.footerSubText}>
+                Empowering parents through real-time communication.
+              </Text>
+            </View>
           </View>
-        </View>
-      </ScrollView>
-    </View>
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -628,14 +635,15 @@ function ServiceTile({
       onPress={onPress}
       style={({ pressed }) => [
         styles.serviceTile,
+        { backgroundColor: `${color}0F` },
         pressed && styles.pressedState,
       ]}
     >
       <View style={styles.serviceTileTop}>
-        <View style={[styles.serviceIconContainer, { backgroundColor: `${color}15` }]}>
-          <Ionicons name={icon} size={20} color={color} />
+        <View style={[styles.serviceIconContainer, { backgroundColor: color }]}>
+          <Ionicons name={icon} size={18} color="#FFFFFF" />
         </View>
-        <Ionicons name="chevron-forward" size={14} color="#94A3B8" />
+        <Ionicons name="arrow-forward-circle-outline" size={18} color={color} />
       </View>
       <View style={styles.serviceTileBottom}>
         <Text style={styles.serviceTitle} numberOfLines={1}>
@@ -645,26 +653,29 @@ function ServiceTile({
           {subtitle}
         </Text>
       </View>
-      <View style={[styles.tileAccentBorder, { backgroundColor: color }]} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
   container: {
     flex: 1,
     backgroundColor: "#F8FAFC",
   },
   scrollContent: {
-    paddingBottom: 32,
+    paddingBottom: 40,
   },
   desktopScrollContent: {
     minHeight: "100%",
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    maxWidth: 500, // Fitted standard mobile viewport threshold
+    paddingTop: Platform.OS === "android" ? 32 : 16,
+    maxWidth: 480,
     alignSelf: "center",
     width: "100%",
   },
@@ -681,13 +692,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   heroHeader: {
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 4,
+    borderRadius: 24,
+    padding: 18,
+    marginBottom: 20,
     shadowColor: "#0F172A",
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 5,
   },
   heroTopRow: {
     flexDirection: "row",
@@ -702,10 +714,10 @@ const styles = StyleSheet.create({
   brandBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.14)",
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 14,
     flex: 1,
     marginRight: 10,
   },
@@ -724,7 +736,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   heroMotto: {
-    color: "rgba(255, 255, 255, 0.7)",
+    color: "rgba(255, 255, 255, 0.75)",
     fontSize: 10,
     marginTop: 1,
   },
@@ -732,7 +744,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     justifyContent: "center",
     alignItems: "center",
     position: "relative",
@@ -757,7 +769,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   heroMain: {
-    marginTop: 14,
+    marginTop: 16,
   },
   heroMetaRow: {
     flexDirection: "row",
@@ -767,10 +779,10 @@ const styles = StyleSheet.create({
   datePill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 100,
+    borderRadius: 20,
     gap: 5,
   },
   datePillText: {
@@ -780,10 +792,10 @@ const styles = StyleSheet.create({
   },
   greetingText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "600",
     letterSpacing: -0.2,
-    lineHeight: 22,
+    lineHeight: 24,
   },
   parentNameHighlight: {
     color: "#FBBF24",
@@ -796,13 +808,14 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 12,
     gap: 6,
   },
   sectionTitle: {
     color: "#0F172A",
     fontSize: 15,
     fontWeight: "800",
+    letterSpacing: -0.2,
   },
   badgeCount: {
     backgroundColor: "#E2E8F0",
@@ -818,7 +831,7 @@ const styles = StyleSheet.create({
   childrenHorizontalList: {
     gap: 10,
     paddingBottom: 4,
-    marginBottom: 16,
+    marginBottom: 18,
   },
   childPillCard: {
     flexDirection: "row",
@@ -826,15 +839,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 8,
-    paddingRight: 12,
-    minWidth: 160,
+    paddingRight: 14,
+    minWidth: 165,
   },
   avatarRing: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 2,
     padding: 1,
   },
@@ -856,7 +869,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   childPillInfo: {
-    marginLeft: 8,
+    marginLeft: 10,
     flex: 1,
   },
   childPillName: {
@@ -870,29 +883,29 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   activeCheck: {
-    marginLeft: 4,
+    marginLeft: 6,
   },
   profileCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 20,
+    padding: 16,
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    marginBottom: 16,
+    marginBottom: 20,
     shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 3,
   },
   profileHeader: {
     flexDirection: "row",
     alignItems: "center",
   },
   profileAvatarContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     borderWidth: 2,
     overflow: "hidden",
     justifyContent: "center",
@@ -905,20 +918,20 @@ const styles = StyleSheet.create({
   },
   profileBody: {
     flex: 1,
-    marginLeft: 10,
+    marginLeft: 12,
   },
   roleBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "#F1F5F9",
+    backgroundColor: "#EFF6FF",
     paddingHorizontal: 6,
-    paddingVertical: 1,
+    paddingVertical: 2,
     borderRadius: 4,
-    marginBottom: 2,
+    marginBottom: 3,
   },
   roleBadgeText: {
     fontSize: 8,
     fontWeight: "800",
-    color: "#64748B",
+    color: "#2563EB",
   },
   profileName: {
     fontSize: 15,
@@ -931,9 +944,9 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   viewDetailButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: "#F1F5F9",
     justifyContent: "center",
     alignItems: "center",
@@ -941,7 +954,7 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: "#F1F5F9",
-    marginVertical: 12,
+    marginVertical: 14,
   },
   detailGrid: {
     flexDirection: "row",
@@ -952,9 +965,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F8FAFC",
-    borderRadius: 10,
-    padding: 8,
-    gap: 6,
+    borderRadius: 12,
+    padding: 10,
+    gap: 8,
+  },
+  detailIconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
   },
   detailTextGroup: {
     flex: 1,
@@ -974,58 +995,51 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    gap: 10,
-    marginBottom: 20,
+    gap: 12,
+    marginBottom: 24,
   },
   serviceTile: {
-    width: "48.5%", // Fits exactly 2 cards per row on mobile screens
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 12,
+    width: "48%",
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    position: "relative",
-    overflow: "hidden",
     shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 2,
   },
   serviceTileTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 12,
   },
   serviceIconContainer: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   serviceTileBottom: {
     justifyContent: "center",
   },
   serviceTitle: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "800",
     color: "#0F172A",
   },
   serviceSubtitle: {
     fontSize: 10,
     color: "#64748B",
     marginTop: 2,
-  },
-  tileAccentBorder: {
-    position: "absolute",
-    left: 0,
-    top: 12,
-    bottom: 12,
-    width: 3,
-    borderTopRightRadius: 2,
-    borderBottomRightRadius: 2,
   },
   pressedState: {
     opacity: 0.85,
@@ -1054,7 +1068,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   footerTitle: {
     fontSize: 11,
