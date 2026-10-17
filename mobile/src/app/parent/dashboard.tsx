@@ -565,12 +565,6 @@ export default function ParentDashboard() {
                     }
                   />
 
-                  <ServiceTile
-                    icon="book-outline"
-                    title="Learning"
-                    subtitle="Tasks & syllabus"
-                    color="#7C3AED"
-                  />
 
                   <ServiceTile
                     icon="notifications-outline"
