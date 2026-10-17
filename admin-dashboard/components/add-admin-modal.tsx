@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, UserPlus } from "lucide-react";
+import { Eye, EyeOff, Loader2, UserPlus } from "lucide-react";
 
 import api from "@/lib/api";
 
@@ -21,6 +21,7 @@ export default function AddAdminModal({
   const [schools, setSchools] = useState<School[]>([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [schoolId, setSchoolId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -122,14 +123,25 @@ export default function AddAdminModal({
               onChange={(e) => setEmail(e.target.value)}
             />
 
-            <input
-              placeholder="Password"
-              type="password"
-              autoComplete="new-password"
-              className="w-full rounded-xl border p-3"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div className="relative">
+              <input
+                placeholder="Password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                className="w-full rounded-xl border p-3 pr-12"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+                className="absolute inset-y-0 right-3 flex items-center text-slate-500 hover:text-slate-800"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
 
             <select
               className="w-full rounded-xl border p-3"
