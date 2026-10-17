@@ -21,9 +21,7 @@ import {
 function normalizeImageUrl(
   value?: string | null
 ): string | undefined {
-  if (!value) {
-    return undefined;
-  }
+  if (!value) return undefined;
 
   if (
     value.startsWith("http://") ||
@@ -44,70 +42,110 @@ function normalizeImageUrl(
 
 export default function ParentChildScreen() {
   const params = useLocalSearchParams<{
-    studentId?: string;
+    studentId?: string | string[];
   }>();
 
-  const studentId = Number(params.studentId);
+  const rawStudentId = Array.isArray(params.studentId)
+    ? params.studentId[0]
+    : params.studentId;
+
+  const studentId = Number(rawStudentId);
 
   const [student, setStudent] =
     useState<ParentStudent | null>(null);
-
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
+    let active = true;
+
     async function load() {
+      setLoading(true);
+      setLoadError("");
+      setStudent(null);
+
       try {
-        if (!Number.isFinite(studentId)) {
+        if (
+          !rawStudentId ||
+          !Number.isInteger(studentId) ||
+          studentId <= 0
+        ) {
+          if (active) {
+            setLoadError(
+              "A valid child profile could not be identified."
+            );
+          }
           return;
         }
 
         const data = await getParentStudent(studentId);
+
+        if (!active) return;
 
         console.log(
           "PARENT CHILD RESPONSE:",
           JSON.stringify(data, null, 2)
         );
 
+        if (!data || typeof data !== "object") {
+          setLoadError(
+            "The server returned no child profile."
+          );
+          return;
+        }
+
         setStudent(data);
-      } catch (error) {
-        console.log("PARENT CHILD ERROR:", error);
+      } catch (error: any) {
+        console.log(
+          "PARENT CHILD ERROR:",
+          error?.response?.data || error?.message || error
+        );
+
+        if (active) {
+          setLoadError(
+            error?.response?.data?.detail ||
+              error?.response?.data?.message ||
+              "Unable to load this child profile. Please try again."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
 
     load();
-  }, [studentId]);
 
-  const branding = useMemo(() => {
-    return {
-      primary:
-        student?.school?.branding?.primary_color ||
-        student?.school?.primary_color ||
-        "#4F46E5",
-
-      secondary:
-        student?.school?.branding?.secondary_color ||
-        student?.school?.secondary_color ||
-        "#0F172A",
-
-      accent:
-        student?.school?.branding?.accent_color ||
-        "#F43F5E",
-
-      logo:
-        student?.school?.branding?.logo_url ||
-        student?.school?.logo ||
-        undefined,
+    return () => {
+      active = false;
     };
-  }, [student]);
+  }, [rawStudentId, studentId]);
+
+  const branding = useMemo(() => ({
+    primary:
+      student?.school?.branding?.primary_color ||
+      student?.school?.primary_color ||
+      "#4F46E5",
+    secondary:
+      student?.school?.branding?.secondary_color ||
+      student?.school?.secondary_color ||
+      "#0F172A",
+    accent:
+      student?.school?.branding?.accent_color ||
+      "#F43F5E",
+    logo:
+      student?.school?.branding?.logo_url ||
+      student?.school?.logo ||
+      undefined,
+  }), [student]);
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#4F46E5" />
-          <Text style={styles.loadingText}>Loading child profile...</Text>
+          <Text style={styles.loadingText}>
+            Loading child profile...
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -122,7 +160,9 @@ export default function ParentChildScreen() {
             size={48}
             color="#94A3B8"
           />
-          <Text style={styles.errorTitle}>Child not found</Text>
+          <Text style={styles.errorTitle}>
+            {loadError || "Child profile unavailable"}
+          </Text>
           <Pressable
             style={styles.backButton}
             onPress={() => router.back()}
@@ -143,13 +183,15 @@ export default function ParentChildScreen() {
     student.first_name,
     student.middle_name,
     student.last_name,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  ].filter(Boolean).join(" ");
 
   const className =
     student.class_name ||
-    (student.classroom_id ? `Class #${student.classroom_id}` : "Not assigned");
+    (student.classroom_id
+      ? `Class #${student.classroom_id}`
+      : "Not assigned");
+
+  const school = student.school;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -158,7 +200,6 @@ export default function ParentChildScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* School Header */}
           <View
             style={[
               styles.schoolHeader,
@@ -169,7 +210,11 @@ export default function ParentChildScreen() {
               onPress={() => router.back()}
               style={styles.headerBack}
             >
-              <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+              <Ionicons
+                name="chevron-back"
+                size={20}
+                color="#FFFFFF"
+              />
             </Pressable>
 
             <View style={styles.schoolLogoWrap}>
@@ -190,13 +235,14 @@ export default function ParentChildScreen() {
             </View>
 
             <Text style={styles.schoolName} numberOfLines={2}>
-              {student.school.name}
+              {school?.name || "School"}
             </Text>
 
-            <Text style={styles.schoolSubtitle}>Parent Portal</Text>
+            <Text style={styles.schoolSubtitle}>
+              Parent Portal
+            </Text>
           </View>
 
-          {/* Student Profile Hero */}
           <View style={styles.hero}>
             <View
               style={[
@@ -223,45 +269,52 @@ export default function ParentChildScreen() {
               )}
             </View>
 
-            <Text style={styles.name}>{fullName}</Text>
+            <Text style={styles.name}>
+              {fullName || "Student"}
+            </Text>
 
             <View style={styles.relationshipBadge}>
-              <Text style={styles.relationshipText}>Student</Text>
+              <Text style={styles.relationshipText}>
+                Student
+              </Text>
             </View>
           </View>
 
-          {/* Details Card */}
           <View style={styles.detailsCard}>
             <Detail
               label="Admission Number"
               value={student.admission_number || "N/A"}
             />
             <Detail label="Class" value={className} />
-            <Detail label="Gender" value={student.gender || "N/A"} />
+            <Detail
+              label="Gender"
+              value={student.gender || "N/A"}
+            />
             <Detail
               label="Date of Birth"
               value={student.date_of_birth || "Not available"}
             />
           </View>
 
-          {/* School Information */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>School Information</Text>
+            <Text style={styles.sectionTitle}>
+              School Information
+            </Text>
 
             <View style={styles.schoolCard}>
               <Text style={styles.schoolCardName}>
-                {student.school.name}
+                {school?.name || "School information unavailable"}
               </Text>
 
-              {student.school.school_code ? (
+              {school?.school_code ? (
                 <Text style={styles.schoolCode}>
-                  School Code: {student.school.school_code}
+                  School Code: {school.school_code}
                 </Text>
               ) : null}
 
-              {student.school.city || student.school.state ? (
+              {school?.city || school?.state ? (
                 <Text style={styles.schoolLocation}>
-                  {[student.school.city, student.school.state]
+                  {[school?.city, school?.state]
                     .filter(Boolean)
                     .join(", ")}
                 </Text>
@@ -269,9 +322,10 @@ export default function ParentChildScreen() {
             </View>
           </View>
 
-          {/* Services Notice */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Parent Services</Text>
+            <Text style={styles.sectionTitle}>
+              Parent Services
+            </Text>
 
             <View style={styles.noticeCard}>
               <View style={styles.noticeIconCircle}>
@@ -287,8 +341,9 @@ export default function ParentChildScreen() {
                   Child-Specific Access
                 </Text>
                 <Text style={styles.noticeBody}>
-                  Academic results, attendance records, learning updates,
-                  and notifications are filtered specifically for {student.first_name || "this child"}.
+                  Academic results, attendance records, learning
+                  updates, and notifications are filtered
+                  specifically for {student.first_name || "this child"}.
                 </Text>
               </View>
             </View>
@@ -319,39 +374,35 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F1F5F9",
   },
-
   viewportContainer: {
     flex: 1,
     width: "100%",
     maxWidth: 680,
     alignSelf: "center",
   },
-
   scrollContent: {
     paddingBottom: 32,
   },
-
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
   },
-
   loadingText: {
     marginTop: 12,
     color: "#64748B",
     fontSize: 13,
     fontWeight: "600",
+    textAlign: "center",
   },
-
   errorTitle: {
     marginTop: 12,
     color: "#0F172A",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
+    textAlign: "center",
   },
-
   backButton: {
     marginTop: 18,
     paddingVertical: 10,
@@ -359,13 +410,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: "#4F46E5",
   },
-
   backButtonText: {
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "700",
   },
-
   schoolHeader: {
     paddingTop: Platform.OS === "ios" ? 18 : 32,
     paddingBottom: 40,
@@ -374,7 +423,6 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
-
   headerBack: {
     alignSelf: "flex-start",
     width: 36,
@@ -385,7 +433,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 8,
   },
-
   schoolLogoWrap: {
     width: 60,
     height: 60,
@@ -397,13 +444,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-
   schoolLogo: {
     width: 48,
     height: 48,
     resizeMode: "contain",
   },
-
   schoolName: {
     marginTop: 10,
     color: "#FFFFFF",
@@ -411,7 +456,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
   },
-
   schoolSubtitle: {
     marginTop: 2,
     color: "rgba(255,255,255,0.8)",
@@ -419,13 +463,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 0.5,
   },
-
   hero: {
     alignItems: "center",
     marginTop: -20,
     paddingHorizontal: 16,
   },
-
   avatar: {
     width: 96,
     height: 96,
@@ -443,20 +485,19 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: { elevation: 3 },
-      web: { boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)" },
+      web: {
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
+      },
     }),
   },
-
   avatarImage: {
     width: "100%",
     height: "100%",
   },
-
   avatarInitials: {
     fontSize: 28,
     fontWeight: "800",
   },
-
   name: {
     marginTop: 12,
     color: "#0F172A",
@@ -464,7 +505,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
   },
-
   relationshipBadge: {
     marginTop: 6,
     backgroundColor: "#EEF2FF",
@@ -472,14 +512,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-
   relationshipText: {
     color: "#4F46E5",
     fontSize: 11,
     fontWeight: "700",
     textTransform: "capitalize",
   },
-
   detailsCard: {
     marginHorizontal: 16,
     marginTop: 18,
@@ -490,13 +528,11 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     gap: 10,
   },
-
   detail: {
     padding: 12,
     borderRadius: 12,
     backgroundColor: "#F8FAFC",
   },
-
   detailLabel: {
     color: "#64748B",
     fontSize: 10,
@@ -504,26 +540,22 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-
   detailValue: {
     marginTop: 4,
     color: "#0F172A",
-    fontSize: `14px` as any,
+    fontSize: 14,
     fontWeight: "700",
   },
-
   section: {
     paddingHorizontal: 16,
     marginTop: 18,
   },
-
   sectionTitle: {
     color: "#0F172A",
     fontSize: 15,
     fontWeight: "700",
     marginBottom: 8,
   },
-
   schoolCard: {
     padding: 16,
     borderRadius: 16,
@@ -531,25 +563,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
-
   schoolCardName: {
     color: "#0F172A",
     fontSize: 15,
     fontWeight: "700",
   },
-
   schoolCode: {
     marginTop: 4,
     color: "#64748B",
     fontSize: 12,
   },
-
   schoolLocation: {
     marginTop: 2,
     color: "#94A3B8",
     fontSize: 12,
   },
-
   noticeCard: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -560,7 +588,6 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     gap: 12,
   },
-
   noticeIconCircle: {
     width: 32,
     height: 32,
@@ -569,17 +596,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   noticeText: {
     flex: 1,
   },
-
   noticeTitle: {
     color: "#0F172A",
     fontSize: 13,
     fontWeight: "700",
   },
-
   noticeBody: {
     marginTop: 2,
     color: "#64748B",
