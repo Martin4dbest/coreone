@@ -485,7 +485,7 @@ export default function ParentDashboard() {
 
               {/* ================= SERVICES GRID ================= */}
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Academic Services</Text>
+                <Text style={styles.sectionTitle}>Academic Service</Text>
               </View>
 
               <View style={styles.serviceGrid}>
