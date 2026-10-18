@@ -56,7 +56,7 @@ class StudentEngagementService:
             .outerjoin(Classroom, Classroom.id == Student.classroom_id)
             .where(
                 Student.school_id == school_id,
-                Student.active.is_(True),
+                Student.is_active.is_(True),
             )
         )
         if classroom_id is not None:
@@ -315,7 +315,7 @@ class StudentEngagementService:
             select(Student.id).where(
                 Student.user_id == user.id,
                 Student.school_id == school_id,
-                Student.active.is_(True),
+                Student.is_active.is_(True),
             )
         )
         if student_id is None:
@@ -347,7 +347,7 @@ class StudentEngagementService:
                 ParentStudent.parent_id == parent_id,
                 Student.id == student_id,
                 Student.school_id == school_id,
-                Student.active.is_(True),
+                Student.is_active.is_(True),
             )
         )
         if linked_student is None:
