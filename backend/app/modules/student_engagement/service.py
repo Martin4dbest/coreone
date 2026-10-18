@@ -50,6 +50,7 @@ class StudentEngagementService:
         school_id: int,
         classroom_id: int | None = None,
         private_student_id: int | None = None,
+        restrict_classroom: bool = False,
     ) -> dict:
         student_query = (
             select(Student, Classroom.name.label("class_name"))
@@ -59,7 +60,11 @@ class StudentEngagementService:
                 Student.is_active.is_(True),
             )
         )
-        if classroom_id is not None:
+        if restrict_classroom and classroom_id is None:
+            student_query = student_query.where(
+                Student.classroom_id.is_(None)
+            )
+        elif classroom_id is not None:
             student_query = student_query.where(
                 Student.classroom_id == classroom_id
             )
@@ -202,6 +207,8 @@ class StudentEngagementService:
             ]
             eligible.sort(
                 key=lambda record: (
+                    record["class_name"].casefold(),
+                    record["classroom_id"] if record["classroom_id"] is not None else -1,
                     -record[field],
                     record["name"].casefold(),
                     record["id"],
@@ -209,11 +216,19 @@ class StudentEngagementService:
             )
 
             rankings = []
+            previous_classroom_id = object()
             previous_value = object()
             current_rank = 0
-            for index, record in enumerate(eligible, start=1):
+            class_position = 0
+            for record in eligible:
+                if record["classroom_id"] != previous_classroom_id:
+                    previous_classroom_id = record["classroom_id"]
+                    previous_value = object()
+                    current_rank = 0
+                    class_position = 0
+                class_position += 1
                 if record[field] != previous_value:
-                    current_rank = index
+                    current_rank = class_position
                     previous_value = record[field]
                 rankings.append({
                     "rank": current_rank,
@@ -236,14 +251,15 @@ class StudentEngagementService:
                 ),
                 None,
             )
+            top5 = [row for row in rankings if row["rank"] <= 5]
             categories.append({
                 "key": key,
                 "title": title,
                 "description": description,
                 "unit": unit,
                 "total_ranked": len(rankings),
-                "top5": rankings[:5],
-                "rankings": rankings,
+                "top5": top5,
+                "rankings": top5,
                 "my_result": private_result,
             })
 
@@ -311,17 +327,22 @@ class StudentEngagementService:
 
         school_id = self._school_id(user, tenant)
         await SchoolFeatureService(self.db).ensure_enabled(school_id, "student_engagement")
-        student_id = await self.db.scalar(
-            select(Student.id).where(
+        student = await self.db.scalar(
+            select(Student).where(
                 Student.user_id == user.id,
                 Student.school_id == school_id,
                 Student.is_active.is_(True),
             )
         )
-        if student_id is None:
+        if student is None:
             raise HTTPException(status_code=404, detail="Student profile not found.")
 
-        data = await self._build(school_id, private_student_id=student_id)
+        data = await self._build(
+            school_id,
+            classroom_id=student.classroom_id,
+            private_student_id=student.id,
+            restrict_classroom=True,
+        )
         for category in data["categories"]:
             category.pop("rankings", None)
         return data
@@ -360,6 +381,7 @@ class StudentEngagementService:
             school_id,
             classroom_id=linked_student.classroom_id,
             private_student_id=student_id,
+            restrict_classroom=True,
         )
         for category in data["categories"]:
             category.pop("rankings", None)
