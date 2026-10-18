@@ -341,7 +341,7 @@ class StudentEngagementService:
             raise HTTPException(status_code=404, detail="Parent profile not found.")
 
         linked_student = await self.db.scalar(
-            select(Student.id)
+            select(Student)
             .join(ParentStudent, ParentStudent.student_id == Student.id)
             .where(
                 ParentStudent.parent_id == parent_id,
@@ -356,7 +356,11 @@ class StudentEngagementService:
                 detail="You are not authorized to view this student's rankings.",
             )
 
-        data = await self._build(school_id, private_student_id=student_id)
+        data = await self._build(
+            school_id,
+            classroom_id=linked_student.classroom_id,
+            private_student_id=student_id,
+        )
         for category in data["categories"]:
             category.pop("rankings", None)
         return data
