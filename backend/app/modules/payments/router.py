@@ -129,67 +129,59 @@ async def paystack_callback(
         reference=payment_reference,
     )
 
-    # The frontend supplied the exact /parent/fees URL it wants
-    # to return to. Preserve its origin so localhost, LAN,
-    # Expo Web, staging, and production all work.
-    from urllib.parse import (
-        parse_qsl,
-        urlencode,
-        urlsplit,
-        urlunsplit,
-    )
+    # Validate the payment return destination for web and native app.
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
     target = (
         return_url.strip()
         if return_url and return_url.strip()
-        else "https://presense.expo.app/parent/fees"
+        else "https://presense.expo.app/parent/payment-success"
     )
-
     parsed = urlsplit(target)
-
-    if parsed.scheme not in {"http", "https"}:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid payment return URL",
-        )
-
-    if not parsed.netloc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid payment return URL",
-        )
-
-    if parsed.path.rstrip("/") != "/parent/fees":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Payment return URL must point to the Parent School Fees page",
-        )
-
-    query = dict(
-        parse_qsl(
-            parsed.query,
-            keep_blank_values=True,
-        )
+    valid_path = parsed.path.rstrip("/") in {
+        "/parent/fees",
+        "/parent/payment-success",
+    }
+    is_web_url = (
+        parsed.scheme in {"http", "https"}
+        and bool(parsed.netloc)
+        and valid_path
+    )
+    is_native_url = (
+        parsed.scheme == "presense"
+        and not parsed.netloc
+        and parsed.path == "/parent/payment-success"
+        and not parsed.fragment
     )
 
+    if not (is_web_url or is_native_url):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid payment return URL",
+        )
+
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
     query["studentId"] = str(student_id)
+    query["reference"] = payment_reference
+    encoded_query = urlencode(query)
 
-    redirect_url = urlunsplit(
-        (
-            parsed.scheme,
-            parsed.netloc,
-            parsed.path,
-            urlencode(query),
-            parsed.fragment,
+    if is_native_url:
+        redirect_url = f"presense:///parent/payment-success?{encoded_query}"
+    else:
+        redirect_url = urlunsplit(
+            (
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path,
+                encoded_query,
+                parsed.fragment,
+            )
         )
-    )
 
     from fastapi.responses import RedirectResponse
 
-    return RedirectResponse(
-        url=redirect_url,
-        status_code=303,
-    )
+    return RedirectResponse(url=redirect_url, status_code=303)
+
 
 
 @router.post(

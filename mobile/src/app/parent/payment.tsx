@@ -140,8 +140,8 @@ export default function ParentPaymentScreen() {
           amount,
           return_url:
             Platform.OS === "web"
-              ? `${window.location.origin}/parent/fees`
-              : undefined,
+              ? `${window.location.origin}/parent/payment-success`
+              : "presense:///parent/payment-success",
         }
       );
 
