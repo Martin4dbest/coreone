@@ -33,6 +33,7 @@ DEFAULT_FEATURES = [
 OPTIONAL_FEATURES = {
     "ai",
     "performance_intelligence",
+    "student_engagement",
     "aloc_question_bank",
     "admissions_lifecycle",
 }
@@ -121,5 +122,26 @@ class SchoolFeatureService:
         feature.enabled = enabled
 
         await self.repository.commit()
+
+        return feature
+
+    async def ensure_enabled(
+        self,
+        school_id: int,
+        feature_key: str,
+    ):
+        feature = await self.repository.get(
+            school_id,
+            feature_key,
+        )
+
+        if not feature or feature.enabled is not True:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    f"The '{feature_key}' feature is not enabled "
+                    "for this school."
+                ),
+            )
 
         return feature

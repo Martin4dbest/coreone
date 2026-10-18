@@ -138,6 +138,11 @@ const FEATURES: FeatureDefinition[] = [
       "Advanced academic, attendance, trend and student-risk intelligence.",
   },
   {
+    key: "student_engagement",
+    name: "Student Performance & Engagement",
+    description: "Student rankings for completed CBT attempts, recorded attendance, e-book views and YouTube learning opens.",
+  },
+  {
     key: "settings",
     name: "Settings",
     description: "School configuration and settings.",
@@ -228,6 +233,7 @@ export default function SchoolFeaturesPage({
     if (
       featureKey === "ai" ||
       featureKey === "performance_intelligence" ||
+      featureKey === "student_engagement" ||
       featureKey === "aloc_question_bank" ||
       featureKey === "admissions_lifecycle"
     ) {

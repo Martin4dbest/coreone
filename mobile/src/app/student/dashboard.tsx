@@ -552,6 +552,29 @@ export default function StudentDashboard() {
                         </View>
                       </View>
                     </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.overviewCard,
+                        styles.fullWidthCard,
+                        { borderColor: "#DDD6FE" },
+                        pressed && styles.pressedState,
+                      ]}
+                      onPress={() => router.push("/student/engagement")}
+                    >
+                      <View style={styles.fullWidthCardRow}>
+                        <View style={[styles.iconContainer, { backgroundColor: "#EDE9FE", marginBottom: 0 }]}>
+                          <Ionicons name="trending-up" size={22} color="#7C3AED" />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 14 }}>
+                          <Text style={styles.overviewCardTitle}>Student Performance & Engagement</Text>
+                          <Text style={styles.overviewLabel}>View your learning performance and rankings</Text>
+                        </View>
+                        <View style={[styles.cardActionButton, { marginTop: 0 }]}>
+                          <Text style={[styles.cardActionText, { color: "#7C3AED" }]}>View</Text>
+                          <Ionicons name="chevron-forward" size={14} color="#7C3AED" />
+                        </View>
+                      </View>
+                    </Pressable>
                   </View>
 
                   {/* TIMETABLE SCHEDULE */}

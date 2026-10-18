@@ -565,6 +565,18 @@ export default function ParentDashboard() {
                     }
                   />
 
+                    <ServiceTile
+                      icon="trending-up-outline"
+                      title="Engagement"
+                      subtitle="Learning performance"
+                      color="#7C3AED"
+                      onPress={() =>
+                        router.push({
+                          pathname: "/parent/engagement",
+                          params: { studentId: String(selectedStudent.id) },
+                        })
+                      }
+                    />
 
                   <ServiceTile
                     icon="notifications-outline"

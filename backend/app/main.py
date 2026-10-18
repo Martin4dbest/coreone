@@ -540,3 +540,13 @@ app.include_router(exam_templates_router, prefix=settings.API_V1_STR)
 
 from app.modules.exam_builder.router import router as exam_builder_router
 app.include_router(exam_builder_router, prefix=settings.API_V1_STR)
+
+# Independent Student Performance & Engagement feature.
+from app.modules.student_engagement.router import (
+    router as student_engagement_router,
+)
+
+app.include_router(
+    student_engagement_router,
+    prefix=settings.API_V1_STR,
+)

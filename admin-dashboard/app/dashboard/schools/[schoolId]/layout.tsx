@@ -915,9 +915,13 @@ export default function SchoolWorkspaceLayout({
     },
 
 
-    {
-
-
+      {
+        name: "Student Performance & Engagement",
+        href: `${basePath}/student-engagement`,
+        icon: BrainCircuit,
+        feature: "student_engagement",
+      },
+      {
       name: "Learning",
 
 
