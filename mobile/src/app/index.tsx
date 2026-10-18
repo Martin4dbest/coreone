@@ -165,7 +165,7 @@ export default function Landing() {
 
                     <Ionicons
                       name="arrow-forward"
-                      size={18}
+                      size={16}
                       color={COREONE_DARK}
                     />
                   </Pressable>
@@ -281,7 +281,7 @@ export default function Landing() {
                       <View style={styles.iconBadge}>
                         <Ionicons
                           name={item.icon as any}
-                          size={16}
+                          size={14}
                           color={COREONE_GOLD}
                         />
                       </View>
@@ -326,7 +326,7 @@ export default function Landing() {
 
                   <Ionicons
                     name="arrow-forward"
-                    size={18}
+                    size={16}
                     color={COREONE_DARK}
                   />
                 </Pressable>
@@ -365,14 +365,14 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 24,
+    paddingBottom: 20,
   },
 
   mainWrapper: {
     width: "100%",
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === "ios" ? 8 : 16,
-    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "ios" ? 6 : 12,
+    paddingBottom: 16,
     alignSelf: "center",
   },
 
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 16,
   },
 
   logoRow: {
@@ -400,9 +400,9 @@ const styles = StyleSheet.create({
   },
 
   logoContainer: {
-    width: 46,
-    height: 46,
-    borderRadius: 13,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
@@ -422,16 +422,16 @@ const styles = StyleSheet.create({
   },
 
   logo: {
-    width: 34,
-    height: 34,
+    width: 26,
+    height: 26,
   },
 
   brand: {
-    marginLeft: 12,
-    fontSize: 22,
+    marginLeft: 10,
+    fontSize: 19,
     fontWeight: "800",
     color: COREONE_DARK,
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
 
   brandAccent: {
@@ -439,9 +439,9 @@ const styles = StyleSheet.create({
   },
 
   headerLoginBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
 
     backgroundColor: "#FFFFFF",
 
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
   },
 
   headerLoginBtnText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     color: COREONE_DARK,
   },
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
 
   heroContainer: {
     width: "100%",
-    marginBottom: 28,
+    marginBottom: 20,
   },
 
   heroDesktop: {
@@ -476,17 +476,13 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
 
-  /*
-   * VERY SMALL ERP LABEL
-   */
-
   heroPill: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
 
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
 
     borderRadius: 999,
 
@@ -494,7 +490,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(197, 138, 0, 0.22)",
 
-    marginBottom: 10,
+    marginBottom: 8,
   },
 
   heroPillText: {
@@ -507,54 +503,54 @@ const styles = StyleSheet.create({
   },
 
   heroTitleDesktop: {
-    fontSize: 38,
+    fontSize: 34,
     fontWeight: "800",
     color: COREONE_DARK,
-    lineHeight: 46,
-    letterSpacing: -1,
-    marginBottom: 12,
+    lineHeight: 42,
+    letterSpacing: -0.8,
+    marginBottom: 10,
   },
 
   heroSubtitleDesktop: {
     maxWidth: 520,
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 22,
     color: COREONE_SLATE,
-    marginBottom: 22,
+    marginBottom: 20,
   },
 
   heroTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "800",
     color: "#FFFFFF",
-    lineHeight: 34,
-    letterSpacing: -0.6,
-    marginBottom: 8,
+    lineHeight: 28,
+    letterSpacing: -0.4,
+    marginBottom: 6,
   },
 
   heroSubtitle: {
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 12,
+    lineHeight: 17,
     color: "#E2E8F0",
-    maxWidth: 440,
+    maxWidth: 360,
   },
 
   heroCard: {
     width: "100%",
-    height: 290,
-    borderRadius: 22,
+    height: 230,
+    borderRadius: 18,
     overflow: "hidden",
     backgroundColor: "#E2E8F0",
 
     shadowColor: "#0F172A",
     shadowOffset: {
       width: 0,
-      height: 8,
+      height: 6,
     },
-    shadowOpacity: 0.10,
-    shadowRadius: 18,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
 
-    elevation: 5,
+    elevation: 4,
   },
 
   heroCardDesktop: {
@@ -577,7 +573,7 @@ const styles = StyleSheet.create({
 
     justifyContent: "flex-end",
 
-    padding: 22,
+    padding: 16,
   },
 
   /* ========================================================= */
@@ -585,44 +581,46 @@ const styles = StyleSheet.create({
   /* ========================================================= */
 
   primaryButton: {
-    minHeight: 48,
+    width: "100%",
+    minHeight: 44,
 
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
 
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
 
-    borderRadius: 12,
+    borderRadius: 10,
 
     backgroundColor: COREONE_GOLD,
 
     shadowColor: COREONE_GOLD,
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 3,
     },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
 
-    elevation: 3,
+    elevation: 2,
   },
 
   desktopHeroBtn: {
-    minWidth: 190,
+    width: "auto",
+    minWidth: 180,
     alignSelf: "flex-start",
   },
 
   primaryButtonText: {
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 13,
+    fontWeight: "700",
     color: COREONE_DARK,
-    marginRight: 8,
+    marginRight: 6,
   },
 
   buttonPressed: {
-    opacity: 0.78,
-    transform: [{ scale: 0.98 }],
+    opacity: 0.82,
+    transform: [{ scale: 0.985 }],
   },
 
   /* ========================================================= */
@@ -632,23 +630,23 @@ const styles = StyleSheet.create({
   sectionHeader: {
     width: "100%",
     alignItems: "center",
-    marginBottom: 18,
+    marginBottom: 14,
   },
 
   sectionTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "800",
     color: COREONE_DARK,
     textAlign: "center",
-    marginBottom: 5,
+    marginBottom: 3,
   },
 
   sectionSub: {
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 12,
+    lineHeight: 17,
     color: COREONE_SLATE,
     textAlign: "center",
-    maxWidth: 520,
+    maxWidth: 420,
   },
 
   /* ========================================================= */
@@ -675,21 +673,21 @@ const styles = StyleSheet.create({
 
     backgroundColor: "#FFFFFF",
 
-    borderRadius: 14,
+    borderRadius: 12,
     overflow: "hidden",
 
     borderWidth: 1,
     borderColor: "#E2E8F0",
 
-    marginBottom: 14,
+    marginBottom: 10,
 
     shadowColor: "#0F172A",
     shadowOffset: {
       width: 0,
-      height: 3,
+      height: 2,
     },
-    shadowOpacity: 0.045,
-    shadowRadius: 7,
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
 
     elevation: 2,
   },
@@ -708,7 +706,7 @@ const styles = StyleSheet.create({
 
   featureImageContainer: {
     width: "100%",
-    height: 130,
+    height: 96,
     position: "relative",
     overflow: "hidden",
   },
@@ -728,14 +726,14 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "flex-start",
 
-    padding: 12,
+    padding: 8,
   },
 
   iconBadge: {
-    width: 34,
-    height: 34,
+    width: 28,
+    height: 28,
 
-    borderRadius: 10,
+    borderRadius: 8,
 
     backgroundColor: "rgba(255, 255, 255, 0.96)",
 
@@ -747,19 +745,19 @@ const styles = StyleSheet.create({
   },
 
   featureContent: {
-    padding: 14,
+    padding: 10,
   },
 
   featureTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "800",
     color: COREONE_DARK,
-    marginBottom: 5,
+    marginBottom: 3,
   },
 
   featureDesc: {
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 15,
     color: COREONE_SLATE,
   },
 
@@ -770,7 +768,7 @@ const styles = StyleSheet.create({
   actionContainer: {
     width: "100%",
     alignItems: "center",
-    marginTop: 22,
+    marginTop: 14,
   },
 
   /* ========================================================= */
@@ -780,11 +778,11 @@ const styles = StyleSheet.create({
   footerContainer: {
     width: "100%",
     alignItems: "center",
-    marginTop: 24,
+    marginTop: 18,
   },
 
   footer: {
-    fontSize: 11,
+    fontSize: 10,
     color: "#94A3B8",
     textAlign: "center",
   },
