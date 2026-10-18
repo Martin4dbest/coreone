@@ -218,6 +218,57 @@ async def class_teacher_broadsheet(
             "remark": result.remark,
         }
 
+    student_rows = []
+    ranked_students = []
+
+    for student in students:
+        student_results = {
+            str(subject["id"]): result_map.get(
+                (student.id, subject["id"])
+            )
+            for subject in subject_ids
+        }
+
+        scores = []
+        for subject_result in student_results.values():
+            if not subject_result or subject_result.get("total") is None:
+                continue
+            try:
+                scores.append(float(subject_result["total"]))
+            except (TypeError, ValueError):
+                continue
+
+        student_row = {
+            "id": student.id,
+            "admission_number": student.admission_number,
+            "name": (
+                f"{student.first_name} "
+                f"{(student.middle_name + ' ') if student.middle_name else ''}"
+                f"{student.last_name}"
+            ).strip(),
+            "results": student_results,
+        }
+
+        if scores:
+            total_score = round(sum(scores), 2)
+            student_row["total_score"] = total_score
+            student_row["average"] = round(total_score / len(scores), 2)
+            ranked_students.append(student_row)
+
+        student_rows.append(student_row)
+
+    # Competition ranking: tied averages share a position (1, 1, 3).
+    ranked_students.sort(key=lambda row: row["average"], reverse=True)
+    previous_average = None
+    current_position = 0
+
+    for index, student_row in enumerate(ranked_students, start=1):
+        average = student_row["average"]
+        if average != previous_average:
+            current_position = index
+        student_row["position"] = current_position
+        previous_average = average
+
     return {
         "classroom": {
             "id": classroom.id,
@@ -233,24 +284,7 @@ async def class_teacher_broadsheet(
             "name": session.name,
         },
         "subjects": subject_ids,
-        "students": [
-            {
-                "id": student.id,
-                "admission_number": student.admission_number,
-                "name": (
-                    f"{student.first_name} "
-                    f"{(student.middle_name + ' ') if student.middle_name else ''}"
-                    f"{student.last_name}"
-                ).strip(),
-                "results": {
-                    str(subject["id"]): result_map.get(
-                        (student.id, subject["id"])
-                    )
-                    for subject in subject_ids
-                },
-            }
-            for student in students
-        ],
+        "students": student_rows,
     }
 
 
