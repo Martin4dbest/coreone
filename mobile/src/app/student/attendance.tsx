@@ -40,6 +40,14 @@ export default function StudentAttendanceScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/"); // Replace "/" with your preferred home or dashboard path
+    }
+  };
+
   const loadAttendance = useCallback(async (refresh = false) => {
     try {
       if (refresh) {
@@ -134,10 +142,9 @@ export default function StudentAttendanceScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Centered Content Wrapper */}
       <View style={styles.wrapper}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable onPress={handleBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={22} color="#0F172A" />
           </Pressable>
 
@@ -287,8 +294,8 @@ const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
     width: "100%",
-    maxWidth: 600, // Constrains maximum width on desktop
-    alignSelf: "center", // Centers the layout horizontally on wider screens
+    maxWidth: 600,
+    alignSelf: "center",
   },
   center: {
     flex: 1,
