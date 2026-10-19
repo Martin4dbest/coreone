@@ -37,6 +37,7 @@ OPTIONAL_FEATURES = {
     "aloc_question_bank",
     "admissions_lifecycle",
     "payroll",
+    "staff_appraisal",
 }
 
 

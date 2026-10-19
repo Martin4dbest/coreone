@@ -116,3 +116,5 @@ from app.models.exam_paper import ExamPaper, ExamPaperReview
 
 # CoreOne HR & Payroll models
 from app.models.payroll import PayrollProfile, PayrollRule, PayrollRun, PayrollItem
+
+from app.models.staff_appraisal import StaffAppraisal

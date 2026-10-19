@@ -554,3 +554,7 @@ app.include_router(
 # CoreOne HR & Payroll module
 from app.modules.payroll.router import router as payroll_router
 app.include_router(payroll_router, prefix=settings.API_V1_STR)
+
+# CoreOne Staff Appraisal module
+from app.modules.staff_appraisal.router import router as staff_appraisal_router
+app.include_router(staff_appraisal_router, prefix=settings.API_V1_STR)

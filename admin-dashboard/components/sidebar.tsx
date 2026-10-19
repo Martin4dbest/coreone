@@ -12,12 +12,8 @@ import {
   ShieldCheck,
   Settings,
   FileText,
-  GraduationCap,
-  UserRound,
   BookOpen,
-  CalendarDays,
   CalendarClock,
-  ClipboardCheck,
   LogOut,
   Menu,
   X,
@@ -27,6 +23,11 @@ import {
 
 import api from "@/lib/api";
 import { useWorkspaceStore } from "@/stores/workspace-store";
+
+interface SchoolFeature {
+  feature_key?: string;
+  enabled?: boolean;
+}
 
 interface MenuItem {
   name: string;
@@ -47,7 +48,7 @@ export default function Sidebar() {
   const [schoolName, setSchoolName] = useState("");
   const [isPrimarySchoolAdmin, setIsPrimarySchoolAdmin] = useState(false);
   const [schoolLogo, setSchoolLogo] = useState("");
-  const [schoolFeatures, setSchoolFeatures] = useState<any[]>([]);
+  const [schoolFeatures, setSchoolFeatures] = useState<SchoolFeature[]>([]);
   const [featuresLoaded, setFeaturesLoaded] = useState(false);
   const [hasTeacherProfile, setHasTeacherProfile] = useState(false);
 
@@ -149,8 +150,17 @@ export default function Sidebar() {
             if (mounted) {
               setSchoolLogo(brandingResponse.data.logo_url || "");
             }
-          } catch (brandingError: any) {
-            if (brandingError.response?.status !== 404) {
+          } catch (brandingError: unknown) {
+            const status =
+              typeof brandingError === "object" &&
+              brandingError !== null &&
+              "response" in brandingError
+                ? (brandingError as {
+                    response?: { status?: number };
+                  }).response?.status
+                : undefined;
+
+            if (status !== 404) {
               console.error(
                 "Unable to load school branding:",
                 brandingError
@@ -301,6 +311,13 @@ export default function Sidebar() {
       href: "/teacher/dashboard",
       icon: LayoutDashboard,
       color: "text-blue-400",
+    },
+    {
+      name: "Staff Appraisal",
+      href: "/teacher/staff-appraisal",
+      icon: FileText,
+      color: "text-emerald-400",
+      feature: "staff_appraisal",
     },
     {
       name: "Results",
