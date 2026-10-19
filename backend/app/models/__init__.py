@@ -113,3 +113,6 @@ from app.models.student_lifecycle_history import StudentLifecycleHistory
 from app.models.exam_template import ExamTemplate
 
 from app.models.exam_paper import ExamPaper, ExamPaperReview
+
+# CoreOne HR & Payroll models
+from app.models.payroll import PayrollProfile, PayrollRule, PayrollRun, PayrollItem

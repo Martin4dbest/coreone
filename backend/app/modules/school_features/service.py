@@ -36,6 +36,7 @@ OPTIONAL_FEATURES = {
     "student_engagement",
     "aloc_question_bank",
     "admissions_lifecycle",
+    "payroll",
 }
 
 

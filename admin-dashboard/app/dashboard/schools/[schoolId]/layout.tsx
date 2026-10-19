@@ -822,11 +822,14 @@ export default function SchoolWorkspaceLayout({
     },    {
 
       name: "Staff Attendance",
-
       href: `${basePath}/staff-attendance`,
-
       icon: MapPin,
-
+    },
+    {
+      name: "HR & Payroll",
+      href: `${basePath}/payroll`,
+      icon: WalletCards,
+      feature: "payroll",
     },
 
 
@@ -1314,7 +1317,7 @@ export default function SchoolWorkspaceLayout({
         currentRole === "SUPER_ADMIN") &&
 
 
-      (!item.feature || featureEnabled(item.feature))
+      (!item.feature || featureEnabled(item.feature) || (item.feature === "payroll" && currentRole === "SUPER_ADMIN"))
 
 
     );

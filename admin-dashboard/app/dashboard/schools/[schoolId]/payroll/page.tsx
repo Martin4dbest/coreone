@@ -1,0 +1,966 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import {
+  Banknote,
+  CheckCircle2,
+  CircleAlert,
+  Download,
+  FileText,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Save,
+  ShieldCheck,
+  Wallet,
+} from "lucide-react";
+import api from "@/lib/api";
+
+type Staff = {
+  id: number;
+  employee_number: string;
+  first_name: string;
+  middle_name?: string | null;
+  last_name: string;
+  job_title?: string | null;
+  email: string;
+  is_active: boolean;
+};
+
+type Profile = {
+  id: number;
+  school_id: number;
+  staff_id: number;
+  staff_name: string;
+  employee_number?: string | null;
+  job_title?: string | null;
+  basic_salary: number;
+  allowances: Record<string, number>;
+  recurring_deductions: Record<string, number>;
+};
+
+type PayrollRun = {
+  id: number;
+  school_id: number;
+  year: number;
+  month: number;
+  period: string;
+  status: string;
+  total_gross: number;
+  total_deductions: number;
+  total_net: number;
+  created_at?: string | null;
+  approved_at?: string | null;
+};
+
+type PayrollItem = {
+  id: number;
+  staff_id: number;
+  staff_name: string;
+  employee_number?: string | null;
+  job_title?: string | null;
+  basic_salary: number;
+  allowances: Record<string, number>;
+  bonuses: number;
+  gross_pay: number;
+  rule_deductions: Record<string, unknown>;
+  recurring_deductions: Record<string, number>;
+  other_deductions: Record<string, number>;
+  total_deductions: number;
+  net_pay: number;
+  payment_status: string;
+  payment_reference?: string | null;
+  paid_at?: string | null;
+};
+
+type PayrollRule = {
+  id: number;
+  school_id: number;
+  name: string;
+  code: string;
+  category: string;
+  calculation: string;
+  rate: number;
+  basis: string;
+  effective_from: string;
+  effective_to?: string | null;
+  enabled: boolean;
+  statutory: boolean;
+};
+
+type Report = {
+  [key: string]: unknown;
+};
+
+type Tab = "overview" | "profiles" | "runs" | "rules";
+
+const monthNames = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+const money = (value: unknown) =>
+  new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    maximumFractionDigits: 2,
+  }).format(Number(value ?? 0));
+
+function errorMessage(error: unknown): string {
+  const e = error as {
+    response?: { data?: { detail?: unknown; message?: string } };
+    message?: string;
+  };
+  const detail = e?.response?.data?.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item?.msg ?? String(item)).join("; ");
+  }
+  return e?.response?.data?.message ?? e?.message ?? "The request failed.";
+}
+
+function parseMoneyMap(value: string): Record<string, number> {
+  const parsed: unknown = JSON.parse(value || "{}");
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error('Enter a JSON object, for example {"Transport": 15000}.');
+  }
+
+  const result: Record<string, number> = {};
+  for (const [rawKey, rawValue] of Object.entries(parsed)) {
+    const key = rawKey.trim();
+    const amount = Number(
+      typeof rawValue === "object" && rawValue !== null
+        ? (rawValue as { amount?: unknown }).amount
+        : rawValue,
+    );
+    if (!key || !Number.isFinite(amount) || amount < 0) {
+      throw new Error("Allowance and deduction amounts must be non-negative numbers.");
+    }
+    result[key] = amount;
+  }
+  return result;
+}
+
+function getMonthLabel(year: number, month: number) {
+  return `${monthNames[month - 1] ?? month} ${year}`;
+}
+
+export default function PayrollPage() {
+  const params = useParams<{ schoolId: string }>();
+  const schoolId = Number(params.schoolId);
+
+  const now = new Date();
+  const [tab, setTab] = useState<Tab>("overview");
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [runs, setRuns] = useState<PayrollRun[]>([]);
+  const [rules, setRules] = useState<PayrollRule[]>([]);
+  const [report, setReport] = useState<Report | null>(null);
+  const [selectedRun, setSelectedRun] = useState<PayrollRun | null>(null);
+  const [items, setItems] = useState<PayrollItem[]>([]);
+
+  const [selectedStaff, setSelectedStaff] = useState("");
+  const [basicSalary, setBasicSalary] = useState("");
+  const [allowances, setAllowances] = useState("{}");
+  const [recurringDeductions, setRecurringDeductions] = useState("{}");
+
+  const [ruleName, setRuleName] = useState("");
+  const [ruleCode, setRuleCode] = useState("");
+  const [ruleCategory, setRuleCategory] = useState("STATUTORY");
+  const [ruleCalculation, setRuleCalculation] = useState("PERCENTAGE");
+  const [ruleRate, setRuleRate] = useState("");
+  const [ruleBasis, setRuleBasis] = useState("GROSS");
+  const [ruleStart, setRuleStart] = useState(`${year}-${String(month).padStart(2, "0")}-01`);
+  const [ruleStatutory, setRuleStatutory] = useState(true);
+
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const activeStaff = useMemo(
+    () => staff.filter((person) => person.is_active),
+    [staff],
+  );
+
+  const configuredStaffIds = useMemo(
+    () => new Set(profiles.map((profile) => profile.staff_id)),
+    [profiles],
+  );
+
+  const unconfiguredCount = activeStaff.filter(
+    (person) => !configuredStaffIds.has(person.id),
+  ).length;
+
+  const loadData = useCallback(async () => {
+    if (!Number.isInteger(schoolId) || schoolId <= 0) {
+      setError("The school ID in this page URL is invalid.");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const [staffResponse, profileResponse, runResponse, ruleResponse, reportResponse] =
+        await Promise.all([
+          api.get("/staff", { params: { school_id: schoolId } }),
+          api.get("/payroll/profiles", { params: { school_id: schoolId } }),
+          api.get("/payroll/runs", { params: { school_id: schoolId } }),
+          api.get("/payroll/rules", { params: { school_id: schoolId } }),
+          api.get("/payroll/reports/summary", {
+            params: { school_id: schoolId, year, month },
+          }),
+        ]);
+
+      setStaff(Array.isArray(staffResponse.data) ? staffResponse.data : []);
+      setProfiles(Array.isArray(profileResponse.data) ? profileResponse.data : []);
+      setRuns(Array.isArray(runResponse.data) ? runResponse.data : []);
+      setRules(Array.isArray(ruleResponse.data) ? ruleResponse.data : []);
+      setReport(reportResponse.data ?? null);
+
+      if (selectedRun) {
+        const refreshed = (Array.isArray(runResponse.data) ? runResponse.data : [])
+          .find((run: PayrollRun) => run.id === selectedRun.id);
+        if (refreshed) setSelectedRun(refreshed);
+      }
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [schoolId, year, month, selectedRun?.id]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    setRuleStart(`${year}-${String(month).padStart(2, "0")}-01`);
+  }, [year, month]);
+
+  async function perform(action: () => Promise<void>, success?: string) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await action();
+      if (success) setNotice(success);
+      await loadData();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function editProfile(profile: Profile) {
+    setSelectedStaff(String(profile.staff_id));
+    setBasicSalary(String(profile.basic_salary));
+    setAllowances(JSON.stringify(profile.allowances ?? {}, null, 2));
+    setRecurringDeductions(
+      JSON.stringify(profile.recurring_deductions ?? {}, null, 2),
+    );
+    setTab("profiles");
+  }
+
+  async function saveProfile(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await perform(async () => {
+      const staffId = Number(selectedStaff);
+      const salary = Number(basicSalary);
+      if (!staffId) throw new Error("Select a staff member.");
+      if (!Number.isFinite(salary) || salary < 0) {
+        throw new Error("Enter a valid non-negative basic salary.");
+      }
+
+      await api.put("/payroll/profiles", {
+        school_id: schoolId,
+        staff_id: staffId,
+        basic_salary: salary,
+        allowances: parseMoneyMap(allowances),
+        recurring_deductions: parseMoneyMap(recurringDeductions),
+      });
+    }, "Salary profile saved.");
+  }
+
+  async function generatePayroll() {
+    await perform(async () => {
+      const response = await api.post("/payroll/runs/generate", {
+        school_id: schoolId,
+        year,
+        month,
+      });
+      const newRun = response.data?.run;
+      if (newRun) {
+        setSelectedRun(newRun);
+        setItems([]);
+        setTab("runs");
+      }
+    }, `Payroll generation requested for ${getMonthLabel(year, month)}.`);
+  }
+
+  async function openRun(run: PayrollRun) {
+    setError("");
+    setNotice("");
+    setBusy(true);
+    try {
+      const response = await api.get(`/payroll/runs/${run.id}`, {
+        params: { school_id: schoolId },
+      });
+      setSelectedRun(response.data.run);
+      setItems(Array.isArray(response.data.items) ? response.data.items : []);
+      setTab("runs");
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveItem(item: PayrollItem) {
+    const bonusInput = window.prompt(
+      `Bonus for ${item.staff_name} (NGN):`,
+      String(item.bonuses ?? 0),
+    );
+    if (bonusInput === null) return;
+
+    const bonus = Number(bonusInput);
+    if (!Number.isFinite(bonus) || bonus < 0) {
+      setError("Bonus must be a valid non-negative amount.");
+      return;
+    }
+
+    const deductionsInput = window.prompt(
+      `Other deductions for ${item.staff_name} as JSON:`,
+      JSON.stringify(item.other_deductions ?? {}),
+    );
+    if (deductionsInput === null) return;
+
+    let parsedDeductions: Record<string, number>;
+    try {
+      parsedDeductions = parseMoneyMap(deductionsInput);
+    } catch (e) {
+      setError(errorMessage(e));
+      return;
+    }
+
+    await perform(async () => {
+      await api.patch(`/payroll/items/${item.id}`, {
+        bonuses: bonus,
+        other_deductions: parsedDeductions,
+      }, { params: { school_id: schoolId } });
+
+      const response = await api.get(`/payroll/runs/${selectedRun?.id}`, {
+        params: { school_id: schoolId },
+      });
+      setItems(response.data.items ?? []);
+      setSelectedRun(response.data.run ?? selectedRun);
+    }, "Payroll item updated.");
+  }
+
+  async function approveRun() {
+    if (!selectedRun) return;
+    if (!window.confirm(
+      `Approve payroll for ${selectedRun.period}? Review the figures before confirming.`,
+    )) return;
+
+    await perform(async () => {
+      await api.post(`/payroll/runs/${selectedRun.id}/approve`, null, {
+        params: { school_id: schoolId },
+      });
+      const response = await api.get(`/payroll/runs/${selectedRun.id}`, {
+        params: { school_id: schoolId },
+      });
+      setSelectedRun(response.data.run);
+      setItems(response.data.items ?? []);
+    }, "Payroll run approved.");
+  }
+
+  async function markPaid(item: PayrollItem) {
+    const reference = window.prompt(
+      `Enter the payment reference for ${item.staff_name}.\nThis records a payment; it does not transfer funds.`,
+    );
+    if (!reference?.trim()) return;
+
+    await perform(async () => {
+      await api.post(`/payroll/items/${item.id}/mark-paid`, {
+        school_id: schoolId,
+        payment_reference: reference.trim(),
+      });
+      if (selectedRun) {
+        const response = await api.get(`/payroll/runs/${selectedRun.id}`, {
+          params: { school_id: schoolId },
+        });
+        setSelectedRun(response.data.run);
+        setItems(response.data.items ?? []);
+      }
+    }, `Payment reference recorded for ${item.staff_name}.`);
+  }
+
+  async function downloadPayslip(item: PayrollItem) {
+    setError("");
+    try {
+      const response = await api.get(`/payroll/items/${item.id}/payslip`, {
+        params: { school_id: schoolId },
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(
+        new Blob([response.data], { type: "application/pdf" }),
+      );
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `CoreOne-Payslip-${item.employee_number || item.staff_id}-${selectedRun?.year}-${selectedRun?.month}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }
+
+  async function saveRule(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await perform(async () => {
+      if (!ruleName.trim() || !ruleCode.trim()) {
+        throw new Error("Enter the rule name and code.");
+      }
+      const rate = Number(ruleRate);
+      if (!Number.isFinite(rate) || rate < 0 || (ruleCalculation === "PERCENTAGE" && rate > 100)) {
+        throw new Error("Enter a valid rate. Percentage rates must be 0–100.");
+      }
+
+      await api.post("/payroll/rules", {
+        school_id: schoolId,
+        name: ruleName.trim(),
+        code: ruleCode.trim().toUpperCase(),
+        category: ruleCategory,
+        calculation: ruleCalculation,
+        rate,
+        basis: ruleBasis,
+        effective_from: ruleStart,
+        enabled: true,
+        statutory: ruleStatutory,
+      });
+
+      setRuleName("");
+      setRuleCode("");
+      setRuleRate("");
+    }, "Payroll rule saved.");
+  }
+
+  function reportValue(key: string) {
+    const value = report?.[key];
+    return typeof value === "number" ? value : 0;
+  }
+
+  const cardClass = "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm";
+  const inputClass = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
+  const buttonClass = "inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50";
+  const secondaryButtonClass = "inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50";
+
+  return (
+    <main className="min-h-screen bg-slate-50 p-4 md:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <div>
+            <p className="mb-1 text-xs font-bold uppercase tracking-[0.18em] text-blue-700">
+              CoreOne · Human Resources
+            </p>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+              HR & Payroll
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-600">
+              Manage staff salary profiles, prepare monthly payroll, review deductions,
+              approve payroll and maintain payment records.
+            </p>
+          </div>
+          <button onClick={() => void loadData()} className={secondaryButtonClass} disabled={loading || busy}>
+            <RefreshCw size={16} /> Refresh
+          </button>
+        </header>
+
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <CircleAlert className="shrink-0" size={19} />
+          <p>
+            <strong>Payment notice:</strong> marking a salary as paid records a payment
+            reference in CoreOne. It does not initiate or verify a bank transfer.
+          </p>
+        </div>
+
+        {error && (
+          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            {error}
+          </div>
+        )}
+        {notice && (
+          <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+            {notice}
+          </div>
+        )}
+
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className={cardClass}>
+            <div className="flex items-center justify-between text-sm text-slate-500">
+              Active staff <UsersIcon />
+            </div>
+            <p className="mt-3 text-2xl font-bold text-slate-900">{activeStaff.length}</p>
+            <p className="mt-1 text-xs text-slate-500">Active staff records</p>
+          </div>
+          <div className={cardClass}>
+            <div className="flex items-center justify-between text-sm text-slate-500">
+              Salary profiles <Wallet size={19} />
+            </div>
+            <p className="mt-3 text-2xl font-bold text-slate-900">{profiles.length}</p>
+            <p className="mt-1 text-xs text-slate-500">{unconfiguredCount} active staff without profiles</p>
+          </div>
+          <div className={cardClass}>
+            <div className="flex items-center justify-between text-sm text-slate-500">
+              Monthly net payroll <Banknote size={19} />
+            </div>
+            <p className="mt-3 break-words text-2xl font-bold text-slate-900">{money(reportValue("total_net"))}</p>
+            <p className="mt-1 text-xs text-slate-500">{getMonthLabel(year, month)}</p>
+          </div>
+          <div className={cardClass}>
+            <div className="flex items-center justify-between text-sm text-slate-500">
+              Unpaid amount <CircleAlert size={19} />
+            </div>
+            <p className="mt-3 break-words text-2xl font-bold text-slate-900">{money(reportValue("unpaid_amount"))}</p>
+            <p className="mt-1 text-xs text-slate-500">From recorded payroll runs</p>
+          </div>
+        </section>
+
+        <section className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 md:flex-row md:items-end">
+          <div className="grid flex-1 gap-3 sm:grid-cols-2 md:max-w-md">
+            <label className="text-sm font-medium text-slate-700">
+              Payroll year
+              <select className={`${inputClass} mt-1`} value={year} onChange={(e) => setYear(Number(e.target.value))}>
+                {Array.from({ length: 7 }, (_, i) => now.getFullYear() - 3 + i).map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm font-medium text-slate-700">
+              Payroll month
+              <select className={`${inputClass} mt-1`} value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+                {monthNames.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}
+              </select>
+            </label>
+          </div>
+          <button className={buttonClass} disabled={loading || busy || unconfiguredCount > 0} onClick={() => void generatePayroll()}>
+            {busy ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
+            Generate {getMonthLabel(year, month)} payroll
+          </button>
+        </section>
+
+        {unconfiguredCount > 0 && (
+          <p className="text-sm text-amber-800">
+            Configure salary profiles for all {unconfiguredCount} active staff member(s)
+            before generating payroll.
+          </p>
+        )}
+
+        <nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+          {([
+            ["overview", "Overview"],
+            ["profiles", "Salary profiles"],
+            ["runs", "Payroll runs"],
+            ["rules", "Tax & deduction rules"],
+          ] as [Tab, string][]).map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => setTab(value)}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+                tab === value ? "bg-blue-700 text-white" : "bg-white text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        {loading ? (
+          <div className="flex items-center justify-center gap-3 py-16 text-slate-500">
+            <Loader2 className="animate-spin" size={22} /> Loading payroll data…
+          </div>
+        ) : (
+          <>
+            {tab === "overview" && (
+              <section className="grid gap-6 lg:grid-cols-2">
+                <div className={cardClass}>
+                  <h2 className="text-lg font-bold text-slate-900">Payroll summary</h2>
+                  <p className="mt-1 text-sm text-slate-500">{getMonthLabel(year, month)}</p>
+                  <div className="mt-5 space-y-4">
+                    {[
+                      ["Gross payroll", reportValue("total_gross")],
+                      ["Total deductions", reportValue("total_deductions")],
+                      ["Net payroll", reportValue("total_net")],
+                      ["Recorded as paid", reportValue("paid_amount")],
+                      ["Unpaid balance", reportValue("unpaid_amount")],
+                    ].map(([label, amount]) => (
+                      <div key={String(label)} className="flex items-center justify-between gap-4 border-b border-slate-100 pb-3 last:border-0">
+                        <span className="text-sm text-slate-600">{label}</span>
+                        <strong className="text-sm text-slate-900">{money(amount)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className={cardClass}>
+                  <h2 className="text-lg font-bold text-slate-900">Recent payroll runs</h2>
+                  <p className="mt-1 text-sm text-slate-500">Select a run to review staff-level details.</p>
+                  <div className="mt-4 space-y-3">
+                    {runs.slice(0, 5).map((run) => (
+                      <button
+                        key={run.id}
+                        onClick={() => void openRun(run)}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-blue-300 hover:bg-blue-50"
+                      >
+                        <span>
+                          <strong className="block text-sm text-slate-900">{run.period || getMonthLabel(run.year, run.month)}</strong>
+                          <span className="text-xs text-slate-500">Net: {money(run.total_net)}</span>
+                        </span>
+                        <Status status={run.status} />
+                      </button>
+                    ))}
+                    {runs.length === 0 && <p className="py-5 text-sm text-slate-500">No payroll runs yet.</p>}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {tab === "profiles" && (
+              <section className="grid items-start gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+                <form onSubmit={saveProfile} className={`${cardClass} space-y-4`}>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">Salary profile</h2>
+                    <p className="mt-1 text-sm text-slate-500">Set basic salary, allowances and recurring deductions.</p>
+                  </div>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Active staff member
+                    <select className={`${inputClass} mt-1`} value={selectedStaff} onChange={(e) => {
+                      const value = e.target.value;
+                      setSelectedStaff(value);
+                      const existing = profiles.find((p) => p.staff_id === Number(value));
+                      if (existing) {
+                        setBasicSalary(String(existing.basic_salary));
+                        setAllowances(JSON.stringify(existing.allowances ?? {}, null, 2));
+                        setRecurringDeductions(JSON.stringify(existing.recurring_deductions ?? {}, null, 2));
+                      } else {
+                        setBasicSalary("");
+                        setAllowances("{}");
+                        setRecurringDeductions("{}");
+                      }
+                    }} required>
+                      <option value="">Select staff</option>
+                      {activeStaff.map((person) => (
+                        <option key={person.id} value={person.id}>
+                          {person.first_name} {person.last_name} · {person.employee_number}
+                          {configuredStaffIds.has(person.id) ? " (profile exists)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Basic salary (NGN)
+                    <input className={`${inputClass} mt-1`} type="number" min="0" step="0.01" value={basicSalary} onChange={(e) => setBasicSalary(e.target.value)} required />
+                  </label>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Allowances (JSON)
+                    <textarea className={`${inputClass} mt-1 font-mono`} rows={4} value={allowances} onChange={(e) => setAllowances(e.target.value)} required />
+                    <span className="mt-1 block text-xs text-slate-500">Example: {"{\"Transport\": 15000, \"Housing\": 25000}"}</span>
+                  </label>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Recurring deductions (JSON)
+                    <textarea className={`${inputClass} mt-1 font-mono`} rows={4} value={recurringDeductions} onChange={(e) => setRecurringDeductions(e.target.value)} required />
+                    <span className="mt-1 block text-xs text-slate-500">Example: {"{\"Staff loan\": 5000}"}</span>
+                  </label>
+                  <button className={buttonClass} disabled={busy || !selectedStaff}>
+                    <Save size={16} /> Save salary profile
+                  </button>
+                </form>
+
+                <div className={cardClass}>
+                  <h2 className="text-lg font-bold text-slate-900">Configured staff salaries</h2>
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="w-full min-w-[520px] text-left text-sm">
+                      <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                        <tr>
+                          <th className="p-3">Staff member</th>
+                          <th className="p-3">Basic salary</th>
+                          <th className="p-3">Allowances</th>
+                          <th className="p-3">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {profiles.map((profile) => (
+                          <tr key={profile.id}>
+                            <td className="p-3">
+                              <strong className="block text-slate-900">{profile.staff_name}</strong>
+                              <span className="text-xs text-slate-500">{profile.employee_number || "No employee number"}</span>
+                            </td>
+                            <td className="p-3 whitespace-nowrap">{money(profile.basic_salary)}</td>
+                            <td className="p-3">{Object.keys(profile.allowances ?? {}).length}</td>
+                            <td className="p-3">
+                              <button className={secondaryButtonClass} onClick={() => editProfile(profile)}>Edit</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {profiles.length === 0 && <p className="py-6 text-sm text-slate-500">No salary profiles have been configured.</p>}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {tab === "runs" && (
+              <section className="space-y-6">
+                <div className={cardClass}>
+                  <h2 className="text-lg font-bold text-slate-900">Payroll history</h2>
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="w-full min-w-[680px] text-left text-sm">
+                      <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                        <tr>
+                          <th className="p-3">Period</th>
+                          <th className="p-3">Gross</th>
+                          <th className="p-3">Deductions</th>
+                          <th className="p-3">Net pay</th>
+                          <th className="p-3">Status</th>
+                          <th className="p-3">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {runs.map((run) => (
+                          <tr key={run.id}>
+                            <td className="p-3 font-semibold text-slate-900">{run.period || getMonthLabel(run.year, run.month)}</td>
+                            <td className="p-3 whitespace-nowrap">{money(run.total_gross)}</td>
+                            <td className="p-3 whitespace-nowrap">{money(run.total_deductions)}</td>
+                            <td className="p-3 whitespace-nowrap">{money(run.total_net)}</td>
+                            <td className="p-3"><Status status={run.status} /></td>
+                            <td className="p-3">
+                              <button className={secondaryButtonClass} onClick={() => void openRun(run)}>View details</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {runs.length === 0 && <p className="py-6 text-sm text-slate-500">No payroll runs have been generated.</p>}
+                  </div>
+                </div>
+
+                {selectedRun && (
+                  <div className={cardClass}>
+                    <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-900">
+                          {selectedRun.period || getMonthLabel(selectedRun.year, selectedRun.month)} payroll details
+                        </h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Review individual calculations and download payslips.
+                        </p>
+                        <div className="mt-2"><Status status={selectedRun.status} /></div>
+                      </div>
+                      {selectedRun.status === "DRAFT" && (
+                        <button className={buttonClass} disabled={busy} onClick={() => void approveRun()}>
+                          <ShieldCheck size={16} /> Approve payroll
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="mt-5 overflow-x-auto">
+                      <table className="w-full min-w-[920px] text-left text-sm">
+                        <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                          <tr>
+                            <th className="p-3">Staff member</th>
+                            <th className="p-3">Basic</th>
+                            <th className="p-3">Gross</th>
+                            <th className="p-3">Deductions</th>
+                            <th className="p-3">Net pay</th>
+                            <th className="p-3">Payment</th>
+                            <th className="p-3">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {items.map((item) => (
+                            <tr key={item.id}>
+                              <td className="p-3">
+                                <strong className="block text-slate-900">{item.staff_name}</strong>
+                                <span className="text-xs text-slate-500">{item.employee_number || item.job_title || ""}</span>
+                              </td>
+                              <td className="p-3 whitespace-nowrap">{money(item.basic_salary)}</td>
+                              <td className="p-3 whitespace-nowrap">{money(item.gross_pay)}</td>
+                              <td className="p-3 whitespace-nowrap">{money(item.total_deductions)}</td>
+                              <td className="p-3 whitespace-nowrap font-semibold">{money(item.net_pay)}</td>
+                              <td className="p-3">
+                                <Status status={item.payment_status} />
+                                {item.payment_reference && (
+                                  <span className="mt-1 block max-w-32 break-words text-xs text-slate-500">
+                                    Ref: {item.payment_reference}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3">
+                                <div className="flex flex-wrap gap-2">
+                                  {selectedRun.status === "DRAFT" && (
+                                    <button className={secondaryButtonClass} onClick={() => void saveItem(item)}>Adjust</button>
+                                  )}
+                                  <button className={secondaryButtonClass} title="Download payslip PDF" onClick={() => void downloadPayslip(item)}>
+                                    <Download size={15} /> Payslip
+                                  </button>
+                                  {selectedRun.status === "APPROVED" && item.payment_status !== "PAID" && (
+                                    <button className={secondaryButtonClass} onClick={() => void markPaid(item)}>Record payment</button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {items.length === 0 && <p className="py-6 text-sm text-slate-500">Open a payroll run to view its staff items.</p>}
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {tab === "rules" && (
+              <section className="grid items-start gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+                <form onSubmit={saveRule} className={`${cardClass} space-y-4`}>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">Add payroll rule</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Configure applicable deductions using your school’s verified payroll guidance.
+                    </p>
+                  </div>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Rule name
+                    <input className={`${inputClass} mt-1`} value={ruleName} onChange={(e) => setRuleName(e.target.value)} required maxLength={120} />
+                  </label>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Rule code
+                    <input className={`${inputClass} mt-1`} value={ruleCode} onChange={(e) => setRuleCode(e.target.value)} required maxLength={60} pattern="[A-Za-z0-9_-]+" placeholder="e.g. PENSION_EMPLOYEE" />
+                  </label>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block text-sm font-medium text-slate-700">
+                      Category
+                      <select className={`${inputClass} mt-1`} value={ruleCategory} onChange={(e) => setRuleCategory(e.target.value)}>
+                        <option value="TAX">Tax</option>
+                        <option value="PENSION">Pension</option>
+                        <option value="STATUTORY">Statutory</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </label>
+                    <label className="block text-sm font-medium text-slate-700">
+                      Calculation
+                      <select className={`${inputClass} mt-1`} value={ruleCalculation} onChange={(e) => setRuleCalculation(e.target.value)}>
+                        <option value="PERCENTAGE">Percentage</option>
+                        <option value="FIXED">Fixed amount</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block text-sm font-medium text-slate-700">
+                      {ruleCalculation === "PERCENTAGE" ? "Rate (%)" : "Fixed amount (NGN)"}
+                      <input className={`${inputClass} mt-1`} type="number" min="0" max={ruleCalculation === "PERCENTAGE" ? 100 : undefined} step="0.01" value={ruleRate} onChange={(e) => setRuleRate(e.target.value)} required />
+                    </label>
+                    <label className="block text-sm font-medium text-slate-700">
+                      Calculation basis
+                      <select className={`${inputClass} mt-1`} value={ruleBasis} onChange={(e) => setRuleBasis(e.target.value)}>
+                        <option value="GROSS">Gross pay</option>
+                        <option value="BASIC">Basic salary</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Effective from
+                    <input className={`${inputClass} mt-1`} type="date" value={ruleStart} onChange={(e) => setRuleStart(e.target.value)} required />
+                  </label>
+                  <label className="flex items-start gap-3 text-sm text-slate-700">
+                    <input type="checkbox" className="mt-1" checked={ruleStatutory} onChange={(e) => setRuleStatutory(e.target.checked)} />
+                    <span>
+                      <strong className="block">Statutory deduction</strong>
+                      <span className="text-xs text-slate-500">Mark this when the rule represents a statutory obligation.</span>
+                    </span>
+                  </label>
+                  <button className={buttonClass} disabled={busy}>
+                    <Plus size={16} /> Save rule
+                  </button>
+                  <p className="text-xs text-amber-800">
+                    CoreOne does not automatically certify Nigerian tax or statutory rates.
+                    Verify the applicable rules before enabling them for payroll.
+                  </p>
+                </form>
+
+                <div className={cardClass}>
+                  <h2 className="text-lg font-bold text-slate-900">Configured rules</h2>
+                  <div className="mt-4 space-y-3">
+                    {rules.map((rule) => (
+                      <div key={rule.id} className="rounded-xl border border-slate-200 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <strong className="text-slate-900">{rule.name}</strong>
+                            <p className="mt-1 text-xs text-slate-500">{rule.code} · {rule.category}</p>
+                          </div>
+                          <Status status={rule.enabled ? "ENABLED" : "DISABLED"} />
+                        </div>
+                        <p className="mt-3 text-sm text-slate-700">
+                          {rule.calculation === "PERCENTAGE" ? `${rule.rate}%` : money(rule.rate)}
+                          {" · "}Based on {rule.basis === "BASIC" ? "basic salary" : "gross pay"}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Effective from {rule.effective_from}
+                          {rule.effective_to ? ` until ${rule.effective_to}` : ""}
+                          {rule.statutory ? " · Statutory" : " · Non-statutory"}
+                        </p>
+                      </div>
+                    ))}
+                    {rules.length === 0 && <p className="py-6 text-sm text-slate-500">No payroll rules configured yet.</p>}
+                  </div>
+                </div>
+              </section>
+            )}
+          </>
+        )}
+
+        <footer className="flex items-start gap-3 border-t border-slate-200 pt-5 text-xs leading-5 text-slate-500">
+          <FileText size={17} className="mt-0.5 shrink-0" />
+          <p>
+            Payroll figures are calculated from the salary profiles and rules configured
+            for this school. Review each draft before approval and verify applicable
+            Nigerian tax and statutory requirements. Payment records are not bank-transfer
+            confirmations.
+          </p>
+        </footer>
+      </div>
+    </main>
+  );
+}
+
+function Status({ status }: { status: string }) {
+  const value = String(status || "UNKNOWN").toUpperCase();
+  const positive = ["APPROVED", "PAID", "ENABLED"].includes(value);
+  const neutral = ["DRAFT", "PENDING", "UNPAID", "UNKNOWN"].includes(value);
+
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+      positive
+        ? "bg-emerald-100 text-emerald-800"
+        : neutral
+          ? "bg-amber-100 text-amber-800"
+          : "bg-slate-100 text-slate-700"
+    }`}>
+      {positive ? <CheckCircle2 size={13} /> : null}
+      {value.replaceAll("_", " ")}
+    </span>
+  );
+}
+
+function UsersIcon() {
+  return <Wallet size={19} />;
+}

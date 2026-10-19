@@ -550,3 +550,7 @@ app.include_router(
     student_engagement_router,
     prefix=settings.API_V1_STR,
 )
+
+# CoreOne HR & Payroll module
+from app.modules.payroll.router import router as payroll_router
+app.include_router(payroll_router, prefix=settings.API_V1_STR)
