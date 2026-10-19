@@ -143,6 +143,12 @@ const FEATURES: FeatureDefinition[] = [
     description: "Student rankings for completed CBT attempts, recorded attendance, e-book views and YouTube learning opens.",
   },
   {
+    key: "payroll",
+    name: "HR & Payroll",
+    description:
+      "Manage staff payroll profiles, salary rules, payroll runs, approvals and payslips.",
+  },
+  {
     key: "settings",
     name: "Settings",
     description: "School configuration and settings.",
@@ -235,7 +241,8 @@ export default function SchoolFeaturesPage({
       featureKey === "performance_intelligence" ||
       featureKey === "student_engagement" ||
       featureKey === "aloc_question_bank" ||
-      featureKey === "admissions_lifecycle"
+      featureKey === "admissions_lifecycle" ||
+      featureKey === "payroll"
     ) {
       return feature?.enabled === true;
     }
