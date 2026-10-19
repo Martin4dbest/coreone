@@ -831,6 +831,12 @@ export default function SchoolWorkspaceLayout({
       icon: WalletCards,
       feature: "payroll",
     },
+    {
+      name: "Staff Appraisal",
+      href: `${basePath}/staff-appraisal`,
+      icon: Users,
+      feature: "staff_appraisal",
+    },
 
 
     {

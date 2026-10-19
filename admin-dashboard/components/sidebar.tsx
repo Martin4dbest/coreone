@@ -314,7 +314,7 @@ export default function Sidebar() {
     },
     {
       name: "Staff Appraisal",
-      href: "/teacher/staff-appraisal",
+      href: pathname.split("/")[2] === "teacher" ? `/${pathname.split("/")[1]}/teacher/staff-appraisal` : "/teacher/staff-appraisal",
       icon: FileText,
       color: "text-emerald-400",
       feature: "staff_appraisal",

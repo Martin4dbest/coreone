@@ -149,6 +149,11 @@ const FEATURES: FeatureDefinition[] = [
       "Manage staff payroll profiles, salary rules, payroll runs, approvals and payslips.",
   },
   {
+    key: "staff_appraisal",
+    name: "Staff Appraisal",
+    description: "Enable or disable staff self-appraisals, reviewer assessments and appraisal approvals.",
+  },
+  {
     key: "settings",
     name: "Settings",
     description: "School configuration and settings.",
@@ -242,7 +247,8 @@ export default function SchoolFeaturesPage({
       featureKey === "student_engagement" ||
       featureKey === "aloc_question_bank" ||
       featureKey === "admissions_lifecycle" ||
-      featureKey === "payroll"
+      featureKey === "payroll" ||
+      featureKey === "staff_appraisal"
     ) {
       return feature?.enabled === true;
     }
