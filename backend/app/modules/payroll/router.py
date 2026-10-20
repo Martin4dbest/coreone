@@ -16,6 +16,7 @@ from app.core.permissions import require_roles
 from app.db.database import get_db
 from app.models.payroll import PayrollItem, PayrollProfile, PayrollRule, PayrollRun
 from app.models.staff import Staff
+from app.models.school import School
 from app.models.user import User
 from app.modules.school_features.service import SchoolFeatureService
 from app.modules.payroll.schemas import (
@@ -702,6 +703,14 @@ async def download_payslip(
     school_id = await resolve_school_id(current_user, school_id, db)
     item, run = await get_item(db, item_id, school_id)
 
+    school_result = await db.execute(
+        select(School).where(School.id == run.school_id)
+    )
+    school = school_result.scalar_one_or_none()
+
+    if school is None:
+        raise HTTPException(status_code=404, detail="School not found.")
+
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer, pagesize=A4, rightMargin=42, leftMargin=42,
@@ -709,7 +718,22 @@ async def download_payslip(
     )
     styles = getSampleStyleSheet()
     story = [
-        Paragraph("CoreOne — Staff Payslip", styles["Title"]),
+        Paragraph(f"{school.name} — Staff Payslip", styles["Title"]),
+        Spacer(1, 4),
+        Paragraph(
+            " | ".join(
+                str(value).strip()
+                for value in (
+                    school.address,
+                    school.city,
+                    school.state,
+                    school.phone,
+                    school.email,
+                )
+                if value and str(value).strip()
+            ) or " ",
+            styles["Normal"],
+        ),
         Spacer(1, 10),
         Paragraph(f"Payroll period: {run.year}-{run.month:02d}", styles["Heading2"]),
         Paragraph(f"Staff member: {item.staff_name}", styles["Normal"]),
