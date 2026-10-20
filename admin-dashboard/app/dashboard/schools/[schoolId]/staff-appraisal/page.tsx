@@ -38,6 +38,21 @@ type Appraisal = {
   created_at: string;
 };
 
+type EvidenceCategory = {
+  available: boolean;
+  source?: string;
+  limitation?: string;
+  [key: string]: unknown;
+};
+
+type AutomaticEvidenceResponse = {
+  review_period: { start: string; end: string };
+  evidence: Record<string, EvidenceCategory>;
+  suggested_ratings: Record<string, number | null>;
+  scoring_note: string;
+  rating_rubric: Record<string, string>;
+};
+
 const CATEGORIES = [
   { key: "subject_performance", label: "Subject Performance", weight: 30 },
   { key: "cbt_assessment", label: "CBT and Assessment Outcomes", weight: 20 },
@@ -74,6 +89,9 @@ export default function SchoolStaffAppraisalPage() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [automaticEvidence, setAutomaticEvidence] = useState<AutomaticEvidenceResponse | null>(null);
+  const [loadingEvidence, setLoadingEvidence] = useState(false);
+  const [categoryEvidence, setCategoryEvidence] = useState<Record<string, string>>({});
 
   const loadData = useCallback(async () => {
     if (!Number.isInteger(schoolId) || schoolId < 1) {
@@ -131,7 +149,7 @@ export default function SchoolStaffAppraisalPage() {
         period_start: periodStart,
         period_end: periodEnd,
         category_ratings: ratings,
-        category_evidence: {},
+        category_evidence: categoryEvidence,
         overall_comments: comments || null,
         strengths: strengths || null,
         improvement_plan: improvementPlan || null,
@@ -144,6 +162,8 @@ export default function SchoolStaffAppraisalPage() {
       setPeriodStart("");
       setPeriodEnd("");
       setRatings({});
+      setCategoryEvidence({});
+      setAutomaticEvidence(null);
       setComments("");
       setStrengths("");
       setImprovementPlan("");
@@ -153,6 +173,84 @@ export default function SchoolStaffAppraisalPage() {
       setError(messageFromError(err));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function loadAutomaticEvidence() {
+    setError("");
+    setNotice("");
+
+    if (!staffId || !periodStart || !periodEnd) {
+      setError("Select a staff member and both review dates before loading evidence.");
+      return;
+    }
+
+    if (periodEnd < periodStart) {
+      setError("The review end date cannot be earlier than the start date.");
+      return;
+    }
+
+    setLoadingEvidence(true);
+    try {
+      const response = await api.get<AutomaticEvidenceResponse>(
+        "/staff-appraisal/evidence/" + Number(staffId),
+        {
+          params: {
+            school_id: schoolId,
+            period_start: periodStart,
+            period_end: periodEnd,
+          },
+        }
+      );
+
+      const data = response.data;
+      setAutomaticEvidence(data);
+
+      const nextEvidence: Record<string, string> = {};
+      const nextRatings = { ...ratings };
+
+      for (const category of CATEGORIES) {
+        const item = data.evidence?.[category.key];
+        if (!item) continue;
+
+        const metrics = Object.entries(item)
+          .filter(([key, value]) =>
+            !["available", "source", "limitation"].includes(key) &&
+            value !== null &&
+            value !== undefined
+          )
+          .map(([key, value]) =>
+            key.replace(/_/g, " ") + ": " +
+            (typeof value === "object" ? JSON.stringify(value) : String(value))
+          );
+
+        nextEvidence[category.key] = [
+          "Automatic evidence:",
+          item.available
+            ? (metrics.length ? metrics.join("\n") : "Evidence recorded.")
+            : "No matching automatic evidence found.",
+          item.source ? "Source: " + item.source : "",
+          item.limitation ? "Limitation: " + item.limitation : "",
+        ].filter(Boolean).join("\n");
+
+        const suggested = data.suggested_ratings?.[category.key];
+        if (
+          item.available &&
+          suggested !== null &&
+          suggested !== undefined &&
+          nextRatings[category.key] === undefined
+        ) {
+          nextRatings[category.key] = suggested;
+        }
+      }
+
+      setCategoryEvidence(nextEvidence);
+      setRatings(nextRatings);
+      setNotice("Automatic evidence loaded. Review the evidence and provisional ratings before saving.");
+    } catch (err) {
+      setError(messageFromError(err));
+    } finally {
+      setLoadingEvidence(false);
     }
   }
 
@@ -316,6 +414,76 @@ export default function SchoolStaffAppraisalPage() {
               />
             </label>
           </div>
+
+          <section className="space-y-3 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4">
+            <div>
+              <h3 className="font-semibold text-slate-900">Automatic performance evidence</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Load recorded student results, completed CBT attempts and attendance for this teacher and review period.
+                Suggested ratings are provisional and should be checked before saving.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void loadAutomaticEvidence()}
+              disabled={loadingEvidence || !staffId || !periodStart || !periodEnd}
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loadingEvidence && <Loader2 size={16} className="animate-spin" />}
+              {loadingEvidence ? "Loading evidence..." : "Load automatic evidence"}
+            </button>
+
+            {automaticEvidence && (
+              <div className="space-y-2">
+                <p className="text-xs text-slate-600">
+                  Review period: {automaticEvidence.review_period.start} to {automaticEvidence.review_period.end}
+                </p>
+
+                {CATEGORIES.map((category) => {
+                  const item = automaticEvidence.evidence?.[category.key];
+                  if (!item) return null;
+                  const suggested = automaticEvidence.suggested_ratings?.[category.key];
+
+                  return (
+                    <div key={category.key} className="rounded-lg border border-slate-200 bg-white p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h4 className="text-sm font-semibold text-slate-900">{category.label}</h4>
+                        <span className={item.available
+                          ? "rounded-full bg-green-100 px-2 py-1 text-xs text-green-800"
+                          : "rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-800"
+                        }>
+                          {item.available ? "Evidence available" : "No automatic evidence"}
+                        </span>
+                      </div>
+
+                      {suggested != null && (
+                        <p className="mt-1 text-sm">Suggested rating: {suggested}/5 (provisional)</p>
+                      )}
+                      {item.source && (
+                        <p className="mt-1 text-xs text-slate-600">Source: {item.source}</p>
+                      )}
+                      {item.limitation && (
+                        <p className="mt-1 text-xs text-amber-800">Limitation: {item.limitation}</p>
+                      )}
+                      {categoryEvidence[category.key] && (
+                        <pre className="mt-2 whitespace-pre-wrap break-words text-xs text-slate-600">
+                          {categoryEvidence[category.key]}
+                        </pre>
+                      )}
+                    </div>
+                  );
+                })}
+
+                <p className="text-xs text-slate-600">{automaticEvidence.scoring_note}</p>
+                <p className="text-xs text-slate-600">
+                  Provisional rubric: {Object.entries(automaticEvidence.rating_rubric ?? {})
+                    .map(([rating, band]) => rating + "/5 = " + band)
+                    .join("; ")}
+                </p>
+              </div>
+            )}
+          </section>
 
           <section className="space-y-3">
             <h3 className="font-semibold text-slate-900">Performance ratings</h3>
