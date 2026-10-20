@@ -6,10 +6,12 @@ import {
   AlertCircle,
   CheckCircle2,
   Download,
+  Eye,
   FileText,
   Loader2,
   Plus,
   RefreshCw,
+  X,
 } from "lucide-react";
 import api from "@/lib/api";
 
@@ -29,6 +31,7 @@ type Appraisal = {
   period_start: string;
   period_end: string;
   category_ratings: Record<string, number>;
+  category_evidence?: Record<string, unknown> | null;
   weighted_score: number | null;
   status: string;
   overall_comments?: string | null;
@@ -69,6 +72,17 @@ function messageFromError(error: unknown): string {
   return value?.response?.data?.detail || value?.message || "The request failed. Please try again.";
 }
 
+function formatDetail(value: unknown): string {
+  if (value == null || value === "") return "Not provided";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    return JSON.stringify(value, null, 2) ?? "Not provided";
+  } catch {
+    return String(value);
+  }
+}
+
 export default function SchoolStaffAppraisalPage() {
   const params = useParams<{ schoolId: string }>();
   const schoolId = Number(params?.schoolId);
@@ -92,6 +106,7 @@ export default function SchoolStaffAppraisalPage() {
   const [automaticEvidence, setAutomaticEvidence] = useState<AutomaticEvidenceResponse | null>(null);
   const [loadingEvidence, setLoadingEvidence] = useState(false);
   const [categoryEvidence, setCategoryEvidence] = useState<Record<string, string>>({});
+  const [selectedAppraisal, setSelectedAppraisal] = useState<Appraisal | null>(null);
 
   const loadData = useCallback(async () => {
     if (!Number.isInteger(schoolId) || schoolId < 1) {
@@ -268,6 +283,7 @@ export default function SchoolStaffAppraisalPage() {
         params: { school_id: schoolId },
       });
       setNotice(`Appraisal #${item.id} approved.`);
+      setSelectedAppraisal(null);
       await loadData();
     } catch (err) {
       setError(messageFromError(err));
@@ -553,6 +569,129 @@ export default function SchoolStaffAppraisalPage() {
         </form>
       )}
 
+      {selectedAppraisal && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 p-4 sm:p-8"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="appraisal-review-title"
+        >
+          <section className="my-auto w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-7">
+              <div>
+                <h2 id="appraisal-review-title" className="text-lg font-bold text-slate-900">
+                  Review Appraisal #{selectedAppraisal.id}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {staffName(selectedAppraisal.staff_id)} · {selectedAppraisal.period_start} – {selectedAppraisal.period_end}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Review the recorded ratings and evidence before approving this appraisal.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedAppraisal(null)}
+                aria-label="Close appraisal review"
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] space-y-6 overflow-y-auto px-5 py-5 sm:px-7">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-slate-200 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Overall score</p>
+                  <p className="mt-2 text-2xl font-bold text-slate-900">
+                    {selectedAppraisal.weighted_score == null ? "Not rated" : `${selectedAppraisal.weighted_score}%`}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</p>
+                  <p className="mt-2 font-bold text-slate-900">{selectedAppraisal.status}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Categories rated</p>
+                  <p className="mt-2 text-2xl font-bold text-slate-900">
+                    {Object.keys(selectedAppraisal.category_ratings ?? {}).length} / {CATEGORIES.length}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-3 font-bold text-slate-900">Category ratings and evidence</h3>
+                <div className="space-y-3">
+                  {CATEGORIES.map((category) => {
+                    const rating = selectedAppraisal.category_ratings?.[category.key];
+                    const evidence = selectedAppraisal.category_evidence?.[category.key];
+                    return (
+                      <div key={category.key} className="rounded-xl border border-slate-200 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="font-semibold text-slate-900">{category.label}</p>
+                            <p className="mt-1 text-xs text-slate-500">Weight: {category.weight}%</p>
+                          </div>
+                          <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-bold text-slate-800">
+                            {rating == null ? "Not rated" : `${rating}/5`}
+                          </span>
+                        </div>
+                        <div className="mt-3 border-t border-slate-100 pt-3">
+                          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Evidence</p>
+                          <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+                            {formatDetail(evidence)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {[
+                  { label: "Overall comments", value: selectedAppraisal.overall_comments },
+                  { label: "Strengths", value: selectedAppraisal.strengths },
+                  { label: "Improvement plan", value: selectedAppraisal.improvement_plan },
+                  { label: "Development targets", value: selectedAppraisal.development_targets },
+                ].map((detail) => (
+                  <div key={detail.label} className="rounded-xl border border-slate-200 p-4">
+                    <h3 className="mb-2 text-sm font-bold text-slate-900">{detail.label}</h3>
+                    <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+                      {formatDetail(detail.value)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-7">
+              <button
+                type="button"
+                onClick={() => setSelectedAppraisal(null)}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
+              >
+                Close
+              </button>
+              {selectedAppraisal.status !== "APPROVED" && (
+                <button
+                  type="button"
+                  disabled={
+                    busyId === selectedAppraisal.id ||
+                    !selectedAppraisal.category_ratings ||
+                    Object.keys(selectedAppraisal.category_ratings).length === 0
+                  }
+                  onClick={() => void approveAppraisal(selectedAppraisal)}
+                  className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {busyId === selectedAppraisal.id ? "Working..." : "Approve after review"}
+                </button>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
@@ -610,25 +749,25 @@ export default function SchoolStaffAppraisalPage() {
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex justify-end gap-2">
-                        {item.status !== "APPROVED" && (
-                          <button
-                            type="button"
-                            disabled={busyId === item.id || !item.category_ratings || Object.keys(item.category_ratings).length === 0}
-                            onClick={() => void approveAppraisal(item)}
-                            className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            {busyId === item.id ? "Working..." : "Approve"}
-                          </button>
-                        )}
                         <button
                           type="button"
-                          disabled={busyId === item.id}
-                          onClick={() => void downloadPdf(item)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                          onClick={() => setSelectedAppraisal(item)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
                         >
-                          <Download size={14} />
-                          PDF
+                          <Eye size={14} />
+                          View
                         </button>
+                        {item.status === "APPROVED" && (
+                          <button
+                            type="button"
+                            disabled={busyId === item.id}
+                            onClick={() => void downloadPdf(item)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                          >
+                            <Download size={14} />
+                            PDF
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
