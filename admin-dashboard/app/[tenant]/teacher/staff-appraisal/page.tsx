@@ -139,7 +139,8 @@ export default function StaffAppraisalPage() {
         setEligibleStaff(Array.isArray(staffResponse.data) ? staffResponse.data : []);
       } else if (["TEACHER", "STAFF"].includes(currentRole)) {
         const response = await api.get("/staff-appraisal/me");
-        setAppraisals(Array.isArray(response.data) ? response.data : []);
+        const ownAppraisals: Appraisal[] = Array.isArray(response.data) ? response.data : [];
+        setAppraisals(ownAppraisals.filter((item) => item.status === "APPROVED"));
         setEligibleStaff([]);
       } else {
         setError("Your account is not authorized to access Staff Appraisal.");
@@ -340,6 +341,32 @@ export default function StaffAppraisalPage() {
       await loadData();
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, "Unable to approve this appraisal."));
+    }
+  }
+
+  async function viewPdf(item: Appraisal) {
+    setError("");
+    const tab = window.open("about:blank", "_blank");
+
+    if (!tab) {
+      setError("Your browser blocked the PDF tab. Allow pop-ups and try again.");
+      return;
+    }
+
+    try {
+      const response = await api.get(`/staff-appraisal/${item.id}/pdf`, {
+        params: requestParams,
+        responseType: "blob",
+      });
+
+      const url = URL.createObjectURL(
+        new Blob([response.data], { type: "application/pdf" })
+      );
+      tab.location.href = url;
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err: unknown) {
+      if (!tab.closed) tab.close();
+      setError(getApiErrorMessage(err, "Could not open the appraisal PDF."));
     }
   }
 
@@ -641,7 +668,7 @@ export default function StaffAppraisalPage() {
 
             {appraisals.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
-                No appraisals are available yet.
+                {reviewer ? "No appraisals are available yet." : "No approved appraisal available yet."}
               </div>
             ) : (
               <div className="grid gap-4 lg:grid-cols-2">
@@ -727,13 +754,22 @@ export default function StaffAppraisalPage() {
                           </>
                         )}
                         {item.status === "APPROVED" && (
-                          <button
-                            type="button"
-                            onClick={() => void downloadPdf(item)}
-                            className="rounded-lg border border-indigo-300 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
-                          >
-                            Download approved PDF
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => void viewPdf(item)}
+                              className="rounded-lg border border-indigo-300 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
+                            >
+                              View approved PDF
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void downloadPdf(item)}
+                              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                            >
+                              Download approved PDF
+                            </button>
+                          </>
                         )}
                       </div>
                     </article>

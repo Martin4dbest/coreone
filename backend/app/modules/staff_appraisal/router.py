@@ -152,6 +152,7 @@ async def list_my_appraisals(
             StaffAppraisal.school_id == current_user.school_id,
             StaffAppraisal.staff_id == staff.id,
             StaffAppraisal.teacher_id == teacher.id,
+            StaffAppraisal.status == "APPROVED",
         )
         .order_by(StaffAppraisal.period_start.desc(), StaffAppraisal.id.desc())
     )
