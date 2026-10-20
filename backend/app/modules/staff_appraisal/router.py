@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
+from app.models.school import School
 from app.models.staff import Staff
 from app.models.staff_appraisal import StaffAppraisal
 from app.models.teacher import Teacher
@@ -342,6 +343,26 @@ async def download_appraisal_pdf(
 
     staff = await db.get(Staff, appraisal.staff_id)
     teacher = await db.get(Teacher, appraisal.teacher_id)
+
+    school_result = await db.execute(
+        select(School).where(School.id == appraisal.school_id)
+    )
+    school = school_result.scalar_one_or_none()
+    if school is None:
+        raise HTTPException(status_code=404, detail="School not found.")
+
+    school_details = " | ".join(
+        escape(str(value).strip())
+        for value in (
+            school.address,
+            school.city,
+            school.state,
+            school.phone,
+            school.email,
+        )
+        if value and str(value).strip()
+    ) or " "
+
     buffer = BytesIO()
     styles = getSampleStyleSheet()
     doc = SimpleDocTemplate(
@@ -354,7 +375,12 @@ async def download_appraisal_pdf(
     )
 
     elements = [
-        Paragraph("COREONE STAFF APPRAISAL", styles["Title"]),
+        Paragraph(
+            f"{escape(str(school.name))} — Staff Appraisal",
+            styles["Title"],
+        ),
+        Spacer(1, 4),
+        Paragraph(school_details, styles["Normal"]),
         Spacer(1, 10),
         Paragraph(
             f"Staff member: {escape(str(staff.first_name or ''))} "
