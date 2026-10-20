@@ -372,18 +372,17 @@ async def download_appraisal_pdf(
         Spacer(1, 14),
     ]
 
-    rows = [["Category", "Weight", "Rating", "Evidence"]]
+    from reportlab.lib.styles import ParagraphStyle
+
+    header_style = ParagraphStyle("AppraisalTableHeader", parent=styles["BodyText"], fontName="Helvetica-Bold", fontSize=8, leading=10, textColor=colors.white, wordWrap="CJK")
+    cell_style = ParagraphStyle("AppraisalTableCell", parent=styles["BodyText"], fontSize=8, leading=10, wordWrap="CJK")
+    rows = [[Paragraph("Category", header_style), Paragraph("Weight", header_style), Paragraph("Rating", header_style), Paragraph("Evidence", header_style)]]
     for key, weight in CATEGORY_WEIGHTS.items():
         rating = appraisal.category_ratings.get(key)
         evidence = appraisal.category_evidence.get(key, "")
-        rows.append([
-            CATEGORY_LABELS[key],
-            f"{weight}%",
-            f"{rating}/5" if rating is not None else "Unavailable",
-            Paragraph(escape(str(evidence or "Unavailable")), styles["BodyText"]),
-        ])
-
-    table = Table(rows, colWidths=[150, 48, 52, 250], repeatRows=1)
+        evidence_text = escape(str(evidence or "Unavailable")).replace(chr(10), "<br/>")
+        rows.append([Paragraph(escape(CATEGORY_LABELS[key]), cell_style), Paragraph(f"{weight}%", cell_style), Paragraph(f"{rating}/5" if rating is not None else "Unavailable", cell_style), Paragraph(evidence_text, cell_style)])
+    table = Table(rows, colWidths=[135, 45, 48, 270], repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#172554")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),

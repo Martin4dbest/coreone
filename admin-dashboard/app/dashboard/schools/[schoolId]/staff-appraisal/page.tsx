@@ -158,13 +158,25 @@ export default function SchoolStaffAppraisalPage() {
 
     setSaving(true);
     try {
+      let evidenceToSave = { ...categoryEvidence };
+      if (!Object.values(evidenceToSave).some((value) => value.trim())) {
+        const evidenceResponse = await api.get<AutomaticEvidenceResponse>(
+          "/staff-appraisal/evidence/" + Number(staffId),
+          { params: { school_id: schoolId, period_start: periodStart, period_end: periodEnd } }
+        );
+        evidenceToSave = Object.fromEntries(
+          Object.entries(evidenceResponse.data.evidence ?? {}).map(
+            ([key, value]) => [key, JSON.stringify(value, null, 2)]
+          )
+        );
+      }
       await api.post("/staff-appraisal", {
         school_id: schoolId,
         staff_id: Number(staffId),
         period_start: periodStart,
         period_end: periodEnd,
         category_ratings: ratings,
-        category_evidence: categoryEvidence,
+        category_evidence: evidenceToSave,
         overall_comments: comments || null,
         strengths: strengths || null,
         improvement_plan: improvementPlan || null,
