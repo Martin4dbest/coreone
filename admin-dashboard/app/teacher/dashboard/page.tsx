@@ -432,6 +432,17 @@ const tenant = params.tenant as string;
             </Link>
           ) : null}
 
+          <Link
+            href={`/${tenant}/teacher/staff-appraisal`}
+            className="group flex flex-col items-center justify-center rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80 hover:border-rose-300 hover:shadow-md transition-all text-center"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-600 group-hover:scale-110 transition-transform">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <span className="mt-3 text-sm font-bold text-slate-800">Staff Appraisal</span>
+            <span className="text-xs text-slate-400 mt-0.5">View your approved appraisal</span>
+          </Link>
+
         </div>
       </div>
 
