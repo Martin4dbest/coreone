@@ -35,6 +35,21 @@ type EligibleStaff = {
   employee_number?: string | null;
   teacher_id: number;
 };
+type EvidenceCategory = {
+  available: boolean;
+  source?: string;
+  limitation?: string;
+  [key: string]: unknown;
+};
+
+type AutomaticEvidenceResponse = {
+  review_period: { start: string; end: string };
+  evidence: Record<string, EvidenceCategory>;
+  suggested_ratings: Record<string, number | null>;
+  scoring_note: string;
+  rating_rubric: Record<string, string>;
+};
+
 
 const emptyForm = {
   staff_id: "",
@@ -73,6 +88,8 @@ export default function StaffAppraisalPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [automaticEvidence, setAutomaticEvidence] = useState<AutomaticEvidenceResponse | null>(null);
+  const [loadingEvidence, setLoadingEvidence] = useState(false);
 
   const reviewer = ["SUPER_ADMIN", "SCHOOL_ADMIN", "PRINCIPAL"].includes(role);
 
@@ -146,6 +163,103 @@ export default function StaffAppraisalPage() {
     value: (typeof emptyForm)[K]
   ) {
     setForm((previous) => ({ ...previous, [key]: value }));
+  }
+
+  async function loadAutomaticEvidence() {
+    if (!form.staff_id || !form.period_start || !form.period_end) {
+      setError("Select a staff member and both review-period dates first.");
+      return;
+    }
+
+    if (form.period_end < form.period_start) {
+      setError("The review-period end date cannot be before the start date.");
+      return;
+    }
+
+    setLoadingEvidence(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const response = await api.get(
+        `/staff-appraisal/evidence/${Number(form.staff_id)}`,
+        {
+          params: {
+            period_start: form.period_start,
+            period_end: form.period_end,
+            ...(schoolId ? { school_id: schoolId } : {}),
+          },
+        }
+      );
+
+      const data = response.data as AutomaticEvidenceResponse;
+      setAutomaticEvidence(data);
+
+      setForm((previous) => {
+        const ratings = { ...previous.category_ratings };
+        const evidence = { ...previous.category_evidence };
+
+        for (const category of CATEGORIES) {
+          const item = data.evidence?.[category.key];
+          if (!item) continue;
+
+          const metrics = Object.entries(item)
+            .filter(([key, value]) =>
+              !["available", "source", "limitation"].includes(key) &&
+              value !== null &&
+              value !== undefined
+            )
+            .map(([key, value]) =>
+              `${key.replace(/_/g, " ")}: ${
+                typeof value === "object" ? JSON.stringify(value) : String(value)
+              }`
+            );
+
+          const automaticBlock = [
+            "Automatic evidence:",
+            item.available
+              ? (metrics.length ? metrics.join("\n") : "Evidence recorded.")
+              : "No matching automatic evidence found.",
+            item.source ? `Source: ${item.source}` : "",
+            item.limitation ? `Limitation: ${item.limitation}` : "",
+          ].filter(Boolean).join("\n");
+
+          const existing = evidence[category.key] ?? "";
+          const manualNotes = existing
+            .replace(/(?:^|\n\n)Automatic evidence:\n[\s\S]*$/, "")
+            .trim();
+
+          evidence[category.key] = [manualNotes, automaticBlock]
+            .filter(Boolean)
+            .join("\n\n");
+
+          const suggested = data.suggested_ratings?.[category.key];
+          if (
+            item.available &&
+            suggested !== null &&
+            suggested !== undefined &&
+            ratings[category.key] === undefined
+          ) {
+            ratings[category.key] = suggested;
+          }
+        }
+
+        return {
+          ...previous,
+          category_ratings: ratings,
+          category_evidence: evidence,
+        };
+      });
+
+      setNotice("Automatic evidence loaded. Verify the source data and provisional ratings before saving.");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(
+        err,
+        "Could not load automatic evidence. Check the selected staff member, review dates, and backend."
+      ));
+    } finally {
+      setLoadingEvidence(false);
+    }
   }
 
   function startEdit(item: Appraisal) {
@@ -361,6 +475,65 @@ export default function StaffAppraisalPage() {
                     />
                   </div>
                 </div>
+
+                <section className="space-y-3 rounded-lg border border-indigo-200 bg-indigo-50/50 p-4">
+                  <div>
+                    <h3 className="font-semibold text-slate-900">Automatic performance evidence</h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Load recorded student results, completed CBT attempts, and attendance for this teacher and review period.
+                      Suggested ratings are provisional and must be reviewed before saving.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => void loadAutomaticEvidence()}
+                    disabled={loadingEvidence || !form.staff_id || !form.period_start || !form.period_end}
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loadingEvidence ? "Loading evidence…" : "Load automatic evidence"}
+                  </button>
+
+                  {automaticEvidence && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-600">
+                        Review period: {automaticEvidence.review_period.start} to {automaticEvidence.review_period.end}
+                      </p>
+                      {CATEGORIES.map((category) => {
+                        const item = automaticEvidence.evidence?.[category.key];
+                        if (!item) return null;
+                        const suggested = automaticEvidence.suggested_ratings?.[category.key];
+
+                        return (
+                          <div key={category.key} className="rounded-lg border border-slate-200 bg-white p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <h4 className="text-sm font-semibold text-slate-900">{category.label}</h4>
+                              <span className={`rounded-full px-2 py-1 text-xs ${
+                                item.available ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
+                              }`}>
+                                {item.available ? "Evidence available" : "No automatic evidence"}
+                              </span>
+                            </div>
+                            {suggested != null && (
+                              <p className="mt-1 text-sm">Suggested rating: {suggested}/5 (provisional)</p>
+                            )}
+                            {item.source && <p className="mt-1 text-xs text-slate-600">Source: {item.source}</p>}
+                            {item.limitation && <p className="mt-1 text-xs text-amber-800">Limitation: {item.limitation}</p>}
+                          </div>
+                        );
+                      })}
+                      <p className="text-xs text-slate-600">{automaticEvidence.scoring_note}</p>
+                      <p className="text-xs text-slate-600">
+                        Provisional rubric: {Object.entries(automaticEvidence.rating_rubric ?? {})
+                          .map(([rating, band]) => `${rating}/5 = ${band}`)
+                          .join("; ")}
+                      </p>
+                      <p className="text-xs text-slate-600">
+                        Evidence details have also been added to the category notes below. Review them before saving.
+                      </p>
+                    </div>
+                  )}
+                </section>
 
                 <div className="space-y-4">
                   {CATEGORIES.map((category) => (

@@ -476,3 +476,7 @@ async def list_eligible_staff(
         }
         for row in result.all()
     ]
+
+from app.modules.staff_appraisal.evidence import router as evidence_router
+
+router.include_router(evidence_router)
