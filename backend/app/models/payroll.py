@@ -119,4 +119,10 @@ class PayrollItem(Base):
     payment_status: Mapped[str] = mapped_column(String(20), nullable=False, default="UNPAID")
     payment_reference: Mapped[str | None] = mapped_column(String(160), nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    published_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

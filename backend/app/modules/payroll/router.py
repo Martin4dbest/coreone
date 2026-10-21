@@ -4,6 +4,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from fastapi.responses import StreamingResponse
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -795,4 +796,207 @@ async def download_payslip(
         buffer,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+class PublishPayslipsInput(BaseModel):
+    school_id: int = Field(gt=0)
+    item_ids: list[int] = Field(min_length=1)
+
+
+@router.post("/runs/{run_id}/publish-payslips")
+async def publish_payslips(
+    run_id: int,
+    payload: PublishPayslipsInput,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(*PAYROLL_ROLES)),
+):
+    school_id = await resolve_school_id(current_user, payload.school_id, db)
+    run = await get_run(db, run_id, school_id)
+
+    if run.status != "APPROVED":
+        raise HTTPException(
+            status_code=400,
+            detail="Approve the payroll run before publishing payslips.",
+        )
+
+    item_ids = list(set(payload.item_ids))
+    result = await db.execute(
+        select(PayrollItem).where(
+            PayrollItem.run_id == run.id,
+            PayrollItem.id.in_(item_ids),
+        )
+    )
+    items = result.scalars().all()
+
+    if len(items) != len(item_ids):
+        raise HTTPException(
+            status_code=400,
+            detail="One or more selected payslips do not belong to this payroll run.",
+        )
+
+    now = datetime.now(timezone.utc)
+    for item in items:
+        item.published_at = now
+        item.published_by = current_user.id
+
+    await db.commit()
+    return {
+        "message": "Payslips published successfully.",
+        "published_count": len(items),
+        "item_ids": item_ids,
+    }
+
+
+@router.get("/me/payslips")
+async def get_my_published_payslips(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("STAFF")),
+):
+    staff_result = await db.execute(
+        select(Staff).where(Staff.user_id == current_user.id)
+    )
+    staff = staff_result.scalar_one_or_none()
+
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff profile not found.")
+
+    result = await db.execute(
+        select(PayrollItem, PayrollRun)
+        .join(PayrollRun, PayrollItem.run_id == PayrollRun.id)
+        .where(
+            PayrollItem.staff_id == staff.id,
+            PayrollItem.published_at.is_not(None),
+            PayrollRun.school_id == current_user.school_id,
+        )
+        .order_by(PayrollRun.year.desc(), PayrollRun.month.desc())
+    )
+
+    return [
+        {
+            "id": item.id,
+            "period": f"{run.year}-{run.month:02d}",
+            "year": run.year,
+            "month": run.month,
+            "staff_name": item.staff_name,
+            "basic_salary": float(item.basic_salary),
+            "gross_pay": float(item.gross_pay),
+            "total_deductions": float(item.total_deductions),
+            "net_pay": float(item.net_pay),
+            "payment_status": item.payment_status,
+            "published_at": (
+                item.published_at.isoformat() if item.published_at else None
+            ),
+            "pdf_url": f"/payroll/me/payslips/{item.id}/pdf",
+        }
+        for item, run in result.all()
+    ]
+
+
+@router.get("/me/payslips/{item_id}/pdf")
+async def download_my_published_payslip(
+    item_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("STAFF")),
+):
+    staff_result = await db.execute(
+        select(Staff).where(Staff.user_id == current_user.id)
+    )
+    staff = staff_result.scalar_one_or_none()
+
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff profile not found.")
+
+    result = await db.execute(
+        select(PayrollItem, PayrollRun)
+        .join(PayrollRun, PayrollItem.run_id == PayrollRun.id)
+        .where(
+            PayrollItem.id == item_id,
+            PayrollItem.staff_id == staff.id,
+            PayrollItem.published_at.is_not(None),
+            PayrollRun.school_id == current_user.school_id,
+        )
+    )
+    row = result.first()
+
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail="Published payslip not found.",
+        )
+
+    item, run = row
+    buffer = BytesIO()
+    document = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+
+    story = [
+        Paragraph("CoreOne - Staff Payslip", styles["Title"]),
+        Spacer(1, 12),
+        Paragraph(
+            f"Payroll period: {run.year}-{run.month:02d}",
+            styles["Normal"],
+        ),
+        Paragraph(f"Staff member: {item.staff_name}", styles["Normal"]),
+        Paragraph(
+            f"Employee number: {item.employee_number or 'N/A'}",
+            styles["Normal"],
+        ),
+        Spacer(1, 16),
+    ]
+
+    rows = [
+        ["Description", "Amount (NGN)"],
+        ["Basic salary", f"{money(item.basic_salary):,.2f}"],
+    ]
+
+    for name, amount in (item.allowances or {}).items():
+        rows.append([f"Allowance: {name}", f"{money(amount):,.2f}"])
+
+    rows.extend([
+        ["Bonuses", f"{money(item.bonuses):,.2f}"],
+        ["Gross pay", f"{money(item.gross_pay):,.2f}"],
+    ])
+
+    for name, entry in (item.rule_deductions or {}).items():
+        amount = entry.get("amount", 0) if isinstance(entry, dict) else entry
+        rows.append([f"Deduction: {name}", f"{money(amount):,.2f}"])
+
+    for name, amount in (item.recurring_deductions or {}).items():
+        rows.append([f"Recurring deduction: {name}", f"{money(amount):,.2f}"])
+
+    for name, amount in (item.other_deductions or {}).items():
+        rows.append([f"Other deduction: {name}", f"{money(amount):,.2f}"])
+
+    rows.extend([
+        ["Total deductions", f"{money(item.total_deductions):,.2f}"],
+        ["NET PAY", f"{money(item.net_pay):,.2f}"],
+        ["Payment status", item.payment_status],
+    ])
+
+    table = Table(rows, colWidths=[340, 140])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1E293B")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+        ("PADDING", (0, 0), (-1, -1), 7),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+    ]))
+
+    story.append(table)
+    document.build(story)
+    buffer.seek(0)
+
+    filename = (
+        f"CoreOne-Payslip-{item.employee_number or item.staff_id}-"
+        f"{run.year}-{run.month:02d}.pdf"
+    )
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        },
     )

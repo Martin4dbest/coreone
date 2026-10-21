@@ -162,6 +162,7 @@ export default function PayrollPage() {
   const [report, setReport] = useState<Report | null>(null);
   const [selectedRun, setSelectedRun] = useState<PayrollRun | null>(null);
   const [items, setItems] = useState<PayrollItem[]>([]);
+  const [selectedPayslipIds, setSelectedPayslipIds] = useState<number[]>([]);
 
   const [selectedStaff, setSelectedStaff] = useState("");
   const [basicSalary, setBasicSalary] = useState("");
@@ -401,6 +402,36 @@ export default function PayrollPage() {
         setItems(response.data.items ?? []);
       }
     }, `Payment reference recorded for ${item.staff_name}.`);
+  }
+
+  async function publishSelectedPayslips() {
+    if (!selectedRun || selectedPayslipIds.length === 0) return;
+    if (selectedRun.status !== "APPROVED") {
+      setError("Approve the payroll run before publishing payslips.");
+      return;
+    }
+    if (!window.confirm(`Publish ${selectedPayslipIds.length} selected payslip PDF(s) for staff to access?`)) return;
+
+    setError("");
+    setNotice("");
+    setBusy(true);
+    try {
+      await api.post(`/payroll/runs/${selectedRun.id}/publish-payslips`, {
+        school_id: schoolId,
+        item_ids: selectedPayslipIds,
+      });
+      const response = await api.get(`/payroll/runs/${selectedRun.id}`, {
+        params: { school_id: schoolId },
+      });
+      setSelectedRun(response.data.run);
+      setItems(response.data.items ?? []);
+      setSelectedPayslipIds([]);
+      setNotice("Selected payslips have been published for staff.");
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function downloadPayslip(item: PayrollItem) {
@@ -763,12 +794,25 @@ export default function PayrollPage() {
                         </h2>
                         <p className="mt-1 text-sm text-slate-500">
                           Review individual calculations and download payslips.
+
                         </p>
                         <div className="mt-2"><Status status={selectedRun.status} /></div>
                       </div>
                       {selectedRun.status === "DRAFT" && (
                         <button className={buttonClass} disabled={busy} onClick={() => void approveRun()}>
+
                           <ShieldCheck size={16} /> Approve payroll
+                        </button>
+                      )}
+                      {selectedRun.status === "APPROVED" && (
+                        <button
+                          type="button"
+                          className={buttonClass}
+                          disabled={busy || selectedPayslipIds.length === 0}
+                          onClick={() => void publishSelectedPayslips()}
+                        >
+                          <FileText size={16} />
+                          Publish selected ({selectedPayslipIds.length})
                         </button>
                       )}
                     </div>
@@ -777,6 +821,15 @@ export default function PayrollPage() {
                       <table className="w-full min-w-[920px] text-left text-sm">
                         <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                           <tr>
+                            <th className="p-3">
+                              <input
+                                type="checkbox"
+                                aria-label="Select all payslips"
+                                checked={items.length > 0 && items.every((item) => selectedPayslipIds.includes(item.id))}
+                                disabled={selectedRun.status !== "APPROVED" || items.length === 0}
+                                onChange={(event) => setSelectedPayslipIds(event.target.checked ? items.map((item) => item.id) : [])}
+                              />
+                            </th>
                             <th className="p-3">Staff member</th>
                             <th className="p-3">Basic</th>
                             <th className="p-3">Gross</th>
@@ -790,6 +843,13 @@ export default function PayrollPage() {
                           {items.map((item) => (
                             <tr key={item.id}>
                               <td className="p-3">
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Select payslip for ${item.staff_name}`}
+                                  checked={selectedPayslipIds.includes(item.id)}
+                                  disabled={selectedRun.status !== "APPROVED"}
+                                  onChange={(event) => setSelectedPayslipIds((current) => event.target.checked ? [...current.filter((id) => id !== item.id), item.id] : current.filter((id) => id !== item.id))}
+                                />
                                 <strong className="block text-slate-900">{item.staff_name}</strong>
                                 <span className="text-xs text-slate-500">{item.employee_number || item.job_title || ""}</span>
                               </td>

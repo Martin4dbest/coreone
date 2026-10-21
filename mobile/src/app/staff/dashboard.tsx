@@ -315,6 +315,16 @@ export default function StaffDashboard() {
               />
 
               <ActionCard
+                icon="document-text-outline"
+                title="My Payslips"
+                subtitle="View and share published payslips"
+                color="#D97706"
+                bgColor="#FEF3C7"
+                compact={compact}
+                onPress={() => router.push("/staff/payslips")}
+              />
+
+              <ActionCard
                 icon="person-outline"
                 title="My Profile"
                 subtitle="View account details"
