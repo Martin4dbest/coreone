@@ -5,6 +5,7 @@ import {
   Pressable,
   SafeAreaView,
   ScrollView,
+  Platform,
   StatusBar,
   StyleSheet,
   Text,
@@ -87,6 +88,7 @@ export default function StaffPayslipsScreen() {
     if (openingId !== null) return;
 
     setOpeningId(item.id);
+    const webWindow = Platform.OS === "web" && typeof window !== "undefined" ? window.open("", "_blank") : null;
 
     try {
       const token = await getToken();
@@ -111,7 +113,7 @@ export default function StaffPayslipsScreen() {
       const directory =
         FileSystem.cacheDirectory || FileSystem.documentDirectory;
 
-      if (!directory) {
+      if (!directory && Platform.OS !== "web") {
         throw new Error("The device does not provide a file storage location.");
       }
 
@@ -126,6 +128,28 @@ export default function StaffPayslipsScreen() {
       };
 
       if (tenantCode) headers["X-Tenant"] = tenantCode;
+
+      if (Platform.OS === "web") {
+        const response = await fetch(
+          `${apiBase}/api/v1${item.pdf_url}`,
+          { headers }
+        );
+        if (!response.ok) {
+          throw new Error(
+            response.status === 401 || response.status === 403
+              ? "Your session may have expired, or you do not have access to this payslip."
+              : `Unable to load the PDF (HTTP ${response.status}).`
+          );
+        }
+        const pdfBlob = await response.blob();
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        if (webWindow) {
+          webWindow.location.href = pdfUrl;
+        } else {
+          window.open(pdfUrl, "_blank");
+        }
+        return;
+      }
 
       const result = await FileSystem.downloadAsync(
         `${apiBase}/api/v1${item.pdf_url}`,
@@ -152,6 +176,7 @@ export default function StaffPayslipsScreen() {
         );
       }
     } catch (e: any) {
+      if (webWindow && !webWindow.closed) webWindow.close();
       Alert.alert("Unable to open payslip", readableError(e));
     } finally {
       setOpeningId(null);
@@ -389,8 +414,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  content: { padding: 18, paddingBottom: 36 },
+  content: { padding: 18, paddingBottom: 36, alignItems: "center" },
   introCard: {
+    width: "100%",
+    maxWidth: 760,
     backgroundColor: WHITE,
     borderRadius: 22,
     padding: 20,
@@ -427,6 +454,8 @@ const styles = StyleSheet.create({
   },
   countText: { fontSize: 12, fontWeight: "700", color: GREEN },
   stateCard: {
+    width: "100%",
+    maxWidth: 760,
     backgroundColor: WHITE,
     borderWidth: 1,
     borderColor: BORDER,
@@ -467,6 +496,8 @@ const styles = StyleSheet.create({
   },
   retryText: { color: GOLD, fontSize: 13, fontWeight: "800" },
   payslipCard: {
+    width: "100%",
+    maxWidth: 760,
     backgroundColor: WHITE,
     borderRadius: 20,
     padding: 17,
