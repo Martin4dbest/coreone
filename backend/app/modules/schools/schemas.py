@@ -10,6 +10,7 @@ class SchoolCreateRequest(BaseModel):
     city: str
     state: str
     country: str = "Nigeria"
+    referral_code: str | None = None
 
 
 class SchoolResponse(BaseModel):

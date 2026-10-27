@@ -6,6 +6,7 @@ from app.models.school import School
 from app.models.school_branding import SchoolBranding
 from app.modules.schools.repository import SchoolRepository
 from app.modules.schools.schemas import SchoolCreateRequest
+from app.modules.referrals.client import record_school_referral, validate_referral_code
 
 
 class SchoolService:
@@ -41,6 +42,18 @@ class SchoolService:
         self,
         payload: SchoolCreateRequest,
     ):
+        referral_code = (payload.referral_code or "").strip()
+        referral_valid = False
+
+        if referral_code:
+            validation = await validate_referral_code(referral_code)
+            if validation is False:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="The referral code is invalid or inactive.",
+                )
+            referral_valid = validation is True
+
         existing = await self.repository.get_by_code(
             payload.school_code
         )
@@ -75,6 +88,15 @@ class SchoolService:
         ).create_defaults(
             school.id
         )
+
+        if referral_valid:
+            try:
+                await record_school_referral(referral_code, school.id)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception(
+                    "Referral event recording failed for school %s.", school.id
+                )
 
         return school
 

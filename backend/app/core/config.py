@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     PAYMENT_ENCRYPTION_KEY: str = ""
 
+    # Server-to-server PartnerHub referral integration.
+    COREONE_REFERRAL_API_URL: str = "https://www.coreonepartners.org"
+    COREONE_REFERRAL_API_SECRET: str = ""
+
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     ALGORITHM: str = "HS256"
 

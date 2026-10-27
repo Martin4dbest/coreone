@@ -18,6 +18,7 @@ type FormData = {
   city: string;
   state: string;
   country: string;
+  referral_code: string;
 };
 
 const initialForm: FormData = {
@@ -29,6 +30,7 @@ const initialForm: FormData = {
   city: "",
   state: "",
   country: "Nigeria",
+  referral_code: "",
 };
 
 export default function AddSchoolModal({
@@ -255,6 +257,21 @@ export default function AddSchoolModal({
                 onChange={handleChange}
                 placeholder="Nigeria"
               />
+
+              <div>
+                <label htmlFor="referral_code" className="mb-2 block text-sm font-medium text-slate-700">
+                  Staff Referral Code (Optional)
+                </label>
+                <input
+                  id="referral_code"
+                  name="referral_code"
+                  value={form.referral_code}
+                  onChange={handleChange}
+                  placeholder="Enter referral code if provided"
+                  autoComplete="off"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400"
+                />
+              </div>
 
               <div
                 className="
