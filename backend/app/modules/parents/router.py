@@ -1,3 +1,4 @@
+from fastapi import HTTPException, Request
 from app.modules.auth.dependencies.current_user import get_current_user
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,14 +38,21 @@ router = APIRouter(
     response_model=list[ParentResponse],
 )
 async def get_parents(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(
         require_roles("SUPER_ADMIN", "SCHOOL_ADMIN")
     ),
+    school_id: int | None = None,
 ):
-    return await ParentService(db).get_parents(
-        current_user
-    )
+    if current_user.role.name == "SUPER_ADMIN":
+        selected_school = request.headers.get("X-School-ID")
+        if selected_school:
+            try:
+                school_id = int(selected_school)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid selected school ID.")
+    return await ParentService(db).get_parents(current_user, school_id)
 
 
 @router.post(

@@ -9,24 +9,8 @@ const api = axios.create({
   },
 });
 
-/*
- * GET cache
- */
-const getCache = new Map<
-  string,
-  {
-    data: unknown;
-    timestamp: number;
-  }
->();
-
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
-    /*
-     * Use the same access token used by the admin login.
-     * Keep a fallback for older sessions that may have used
-     * a different key.
-     */
     const token =
       localStorage.getItem("access_token") ||
       localStorage.getItem("token");
@@ -45,33 +29,20 @@ api.interceptors.request.use((config) => {
       config.headers = config.headers || {};
       config.headers["X-Tenant"] = tenant;
     }
-  }
 
-  /*
-   * Cache GET requests for 30 seconds.
-   */
-  if (
-    config.method?.toLowerCase() === "get" &&
-    !config.url?.includes("/auth/me") &&
-    !config.url?.includes("/teachers/me/access")
-  ) {
-    const key =
-      config.url +
-      JSON.stringify(config.params || {});
+    // Resolve the school selected in the Super Admin dashboard URL.
+    const selectedSchoolMatch = window.location.pathname.match(
+      /^\/dashboard\/schools\/(\d+)(?:\/|$)/
+    );
 
-    const cached = getCache.get(key);
+    if (selectedSchoolMatch) {
+      const selectedSchoolId = selectedSchoolMatch[1];
 
-    if (
-      cached &&
-      Date.now() - cached.timestamp < 30000
-    ) {
-      config.adapter = async () => ({
-        data: cached.data,
-        status: 200,
-        statusText: "OK",
-        headers: {},
-        config,
-      });
+      // Backend tenant-aware endpoints can use this school context.
+      config.headers = config.headers || {};
+      config.headers["X-School-ID"] = selectedSchoolId;
+
+
     }
   }
 
@@ -79,27 +50,7 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(
-  (response) => {
-    if (
-      response.config.method?.toLowerCase() === "get" &&
-      !response.config.url?.includes("/auth/me") &&
-      !response.config.url?.includes("/teachers/me/access")
-    ) {
-      const key =
-        response.config.url +
-        JSON.stringify(
-          response.config.params || {}
-        );
-
-      getCache.set(key, {
-        data: response.data,
-        timestamp: Date.now(),
-      });
-    }
-
-    return response;
-  },
-
+  (response) => response,
   (error) => {
     if (typeof window !== "undefined") {
       if (process.env.NODE_ENV === "development") {
@@ -140,16 +91,12 @@ export function getAbsoluteUploadUrl(
 ): string {
   if (!url) return "";
 
-  if (
-    url.startsWith("http://") ||
-    url.startsWith("https://")
-  ) {
+  if (url.startsWith("http://") || url.startsWith("https://")) {
     return url;
   }
 
   const base =
-    api.defaults.baseURL?.replace(/\/api\/v1\/?$/, "") ||
-    "";
+    api.defaults.baseURL?.replace(/\/api\/v1\/?$/, "") || "";
 
   if (!base) return url;
 

@@ -3,6 +3,8 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.tenant.context import TenantContext
+from app.core.tenant.dependencies import get_tenant_from_request
 from app.db.database import get_db
 from app.models.user import User
 from app.modules.auth.dependencies.current_user import get_current_user
@@ -205,11 +207,13 @@ async def create_bulk_student_fees(
 async def get_student_fees(
     student_id: int | None = None,
     db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_from_request),
     current_user: User = Depends(get_current_user),
 ):
     student_fees = await FeeService(db).get_student_fees(
         current_user,
         student_id,
+        tenant=tenant,
     )
 
     return [

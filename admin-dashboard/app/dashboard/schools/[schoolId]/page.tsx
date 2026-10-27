@@ -710,13 +710,13 @@ export default function School360Dashboard() {
       const requests = [
         api.get(`/dashboard/school-360?school_id=${schoolId}`).catch(() => null),
         api.get(`/schools/${schoolId}`).catch(() => null),
-        api.get(`/students`).catch(() => null),
+        api.get(`/students?school_id=${schoolId}`).catch(() => null),
         api.get(`/teachers?school_id=${schoolId}`).catch(() => null),
         api.get(`/staff?school_id=${schoolId}`).catch(() => null),
         api.get(`/parents?school_id=${schoolId}`).catch(() => null),
         api.get(`/classes?school_id=${schoolId}`).catch(() => null),
-        api.get(`/attendance`).catch(() => null),
-        api.get(`/fees/student-fees`).catch(() => null),
+        api.get(`/attendance?school_id=${schoolId}`).catch(() => null),
+        api.get(`/fees/student-fees?school_id=${schoolId}`).catch(() => null),
         api.get(`/cbt/schools/${schoolId}/exams`).catch(() => null),
         api.get(`/cbt/schools/${schoolId}/results`).catch(() => null),
         api.get(`/cbt/results/dashboard?school_id=${schoolId}`).catch(() => null),
@@ -796,10 +796,10 @@ export default function School360Dashboard() {
         });
 
       const students360 = filterBySchool(toList(unwrap(2)));
-      const teachers360 = toList(unwrap(3));
-      const staff360 = toList(unwrap(4));
-      const parents360 = toList(unwrap(5));
-      const classes360 = toList(unwrap(6));
+      const teachers360 = filterBySchool(toList(unwrap(3)));
+      const staff360 = filterBySchool(toList(unwrap(4)));
+      const parents360 = filterBySchool(toList(unwrap(5)));
+      const classes360 = filterBySchool(toList(unwrap(6)));
       const attendance360 = filterBySchool(toList(unwrap(7)));
       const fees360 = filterBySchool(toList(unwrap(8)));
       const cbtExams360 = toList(unwrap(9));

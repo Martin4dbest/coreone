@@ -374,8 +374,10 @@ async def update_student(
     from app.models.classroom import Classroom
 
     query = select(Student).where(Student.id == student_id)
-    if current_user.role.name != "SUPER_ADMIN":
+    if tenant.school_id is not None:
         query = query.where(Student.school_id == tenant.school_id)
+    elif current_user.role.name != "SUPER_ADMIN":
+        raise HTTPException(status_code=403, detail="A school must be selected.")
 
     result = await db.execute(query)
     student = result.scalar_one_or_none()

@@ -494,14 +494,15 @@ class FeeService:
         self,
         current_user,
         student_id: int | None = None,
+        tenant=None,
     ):
         self._ensure_fee_management_role(current_user)
 
-        school_id = (
-            None
-            if current_user.role.name == "SUPER_ADMIN"
-            else current_user.school_id
-        )
+        if current_user.role.name == "SUPER_ADMIN":
+            # Master portal stays global; a selected school workspace is scoped.
+            school_id = tenant.school_id if tenant and tenant.resolved else None
+        else:
+            school_id = current_user.school_id
 
         if student_id is not None:
             student = await self.repository.get_student(

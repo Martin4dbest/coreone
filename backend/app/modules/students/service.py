@@ -132,8 +132,9 @@ class StudentService:
 
         role = current_user.role.name
 
-        if role != "SUPER_ADMIN":
-            school_id = tenant.school_id
+        # Super Admin sees all schools in the master portal, but only
+        # the selected school inside an individual school workspace.
+        school_id = tenant.school_id
 
         if is_teacher_user(current_user):
             result = await self.db.execute(

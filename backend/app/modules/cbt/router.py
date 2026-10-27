@@ -5,6 +5,8 @@ from fastapi import Depends
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.tenant.context import TenantContext
+from app.core.tenant.dependencies import get_tenant_from_request
 from app.db.database import get_db
 from app.models.user import User
 from app.models.classroom import Classroom
@@ -69,8 +71,12 @@ async def create_exam(
 async def list_exams(
     school_id: int,
     db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_from_request),
     current_user: User = Depends(get_current_user),
 ):
+    if current_user.role.name == "SUPER_ADMIN" and tenant.resolved:
+        school_id = tenant.school_id
+
     return await CBTService(db).list_exams(
         school_id,
         current_user
