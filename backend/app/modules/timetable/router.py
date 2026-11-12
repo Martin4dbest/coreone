@@ -164,6 +164,30 @@ async def parent_timetable(
     )
 
 
+# Keep this static route ABOVE /{entry_id}.
+@router.get("/import-template")
+async def download_timetable_import_template(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role.name not in {"SUPER_ADMIN", "SCHOOL_ADMIN"}:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=403,
+            detail="Only School Admins can download the timetable template.",
+        )
+
+    output = build_template()
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="timetable-import-template.xlsx"'
+        },
+    )
+
+
 @router.get(
     "/{entry_id}",
     response_model=TimetableResponse,
@@ -207,29 +231,6 @@ async def delete_timetable(
     return await TimetableService(db).delete_timetable(
         entry_id,
         current_user,
-    )
-
-
-@router.get("/import-template")
-async def download_timetable_import_template(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    if current_user.role.name not in {"SUPER_ADMIN", "SCHOOL_ADMIN"}:
-        from fastapi import HTTPException
-        raise HTTPException(
-            status_code=403,
-            detail="Only School Admins can download the timetable template.",
-        )
-
-    output = build_template()
-
-    return StreamingResponse(
-        output,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": 'attachment; filename="timetable-import-template.xlsx"'
-        },
     )
 
 
