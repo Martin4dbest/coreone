@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   BookOpen,
@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import api from "@/lib/api";
+import { useWorkspaceStore } from "@/stores/workspace-store";
 
 // --- Types ---
 type TeacherClass = {
@@ -52,7 +53,7 @@ type SchoolBranding = {
 // Helper to convert Hex colors to RGBA for smooth opacity overlays
 const hexToRgba = (hex?: string, alpha: number = 1): string => {
   if (!hex || !/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
-    return `rgba(79, 70, 229, ${alpha})`; // Fallback Indigo-600
+    return `rgba(79, 70, 229, ${alpha})`;
   }
   let c = hex.substring(1).split("");
   if (c.length === 3) {
@@ -63,8 +64,13 @@ const hexToRgba = (hex?: string, alpha: number = 1): string => {
 };
 
 export default function TeacherDashboardPage() {
-const params = useParams();
-const tenant = params.tenant as string;
+  const params = useParams();
+  const tenant = params.tenant as string;
+  const router = useRouter();
+  const getCurrentUser = useWorkspaceStore(
+    (state) => state.getCurrentUser
+  );
+
   const [data, setData] = useState<TeacherDashboard | null>(null);
   const [school, setSchool] = useState<SchoolBranding | null>(null);
   const [canUseAI, setCanUseAI] = useState(false);
@@ -73,16 +79,62 @@ const tenant = params.tenant as string;
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let mounted = true;
+
     async function loadWorkspace() {
       try {
         setLoading(true);
         setError("");
 
-        // Parallel fetch for teacher dashboard and school profile
+        // Verify the authenticated user's role before loading
+        // any teacher-only resources.
+        const user = await getCurrentUser();
+
+        const userRole = (
+          typeof user.role === "string"
+            ? user.role
+            : user.role?.name || ""
+        ).toUpperCase();
+
+        if (!mounted) return;
+
+        if (userRole === "SCHOOL_ADMIN") {
+          router.replace(
+            user.school_id
+              ? `/dashboard/schools/${user.school_id}`
+              : "/dashboard"
+          );
+          return;
+        }
+
+        if (userRole === "SUPER_ADMIN") {
+          router.replace("/dashboard");
+          return;
+        }
+
+        // Staff members may have a linked teacher profile.
+        if (userRole === "STAFF") {
+          const accessResponse = await api.get("/teachers/me/access");
+
+          if (!mounted) return;
+
+          if (accessResponse.data?.has_teacher_profile !== true) {
+            router.replace("/dashboard");
+            return;
+          }
+        } else if (userRole !== "TEACHER") {
+          router.replace("/dashboard");
+          return;
+        }
+
+        // Only authorized teachers or linked staff teachers
+        // may load the teacher workspace.
         const [dashboardRes, schoolRes] = await Promise.allSettled([
           api.get<TeacherDashboard>("/teachers/dashboard"),
           api.get<SchoolBranding>("/schools/me")
         ]);
+
+        if (!mounted) return;
 
         if (dashboardRes.status === "fulfilled") {
           setData(dashboardRes.value.data);
@@ -101,41 +153,50 @@ const tenant = params.tenant as string;
             );
           }
 
-          try {
-            const aiStatus = await api.get(
-              `/ai/cbt/access/status/${schoolData.id}`
-            );
+          if (schoolData?.id) {
+            try {
+              const aiStatus = await api.get(
+                `/ai/cbt/access/status/${schoolData.id}`
+              );
 
-            const status = aiStatus.data;
+              if (!mounted) return;
 
-            setCanUseAI(
-              Boolean(
-                status?.allowed ||
-                status?.reason === "passcode_required"
-              )
-            );
-          } catch {
-            setCanUseAI(false);
-          }
+              const status = aiStatus.data;
 
-          try {
-            const featuresResponse = await api.get(
-              `/school-features/${schoolData.id}`
-            );
-            const features = featuresResponse.data;
-            const alocFeature = Array.isArray(features)
-              ? features.find(
-                  (item: { feature_key?: string }) =>
-                    item.feature_key === "aloc_question_bank"
+              setCanUseAI(
+                Boolean(
+                  status?.allowed ||
+                  status?.reason === "passcode_required"
                 )
-              : undefined;
+              );
+            } catch {
+              if (mounted) setCanUseAI(false);
+            }
 
-            setCanUseALOC(alocFeature?.enabled === true);
-          } catch {
-            setCanUseALOC(false);
+            try {
+              const featuresResponse = await api.get(
+                `/school-features/${schoolData.id}`
+              );
+
+              if (!mounted) return;
+
+              const features = featuresResponse.data;
+              const alocFeature = Array.isArray(features)
+                ? features.find(
+                    (item: { feature_key?: string }) =>
+                      item.feature_key === "aloc_question_bank"
+                  )
+                : undefined;
+
+              setCanUseALOC(alocFeature?.enabled === true);
+            } catch {
+              if (mounted) setCanUseALOC(false);
+            }
           }
         }
       } catch (err: unknown) {
+        if (!mounted) return;
+
         const detail =
           typeof err === "object" &&
           err !== null &&
@@ -158,12 +219,18 @@ const tenant = params.tenant as string;
           )
         );
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
 
     loadWorkspace();
-  }, []);
+
+    return () => {
+      mounted = false;
+    };
+  }, [getCurrentUser, router]);
 
   const getInitials = (name: string) => {
     if (!name) return "T";
@@ -202,12 +269,12 @@ const tenant = params.tenant as string;
 
   return (
     <div className="min-h-screen bg-slate-50/60 p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
-      
+
       {/* 1. School Header Banner (Logo & Branded Name) */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80">
         <div className="flex items-center gap-4">
           {school?.logo_url ? (
-            <div 
+            <div
               className="relative flex h-14 w-14 items-center justify-center rounded-2xl border p-1 bg-white shadow-xs overflow-hidden shrink-0"
               style={{ borderColor: hexToRgba(primaryColor, 0.25) }}
             >
@@ -218,14 +285,14 @@ const tenant = params.tenant as string;
               />
             </div>
           ) : (
-            <div 
+            <div
               className="flex h-14 w-14 items-center justify-center rounded-2xl font-bold text-white shadow-sm shrink-0"
               style={{ backgroundColor: primaryColor }}
             >
               <Building2 className="h-7 w-7" />
             </div>
           )}
-          
+
           <div>
             <h2 className="text-xl font-extrabold tracking-tight text-slate-900">
               {schoolName}
@@ -247,7 +314,7 @@ const tenant = params.tenant as string;
       </div>
 
       {/* 2. Hero Greeting Banner */}
-      <div 
+      <div
         className="relative overflow-hidden rounded-2xl p-6 sm:p-8 text-white shadow-md transition-all"
         style={{
           background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`
@@ -285,7 +352,7 @@ const tenant = params.tenant as string;
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Classrooms</p>
             <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{data.total_classes}</p>
           </div>
-          <div 
+          <div
             className="flex h-12 w-12 items-center justify-center rounded-xl"
             style={{ backgroundColor: hexToRgba(primaryColor, 0.1), color: primaryColor }}
           >
@@ -327,13 +394,13 @@ const tenant = params.tenant as string;
       {/* 4. Quick Actions Hub */}
       <div className="space-y-3">
         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Quick Tools & Management</h2>
-        
+
         <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
           <Link
             href={`/${tenant}/teacher/results`}
             className="group flex flex-col items-center justify-center rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80 hover:shadow-md transition-all text-center"
           >
-            <div 
+            <div
               className="flex h-12 w-12 items-center justify-center rounded-xl group-hover:scale-110 transition-transform"
               style={{ backgroundColor: hexToRgba(primaryColor, 0.1), color: primaryColor }}
             >
@@ -442,7 +509,6 @@ const tenant = params.tenant as string;
             <span className="mt-3 text-sm font-bold text-slate-800">Staff Appraisal</span>
             <span className="text-xs text-slate-400 mt-0.5">View your approved appraisal</span>
           </Link>
-
         </div>
       </div>
 
@@ -470,11 +536,11 @@ const tenant = params.tenant as string;
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-2">
-                    <span 
+                    <span
                       className="inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-bold"
-                      style={{ 
-                        backgroundColor: hexToRgba(primaryColor, 0.1), 
-                        color: primaryColor 
+                      style={{
+                        backgroundColor: hexToRgba(primaryColor, 0.1),
+                        color: primaryColor
                       }}
                     >
                       {item.classroom_name}
@@ -492,7 +558,7 @@ const tenant = params.tenant as string;
                   </div>
                 </div>
 
-                <div 
+                <div
                   className="mt-5 border-t border-slate-100 pt-3 flex items-center justify-between text-xs font-semibold"
                   style={{ color: primaryColor }}
                 >
@@ -504,7 +570,6 @@ const tenant = params.tenant as string;
           </div>
         )}
       </div>
-
     </div>
   );
 }
