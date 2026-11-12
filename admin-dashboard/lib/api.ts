@@ -10,6 +10,19 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  // Let the browser/Axios set the multipart boundary for file uploads.
+  if (
+    typeof FormData !== "undefined" &&
+    config.data instanceof FormData
+  ) {
+    if (typeof config.headers?.delete === "function") {
+      config.headers.delete("Content-Type");
+    } else if (config.headers) {
+      delete config.headers["Content-Type"];
+      delete config.headers["content-type"];
+    }
+  }
+
   if (typeof window !== "undefined") {
     const token =
       localStorage.getItem("access_token") ||
@@ -38,11 +51,8 @@ api.interceptors.request.use((config) => {
     if (selectedSchoolMatch) {
       const selectedSchoolId = selectedSchoolMatch[1];
 
-      // Backend tenant-aware endpoints can use this school context.
       config.headers = config.headers || {};
       config.headers["X-School-ID"] = selectedSchoolId;
-
-
     }
   }
 
