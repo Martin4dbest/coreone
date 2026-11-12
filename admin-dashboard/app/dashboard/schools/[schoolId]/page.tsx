@@ -796,7 +796,7 @@ export default function School360Dashboard() {
         });
 
       const students360 = filterBySchool(toList(unwrap(2)));
-      const teachers360 = filterBySchool(toList(unwrap(3)));
+      const teachers360 = toList(unwrap(3));
       const staff360 = filterBySchool(toList(unwrap(4)));
       const parents360 = filterBySchool(toList(unwrap(5)));
       const classes360 = filterBySchool(toList(unwrap(6)));
