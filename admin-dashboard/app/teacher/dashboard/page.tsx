@@ -366,7 +366,7 @@ const tenant = params.tenant as string;
           </Link>
 
           <Link
-            href={`/${tenant}/teacher/dashboard`}
+            href={`/${tenant}/teacher/timetable`}
             className="group flex flex-col items-center justify-center rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80 hover:border-amber-300 hover:shadow-md transition-all text-center"
           >
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600 group-hover:scale-110 transition-transform">
