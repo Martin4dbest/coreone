@@ -15,6 +15,7 @@ import {
 
 import api from "@/lib/api";
 import TimetablePublicationPanel from "./TimetablePublicationPanel";
+import TimetableImportPanel from "./TimetableImportPanel";
 
 type Option = {
   id: number;
@@ -755,6 +756,8 @@ export default function TimetablePage({
           </div>
         </div>
       </section>
+
+      <TimetableImportPanel schoolId={numericSchoolId} onImported={() => void loadEntries()} />
 
       {/* FILTERS */}
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">

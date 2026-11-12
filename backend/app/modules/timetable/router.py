@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.responses import StreamingResponse
+from app.modules.timetable.import_service import TimetableImportService, build_template
 
 from app.db.database import get_db
 from app.models.user import User
@@ -205,4 +207,55 @@ async def delete_timetable(
     return await TimetableService(db).delete_timetable(
         entry_id,
         current_user,
+    )
+
+
+@router.get("/import-template")
+async def download_timetable_import_template(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role.name not in {"SUPER_ADMIN", "SCHOOL_ADMIN"}:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=403,
+            detail="Only School Admins can download the timetable template.",
+        )
+
+    output = build_template()
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="timetable-import-template.xlsx"'
+        },
+    )
+
+
+@router.post("/import")
+async def import_timetable_entries(
+    school_id: int = Query(...),
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await TimetableImportService(db).import_file(
+        file,
+        current_user,
+        school_id,
+    )
+
+
+@router.post("/import/preview")
+async def preview_timetable_import(
+    school_id: int = Query(...),
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await TimetableImportService(db).preview_file(
+        file,
+        current_user,
+        school_id,
     )
