@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import datetime, time
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -39,6 +39,27 @@ class TimetableUpdateRequest(BaseModel):
     end_time: time
 
     model_config = ConfigDict(extra="forbid")
+
+
+class TimetablePublicationRequest(BaseModel):
+    school_id: int | None = None
+    academic_session_id: int
+    term_id: int
+    publish_all_classes: bool = False
+    classroom_ids: list[int] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class TimetablePublicationResponse(BaseModel):
+    id: int
+    school_id: int
+    academic_session_id: int
+    term_id: int
+    publish_all_classes: bool
+    classroom_ids: list[int]
+    published_at: datetime | None
+    published_by: int | None
 
 
 class TimetableResponse(BaseModel):

@@ -1,0 +1,18 @@
+diff --git a/admin-dashboard/app/dashboard/schools/[schoolId]/timetable/page.tsx b/admin-dashboard/app/dashboard/schools/[schoolId]/timetable/page.tsx
+--- a/admin-dashboard/app/dashboard/schools/[schoolId]/timetable/page.tsx
++++ b/admin-dashboard/app/dashboard/schools/[schoolId]/timetable/page.tsx
+@@ -15,1 +15,2 @@
+ import api from "@/lib/api";
++import TimetablePublicationPanel from "./TimetablePublicationPanel";
+@@ -300,1 +301,1 @@
+-academic_session_id: Number(selectedSession),
++session_id: Number(selectedSession),
+@@ -850,1 +851,6 @@
+-{error && (
++<TimetablePublicationPanel
++  schoolId={numericSchoolId}
++  sessionId={selectedSession ? Number(selectedSession) : ""}
++  termId={selectedTerm ? Number(selectedTerm) : ""}
++  classes={classes}
++/>
++{error && (

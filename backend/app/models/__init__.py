@@ -118,3 +118,8 @@ from app.models.exam_paper import ExamPaper, ExamPaperReview
 from app.models.payroll import PayrollProfile, PayrollRule, PayrollRun, PayrollItem
 
 from app.models.staff_appraisal import StaffAppraisal
+
+from app.models.timetable_publication import (
+    TimetablePublication,
+    TimetablePublicationClass,
+)

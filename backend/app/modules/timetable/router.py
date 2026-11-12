@@ -6,10 +6,15 @@ from app.models.user import User
 from app.modules.auth.dependencies.current_user import get_current_user
 from app.modules.timetable.schemas import (
     TimetableCreateRequest,
+    TimetablePublicationRequest,
+    TimetablePublicationResponse,
     TimetableResponse,
     TimetableUpdateRequest,
 )
 from app.modules.timetable.service import TimetableService
+from app.modules.timetable.publication_service import (
+    TimetablePublicationService,
+)
 
 
 router = APIRouter(
@@ -58,6 +63,58 @@ async def create_timetable(
     )
 
 
+@router.post(
+    "/publication",
+    response_model=TimetablePublicationResponse,
+)
+async def publish_timetable(
+    payload: TimetablePublicationRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await TimetablePublicationService(db).publish_timetable(
+        payload,
+        current_user,
+    )
+
+
+@router.get(
+    "/publication",
+    response_model=TimetablePublicationResponse,
+)
+async def get_timetable_publication(
+    session_id: int = Query(...),
+    term_id: int = Query(...),
+    school_id: int | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await TimetablePublicationService(db).get_publication(
+        current_user,
+        session_id=session_id,
+        term_id=term_id,
+        school_id=school_id,
+    )
+
+
+@router.post(
+    "/publication/{session_id}/{term_id}/withdraw",
+)
+async def withdraw_timetable_publication(
+    session_id: int,
+    term_id: int,
+    school_id: int | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await TimetablePublicationService(db).withdraw_publication(
+        current_user,
+        session_id=session_id,
+        term_id=term_id,
+        school_id=school_id,
+    )
+
+
 @router.get(
     "/student/me",
     response_model=list[TimetableResponse],
@@ -67,7 +124,7 @@ async def student_timetable(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await TimetableService(db).student_timetable(
+    return await TimetablePublicationService(db).student_timetable(
         current_user,
         day_of_week=day_of_week,
     )
@@ -82,7 +139,7 @@ async def teacher_timetable(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await TimetableService(db).teacher_timetable(
+    return await TimetablePublicationService(db).teacher_timetable(
         current_user,
         day_of_week=day_of_week,
     )
@@ -98,7 +155,7 @@ async def parent_timetable(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await TimetableService(db).parent_timetable(
+    return await TimetablePublicationService(db).parent_timetable(
         current_user,
         student_id=student_id,
         day_of_week=day_of_week,
@@ -114,7 +171,7 @@ async def get_timetable_entry(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await TimetableService(db).get_timetable_entry(
+    return await TimetablePublicationService(db).get_timetable_entry(
         entry_id,
         current_user,
     )

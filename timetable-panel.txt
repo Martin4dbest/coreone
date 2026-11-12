@@ -1,0 +1,6 @@
+<TimetablePublicationPanel
+  schoolId={numericSchoolId}
+  sessionId={selectedSession ? Number(selectedSession) : ""}
+  termId={selectedTerm ? Number(selectedTerm) : ""}
+  classes={classes}
+/>
