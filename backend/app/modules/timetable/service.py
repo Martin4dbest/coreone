@@ -682,12 +682,6 @@ class TimetableService:
         day_of_week: str | None = None,
     ):
 
-        if current_user.role.name != "TEACHER":
-            raise HTTPException(
-                status_code=403,
-                detail="Teacher timetable access required.",
-            )
-
         teacher_result = await self.db.execute(
             select(Teacher).where(
                 Teacher.user_id == current_user.id,
