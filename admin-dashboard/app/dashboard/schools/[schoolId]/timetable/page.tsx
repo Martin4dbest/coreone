@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import api from "@/lib/api";
+import TimetablePublicationPanel from "./TimetablePublicationPanel";
 
 type Option = {
   id: number;
@@ -380,7 +381,7 @@ export default function TimetablePage({
           school_id: numericSchoolId,
           ...(selectedSession
             ? {
-                academic_session_id: Number(selectedSession),
+                session_id: Number(selectedSession),
               }
             : {}),
           ...(selectedTerm
@@ -885,6 +886,14 @@ export default function TimetablePage({
           </label>
         </div>
       </section>
+
+      {/* TIMETABLE PUBLICATION */}
+      <TimetablePublicationPanel
+        schoolId={numericSchoolId}
+        sessionId={selectedSession ? Number(selectedSession) : ""}
+        termId={selectedTerm ? Number(selectedTerm) : ""}
+        classes={classes}
+      />
 
       {/* ERROR */}
       {error && (
